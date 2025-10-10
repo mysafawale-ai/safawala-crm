@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import createServerSupabaseClient from '@/lib/supabase-server'
+import { supabaseServer as supabase } from '@/lib/supabase-server-simple'
 import { computeDistanceAddonForVariant } from '@/lib/distance-pricing'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 function fallbackEstimate(fromPincode: string, toPincode: string): number {
   const fromNum = parseInt(fromPincode)
@@ -15,7 +18,6 @@ function fallbackEstimate(fromPincode: string, toPincode: string): number {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
     const sp = request.nextUrl.searchParams
     const variantId = sp.get('variantId') || sp.get('variant_id') || ''
     const baseUnit = Number(sp.get('baseUnit') || sp.get('base') || 0)
@@ -28,20 +30,27 @@ export async function GET(request: NextRequest) {
 
     let km = Number(kmParam)
     let kmSource: 'param' | 'cache' | 'estimate' | 'none' = 'none'
+    const canUseDb = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY
     if (Number.isFinite(km) && km > 0) {
       kmSource = 'param'
     } else if (from && to && from !== to) {
-      // Try cache table first
-      const { data, error } = await supabase
-        .from('pincode_distances_exact')
-        .select('distance_km')
-        .eq('from_pincode', from)
-        .eq('to_pincode', to)
-        .limit(1)
-      if (!error && data && data.length > 0) {
-        km = Number(data[0].distance_km)
-        kmSource = 'cache'
+      if (canUseDb) {
+        // Try cache table first
+        const { data, error } = await supabase
+          .from('pincode_distances_exact')
+          .select('distance_km')
+          .eq('from_pincode', from)
+          .eq('to_pincode', to)
+          .limit(1)
+        if (!error && data && data.length > 0) {
+          km = Number(data[0].distance_km)
+          kmSource = 'cache'
+        } else {
+          km = fallbackEstimate(from, to)
+          kmSource = 'estimate'
+        }
       } else {
+        // Build-time or missing envs: fallback only
         km = fallbackEstimate(from, to)
         kmSource = 'estimate'
       }
