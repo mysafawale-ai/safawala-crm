@@ -101,7 +101,7 @@ export default function AdminLogsPage() {
       const sid = searchParams.get('sid');
       if (sid) params.append('sid', sid);
 
-      const response = await apiClient.get(`/admin/logs?${params.toString()}`);
+      const response = await apiClient.get(`/api/admin/logs?${params.toString()}`);
       const data = response.data as LogsResponse;
 
       setLogs(data.logs.data);
@@ -151,7 +151,7 @@ export default function AdminLogsPage() {
   // Generate signed link
   const generateSignedLink = async (requestId: string) => {
     try {
-      const response = await apiClient.post('/internal/logs/link', {
+      const response = await apiClient.post('/api/internal/logs/link', {
         request_id: requestId,
         expires_in_seconds: 3600,
         scope: 'redacted',
@@ -182,7 +182,7 @@ export default function AdminLogsPage() {
       const sid = searchParams.get('sid');
       if (sid) params.append('sid', sid);
 
-      const response = await fetch(`/admin/logs?${params.toString()}`, {
+      const response = await fetch(`/api/admin/logs?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
