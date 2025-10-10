@@ -1,16 +1,30 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Create a Supabase client with service role for server-side operations
-export const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+// Lazy-initialized Supabase client to prevent build-time errors
+let _supabaseServer: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseServer() {
+  if (!_supabaseServer) {
+    _supabaseServer = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
   }
-)
+  return _supabaseServer;
+}
+
+// Export as a getter to maintain backward compatibility
+export const supabaseServer = new Proxy({} as ReturnType<typeof createClient>, {
+  get(target, prop) {
+    return getSupabaseServer()[prop as keyof ReturnType<typeof createClient>];
+  }
+});
 
 // Helper function to get a default franchise ID for testing (first franchise in database)
 export async function getDefaultFranchiseId(): Promise<string | null> {
