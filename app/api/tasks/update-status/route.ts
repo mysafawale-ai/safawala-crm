@@ -1,8 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,14 +17,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-
-    // Use service role client to bypass RLS
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
 
     // Update task status
     const { data, error } = await supabase

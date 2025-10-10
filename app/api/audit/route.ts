@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseServer as supabase } from '@/lib/supabase-server-simple'
 
 // POST /api/audit - record an audit entry
 // Body: { entity_type, entity_id, action, changes?, actor_id?, actor_role? }
@@ -26,7 +21,7 @@ export async function POST(req: NextRequest) {
       actor_role: actor_role || null
     }
 
-    const { data, error } = await supabase.from('expense_audit').insert(insert).select().single()
+  const { data, error } = await supabase.from('expense_audit').insert(insert).select().single()
     if (error) throw error
 
     return NextResponse.json({ success: true, data })

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseServer as supabase } from '@/lib/supabase-server-simple'
 
 // Validation schemas (removed ACCOUNT_TYPES)
 const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+import { supabaseServer as supabase } from '@/lib/supabase-server-simple'
 
 export async function POST(request: NextRequest) {
   try {
@@ -152,15 +147,17 @@ export async function POST(request: NextRequest) {
           sql_query: query
         })
         
-        if (error) {
-          console.error('❌ Table creation error:', error)
-          results.push({ success: false, error: error.message })
+          if (error) {
+            console.error('❌ Table creation error:', error)
+            const msg = error instanceof Error ? error.message : 'Unknown error'
+            results.push({ success: false, error: msg })
         } else {
           results.push({ success: true })
         }
       } catch (err) {
         console.error('❌ Query execution error:', err)
-        results.push({ success: false, error: err.message })
+          const msg = err instanceof Error ? err.message : 'Unknown error'
+          results.push({ success: false, error: msg })
       }
     }
     
@@ -237,7 +234,7 @@ export async function POST(request: NextRequest) {
       'integration_settings'
     ]
     
-    const verification = []
+    const verification: any[] = []
     for (const table of tables) {
       try {
         const { data, error } = await supabase
@@ -251,10 +248,11 @@ export async function POST(request: NextRequest) {
           error: error?.message
         })
       } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error'
         verification.push({
           table,
           exists: false,
-          error: err.message
+          error: msg
         })
       }
     }
@@ -268,10 +266,11 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('❌ Setup failed:', error)
+    const msg = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({
       success: false,
       message: 'Settings tables setup failed',
-      error: error.message
+      error: msg
     }, { status: 500 })
   }
 }

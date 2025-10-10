@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 
-// Create Supabase client with service role key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-)
+// Supabase client is lazy-initialized via supabaseServer to avoid build-time env access
 
 /**
  * Get user session from cookie and validate franchise access

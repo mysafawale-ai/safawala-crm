@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
 // Lazy-initialized Supabase client to prevent build-time errors
-let _supabaseServer: ReturnType<typeof createClient> | null = null;
+let _supabaseServer: any | null = null;
 
 function getSupabaseServer() {
   if (!_supabaseServer) {
@@ -20,7 +20,7 @@ function getSupabaseServer() {
 }
 
 // Export as a getter to maintain backward compatibility
-export const supabaseServer = new Proxy({} as ReturnType<typeof createClient>, {
+export const supabaseServer = new Proxy({} as any, {
   get(target, prop) {
     return getSupabaseServer()[prop as keyof ReturnType<typeof createClient>];
   }

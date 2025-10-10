@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { supabaseServer as supabase } from '@/lib/supabase-server-simple'
 
 // Validation constants
 const ALLOWED_MIME_TYPES = [
@@ -123,7 +118,7 @@ export async function POST(request: NextRequest) {
         return createFallbackResponse(key, mime)
       }
       
-      const banksBucket = buckets?.find(bucket => bucket.name === BUCKET_NAME)
+  const banksBucket = buckets?.find((bucket: any) => bucket.name === BUCKET_NAME)
       
       if (!banksBucket) {
         console.warn(`Bucket '${BUCKET_NAME}' does not exist. Creating fallback response.`)

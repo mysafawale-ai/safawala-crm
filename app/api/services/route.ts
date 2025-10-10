@@ -1,13 +1,5 @@
-import { createClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
-
-// Create Supabase client with service role key to bypass RLS
-const supabaseAdmin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
+import { supabaseServer as supabaseAdmin } from "@/lib/supabase-server-simple"
 
 /**
  * Get user session from cookie and validate franchise access

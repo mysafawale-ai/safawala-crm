@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 
 interface HealthCheck {
   name: string
@@ -72,10 +72,8 @@ async function checkDatabase(checks: HealthCheck[]) {
       return
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
     // Test basic connection
-    const { data, error } = await supabase.from("company_settings").select("id").limit(1)
+  const { data, error } = await supabase.from("company_settings").select("id").limit(1)
 
     if (error) {
       checks.push({

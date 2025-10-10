@@ -1,20 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
-
     const { data, error } = await supabase.from("tasks").insert([body]).select().single()
 
     if (error) {
