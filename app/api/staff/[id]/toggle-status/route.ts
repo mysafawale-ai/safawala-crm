@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 /**
  * POST /api/staff/[id]/toggle-status
@@ -15,6 +15,9 @@ export async function POST(
     if (!id) {
       return NextResponse.json({ error: "Staff ID is required" }, { status: 400 })
     }
+
+    // Use service role client for admin operations
+    const supabase = createClient()
     
     // Get current status
     const { data: currentUser, error: fetchError } = await supabase
@@ -24,6 +27,7 @@ export async function POST(
       .single()
     
     if (fetchError) {
+      console.error("Error fetching staff member:", fetchError)
       if (fetchError.code === "PGRST116") {
         return NextResponse.json({ error: "Staff member not found" }, { status: 404 })
       }
@@ -35,7 +39,10 @@ export async function POST(
     
     const { data, error } = await supabase
       .from("users")
-      .update({ is_active: newStatus })
+      .update({ 
+        is_active: newStatus,
+        updated_at: new Date().toISOString()
+      })
       .eq("id", id)
       .select(`
         *,

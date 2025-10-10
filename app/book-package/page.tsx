@@ -99,14 +99,69 @@ export default function BookPackageWizard() {
 
   const loadData = async () => {
     try {
-      const [custRes, catRes, pkgRes, variantRes, staffRes] = await Promise.all([
+      // Fetch current user first for franchise filtering
+      console.log("Fetching current user...")
+      const userRes = await fetch("/api/auth/user")
+      const userData = await userRes.json()
+      console.log("Current user:", userData)
+      
+      // Fetch staff members - filter by franchise for non-super-admins
+      console.log("Fetching staff members...")
+      let staffQuery = supabase
+        .from("users")
+        .select("id,name,email,role,franchise_id")
+        .in("role", ["staff", "franchise_admin"])
+        .order("name")
+      
+      // Add franchise filter for non-super-admins
+      if (userData.role !== "super_admin" && userData.franchise_id) {
+        console.log("Filtering staff by franchise_id:", userData.franchise_id)
+        staffQuery = staffQuery.eq("franchise_id", userData.franchise_id)
+      } else {
+        console.log("Super admin - showing all staff")
+      }
+      
+      console.log("Staff query:", staffQuery)
+      const staffRes = await staffQuery
+      
+      console.log("Staff query result:", {
+        data: staffRes.data,
+        error: staffRes.error,
+        count: staffRes.data?.length
+      })
+      
+      const [custRes, catRes, pkgRes, variantRes] = await Promise.all([
         supabase.from("customers").select("id,name,phone,email,pincode").order("name"),
         supabase.from("packages_categories").select("*").eq("is_active", true).order("display_order"),
         supabase.from("package_sets").select("*").eq("is_active", true).order("name"),
         supabase.from("package_variants").select("*").eq("is_active", true),
-        supabase.from("users").select("id,name,email,role,franchise_id").in("role", ["staff", "franchise_admin"]).order("name"),
       ])
+      
+      if (custRes.error) {
+        console.error("Error loading customers:", custRes.error)
+      }
+      if (catRes.error) {
+        console.error("Error loading categories:", catRes.error)
+      }
+      if (pkgRes.error) {
+        console.error("Error loading packages:", pkgRes.error)
+      }
+      if (variantRes.error) {
+        console.error("Error loading variants:", variantRes.error)
+      }
+      if (staffRes.error) {
+        console.error("Error loading staff - Full error object:", JSON.stringify(staffRes.error, null, 2))
+        console.error("Error code:", staffRes.error.code)
+        console.error("Error message:", staffRes.error.message)
+        console.error("Error details:", staffRes.error.details)
+        toast.error(`Failed to load staff members: ${staffRes.error.message}`)
+      } else {
+        console.log("✅ Staff members loaded successfully:", staffRes.data?.length || 0)
+        console.table(staffRes.data)
+      }
+      
       if (custRes.error || catRes.error || pkgRes.error || variantRes.error) throw new Error("Error loading data")
+      
       const packagesWithVariants: PackageSet[] = (pkgRes.data || []).map((p: any) => ({
         ...p,
         package_variants: (variantRes.data || []).filter((v: any) => v.package_id === p.id),
@@ -115,7 +170,10 @@ export default function BookPackageWizard() {
       setCategories(catRes.data || [])
       setPackages(packagesWithVariants)
       setStaffMembers(staffRes.data || [])
+      
+      console.log("Final staffMembers state:", staffRes.data || [])
     } catch (e) {
+      console.error("Error in loadData:", e)
       toast.error("Error loading data")
     }
   }
@@ -1092,12 +1150,23 @@ export default function BookPackageWizard() {
                 {currentStep === 3 && (
                   <div className="mt-4 pt-4 border-t space-y-2">
                     <Label className="text-xs">Sales Closed By</Label>
-                    <Select value={selectedStaff || "none"} onValueChange={(val) => setSelectedStaff(val === "none" ? "" : val)}>
+                    <Select 
+                      value={selectedStaff || "none"} 
+                      onValueChange={(val) => setSelectedStaff(val === "none" ? "" : val)}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          console.log("Staff dropdown opened, staffMembers:", staffMembers)
+                        }
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select staff member (optional)" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
+                        {staffMembers.length === 0 && (
+                          <SelectItem value="no-staff" disabled>No staff members found</SelectItem>
+                        )}
                         {staffMembers.map(staff => (
                           <SelectItem key={staff.id} value={staff.id}>
                             {staff.name} ({staff.role === 'franchise_admin' ? 'Admin' : 'Staff'})

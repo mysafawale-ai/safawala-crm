@@ -98,7 +98,7 @@ export default function CreateProductOrderPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
-  const [selectedStaff, setSelectedStaff] = useState<string>("")
+  const [selectedStaff, setSelectedStaff] = useState<string>("none")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
   const [customerSearch, setCustomerSearch] = useState("")
@@ -362,7 +362,7 @@ export default function CreateProductOrderPage() {
           pending_amount: totals.grand,
           status: isQuote ? "quote" : "pending_payment",
           is_quote: isQuote,
-          sales_closed_by_id: selectedStaff || null
+          sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
         })
         .select()
         .single()
@@ -1072,7 +1072,7 @@ export default function CreateProductOrderPage() {
                     <SelectValue placeholder="Select staff member (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {staffMembers.map(staff => (
                       <SelectItem key={staff.id} value={staff.id}>
                         {staff.name} ({staff.role === 'franchise_admin' ? 'Admin' : 'Staff'})

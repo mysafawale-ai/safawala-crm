@@ -37,7 +37,7 @@ interface PackageVariant {
   name: string
   description: string
   base_price: number
-  inclusions: string[]
+  inclusions?: string[]
   distance_pricing: DistancePricing[]
   is_active: boolean
 }
@@ -161,6 +161,14 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
   const [categories, setCategories] = useState<Category[]>(initialCategories || mockCategories)
 
+  // Initialize franchise_id for non-super-admins on mount
+  useEffect(() => {
+    if (user?.role !== "super_admin" && user?.franchise_id) {
+      console.log("[v0] Initializing default franchise_id:", user.franchise_id)
+      setPackageForm((prev) => ({ ...prev, franchise_id: user.franchise_id }))
+    }
+  }, [user])
+
   const generateUUID = () => {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0
@@ -218,6 +226,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           console.error("[v0] Database error details:", error)
           if (error.message.includes("row-level security policy")) {
             throw new Error("Permission denied. You may not have the required permissions to create categories.")
+          }
+          if (error.message.includes("duplicate key") || error.message.includes("unique constraint")) {
+            throw new Error(`A category with the name "${categoryForm.name}" already exists. Please use a different name.`)
           }
           throw error
         }
@@ -290,6 +301,24 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     setIsLoading(true)
     try {
       console.log("[v0] Creating/updating package:", packageForm)
+      console.log("[v0] User data:", user)
+      console.log("[v0] Franchises available:", franchises)
+
+      // Validate franchise_id
+      if (!packageForm.franchise_id || packageForm.franchise_id === "") {
+        // Try one more time to set it from user if missing
+        if (user?.franchise_id) {
+          console.log("[v0] Franchise was empty, setting from user:", user.franchise_id)
+          setPackageForm((prev) => ({ ...prev, franchise_id: user.franchise_id }))
+          // Wait a bit for state to update
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+        
+        // Check again after attempt to set
+        if (!packageForm.franchise_id || packageForm.franchise_id === "") {
+          throw new Error("Please select a franchise before creating the package.")
+        }
+      }
 
       if (editingPackage) {
         // Update existing package
@@ -453,7 +482,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       name: variant.name,
       description: variant.description,
       extra_price: variant.base_price.toString(),
-      inclusions: variant.inclusions.join(", "),
+      inclusions: variant.inclusions ? variant.inclusions.join(", ") : "",
     })
     setDialogs((prev) => ({ ...prev, createVariant: true }))
   }
@@ -606,11 +635,20 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
       console.log(`[v0] Categories fetched: ${categoriesData?.length || 0}`)
 
-      console.log("[v0] Fetching packages...")
-      const { data: packagesData, error: packagesError } = await supabase
+      console.log("[v0] Fetching packages with franchise filter...")
+      // Build packages query with franchise filtering
+      let packagesQuery = supabase
         .from("package_sets")
         .select("*")
         .order("display_order")
+      
+      // Apply franchise filtering for non-super-admins
+      if (user?.role !== "super_admin" && user?.franchise_id) {
+        console.log("[v0] Applying franchise filter:", user.franchise_id)
+        packagesQuery = packagesQuery.eq("franchise_id", user.franchise_id)
+      }
+      
+      const { data: packagesData, error: packagesError } = await packagesQuery
       if (packagesError) {
         console.error("[v0] Packages fetch error:", packagesError)
         throw packagesError
@@ -657,6 +695,33 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       console.log("[v0] Setting categories state...")
       setCategories(categoriesWithPackages)
+
+      // Update selectedCategory if it exists
+      if (selectedCategory) {
+        const updatedCategory = categoriesWithPackages.find(cat => cat.id === selectedCategory.id)
+        if (updatedCategory) {
+          console.log("[v0] Updating selectedCategory with fresh data")
+          setSelectedCategory(updatedCategory)
+          
+          // Update selectedPackage if it exists
+          if (selectedPackage) {
+            const updatedPackage = updatedCategory.packages?.find(pkg => pkg.id === selectedPackage.id)
+            if (updatedPackage) {
+              console.log("[v0] Updating selectedPackage with fresh data")
+              setSelectedPackage(updatedPackage)
+              
+              // Update selectedVariant if it exists
+              if (selectedVariant) {
+                const updatedVariant = updatedPackage.variants?.find(v => v.id === selectedVariant.id)
+                if (updatedVariant) {
+                  console.log("[v0] Updating selectedVariant with fresh data")
+                  setSelectedVariant(updatedVariant)
+                }
+              }
+            }
+          }
+        }
+      }
 
       const totalPackages = packagesData.length
       console.log(`[v0] Data refetched successfully: ${categoriesData.length} categories, ${totalPackages} packages`)
@@ -951,6 +1016,14 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         extra_safa_price: "0.00",
                         franchise_id: "",
                       })
+                    } else if (open && !editingPackage) {
+                      // Auto-select franchise for non-super-admins when creating new package
+                      console.log("[v0] Dialog opened, user:", user)
+                      console.log("[v0] Franchises available:", franchises)
+                      if (user?.role !== "super_admin" && user?.franchise_id) {
+                        console.log("[v0] Auto-selecting franchise:", user.franchise_id)
+                        setPackageForm((prev) => ({ ...prev, franchise_id: user.franchise_id }))
+                      }
                     }
                   }}
                 >
@@ -1048,9 +1121,12 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         <Select
                           value={packageForm.franchise_id}
                           onValueChange={(value) => setPackageForm((prev) => ({ ...prev, franchise_id: value }))}
+                          disabled={user?.role !== "super_admin"}
                         >
                           <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Select Franchise" />
+                            <SelectValue placeholder="Select Franchise">
+                              {packageForm.franchise_id && franchises?.find(f => f.id === packageForm.franchise_id)?.name}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {franchises?.map((franchise) => (
@@ -1060,6 +1136,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                             ))}
                           </SelectContent>
                         </Select>
+                        {user?.role !== "super_admin" && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Auto-selected to your franchise
+                          </p>
+                        )}
                       </div>
                     </div>
                     <Button
@@ -1153,7 +1234,13 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   <p className="text-brown-600 mb-4">Create your first package for {selectedCategory.name}</p>
                   <Button
                     className="btn-heritage-dark"
-                    onClick={() => setDialogs((prev) => ({ ...prev, createPackage: true }))}
+                    onClick={() => {
+                      // Auto-select franchise for non-super-admins before opening dialog
+                      if (user?.role !== "super_admin" && user?.franchise_id) {
+                        setPackageForm((prev) => ({ ...prev, franchise_id: user.franchise_id }))
+                      }
+                      setDialogs((prev) => ({ ...prev, createPackage: true }))
+                    }}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create First Package
@@ -1237,15 +1324,17 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                                   variant.base_price,
                                 ).toLocaleString()}
                               </Badge>
-                              <span className="text-sm text-brown-500">{variant.inclusions.length} inclusions</span>
+                              {variant.inclusions && variant.inclusions.length > 0 && (
+                                <span className="text-sm text-brown-500">{variant.inclusions.length} inclusions</span>
+                              )}
                             </div>
                             <div className="flex flex-wrap gap-1">
-                              {variant.inclusions.slice(0, 3).map((inclusion: string, idx: number) => (
+                              {variant.inclusions && variant.inclusions.slice(0, 3).map((inclusion: string, idx: number) => (
                                 <Badge key={idx} variant="outline" className="text-xs">
                                   {inclusion}
                                 </Badge>
                               ))}
-                              {variant.inclusions.length > 3 && (
+                              {variant.inclusions && variant.inclusions.length > 3 && (
                                 <Badge variant="outline" className="text-xs">
                                   +{variant.inclusions.length - 3} more
                                 </Badge>

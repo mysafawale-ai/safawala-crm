@@ -339,10 +339,13 @@ export default function AddProductPage() {
     setLoading(true)
 
     try {
-      const { data: franchise } = await supabase.from("franchises").select("id").eq("is_active", true).limit(1).single()
+      // Get current user's franchise from session
+      const userRes = await fetch("/api/auth/user")
+      if (!userRes.ok) throw new Error("Failed to get user info")
+      const user = await userRes.json()
 
-      if (!franchise) {
-        throw new Error("No active franchise found. Please create a franchise first.")
+      if (!user.franchise_id) {
+        throw new Error("No franchise found for your account. Please contact support.")
       }
 
       const productData = {
@@ -371,7 +374,7 @@ export default function AddProductPage() {
         qr_code: null,
         image_url: formData.image_url || null,
         is_active: formData.is_active,
-        franchise_id: franchise.id,
+        franchise_id: user.franchise_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }

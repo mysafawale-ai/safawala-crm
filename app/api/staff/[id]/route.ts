@@ -1,9 +1,48 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 // Simple password encoding function (not for production use)
 function encodePassword(password: string): string {
   return `encoded_${password}_${Date.now()}`
+}
+
+/**
+ * Get user session from cookie and validate franchise access
+ */
+async function getUserFromSession(request: NextRequest) {
+  try {
+    const cookieHeader = request.cookies.get("safawala_session")
+    if (!cookieHeader?.value) {
+      throw new Error("No session found")
+    }
+    
+    const sessionData = JSON.parse(cookieHeader.value)
+    if (!sessionData.id) {
+      throw new Error("Invalid session")
+    }
+
+    // Use service role to fetch user details
+    const supabase = createClient()
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, franchise_id, role")
+      .eq("id", sessionData.id)
+      .eq("is_active", true)
+      .single()
+
+    if (error || !user) {
+      throw new Error("User not found")
+    }
+
+    return {
+      userId: user.id,
+      franchiseId: user.franchise_id,
+      role: user.role,
+      isSuperAdmin: user.role === "super_admin"
+    }
+  } catch (error) {
+    throw new Error("Authentication required")
+  }
 }
 
 /**
@@ -20,6 +59,8 @@ export async function GET(
     if (!id) {
       return NextResponse.json({ error: "Staff ID is required" }, { status: 400 })
     }
+    
+    const supabase = createClient()
     
     const { data, error } = await supabase
       .from("users")
@@ -58,6 +99,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // 🔒 SECURITY: Authenticate user and get franchise context
+    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    
     const id = params.id
     
     if (!id) {
@@ -66,6 +114,22 @@ export async function PATCH(
     
     const body = await request.json()
     const { name, email, password, role, franchise_id, permissions, is_active } = body
+    
+    // 🔒 RBAC: Franchise admins cannot set role to super_admin
+    if (!isSuperAdmin && role === 'super_admin') {
+      return NextResponse.json(
+        { error: "Unauthorized: Franchise admins cannot create or modify super admin accounts" }, 
+        { status: 403 }
+      )
+    }
+    
+    // 🔒 RBAC: Franchise admins can only update staff in their own franchise
+    if (!isSuperAdmin && franchise_id && franchise_id !== franchiseId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Can only modify staff in your own franchise" }, 
+        { status: 403 }
+      )
+    }
     
     // Prepare update data
     const updateData: any = {}
@@ -81,6 +145,8 @@ export async function PATCH(
     if (password && password.length >= 6) {
       updateData.password_hash = encodePassword(password)
     }
+    
+    const supabase = createClient()
     
     // Check if email is unique if it's being changed
     if (email) {
@@ -136,6 +202,8 @@ export async function DELETE(
     if (!id) {
       return NextResponse.json({ error: "Staff ID is required" }, { status: 400 })
     }
+    
+    const supabase = createClient()
     
     // Check if user exists
     const { data: existingUser } = await supabase

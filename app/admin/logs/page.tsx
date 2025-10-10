@@ -68,7 +68,7 @@ export default function AdminLogsPage() {
     request_id: searchParams.get('request_id') || '',
     user_id: searchParams.get('user_id') || '',
     endpoint: searchParams.get('endpoint') || '',
-    severity: searchParams.get('severity') || '',
+    severity: searchParams.get('severity') || 'all',
     date_from: searchParams.get('date_from') || '',
     date_to: searchParams.get('date_to') || '',
     search: searchParams.get('search') || '',
@@ -297,7 +297,7 @@ export default function AdminLogsPage() {
                 <SelectValue placeholder="Severity" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Severities</SelectItem>
+                <SelectItem value="all">All Severities</SelectItem>
                 <SelectItem value="ERROR">ERROR</SelectItem>
                 <SelectItem value="WARN">WARN</SelectItem>
                 <SelectItem value="INFO">INFO</SelectItem>

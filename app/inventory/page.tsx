@@ -30,6 +30,13 @@ import { ProductViewDialog } from "@/components/inventory/product-view-dialog"
 import { BulkBarcodeGenerator } from "@/components/inventory/bulk-barcode-generator"
 // import { StockMovementDialog } from "@/components/inventory/stock-movement-dialog"
 import { supabase } from "@/lib/supabase"
+
+interface User {
+  id: string
+  email: string
+  role: string
+  franchise_id: string
+}
 import { toast } from "sonner"
 import Link from "next/link"
 import { useConfirmationDialog } from "@/components/ui/confirmation-dialog"
@@ -92,19 +99,28 @@ export default function InventoryPage() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
+
   useEffect(() => {
-    fetchProducts()
+    fetchProductsForUser()
   }, [])
 
-  const fetchProducts = async () => {
+  const fetchProductsForUser = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      // Get current user from API
+      const userRes = await fetch("/api/auth/user")
+      if (!userRes.ok) throw new Error("Failed to fetch user")
+      const user: User = await userRes.json()
+      let query = supabase
         .from("products")
         .select("*")
         .eq("is_active", true)
         .order("created_at", { ascending: false })
-
+      // Only filter by franchise for non-super-admins
+      if (user.role !== "super_admin" && user.franchise_id) {
+        query = query.eq("franchise_id", user.franchise_id)
+      }
+      const { data, error } = await query
       if (error) throw error
       setProducts(data || [])
     } catch (error) {
@@ -155,7 +171,7 @@ export default function InventoryPage() {
           if (error) throw error
 
           toast.success("Product deleted successfully")
-          fetchProducts()
+          fetchProductsForUser()
         } catch (error) {
           console.error("[v0] Error deleting product:", error)
           toast.error("Failed to delete product. Please try again.")
@@ -171,7 +187,7 @@ export default function InventoryPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await fetchProducts()
+  await fetchProductsForUser()
     setRefreshing(false)
     toast.success("Inventory refreshed successfully")
   }
@@ -604,7 +620,7 @@ export default function InventoryPage() {
               }}
               open={barcodeDialogOpen}
               onOpenChange={setBarcodeDialogOpen}
-              onItemsGenerated={fetchProducts}
+              onItemsGenerated={fetchProductsForUser}
             />
           )}
         </div>

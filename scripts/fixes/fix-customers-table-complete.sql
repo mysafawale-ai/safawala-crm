@@ -3,6 +3,43 @@
 -- This ensures the customers table matches what the API expects
 -- ============================================
 
+-- Step 0: Create function to generate customer codes
+CREATE OR REPLACE FUNCTION generate_customer_code()
+RETURNS TEXT AS $$
+DECLARE
+    new_code TEXT;
+    counter INTEGER;
+BEGIN
+    -- Get the current count of customers and add 1
+    SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code FROM 5) AS INTEGER)), 0) + 1
+    INTO counter
+    FROM customers
+    WHERE customer_code ~ '^CUS-[0-9]+$';
+    
+    -- Format as CUS-XXXX
+    new_code := 'CUS-' || LPAD(counter::TEXT, 4, '0');
+    
+    RETURN new_code;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 0.1: Create trigger to auto-generate customer_code
+CREATE OR REPLACE FUNCTION auto_generate_customer_code()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.customer_code IS NULL OR NEW.customer_code = '' THEN
+        NEW.customer_code := generate_customer_code();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS set_customer_code_trigger ON customers;
+CREATE TRIGGER set_customer_code_trigger
+    BEFORE INSERT ON customers
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_generate_customer_code();
+
 -- Step 1: Add created_by column
 DO $$ 
 BEGIN

@@ -55,10 +55,10 @@ class DataService {
       ...params
     }).toString();
 
-    const response = await apiClient.get<{ customers: Customer[], total: number }>(`/api/customers?${queryParams}`)
+    const response = await apiClient.get<Customer[]>(`/api/customers?${queryParams}`)
     if (response.success && response.data) {
-      // Extract customers array from the nested response structure
-      const customers = response.data.customers || []
+      // The API returns the customers array directly in response.data
+      const customers = Array.isArray(response.data) ? response.data : []
       
       // Only update the cache for default (non-filtered) requests
       if (Object.keys(params).length === 0) {

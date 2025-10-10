@@ -44,12 +44,19 @@ export default function PackagesPage() {
             // Fetch packages for each category
             const categoriesWithPackages = await Promise.all(
               (categoriesData || []).map(async (category) => {
-                const { data: packagesData } = await supabase
+                // Build query with franchise filtering
+                let packageQuery = supabase
                   .from("package_sets")
                   .select("*")
                   .eq("category_id", category.id)
                   .eq("is_active", true)
-                  .order("name", { ascending: true })
+                
+                // Only filter by franchise for non-super-admins
+                if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
+                  packageQuery = packageQuery.eq("franchise_id", currentUser.franchise_id)
+                }
+                
+                const { data: packagesData } = await packageQuery.order("name", { ascending: true })
 
                 // Fetch variants for each package
                 const packagesWithVariants = await Promise.all(

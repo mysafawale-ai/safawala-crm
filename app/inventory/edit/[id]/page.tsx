@@ -75,9 +75,27 @@ export default function EditProductPage() {
   const fetchProduct = async () => {
     try {
       setLoadingProduct(true)
-      const { data, error } = await supabase.from("products").select("*").eq("id", productId).single()
+      
+      // Get current user's franchise
+      const userRes = await fetch("/api/auth/user")
+      if (!userRes.ok) throw new Error("Failed to get user info")
+      const user = await userRes.json()
 
-      if (error) throw error
+      let query = supabase.from("products").select("*").eq("id", productId)
+      
+      // Only filter by franchise for non-super-admins
+      if (user.role !== "super_admin" && user.franchise_id) {
+        query = query.eq("franchise_id", user.franchise_id)
+      }
+
+      const { data, error } = await query.single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new Error("Product not found or you don't have permission to edit it")
+        }
+        throw error
+      }
 
       if (data) {
         // Normalize category/subcategory fields: some rows use category_id/subcategory_id,

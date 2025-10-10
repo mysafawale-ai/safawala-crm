@@ -212,6 +212,10 @@ export default function StaffPage() {
   const [newUserLoading, setNewUserLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showEditPassword, setShowEditPassword] = useState(false)
+  
+  // Current logged-in user
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const isSuperAdmin = currentUser?.role === 'super_admin'
 
   const [newUserData, setNewUserData] = useState<NewUserData>({
     name: '',
@@ -223,9 +227,44 @@ export default function StaffPage() {
   })
 
   useEffect(() => {
+    fetchCurrentUser()
     fetchUsers()
     fetchFranchises()
   }, [])
+
+  // Sync franchise_id when selectedUser changes (for edit dialog)
+  useEffect(() => {
+    if (selectedUser && showEditDialog) {
+      console.log('Selected user:', selectedUser)
+      console.log('User franchise_id:', selectedUser.franchise_id)
+      setNewUserData(prev => ({
+        ...prev,
+        franchise_id: selectedUser.franchise_id || ''
+      }))
+    }
+  }, [selectedUser, showEditDialog])
+
+  // Set default franchise_id for non-super-admins
+  useEffect(() => {
+    if (currentUser && !isSuperAdmin && currentUser.franchise_id) {
+      setNewUserData(prev => ({
+        ...prev,
+        franchise_id: currentUser.franchise_id
+      }))
+    }
+  }, [currentUser, isSuperAdmin])
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/user')
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentUser(data)
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error)
+    }
+  }
 
   const fetchUsers = async () => {
     try {
@@ -269,6 +308,17 @@ export default function StaffPage() {
         name: 'Default Franchise',
         code: 'DEFAULT'
       }])
+    }
+  }
+
+  // Get available roles based on current user's role
+  const getAvailableRoles = (): Array<'super_admin' | 'franchise_admin' | 'staff' | 'readonly'> => {
+    if (isSuperAdmin) {
+      // Super admin can create any role
+      return ['super_admin', 'franchise_admin', 'staff', 'readonly']
+    } else {
+      // Franchise admin can only create franchise_admin, staff, and readonly (NOT super_admin)
+      return ['franchise_admin', 'staff', 'readonly']
     }
   }
 
@@ -489,7 +539,7 @@ export default function StaffPage() {
       email: user.email,
       password: '', // Don't pre-fill password for security
       role: user.role,
-      franchise_id: user.franchise_id,
+      franchise_id: user.franchise_id || '', // Ensure franchise_id is set
       permissions: user.permissions || getDefaultPermissions(user.role)
     })
     setShowEditDialog(true)
@@ -639,10 +689,11 @@ export default function StaffPage() {
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent className="z-[9999] bg-white border border-gray-200 rounded-md shadow-lg min-w-[200px] max-h-[300px] overflow-auto">
-                          <SelectItem value="staff" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Staff</SelectItem>
-                          <SelectItem value="franchise_admin" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Franchise Admin</SelectItem>
-                          <SelectItem value="super_admin" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Super Admin</SelectItem>
-                          <SelectItem value="readonly" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Read Only</SelectItem>
+                          {getAvailableRoles().map((role) => (
+                            <SelectItem key={role} value={role} className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">
+                              {roleLabels[role]}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -651,13 +702,25 @@ export default function StaffPage() {
                       <Select
                         value={newUserData.franchise_id}
                         onValueChange={(value) => handleInputChange('franchise_id', value)}
+                        disabled={!isSuperAdmin} // Franchise admins can't change franchise
                       >
-                        <SelectTrigger className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                          <SelectValue placeholder="Select franchise" />
+                        <SelectTrigger className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                          <SelectValue placeholder="Select franchise">
+                            {newUserData.franchise_id && franchises.length > 0 ? (
+                              <>
+                                {franchises.find(f => f.id === newUserData.franchise_id)?.name || 'Select franchise'}
+                                {franchises.find(f => f.id === newUserData.franchise_id)?.code && 
+                                  ` (${franchises.find(f => f.id === newUserData.franchise_id)?.code})`
+                                }
+                              </>
+                            ) : (
+                              isSuperAdmin ? "Select franchise" : (currentUser?.franchise?.name || "Your Franchise")
+                            )}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent className="z-[9999] bg-white border border-gray-200 rounded-md shadow-lg min-w-[250px] max-h-[300px] overflow-auto">
                           {franchises.length === 0 ? (
-                            <SelectItem value="" disabled className="pl-8 pr-3 py-2 text-gray-500">
+                            <SelectItem value="no-franchises" disabled className="pl-8 pr-3 py-2 text-gray-500">
                               No franchises available
                             </SelectItem>
                           ) : (
@@ -1023,10 +1086,11 @@ export default function StaffPage() {
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent className="z-[9999] bg-white border border-gray-200 rounded-md shadow-lg min-w-[200px] max-h-[300px] overflow-auto">
-                        <SelectItem value="staff" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Staff</SelectItem>
-                        <SelectItem value="franchise_admin" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Franchise Admin</SelectItem>
-                        <SelectItem value="super_admin" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Super Admin</SelectItem>
-                        <SelectItem value="readonly" className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">Read Only</SelectItem>
+                        {getAvailableRoles().map((role) => (
+                          <SelectItem key={role} value={role} className="pl-8 pr-3 py-2 hover:bg-gray-100 cursor-pointer text-gray-900">
+                            {roleLabels[role]}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1035,13 +1099,25 @@ export default function StaffPage() {
                     <Select
                       value={newUserData.franchise_id}
                       onValueChange={(value) => handleInputChange('franchise_id', value)}
+                      disabled={!isSuperAdmin} // Franchise admins can't change franchise
                     >
-                      <SelectTrigger className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <SelectValue placeholder="Select franchise" />
+                      <SelectTrigger className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <SelectValue placeholder="Select franchise">
+                          {newUserData.franchise_id && franchises.length > 0 ? (
+                            <>
+                              {franchises.find(f => f.id === newUserData.franchise_id)?.name || 'Select franchise'}
+                              {franchises.find(f => f.id === newUserData.franchise_id)?.code && 
+                                ` (${franchises.find(f => f.id === newUserData.franchise_id)?.code})`
+                              }
+                            </>
+                          ) : (
+                            isSuperAdmin ? "Select franchise" : (currentUser?.franchise?.name || "Your Franchise")
+                          )}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="z-[9999] bg-white border border-gray-200 rounded-md shadow-lg min-w-[250px] max-h-[300px] overflow-auto">
                         {franchises.length === 0 ? (
-                          <SelectItem value="" disabled className="pl-8 pr-3 py-2 text-gray-500">
+                          <SelectItem value="no-franchises" disabled className="pl-8 pr-3 py-2 text-gray-500">
                             No franchises available
                           </SelectItem>
                         ) : (

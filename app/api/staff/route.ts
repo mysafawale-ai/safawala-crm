@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 // Simple password encoding function (not for production use)
 function encodePassword(password: string): string {
@@ -22,6 +22,7 @@ async function getUserFromSession(request: NextRequest) {
     }
 
     // Use service role to fetch user details
+    const supabase = createClient()
     const { data: user, error } = await supabase
       .from("users")
       .select("id, franchise_id, role")
@@ -60,6 +61,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const role = searchParams.get("role")
     const search = searchParams.get("search")
+    
+    const supabase = createClient()
     
     // Start building the query
     let query = supabase
@@ -114,10 +117,26 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, email, password, role, permissions, is_active = true } = body
     
+    // 🔒 RBAC: Franchise admins cannot create super admins
+    if (!isSuperAdmin && role === 'super_admin') {
+      return NextResponse.json(
+        { error: "Unauthorized: Franchise admins cannot create super admin accounts" }, 
+        { status: 403 }
+      )
+    }
+    
     // 🔒 FRANCHISE ISOLATION: Auto-assign franchise_id from session (super admin can override)
     const staffFranchiseId = isSuperAdmin && body.franchise_id 
       ? body.franchise_id 
       : franchiseId
+    
+    // 🔒 RBAC: Franchise admins can only create staff in their own franchise
+    if (!isSuperAdmin && body.franchise_id && body.franchise_id !== franchiseId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Can only create staff in your own franchise" }, 
+        { status: 403 }
+      )
+    }
     
     // Basic validation
     if (!name || !email || !password || !role) {
@@ -132,6 +151,8 @@ export async function POST(request: NextRequest) {
     
     // Encode the password
     const password_hash = encodePassword(password)
+    
+    const supabase = createClient()
     
     // Check if email already exists
     const { data: existingUser } = await supabase
@@ -190,6 +211,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Invalid user data" }, { status: 400 })
     }
     
+    const supabase = createClient()
     const results = []
     
     // Process each user update
