@@ -44,10 +44,17 @@ export interface SignedTokenData {
 }
 
 class LogService {
-  private supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  private _supabase: ReturnType<typeof createClient> | null = null;
+  
+  private get supabase() {
+    if (!this._supabase) {
+      this._supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+    }
+    return this._supabase;
+  }
 
   private readonly SECRET_KEY = process.env.LOG_SIGNING_SECRET || 'default-secret-change-in-production';
   private readonly REDACTION_PATTERNS = [
