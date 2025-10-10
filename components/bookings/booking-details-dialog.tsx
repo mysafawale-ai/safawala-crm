@@ -1,0 +1,331 @@
+"use client"
+
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { 
+  User, 
+  Phone, 
+  MapPin, 
+  Calendar, 
+  Clock, 
+  Package, 
+  DollarSign, 
+  FileText, 
+  Edit, 
+  Truck,
+  CheckCircle,
+  XCircle,
+  Eye
+} from "lucide-react"
+import { format } from "date-fns"
+import type { Booking } from "@/lib/types"
+import { useRouter } from "next/navigation"
+
+interface BookingDetailsDialogProps {
+  booking: Booking
+  trigger?: React.ReactNode
+  onEdit?: (booking: Booking) => void
+  onStatusUpdate?: (bookingId: string, status: string) => void
+}
+
+export function BookingDetailsDialog({ 
+  booking, 
+  trigger,
+  onEdit,
+  onStatusUpdate 
+}: BookingDetailsDialogProps) {
+  const [open, setOpen] = useState(false)
+  const router = useRouter()
+
+  const getStatusColor = (status: string) => {
+    const colors = {
+      pending_payment: "bg-yellow-500",
+      pending_selection: "bg-blue-500",
+      confirmed: "bg-green-500",
+      delivered: "bg-purple-500",
+      returned: "bg-gray-500",
+      order_complete: "bg-emerald-500",
+      cancelled: "bg-red-500"
+    }
+    return colors[status as keyof typeof colors] || "bg-gray-500"
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels = {
+      pending_payment: "Payment Pending",
+      pending_selection: "Selection Pending", 
+      confirmed: "Confirmed",
+      delivered: "Delivered",
+      returned: "Returned",
+      order_complete: "Complete",
+      cancelled: "Cancelled"
+    }
+    return labels[status as keyof typeof labels] || status
+  }
+
+  const getNextStatus = (currentStatus: string) => {
+    const flow = {
+      pending_payment: "confirmed",
+      pending_selection: "confirmed", 
+      confirmed: "delivered",
+      delivered: "returned",
+      returned: "order_complete"
+    }
+    return flow[currentStatus as keyof typeof flow]
+  }
+
+  const getStatusAction = (status: string) => {
+    const actions = {
+      pending_payment: "Confirm Payment",
+      pending_selection: "Confirm Selection",
+      confirmed: "Mark as Delivered", 
+      delivered: "Mark as Returned",
+      returned: "Complete Order"
+    }
+    return actions[status as keyof typeof actions]
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button variant="outline" size="sm">
+            <Eye className="h-4 w-4 mr-2" />
+            View Details
+          </Button>
+        )}
+      </DialogTrigger>
+      
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Booking Details - {booking.booking_number}</span>
+            <div className="flex items-center space-x-2">
+              <Badge className={getStatusColor(booking.status) + " text-white"}>
+                {getStatusLabel(booking.status)}
+              </Badge>
+              {onEdit && (
+                <Button variant="outline" size="sm" onClick={() => onEdit(booking)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Customer Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <User className="h-5 w-5" />
+                <span>Customer Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">{booking.customer?.name || 'N/A'}</span>
+              </div>
+              {booking.customer?.phone && (
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{booking.customer.phone}</span>
+                </div>
+              )}
+              {booking.customer?.email && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm">📧</span>
+                  <span>{booking.customer.email}</span>
+                </div>
+              )}
+              {booking.customer?.address && (
+                <div className="flex items-start space-x-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <div>{booking.customer.address}</div>
+                    {booking.customer?.city && (
+                      <div className="text-sm text-muted-foreground">
+                        {booking.customer.city}, {booking.customer?.state || ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Event Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Calendar className="h-5 w-5" />
+                <span>Event Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">
+                  {booking.event_date ? format(new Date(booking.event_date), "PPP") : 'Not set'}
+                </span>
+              </div>
+              {booking.event_type && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm">🎉</span>
+                  <span className="capitalize">{booking.event_type}</span>
+                </div>
+              )}
+              {booking.venue_name && (
+                <div className="flex items-start space-x-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <div className="font-medium">{booking.venue_name}</div>
+                    {booking.venue_address && (
+                      <div className="text-sm text-muted-foreground">{booking.venue_address}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Delivery Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Truck className="h-5 w-5" />
+                <span>Delivery Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {booking.delivery_date && (
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span>Delivery: {format(new Date(booking.delivery_date), "PPP")}</span>
+                </div>
+              )}
+              {booking.pickup_date && (
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span>Pickup: {format(new Date(booking.pickup_date), "PPP")}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pricing Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <DollarSign className="h-5 w-5" />
+                <span>Pricing</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span>Total Amount:</span>
+                <span className="font-bold text-lg">₹{(booking.total_amount || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Paid Amount:</span>
+                <span className="text-green-600">₹{(booking.paid_amount || 0).toLocaleString()}</span>
+              </div>
+              {booking.total_amount > booking.paid_amount && (
+                <div className="flex justify-between">
+                  <span>Pending Amount:</span>
+                  <span className="text-red-600">₹{(booking.total_amount - booking.paid_amount).toLocaleString()}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Order Items */}
+        {booking.items && booking.items.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Package className="h-5 w-5" />
+                <span>Order Items</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {booking.items.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-medium">{item.product?.name || 'Unknown Product'}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Quantity: {item.quantity} × ₹{(item.unit_price || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">₹{(item.total_price || 0).toLocaleString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Notes */}
+        {booking.notes && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <FileText className="h-5 w-5" />
+                <span>Notes</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-wrap">{booking.notes}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Status Actions */}
+        {(onStatusUpdate && getNextStatus(booking.status)) && (
+          <div className="mt-6 flex justify-end space-x-2">
+            {booking.status === 'delivered' ? (
+              <Button
+                onClick={() => {
+                  // Close the dialog then navigate to booking details (Returns & Settlement)
+                  setOpen(false)
+                  router.push(`/bookings/${booking.id}#returns-settlement`)
+                }}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {getStatusAction(booking.status)}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => onStatusUpdate(booking.id, getNextStatus(booking.status)!)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {getStatusAction(booking.status)}
+              </Button>
+            )}
+            {booking.status !== 'cancelled' && (
+              <Button
+                variant="destructive"
+                onClick={() => onStatusUpdate(booking.id, 'cancelled')}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancel Booking
+              </Button>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}

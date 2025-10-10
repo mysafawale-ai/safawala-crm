@@ -1,0 +1,694 @@
+
+> my-v0-project@0.1.0 dev /Applications/safawala-crm
+> next dev
+
+ ⚠ Port 3000 is in use, trying 3001 instead.
+  ▲ Next.js 14.2.16
+  - Local:        http://localhost:3001
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.1s
+ ○ Compiling / ...
+ ✓ Compiled / in 4s (654 modules)
+ GET / 200 in 4209ms
+ ✓ Compiled in 247ms (314 modules)
+ GET / 200 in 46ms
+ ✓ Compiled in 53ms (300 modules)
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 2.4s (1153 modules)
+ ✓ Compiled /api/company-settings in 250ms (672 modules)
+ ✓ Compiled (678 modules)
+ GET /api/bookings 200 in 1070ms
+ GET /api/company-settings 200 in 1091ms
+ GET /api/company-settings 200 in 208ms
+ GET /api/bookings 200 in 294ms
+ GET /api/company-settings 200 in 208ms
+ GET /api/dashboard/stats 200 in 1556ms
+ GET /api/bookings 200 in 266ms
+ ✓ Compiled /_not-found in 140ms (1257 modules)
+ GET /avatars/01.png 404 in 294ms
+ GET /api/company-settings 200 in 301ms
+ GET /api/bookings 200 in 443ms
+ GET /api/dashboard/stats 200 in 661ms
+ ✓ Compiled /customers in 362ms (1282 modules)
+ ✓ Compiled /api/customers in 177ms (700 modules)
+ GET /api/company-settings 200 in 627ms
+ GET /avatars/01.png 404 in 50ms
+ GET /api/company-settings 200 in 261ms
+ GET /api/company-settings 200 in 134ms
+ GET /api/company-settings 200 in 163ms
+ GET /api/customers?include_staff=true&include_notes=true&franchise_id=95168a3d-a6a5-4f9b-bbe2-7b88c7cef050 200 in 1293ms
+Database log insert failed: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.system_settings'",
+  message: "Could not find the table 'public.system_logs' in the schema cache"
+}
+Failed to persist log entry: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.system_settings'",
+  message: "Could not find the table 'public.system_logs' in the schema cache"
+}
+ GET /api/customers?include_staff=true&include_notes=true&franchise_id=95168a3d-a6a5-4f9b-bbe2-7b88c7cef050 200 in 253ms
+Database log insert failed: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.system_settings'",
+  message: "Could not find the table 'public.system_logs' in the schema cache"
+}
+Failed to persist log entry: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.system_settings'",
+  message: "Could not find the table 'public.system_logs' in the schema cache"
+}
+ ○ Compiling /inventory ...
+ ✓ Compiled /inventory in 1021ms (1959 modules)
+ GET /avatars/01.png 404 in 43ms
+ GET /api/company-settings 200 in 381ms
+ GET /api/company-settings 200 in 170ms
+ GET /api/company-settings 200 in 204ms
+ GET /api/company-settings 200 in 197ms
+ ✓ Compiled /inventory/categories in 284ms (1971 modules)
+ GET /avatars/01.png 404 in 31ms
+ GET /api/company-settings 200 in 197ms
+ GET /api/company-settings 200 in 161ms
+ GET /api/company-settings 200 in 201ms
+ GET /api/company-settings 200 in 139ms
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+ GET /inventory/categories 200 in 158ms
+ GET /avatars/01.png 404 in 26ms
+ GET /api/company-settings 200 in 346ms
+ GET /api/company-settings 200 in 159ms
+ GET /api/company-settings 200 in 173ms
+ GET /api/company-settings 200 in 222ms
+ GET /avatars/01.png 404 in 17ms
+ GET /api/company-settings 200 in 396ms
+ GET /api/company-settings 200 in 212ms
+ GET /api/company-settings 200 in 156ms
+ GET /api/company-settings 200 in 227ms
+ ○ Compiling /inventory/add ...
+ ✓ Compiled /inventory/add in 1007ms (1965 modules)
+ GET /avatars/01.png 404 in 124ms
+ GET /api/company-settings 200 in 538ms
+ GET /api/company-settings 200 in 172ms
+ GET /api/company-settings 200 in 150ms
+ GET /api/company-settings 200 in 154ms
+ ○ Compiling /api/upload ...
+ ✓ Compiled /api/upload in 795ms (1072 modules)
+ POST /api/upload 200 in 1879ms
+ ✓ Compiled / in 181ms (1080 modules)
+ GET / 200 in 363ms
+ ✓ Compiled /api/bookings in 125ms (1083 modules)
+ ✓ Compiled (1087 modules)
+ POST /api/upload 200 in 1720ms
+ POST /api/upload 200 in 1850ms
+ POST /api/upload 200 in 2267ms
+ GET /api/company-settings 200 in 1796ms
+ GET /api/bookings 200 in 1943ms
+ GET /api/company-settings 200 in 233ms
+ POST /api/upload 200 in 2707ms
+ GET /api/dashboard/stats 200 in 2238ms
+ GET /api/bookings 200 in 296ms
+ GET /api/company-settings 200 in 171ms
+ GET /avatars/01.png 404 in 79ms
+ GET /api/company-settings 200 in 253ms
+ GET /api/bookings 200 in 284ms
+ GET /api/dashboard/stats 200 in 481ms
+ GET /api/bookings 200 in 231ms
+ GET /avatars/01.png 404 in 28ms
+ GET /api/company-settings 200 in 706ms
+ GET /api/company-settings 200 in 176ms
+ GET /api/company-settings 200 in 164ms
+ GET /api/company-settings 200 in 174ms
+ ✓ Compiled /api/inventory/transactions in 335ms (1048 modules)
+Error fetching inventory transactions: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.financial_transactions'",
+  message: "Could not find the table 'public.inventory_transactions' in the schema cache"
+}
+ GET /api/inventory/transactions?product_id=b167107e-3913-418c-b71c-22c41b773fe8 500 in 1492ms
+ ○ Compiling /inventory/edit/[id] ...
+ ✓ Compiled /inventory/edit/[id] in 869ms (1971 modules)
+ ✓ Compiled /_not-found in 305ms (1976 modules)
+ GET /avatars/01.png 404 in 383ms
+ GET /api/company-settings 200 in 731ms
+ GET /api/company-settings 200 in 162ms
+ GET /api/company-settings 200 in 191ms
+ GET /api/company-settings 200 in 197ms
+ GET /avatars/01.png 404 in 34ms
+ GET /api/company-settings 200 in 417ms
+ GET /api/company-settings 200 in 163ms
+ GET /api/company-settings 200 in 210ms
+ GET /api/company-settings 200 in 182ms
+ GET /avatars/01.png 404 in 18ms
+ GET /api/company-settings 200 in 196ms
+ GET /api/company-settings 200 in 172ms
+ GET /api/company-settings 200 in 153ms
+ GET /api/company-settings 200 in 139ms
+ ✓ Compiled /api/upload in 278ms (1077 modules)
+ POST /api/upload 200 in 6216ms
+ POST /api/upload 200 in 2656ms
+ GET /avatars/01.png 404 in 77ms
+ GET /api/company-settings 200 in 293ms
+ GET /api/company-settings 200 in 261ms
+ GET /api/company-settings 200 in 178ms
+ GET /api/company-settings 200 in 156ms
+ GET /avatars/01.png 404 in 46ms
+ GET /api/company-settings 200 in 1247ms
+ GET /api/company-settings 200 in 238ms
+ GET /api/company-settings 200 in 224ms
+ GET /api/company-settings 200 in 213ms
+ GET /avatars/01.png 404 in 81ms
+ GET /api/company-settings 200 in 759ms
+ GET /api/company-settings 200 in 175ms
+ GET /api/company-settings 200 in 171ms
+ GET /api/company-settings 200 in 241ms
+ ✓ Compiled /api/inventory/transactions in 379ms (1044 modules)
+Error fetching inventory transactions: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.financial_transactions'",
+  message: "Could not find the table 'public.inventory_transactions' in the schema cache"
+}
+ GET /api/inventory/transactions?product_id=b167107e-3913-418c-b71c-22c41b773fe8 500 in 1184ms
+Error fetching inventory transactions: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.financial_transactions'",
+  message: "Could not find the table 'public.inventory_transactions' in the schema cache"
+}
+ GET /api/inventory/transactions?product_id=b167107e-3913-418c-b71c-22c41b773fe8 500 in 824ms
+Error fetching inventory transactions: {
+  code: 'PGRST205',
+  details: null,
+  hint: "Perhaps you meant the table 'public.financial_transactions'",
+  message: "Could not find the table 'public.inventory_transactions' in the schema cache"
+}
+ GET /api/inventory/transactions?product_id=b167107e-3913-418c-b71c-22c41b773fe8 500 in 682ms
+ GET /avatars/01.png 404 in 52ms
+ GET /api/company-settings 200 in 515ms
+ GET /api/company-settings 200 in 148ms
+ GET /api/company-settings 200 in 176ms
+ GET /api/company-settings 200 in 191ms
+ GET /avatars/01.png 404 in 25ms
+ GET /api/company-settings 200 in 202ms
+ GET /api/company-settings 200 in 430ms
+ GET /api/company-settings 200 in 161ms
+ GET /api/company-settings 200 in 368ms
+ ○ Compiling /laundry ...
+ ✓ Compiled /laundry in 1363ms (1874 modules)
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+ GET /dashboard 200 in 205ms
+ ✓ Compiled /api/company-settings in 263ms (1042 modules)
+ ✓ Compiled (1048 modules)
+ GET /api/dashboard/stats 200 in 1218ms
+ GET /api/company-settings 200 in 1199ms
+ GET /api/bookings 200 in 1359ms
+ GET /api/company-settings 200 in 164ms
+ ○ Compiling /vendors ...
+ GET /api/dashboard/stats 200 in 561ms
+ ✓ Compiled /vendors in 663ms (1988 modules)
+ ✓ Compiled /_not-found in 248ms (1991 modules)
+ GET /api/bookings 200 in 961ms
+ GET /avatars/01.png 404 in 352ms
+ GET /api/company-settings 200 in 953ms
+ GET /api/company-settings 200 in 243ms
+ GET /api/bookings 200 in 291ms
+ GET /api/bookings 200 in 222ms
+ GET /avatars/01.png 404 in 50ms
+ GET /api/company-settings 200 in 210ms
+ GET /api/company-settings 200 in 171ms
+ GET /api/company-settings 200 in 206ms
+ GET /api/company-settings 200 in 172ms
+ GET /avatars/01.png 404 in 33ms
+ GET /api/company-settings 200 in 223ms
+ GET /api/company-settings 200 in 125ms
+ GET /api/company-settings 200 in 217ms
+ GET /api/company-settings 200 in 203ms
+ ○ Compiling /quotes ...
+ ✓ Compiled /quotes in 1575ms (2788 modules)
+ GET /avatars/01.png 404 in 84ms
+ GET /api/company-settings 200 in 553ms
+ GET /api/company-settings 200 in 160ms
+ GET /api/company-settings 200 in 166ms
+ GET /api/company-settings 200 in 218ms
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+ GET /dashboard 200 in 123ms
+ GET /api/company-settings 200 in 598ms
+ GET /api/bookings 200 in 642ms
+ GET /api/dashboard/stats 200 in 850ms
+ GET /api/bookings 200 in 213ms
+ GET /api/company-settings 200 in 239ms
+ GET /avatars/01.png 404 in 32ms
+ GET /api/company-settings 200 in 166ms
+ GET /api/bookings 200 in 296ms
+ GET /api/company-settings 200 in 177ms
+ GET /api/dashboard/stats 200 in 469ms
+ GET /api/bookings 200 in 179ms
+ ✓ Compiled /integrations in 494ms (2814 modules)
+ ✓ Compiled /api/wati/setup in 396ms (1480 modules)
+[v0] Setting up WATI integration...
+[v0] Setting up WATI integration...
+[v0] WATI integration configured successfully: [
+  {
+    id: 'b922a2dc-7f33-4aa0-a823-39e25bf7a6d5',
+    integration_name: 'whatsapp-wati',
+    api_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlMWU0YjA3NS03ZmUxLTQzYmUtOTBiMC04NTExMjQxNjEzYTQiLCJ1bmlxdWVfbmFtZSI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwibmFtZWlkIjoibXlzYWZhd2FsZUBnbWFpbC5jb20iLCJlbWFpbCI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwiYXV0aF90aW1lIjoiMDgvMTIvMjAyNSAyMDoxMjo1NSIsInRlbmFudF9pZCI6IjQ4MTQ1NSIsImRiX25hbWUiOiJtdC1wcm9kLVRlbmFudHMiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJBRE1JTklTVFJBVE9SIiwiZXhwIjoyNTM0MDIzMDA4MDAsImlzcyI6IkNsYXJlX0FJIiwiYXVkIjoiQ2xhcmVfQUkifQ.ZmgPg4ZTHPhSytUlT0s2BfmUIEkzlKdAbogvVNzHTek',
+    secret: null,
+    webhook: null,
+    base_url: 'https://live-mt-server.wati.io/481455',
+    instance_id: '481455',
+    test_phone: '919725295692',
+    is_active: true,
+    created_at: '2025-08-22T04:46:50.715115+00:00',
+    updated_at: '2025-08-22T04:46:50.715115+00:00',
+    settings: {
+      webhook_url: null,
+      business_hours: [Object],
+      auto_notifications: true
+    }
+  }
+]
+ POST /api/wati/setup 200 in 1024ms
+[v0] WATI integration configured successfully: [
+  {
+    id: 'b922a2dc-7f33-4aa0-a823-39e25bf7a6d5',
+    integration_name: 'whatsapp-wati',
+    api_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlMWU0YjA3NS03ZmUxLTQzYmUtOTBiMC04NTExMjQxNjEzYTQiLCJ1bmlxdWVfbmFtZSI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwibmFtZWlkIjoibXlzYWZhd2FsZUBnbWFpbC5jb20iLCJlbWFpbCI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwiYXV0aF90aW1lIjoiMDgvMTIvMjAyNSAyMDoxMjo1NSIsInRlbmFudF9pZCI6IjQ4MTQ1NSIsImRiX25hbWUiOiJtdC1wcm9kLVRlbmFudHMiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJBRE1JTklTVFJBVE9SIiwiZXhwIjoyNTM0MDIzMDA4MDAsImlzcyI6IkNsYXJlX0FJIiwiYXVkIjoiQ2xhcmVfQUkifQ.ZmgPg4ZTHPhSytUlT0s2BfmUIEkzlKdAbogvVNzHTek',
+    secret: null,
+    webhook: null,
+    base_url: 'https://live-mt-server.wati.io/481455',
+    instance_id: '481455',
+    test_phone: '919725295692',
+    is_active: true,
+    created_at: '2025-08-22T04:46:50.715115+00:00',
+    updated_at: '2025-08-22T04:46:50.715115+00:00',
+    settings: {
+      webhook_url: null,
+      business_hours: [Object],
+      auto_notifications: true
+    }
+  }
+]
+ POST /api/wati/setup 200 in 1033ms
+ ✓ Compiled /api/integrations/load in 288ms (1483 modules)
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+[v0] Loading integration config for: whatsapp-wati
+[v0] Integration config loaded: {
+  id: 'b922a2dc-7f33-4aa0-a823-39e25bf7a6d5',
+  integration_name: 'whatsapp-wati',
+  api_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlMWU0YjA3NS03ZmUxLTQzYmUtOTBiMC04NTExMjQxNjEzYTQiLCJ1bmlxdWVfbmFtZSI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwibmFtZWlkIjoibXlzYWZhd2FsZUBnbWFpbC5jb20iLCJlbWFpbCI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwiYXV0aF90aW1lIjoiMDgvMTIvMjAyNSAyMDoxMjo1NSIsInRlbmFudF9pZCI6IjQ4MTQ1NSIsImRiX25hbWUiOiJtdC1wcm9kLVRlbmFudHMiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJBRE1JTklTVFJBVE9SIiwiZXhwIjoyNTM0MDIzMDA4MDAsImlzcyI6IkNsYXJlX0FJIiwiYXVkIjoiQ2xhcmVfQUkifQ.ZmgPg4ZTHPhSytUlT0s2BfmUIEkzlKdAbogvVNzHTek',
+  secret: null,
+  webhook: null,
+  base_url: 'https://live-mt-server.wati.io/481455',
+  instance_id: '481455',
+  test_phone: '919725295692',
+  is_active: true,
+  created_at: '2025-08-22T04:46:50.715115+00:00',
+  updated_at: '2025-08-22T04:46:50.715115+00:00',
+  settings: {
+    webhook_url: null,
+    business_hours: {
+      end: '18:00',
+      start: '09:00',
+      enabled: true,
+      timezone: 'Asia/Kolkata'
+    },
+    auto_notifications: true
+  }
+}
+ GET /api/integrations/load?name=whatsapp-wati 200 in 704ms
+[v0] Loading integration config for: whatsapp-wati
+[v0] Loading integration config for: woocommerce
+[v0] Integration config loaded: {
+  id: 'b922a2dc-7f33-4aa0-a823-39e25bf7a6d5',
+  integration_name: 'whatsapp-wati',
+  api_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlMWU0YjA3NS03ZmUxLTQzYmUtOTBiMC04NTExMjQxNjEzYTQiLCJ1bmlxdWVfbmFtZSI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwibmFtZWlkIjoibXlzYWZhd2FsZUBnbWFpbC5jb20iLCJlbWFpbCI6Im15c2FmYXdhbGVAZ21haWwuY29tIiwiYXV0aF90aW1lIjoiMDgvMTIvMjAyNSAyMDoxMjo1NSIsInRlbmFudF9pZCI6IjQ4MTQ1NSIsImRiX25hbWUiOiJtdC1wcm9kLVRlbmFudHMiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOiJBRE1JTklTVFJBVE9SIiwiZXhwIjoyNTM0MDIzMDA4MDAsImlzcyI6IkNsYXJlX0FJIiwiYXVkIjoiQ2xhcmVfQUkifQ.ZmgPg4ZTHPhSytUlT0s2BfmUIEkzlKdAbogvVNzHTek',
+  secret: null,
+  webhook: null,
+  base_url: 'https://live-mt-server.wati.io/481455',
+  instance_id: '481455',
+  test_phone: '919725295692',
+  is_active: true,
+  created_at: '2025-08-22T04:46:50.715115+00:00',
+  updated_at: '2025-08-22T04:46:50.715115+00:00',
+  settings: {
+    webhook_url: null,
+    business_hours: {
+      end: '18:00',
+      start: '09:00',
+      enabled: true,
+      timezone: 'Asia/Kolkata'
+    },
+    auto_notifications: true
+  }
+}
+ GET /api/integrations/load?name=whatsapp-wati 200 in 157ms
+[v0] Integration config loaded: {
+  id: 'd1e82af2-f161-4f43-b5c1-49be5bcc45cc',
+  integration_name: 'woocommerce',
+  api_key: null,
+  secret: null,
+  webhook: null,
+  base_url: null,
+  instance_id: null,
+  test_phone: null,
+  is_active: true,
+  created_at: '2025-08-19T20:28:07.660398+00:00',
+  updated_at: '2025-08-21T17:31:45.57+00:00',
+  settings: {
+    store_url: 'https://safawala.com',
+    consumer_key: 'ck_b0989eadb72d75ec0ba524e7af24ca476f62e5af',
+    consumer_secret: 'cs_af9b5e8a6c4d74b7e360f3ea264f55c7a9fb0ef4'
+  }
+}
+ GET /api/integrations/load?name=woocommerce 200 in 171ms
+[v0] Loading integration config for: woocommerce
+[v0] Integration config loaded: {
+  id: 'd1e82af2-f161-4f43-b5c1-49be5bcc45cc',
+  integration_name: 'woocommerce',
+  api_key: null,
+  secret: null,
+  webhook: null,
+  base_url: null,
+  instance_id: null,
+  test_phone: null,
+  is_active: true,
+  created_at: '2025-08-19T20:28:07.660398+00:00',
+  updated_at: '2025-08-21T17:31:45.57+00:00',
+  settings: {
+    store_url: 'https://safawala.com',
+    consumer_key: 'ck_b0989eadb72d75ec0ba524e7af24ca476f62e5af',
+    consumer_secret: 'cs_af9b5e8a6c4d74b7e360f3ea264f55c7a9fb0ef4'
+  }
+}
+ GET /api/integrations/load?name=woocommerce 200 in 182ms
+ ✓ Compiled in 2s (2682 modules)
+ GET /avatars/01.png 404 in 126ms
+ GET /api/company-settings 200 in 547ms
+ GET /api/company-settings 200 in 209ms
+ GET /api/company-settings 200 in 185ms
+ GET /api/company-settings 200 in 152ms
+ ✓ Compiled /inventory in 292ms (1476 modules)
+ GET /avatars/01.png 404 in 54ms
+ GET /api/company-settings 200 in 820ms
+ GET /api/company-settings 200 in 203ms
+ GET /api/company-settings 200 in 167ms
+ GET /api/company-settings 200 in 156ms
+ ✓ Compiled in 2.4s (2809 modules)
+ ✓ Compiled in 848ms (1350 modules)
+ ✓ Compiled in 1897ms (1348 modules)
+ ✓ Compiled in 613ms (1348 modules)
+ ✓ Compiled in 552ms (1348 modules)
+ ✓ Compiled in 1519ms (1348 modules)
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+ GET /inventory 200 in 505ms
+ ○ Compiling /_not-found ...
+ GET /api/company-settings 200 in 1830ms
+ ✓ Compiled /_not-found in 2.7s (2783 modules)
+ ✓ Compiled in 1572ms (2783 modules)
+ GET /avatars/01.png 404 in 4687ms
+ GET /api/company-settings 200 in 3382ms
+ GET /api/company-settings 200 in 196ms
+ GET /api/company-settings 200 in 171ms
+ ✓ Compiled in 1557ms (1348 modules)
+ ✓ Compiled in 921ms (1348 modules)
+ ✓ Compiled in 825ms (1348 modules)
+ ✓ Compiled in 538ms (1348 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Applications/safawala-crm/.next/cache/webpack/client-development/5.pack.gz_' -> '/Applications/safawala-crm/.next/cache/webpack/client-development/5.pack.gz'
+ ✓ Compiled in 699ms (1348 modules)
+ ✓ Compiled in 438ms (1348 modules)
+ ✓ Compiled in 311ms (1348 modules)
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+ GET /inventory 200 in 353ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 824ms (2783 modules)
+ GET /avatars/01.png 404 in 985ms
+ GET /api/company-settings 200 in 1012ms
+ GET /api/company-settings 200 in 328ms
+ GET /api/company-settings 200 in 174ms
+ GET /api/company-settings 200 in 182ms
+ ○ Compiling /inventory/edit/[id] ...
+ ✓ Compiled /inventory/edit/[id] in 1204ms (1455 modules)
+ GET /avatars/01.png 404 in 72ms
+ GET /api/company-settings 200 in 283ms
+ GET /api/company-settings 200 in 187ms
+ GET /api/company-settings 200 in 151ms
+ GET /api/company-settings 200 in 183ms
+ GET /avatars/01.png 404 in 38ms
+ GET /api/company-settings 200 in 596ms
+ GET /api/company-settings 200 in 174ms
+ GET /api/company-settings 200 in 199ms
+ GET /api/company-settings 200 in 163ms
+ ✓ Compiled /inventory/add in 230ms (1455 modules)
+ GET /avatars/01.png 404 in 54ms
+ GET /api/company-settings 200 in 296ms
+ GET /api/company-settings 200 in 146ms
+ GET /api/company-settings 200 in 166ms
+ GET /api/company-settings 200 in 175ms
+ GET /avatars/01.png 404 in 20ms
+ GET /api/company-settings 200 in 832ms
+ GET /api/company-settings 200 in 136ms
+ GET /api/company-settings 200 in 173ms
+ GET /api/company-settings 200 in 173ms
+ GET /avatars/01.png 404 in 23ms
+ GET /api/company-settings 200 in 163ms
+ GET /api/company-settings 200 in 197ms
+ GET /api/company-settings 200 in 182ms
+ GET /api/company-settings 200 in 163ms
+ GET /avatars/01.png 404 in 64ms
+ GET /api/company-settings 200 in 224ms
+ GET /api/company-settings 200 in 155ms
+ GET /api/company-settings 200 in 191ms
+ GET /api/company-settings 200 in 189ms
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+ GET /inventory 200 in 600ms
+ GET /avatars/01.png 404 in 39ms
+ GET /api/company-settings 200 in 812ms
+ GET /api/company-settings 200 in 185ms
+ GET /api/company-settings 200 in 174ms
+ GET /api/company-settings 200 in 176ms
+ GET /avatars/01.png 404 in 37ms
+ GET /api/company-settings 200 in 187ms
+ GET /api/company-settings 200 in 226ms
+ GET /api/company-settings 200 in 178ms
+ GET /api/company-settings 200 in 160ms
+ ✓ Compiled in 1312ms (1350 modules)
+ ✓ Compiled in 965ms (1350 modules)
+ ○ Compiling /api/upload ...
+ ✓ Compiled /api/upload in 731ms (1079 modules)
+Upload error: StorageApiError: Bucket not found
+    at eval (webpack-internal:///(rsc)/./node_modules/.pnpm/@supabase+storage-js@2.12.1/node_modules/@supabase/storage-js/dist/module/lib/fetch.js:31:20)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  __isStorageError: true,
+  status: 400,
+  statusCode: '404'
+}
+ POST /api/upload 500 in 1885ms
+Upload error: StorageApiError: Bucket not found
+    at eval (webpack-internal:///(rsc)/./node_modules/.pnpm/@supabase+storage-js@2.12.1/node_modules/@supabase/storage-js/dist/module/lib/fetch.js:31:20)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  __isStorageError: true,
+  status: 400,
+  statusCode: '404'
+}
+ POST /api/upload 500 in 1770ms
+Upload error: StorageApiError: Bucket not found
+    at eval (webpack-internal:///(rsc)/./node_modules/.pnpm/@supabase+storage-js@2.12.1/node_modules/@supabase/storage-js/dist/module/lib/fetch.js:31:20)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  __isStorageError: true,
+  status: 400,
+  statusCode: '404'
+}
+ POST /api/upload 500 in 1049ms
+ ✓ Compiled in 586ms (2429 modules)
+ GET /avatars/01.png 404 in 714ms
+ GET /api/company-settings 200 in 1369ms
+ GET /api/company-settings 200 in 210ms
+ GET /api/company-settings 200 in 349ms
+ GET /api/company-settings 200 in 255ms
+ GET /avatars/01.png 404 in 28ms
+ GET /api/company-settings 200 in 193ms
+ GET /api/company-settings 200 in 174ms
+ GET /api/company-settings 200 in 178ms
+ GET /api/company-settings 200 in 189ms
+ GET /avatars/01.png 404 in 23ms
+ GET /api/company-settings 200 in 236ms
+ GET /api/company-settings 200 in 225ms
+ GET /api/company-settings 200 in 173ms
+ GET /api/company-settings 200 in 184ms
+ ✓ Compiled in 5.3s (1350 modules)
+ ✓ Compiled in 662ms (1350 modules)
+ ✓ Compiled in 411ms (1348 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Applications/safawala-crm/.next/cache/webpack/client-development/2.pack.gz_' -> '/Applications/safawala-crm/.next/cache/webpack/client-development/2.pack.gz'
+ ✓ Compiled in 1680ms (1348 modules)
+ ✓ Compiled in 513ms (1348 modules)
+ ✓ Compiled in 985ms (1348 modules)
+ ✓ Compiled in 445ms (1348 modules)
+ ✓ Compiled in 540ms (1348 modules)
+ ✓ Compiled in 688ms (1348 modules)
+ ✓ Compiled in 822ms (1348 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1007ms (2311 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 959ms (2523 modules)
+[v0] Supabase environment check: {
+  hasUrl: true,
+  hasKey: true,
+  urlLength: 40,
+  keyLength: 208,
+  urlPreview: 'https://xplnyaxkusvu...',
+  keyPreview: 'eyJhbGciOi...'
+}
+[v0] Supabase client initialized successfully
+ GET /inventory 200 in 265ms
+ GET /inventory/add 200 in 50ms
+ GET /_next/static/css/app/layout.css?v=1758488114796 404 in 35ms
+ GET /_next/static/chunks/main-app.js?v=1758488114796 404 in 31ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 13ms
+ GET /_next/static/css/app/layout.css?v=1758488115054 404 in 26ms
+ GET /_next/static/chunks/app/inventory/page.js 404 in 39ms
+ GET /_next/static/chunks/main-app.js?v=1758488115054 404 in 39ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 41ms
+ GET /_next/static/chunks/app/inventory/add/page.js 404 in 21ms
+ ✓ Compiled in 379ms (1535 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, lstat '/Applications/safawala-crm/.next/server/vendor-chunks/@radix-ui+react-alert-dialog@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.24__@type_1280b25daa92fc69345cdf50ad992ffb.js'
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/@radix-ui+react-alert-dialog@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.24__@type_1280b25daa92fc69345cdf50ad992ffb' in /Applications/safawala-crm/.next/server for build dependencies doesn't lead to expected result '/Applications/safawala-crm/.next/server/vendor-chunks/@radix-ui+react-alert-dialog@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.24__@type_1280b25daa92fc69345cdf50ad992ffb.js', but to 'Error: Can't resolve './vendor-chunks/@radix-ui+react-alert-dialog@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.24__@type_1280b25daa92fc69345cdf50ad992ffb' in '/Applications/safawala-crm/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/@radix-ui+react-alert-dialog@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.24__@type_1280b25daa92fc69345cdf50ad992ffb (expected /Applications/safawala-crm/.next/server/vendor-chunks/@radix-ui+react-alert-dialog@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.24__@type_1280b25daa92fc69345cdf50ad992ffb.js)
+<w>  at file dependencies /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file dependencies /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/dijkstrajs@1.0.3' in /Applications/safawala-crm/.next/server for build dependencies doesn't lead to expected result '/Applications/safawala-crm/.next/server/vendor-chunks/dijkstrajs@1.0.3.js', but to 'Error: Can't resolve './vendor-chunks/dijkstrajs@1.0.3' in '/Applications/safawala-crm/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/dijkstrajs@1.0.3 (expected /Applications/safawala-crm/.next/server/vendor-chunks/dijkstrajs@1.0.3.js)
+<w>  at file dependencies /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file dependencies /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/@radix-ui+react-tabs@1.1.13_@types+react-dom@18.3.7_@types+react@18.3.24__@types+react@_1409706194d23bdbce8b905d7da58ada' in /Applications/safawala-crm/.next/server for build dependencies doesn't lead to expected result '/Applications/safawala-crm/.next/server/vendor-chunks/@radix-ui+react-tabs@1.1.13_@types+react-dom@18.3.7_@types+react@18.3.24__@types+react@_1409706194d23bdbce8b905d7da58ada.js', but to 'Error: Can't resolve './vendor-chunks/@radix-ui+react-tabs@1.1.13_@types+react-dom@18.3.7_@types+react@18.3.24__@types+react@_1409706194d23bdbce8b905d7da58ada' in '/Applications/safawala-crm/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/@radix-ui+react-tabs@1.1.13_@types+react-dom@18.3.7_@types+react@18.3.24__@types+react@_1409706194d23bdbce8b905d7da58ada (expected /Applications/safawala-crm/.next/server/vendor-chunks/@radix-ui+react-tabs@1.1.13_@types+react-dom@18.3.7_@types+react@18.3.24__@types+react@_1409706194d23bdbce8b905d7da58ada.js)
+<w>  at file dependencies /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file dependencies /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/pngjs@5.0.0' in /Applications/safawala-crm/.next/server for build dependencies doesn't lead to expected result '/Applications/safawala-crm/.next/server/vendor-chunks/pngjs@5.0.0.js', but to 'Error: Can't resolve './vendor-chunks/pngjs@5.0.0' in '/Applications/safawala-crm/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/pngjs@5.0.0 (expected /Applications/safawala-crm/.next/server/vendor-chunks/pngjs@5.0.0.js)
+<w>  at file dependencies /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file /Applications/safawala-crm/.next/server/webpack-runtime.js
+<w>  at file dependencies /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file /Applications/safawala-crm/.next/server/app/_not-found/page.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+ GET /inventory 200 in 261ms
+ GET /_next/static/css/app/layout.css?v=1758488208361 404 in 85ms
+ GET /_next/static/chunks/main-app.js?v=1758488208361 404 in 87ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 84ms
+ GET /_next/static/chunks/app/inventory/page.js 404 in 83ms
+ ✓ Compiled in 8s (2532 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, lstat '/Applications/safawala-crm/.next/server/app/api/inventory'
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../../../../../.next/server/app/api/inventory/transactions/route' in /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server for build dependencies doesn't lead to expected result '/Applications/safawala-crm/.next/server/app/api/inventory/transactions/route.js', but to 'Error: Can't resolve '../../../../../../../.next/server/app/api/inventory/transactions/route' in '/Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../../../../../.next/server/app/api/inventory/transactions/route (expected /Applications/safawala-crm/.next/server/app/api/inventory/transactions/route.js)
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Applications/safawala-crm/node_modules/.pnpm/next@14.2.16_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+ ELIFECYCLE  Command failed.

@@ -1,0 +1,853 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { CalendarIcon, Save, Package, User, Clock } from "lucide-react"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
+import { toast } from "@/hooks/use-toast"
+import { InventoryAvailabilityPopup } from "./inventory-availability-popup"
+
+interface Category {
+  id: string
+  name: string
+  description: string
+  display_order: number
+  is_active: boolean
+}
+
+interface PackageVariant {
+  id: string
+  name: string
+  description: string
+  base_price: number
+  inclusions: string[]
+  package_id: string
+}
+
+interface PackageSet {
+  id: string
+  name: string
+  description: string
+  base_price: number
+  category_id: string
+  variants: PackageVariant[]
+}
+
+interface Customer {
+  id: string
+  name: string
+  phone: string
+  whatsapp?: string
+  email?: string
+  address?: string
+  pincode?: string
+}
+
+interface Staff {
+  id: string
+  name: string
+  role: string
+  franchise_id: string
+}
+
+interface DistancePricing {
+  id: string
+  variant_id: string
+  min_km: number
+  max_km: number
+  distance_range: string
+  base_price_addition: number
+  is_active: boolean
+}
+
+interface PackageBookingFormProps {
+  onSubmit: (bookingData: any) => void
+  currentUser?: any
+}
+
+export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingFormProps) {
+  const [categories, setCategories] = useState<Category[]>([])
+  const [packages, setPackages] = useState<PackageSet[]>([])
+  const [distancePricing, setDistancePricing] = useState<DistancePricing[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("")
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    phone: "",
+    whatsapp: "",
+    email: "",
+    address: "",
+    pincode: "",
+  })
+  const [isNewCustomer, setIsNewCustomer] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>("")
+  const [selectedPackage, setSelectedPackage] = useState<string>("")
+  const [selectedVariant, setSelectedVariant] = useState<string>("")
+  const [selectedProducts, setSelectedProducts] = useState<{ [key: string]: boolean }>({})
+  const [skipProductSelection, setSkipProductSelection] = useState(false)
+  const [eventDate, setEventDate] = useState<Date>()
+  const [deliveryDate, setDeliveryDate] = useState<Date>()
+  const [pickupDate, setPickupDate] = useState<Date>()
+  const [notes, setNotes] = useState("")
+  const [assignedStaff, setAssignedStaff] = useState<string>(currentUser?.id || "")
+  const [paymentStatus, setPaymentStatus] = useState<"pending" | "partial" | "paid">("pending")
+  const [advanceAmount, setAdvanceAmount] = useState<number>(0)
+  const [distancePricingAmount, setDistancePricingAmount] = useState<number>(0)
+
+  const supabase = createClient()
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    if (selectedCategory) {
+      setSelectedPackage("")
+      setSelectedVariant("")
+    }
+  }, [selectedCategory])
+
+  useEffect(() => {
+    if (selectedPackage) {
+      setSelectedVariant("")
+    }
+  }, [selectedPackage])
+
+  useEffect(() => {
+    calculateDistancePricing()
+  }, [selectedCustomer, newCustomer.pincode, selectedVariant, isNewCustomer])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from("packages_categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order")
+
+      if (categoriesError) throw categoriesError
+
+      const { data: packagesData, error: packagesError } = await supabase
+        .from("package_sets")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order")
+
+      if (packagesError) throw packagesError
+
+      const { data: variantsData, error: variantsError } = await supabase
+        .from("package_variants")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order")
+
+      if (variantsError) throw variantsError
+
+      const { data: distancePricingData, error: distancePricingError } = await supabase
+        .from("distance_pricing")
+        .select("*")
+        .eq("is_active", true)
+        .order("min_km")
+
+      if (distancePricingError) throw distancePricingError
+
+      const { data: customersData, error: customersError } = await supabase.from("customers").select("*").order("name")
+
+      if (customersError) throw customersError
+
+      const { data: staffData, error: staffError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("is_active", true)
+        .order("name")
+
+      if (staffError) throw staffError
+
+      const packagesWithVariants =
+        packagesData?.map((pkg) => ({
+          ...pkg,
+          variants: variantsData?.filter((variant) => variant.package_id === pkg.id) || [],
+        })) || []
+
+      setCategories(categoriesData || [])
+      setPackages(packagesWithVariants)
+      setDistancePricing(distancePricingData || [])
+      setCustomers(customersData || [])
+      setStaff(staffData || [])
+
+      console.log(
+        `[v0] Loaded ${categoriesData?.length || 0} categories, ${packagesData?.length || 0} packages, ${variantsData?.length || 0} variants, ${distancePricingData?.length || 0} distance pricing, ${customersData?.length || 0} customers, ${staffData?.length || 0} staff`,
+      )
+    } catch (error) {
+      console.error("Error loading data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load booking data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const calculateDistancePricing = async () => {
+    if (!selectedVariant) {
+      setDistancePricingAmount(0)
+      return
+    }
+
+    const customerPincode = isNewCustomer
+      ? newCustomer.pincode
+      : customers.find((c) => c.id === selectedCustomer)?.pincode
+
+    if (!customerPincode) {
+      setDistancePricingAmount(0)
+      return
+    }
+
+    const basePincode = 380001 // Assuming base location pincode
+    const distance = Math.abs(Number.parseInt(customerPincode) - basePincode) / 1000 // Mock distance calculation
+
+    const applicablePricing = distancePricing.find(
+      (dp) => dp.variant_id === selectedVariant && distance >= dp.min_km && distance <= dp.max_km,
+    )
+
+    setDistancePricingAmount(applicablePricing?.base_price_addition || 0)
+  }
+
+  const filteredPackages = packages.filter((pkg) => (selectedCategory ? pkg.category_id === selectedCategory : true))
+
+  const selectedCategoryData = categories.find((c) => c.id === selectedCategory)
+  const selectedPackageData = packages.find((p) => p.id === selectedPackage)
+  const selectedVariantData = selectedPackageData?.variants.find((v) => v.id === selectedVariant)
+
+  const calculateTotal = () => {
+    let total = 0
+
+    if (selectedPackageData) {
+      total += selectedPackageData.base_price
+    }
+
+    if (selectedVariantData) {
+      total += selectedVariantData.base_price // This is the extra price
+    }
+
+    total += distancePricingAmount
+
+    return total
+  }
+
+  const validateForm = () => {
+    if (isNewCustomer) {
+      if (!newCustomer.name || !newCustomer.phone) {
+        toast({
+          title: "Validation Error",
+          description: "Customer name and phone are required",
+          variant: "destructive",
+        })
+        return false
+      }
+    } else {
+      if (!selectedCustomer) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a customer",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+
+    if (!selectedCategory) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a category",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    if (!selectedPackage) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a package",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    if (!eventDate) {
+      toast({
+        title: "Validation Error",
+        description: "Event date is required",
+        variant: "destructive",
+      })
+      return false
+    }
+
+    return true
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validateForm()) return
+
+    const bookingData = {
+      customer: isNewCustomer ? newCustomer : selectedCustomer,
+      isNewCustomer,
+      selectedCategory: selectedCategoryData,
+      selectedPackage: selectedPackageData,
+      selectedVariant: selectedVariantData,
+      selectedProducts,
+      skipProductSelection,
+      eventDate,
+      deliveryDate,
+      pickupDate,
+      notes,
+      assignedStaff,
+      paymentStatus,
+      advanceAmount,
+      totalAmount: calculateTotal(),
+      distancePricingAmount,
+      bookingStatus: skipProductSelection ? "selection_pending" : "payment_pending",
+    }
+
+    onSubmit(bookingData)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Customer Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Customer Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <RadioGroup
+            value={isNewCustomer ? "new" : "existing"}
+            onValueChange={(value) => setIsNewCustomer(value === "new")}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="existing" id="existing" />
+              <Label htmlFor="existing">Select Existing Customer</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="new" id="new" />
+              <Label htmlFor="new">Add New Customer</Label>
+            </div>
+          </RadioGroup>
+
+          {isNewCustomer ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Name *</Label>
+                <Input
+                  id="name"
+                  value={newCustomer.name}
+                  onChange={(e) => setNewCustomer((prev) => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone *</Label>
+                <Input
+                  id="phone"
+                  value={newCustomer.phone}
+                  onChange={(e) => setNewCustomer((prev) => ({ ...prev, phone: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="whatsapp">WhatsApp</Label>
+                <Input
+                  id="whatsapp"
+                  value={newCustomer.whatsapp}
+                  onChange={(e) => setNewCustomer((prev) => ({ ...prev, whatsapp: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newCustomer.email}
+                  onChange={(e) => setNewCustomer((prev) => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="pincode">Pincode *</Label>
+                <Input
+                  id="pincode"
+                  value={newCustomer.pincode}
+                  onChange={(e) => setNewCustomer((prev) => ({ ...prev, pincode: e.target.value }))}
+                  placeholder="For distance pricing calculation"
+                  required
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="address">Address</Label>
+                <Textarea
+                  id="address"
+                  value={newCustomer.address}
+                  onChange={(e) => setNewCustomer((prev) => ({ ...prev, address: e.target.value }))}
+                />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="customer">Select Customer *</Label>
+              <Select value={selectedCustomer} onValueChange={setSelectedCustomer} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.name} - {customer.phone} {customer.pincode && `(${customer.pincode})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Category Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Step 1: Select Category
+          </CardTitle>
+          <p className="text-sm text-gray-600">Choose from our available safa categories</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                className={cn(
+                  "p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md",
+                  selectedCategory === category.id
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300",
+                )}
+                onClick={() => setSelectedCategory(category.id)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-lg">{category.name}</h3>
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2",
+                      selectedCategory === category.id ? "bg-blue-500 border-blue-500" : "border-gray-300",
+                    )}
+                  />
+                </div>
+                <p className="text-sm text-gray-600">{category.description}</p>
+                <div className="mt-2 text-xs text-gray-500">
+                  {filteredPackages.filter((pkg) => pkg.category_id === category.id).length} packages available
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Fallback select for mobile or preference */}
+          <div className="md:hidden">
+            <Label htmlFor="category-select">Or select from dropdown:</Label>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name} - {category.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Package Selection */}
+      {selectedCategory && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Step 2: Select Package
+            </CardTitle>
+            <p className="text-sm text-gray-600">Choose from packages in {selectedCategoryData?.name}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              {filteredPackages.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  className={cn(
+                    "p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md",
+                    selectedPackage === pkg.id
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 hover:border-gray-300",
+                  )}
+                  onClick={() => setSelectedPackage(pkg.id)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="font-semibold text-lg">{pkg.name}</h3>
+                      <p className="text-sm text-gray-600">{pkg.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded-full border-2 mb-2",
+                          selectedPackage === pkg.id ? "bg-green-500 border-green-500" : "border-gray-300",
+                        )}
+                      />
+                      <p className="text-lg font-semibold text-green-600">₹{pkg.base_price.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">{pkg.variants.length} variants available</div>
+                </div>
+              ))}
+            </div>
+
+            {filteredPackages.length === 0 && (
+              <div className="text-center py-8 text-gray-500">No packages available in this category</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Variant Selection */}
+      {selectedPackageData?.variants && selectedPackageData.variants.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Step 3: Select Variant (Optional)
+            </CardTitle>
+            <p className="text-sm text-gray-600">Choose a variant for {selectedPackageData.name} or skip this step</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              {selectedPackageData.variants.map((variant) => (
+                <div
+                  key={variant.id}
+                  className={cn(
+                    "p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md",
+                    selectedVariant === variant.id
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300",
+                  )}
+                  onClick={() => setSelectedVariant(variant.id)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{variant.name}</h3>
+                      <p className="text-sm text-gray-600">{variant.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded-full border-2 mb-2",
+                          selectedVariant === variant.id ? "bg-blue-500 border-blue-500" : "border-gray-300",
+                        )}
+                      />
+                      <p className="text-lg font-semibold text-blue-600">+₹{variant.base_price.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  {variant.inclusions && variant.inclusions.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium mb-1">Inclusions:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {variant.inclusions.map((inclusion, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {inclusion}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Option to skip variant selection */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <button
+                type="button"
+                className={cn(
+                  "w-full p-3 border-2 rounded-lg transition-all",
+                  !selectedVariant ? "border-gray-400 bg-gray-100" : "border-gray-200 hover:border-gray-300",
+                )}
+                onClick={() => setSelectedVariant("")}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">No Variant (Base Package Only)</span>
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2",
+                      !selectedVariant ? "bg-gray-500 border-gray-500" : "border-gray-300",
+                    )}
+                  />
+                </div>
+                <p className="text-sm text-gray-600 mt-1">Use the base package without any additional variants</p>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Product Selection Options */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Product Selection</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox id="skipProducts" checked={skipProductSelection} onCheckedChange={setSkipProductSelection} />
+            <Label htmlFor="skipProducts" className="text-sm">
+              Skip product selection for now (can be done later)
+            </Label>
+          </div>
+
+          {!skipProductSelection ? (
+            <div className="p-4 bg-green-50 rounded-lg">
+              <p className="text-sm text-green-800">
+                ✓ Product selection will be completed during booking confirmation. You can proceed with the booking.
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 bg-yellow-50 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                ⏳ Product selection will be done later. Booking status will be "Selection Pending" until products are
+                chosen.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Booking Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Booking Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>Event Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !eventDate && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {eventDate ? format(eventDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={eventDate} onSelect={setEventDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Label>Delivery Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !deliveryDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deliveryDate ? format(deliveryDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={deliveryDate} onSelect={setDeliveryDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Label>Pickup Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !pickupDate && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {pickupDate ? format(pickupDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={pickupDate} onSelect={setPickupDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {eventDate && (
+            <div className="flex justify-center">
+              <InventoryAvailabilityPopup
+                packageId={selectedPackage}
+                variantId={selectedVariant}
+                eventDate={eventDate}
+                deliveryDate={deliveryDate}
+                returnDate={pickupDate}
+              >
+                <Button variant="outline" type="button" className="flex items-center gap-2 bg-transparent">
+                  <Package className="h-4 w-4" />
+                  Check Inventory Availability
+                </Button>
+              </InventoryAvailabilityPopup>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="staff">Assigned Staff</Label>
+            <Select value={assignedStaff} onValueChange={setAssignedStaff}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select staff member" />
+              </SelectTrigger>
+              <SelectContent>
+                {staff.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.name} - {member.role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {currentUser && (
+              <p className="text-xs text-gray-500 mt-1">Current user ({currentUser.name}) is pre-selected</p>
+            )}
+          </div>
+
+          <div>
+            <Label>Payment Status</Label>
+            <RadioGroup
+              value={paymentStatus}
+              onValueChange={(value) => setPaymentStatus(value as "pending" | "partial" | "paid")}
+              className="flex space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="pending" id="pending" />
+                <Label htmlFor="pending">Payment Pending</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="partial" id="partial" />
+                <Label htmlFor="partial">Advance Paid</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="paid" id="paid" />
+                <Label htmlFor="paid">Fully Paid</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {paymentStatus === "partial" && (
+            <div>
+              <Label htmlFor="advance">Advance Amount</Label>
+              <Input
+                id="advance"
+                type="number"
+                value={advanceAmount}
+                onChange={(e) => setAdvanceAmount(Number(e.target.value))}
+                placeholder="Enter advance amount"
+              />
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any special instructions or notes..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+              <div className="space-y-1">
+                {selectedPackageData && (
+                  <div className="flex justify-between text-sm">
+                    <span>Package ({selectedPackageData.name}):</span>
+                    <span>₹{selectedPackageData.base_price.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedVariantData && (
+                  <div className="flex justify-between text-sm">
+                    <span>Variant ({selectedVariantData.name}):</span>
+                    <span>+₹{selectedVariantData.base_price.toLocaleString()}</span>
+                  </div>
+                )}
+                {distancePricingAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Distance Charges:</span>
+                    <span>+₹{distancePricingAmount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-between items-center text-lg font-bold p-4 bg-green-50 rounded-lg">
+              <span>Total Booking Amount:</span>
+              <span className="text-green-600">₹{calculateTotal().toLocaleString()}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex space-x-4">
+        <Button type="submit" className="flex-1">
+          <Save className="h-4 w-4 mr-2" />
+          Create Booking
+        </Button>
+      </div>
+    </form>
+  )
+}

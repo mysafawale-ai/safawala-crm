@@ -1,0 +1,438 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { supabaseServer, getDefaultFranchiseId } from "@/lib/supabase-server-simple"
+import { ApiResponseBuilder } from "@/lib/api-response"
+import AuditLogger from "@/lib/audit-logger"
+import { requireAuth, AuthMiddleware } from "@/lib/auth-middleware"
+import { logService } from "@/lib/log-service"
+
+export async function GET(request: NextRequest) {
+  const requestId = logService.generateRequestId();
+  const startTime = Date.now();
+  
+  try {
+    const requestContext = logService.extractRequestContext(request);
+    
+    // Authentication check
+    const authResult = await requireAuth(request, 'viewer');
+    if (!authResult.success) {
+      await logService.logWarn(requestId, 'Unauthorized access to customers list', {
+        ...requestContext,
+        responseStatus: 401,
+        dbLatencyMs: Date.now() - startTime,
+      });
+      return NextResponse.json(authResult.response, { status: 401 });
+    }
+    const { authContext } = authResult;
+
+    const defaultFranchiseId = await getDefaultFranchiseId()
+
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get("search")
+    const franchise_id = searchParams.get("franchise_id") || authContext?.user?.franchise_id
+    const include_staff = searchParams.get("include_staff") === "true"
+    const include_notes = searchParams.get("include_notes") === "true"
+    const status = searchParams.get("status")
+    const limit = parseInt(searchParams.get("limit") || "50")
+    const page = parseInt(searchParams.get("page") || "1")
+    const offset = (page - 1) * limit
+
+    if (search && (search.includes("'") || search.includes(";") || search.includes("--") || search.includes("DROP"))) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Invalid search parameter contains forbidden characters", "search"),
+        { status: 400 },
+      )
+    }
+
+    // Build the query with proper franchise filtering
+    let query = supabaseServer.from("customers").select(`
+      *,
+      franchise:franchises(id, name, code)
+      ${include_staff ? `, staff_assignments:customer_staff_assignments(
+        id, role, 
+        staff:users(id, email, name, role)
+      )` : ''}
+      ${include_notes ? `, notes:customer_notes(
+        id, note, created_at, 
+        created_by:users(id, email, name)
+      )` : ''}
+    `, { count: 'exact' })
+
+    const userFranchiseId = franchise_id || defaultFranchiseId || authContext?.user?.franchise_id
+    if (userFranchiseId) {
+      // Check if user can access the requested franchise
+      if (!AuthMiddleware.canAccessFranchise(authContext!.user, userFranchiseId)) {
+        await logService.logWarn(requestId, 'Franchise access denied', {
+          ...requestContext,
+          userId: authContext!.user.id,
+          userRole: authContext!.user.role,
+          franchiseId: userFranchiseId,
+          responseStatus: 403,
+          dbLatencyMs: Date.now() - startTime,
+        });
+        return NextResponse.json(
+          ApiResponseBuilder.validationError("Access denied to this franchise", "franchise_id"),
+          { status: 403 }
+        );
+      }
+      query = query.eq("franchise_id", userFranchiseId)
+    }
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,customer_code.ilike.%${search}%`)
+    }
+    
+    if (status) {
+      query = query.eq("status", status.toLowerCase())
+    }
+
+    // Pagination and ordering
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      return NextResponse.json(ApiResponseBuilder.serverError("Failed to fetch customers", error.message), {
+        status: 500,
+      })
+    }
+    // Some deployments use a single `name` column on `users` instead of `first_name`/`last_name`.
+    // Normalize the related user objects (staff_assignments.staff and notes.created_by) so
+    // the frontend can safely read `first_name`/`last_name`.
+    let processed = data
+    try {
+      if (Array.isArray(processed)) {
+        processed = processed.map((cust: any) => {
+          // Normalize staff assignments
+          if (Array.isArray(cust.staff_assignments)) {
+            cust.staff_assignments = cust.staff_assignments.map((assignment: any) => {
+              const staff = assignment.staff
+              if (staff && !staff.first_name && staff.name && typeof staff.name === 'string') {
+                const parts = staff.name.trim().split(/\s+/)
+                staff.first_name = parts.shift() || ''
+                staff.last_name = parts.join(' ') || ''
+              }
+              return assignment
+            })
+          }
+
+          // Normalize notes created_by
+          if (Array.isArray(cust.notes)) {
+            cust.notes = cust.notes.map((note: any) => {
+              const cb = note.created_by
+              if (cb && !cb.first_name && cb.name && typeof cb.name === 'string') {
+                const parts = cb.name.trim().split(/\s+/)
+                cb.first_name = parts.shift() || ''
+                cb.last_name = parts.join(' ') || ''
+              }
+              return note
+            })
+          }
+
+          return cust
+        })
+      }
+    } catch (normalizeErr) {
+      // If normalization fails, log a warning but still return the raw data to avoid breaking the API.
+      console.warn('[v0] customers normalization warning:', normalizeErr)
+    }
+
+    await logService.logInfo(requestId, 'Customers list retrieved successfully', {
+      ...requestContext,
+      userId: authContext!.user.id,
+      userRole: authContext!.user.role,
+      franchiseId: userFranchiseId || undefined,
+      responseStatus: 200,
+      dbLatencyMs: Date.now() - startTime,
+    });
+
+    return NextResponse.json(
+      ApiResponseBuilder.success({ 
+        customers: processed, 
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil((count || 0) / limit)
+      }, "Customers fetched successfully"),
+      { status: 200 },
+    )
+  } catch (error) {
+    await logService.logError(requestId, error as Error, {
+      ...logService.extractRequestContext(request),
+      responseStatus: 500,
+      dbLatencyMs: Date.now() - startTime,
+    });
+    console.error("[v0] Customer GET error:", error)
+    return NextResponse.json(ApiResponseBuilder.serverError(), { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const requestId = logService.generateRequestId();
+  const startTime = Date.now();
+  
+  try {
+    const requestContext = logService.extractRequestContext(request);
+    
+    // Authentication check
+    const authResult = await requireAuth(request, 'staff');
+    if (!authResult.success) {
+      await logService.logWarn(requestId, 'Unauthorized customer creation attempt', {
+        ...requestContext,
+        responseStatus: 401,
+        dbLatencyMs: Date.now() - startTime,
+      });
+      return NextResponse.json(authResult.response, { status: 401 });
+    }
+    const { authContext } = authResult;
+
+    const defaultFranchiseId = await getDefaultFranchiseId()
+
+    const body = await request.json()
+    const { 
+      name, email, phone, whatsapp, 
+      address, city, state, pincode, 
+      franchise_id, assigned_staff_id, status 
+    } = body
+
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Name is required and must be a non-empty string", "name"),
+        { status: 400 },
+      )
+    }
+
+    if (!phone || typeof phone !== "string" || phone.trim().length < 10) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Phone number is required and must be at least 10 digits", "phone"),
+        { status: 400 },
+      )
+    }
+
+    if (!pincode || typeof pincode !== "string" || !/^\d{6}$/.test(pincode.trim())) {
+      return NextResponse.json(ApiResponseBuilder.validationError("Valid 6-digit pincode is required", "pincode"), {
+        status: 400,
+      })
+    }
+
+    const finalFranchiseId = franchise_id || defaultFranchiseId
+    if (!finalFranchiseId) {
+      return NextResponse.json(ApiResponseBuilder.validationError("Franchise ID is required", "franchise_id"), {
+        status: 400,
+      })
+    }
+    
+    // Validate assigned staff if provided
+    if (assigned_staff_id) {
+      const { data: staff, error: staffError } = await supabaseServer
+        .from("users")
+        .select("id, franchise_id")
+        .eq("id", assigned_staff_id)
+        .eq("is_active", true)
+        .single()
+
+      if (staffError || !staff) {
+        return NextResponse.json(ApiResponseBuilder.validationError("Invalid staff ID", "assigned_staff_id"), {
+          status: 400,
+        })
+      }
+
+      // Staff must belong to the same franchise
+      if (staff.franchise_id !== finalFranchiseId) {
+        return NextResponse.json(
+          ApiResponseBuilder.validationError("Staff must belong to the same franchise", "assigned_staff_id"),
+          { status: 400 }
+        )
+      }
+    }
+
+    // Check if user can access the target franchise
+    if (!AuthMiddleware.canAccessFranchise(authContext!.user, finalFranchiseId)) {
+      await logService.logWarn(requestId, 'Franchise access denied for customer creation', {
+        ...requestContext,
+        userId: authContext!.user.id,
+        userRole: authContext!.user.role,
+        franchiseId: finalFranchiseId,
+        responseStatus: 403,
+        dbLatencyMs: Date.now() - startTime,
+      });
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Access denied to this franchise", "franchise_id"),
+        { status: 403 }
+      );
+    }
+
+    if (email && (typeof email !== "string" || !email.includes("@") || email.length < 5)) {
+      return NextResponse.json(ApiResponseBuilder.validationError("Invalid email format", "email"), { status: 400 })
+    }
+
+    const { data: franchise, error: franchiseError } = await supabaseServer
+      .from("franchises")
+      .select("id")
+      .eq("id", finalFranchiseId)
+      .single()
+
+    if (franchiseError || !franchise) {
+      return NextResponse.json(ApiResponseBuilder.validationError("Invalid franchise ID", "franchise_id"), {
+        status: 400,
+      })
+    }
+
+    const { data: existingByPhone } = await supabaseServer
+      .from("customers")
+      .select("id, name")
+      .eq("phone", phone.trim())
+      .single()
+
+    if (existingByPhone) {
+      return NextResponse.json(
+        ApiResponseBuilder.conflictError(`Customer with phone ${phone} already exists: ${existingByPhone.name}`),
+        { status: 409 },
+      )
+    }
+
+    if (email) {
+      const { data: existingByEmail } = await supabaseServer
+        .from("customers")
+        .select("id, name")
+        .eq("email", email.trim())
+        .single()
+
+      if (existingByEmail) {
+        return NextResponse.json(
+          ApiResponseBuilder.conflictError(`Customer with email ${email} already exists: ${existingByEmail.name}`),
+          { status: 409 },
+        )
+      }
+    }
+
+    const fieldsToCheck = [name, email, address, city, state].filter(Boolean)
+    const xssPatterns = [/<script/i, /javascript:/i, /onerror/i, /onload/i, /onclick/i]
+
+    if (
+      fieldsToCheck.some(
+        (field) =>
+          xssPatterns.some((pattern) => pattern.test(field)) ||
+          field.includes(";") ||
+          field.includes("|") ||
+          field.includes("&"),
+      )
+    ) {
+      return NextResponse.json(ApiResponseBuilder.validationError("Invalid characters detected in input"), {
+        status: 400,
+      })
+    }
+
+    const sanitizedData = {
+      name: name.replace(/<[^>]*>/g, "").trim(),
+      email: email ? email.replace(/<[^>]*>/g, "").trim() : null,
+      phone: phone.replace(/<[^>]*>/g, "").trim(),
+      whatsapp: whatsapp ? whatsapp.replace(/<[^>]*>/g, "").trim() : null,
+      address: address ? address.replace(/<[^>]*>/g, "").trim() : null,
+      city: city ? city.replace(/<[^>]*>/g, "").trim() : null,
+      state: state ? state.replace(/<[^>]*>/g, "").trim() : null,
+      pincode: pincode.replace(/<[^>]*>/g, "").trim(),
+      franchise_id: finalFranchiseId,
+      assigned_staff_id: assigned_staff_id || null,
+      status: status ? status.toLowerCase() : 'active',
+    }
+
+    const { data: customerCode, error: codeError } = await supabaseServer.rpc("generate_customer_code")
+    if (codeError) {
+      return NextResponse.json(ApiResponseBuilder.serverError("Failed to generate customer code", codeError.message), {
+        status: 500,
+      })
+    }
+
+    const { data: customer, error: createError } = await supabaseServer
+      .from("customers")
+      .insert({
+        customer_code: customerCode,
+        ...sanitizedData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select(`
+        *,
+        franchise:franchises(id, name, code)
+      `)
+      .single()
+
+    if (createError) {
+      console.error("[v0] Customer creation error:", createError)
+      return NextResponse.json(ApiResponseBuilder.serverError("Failed to create customer", createError.message), {
+        status: 500,
+      })
+    }
+
+    // If staff is assigned, create a staff assignment record
+    if (assigned_staff_id) {
+      const { error: assignmentError } = await supabaseServer
+        .from("customer_staff_assignments")
+        .insert({
+          customer_id: customer.id,
+          staff_id: assigned_staff_id,
+          role: 'primary',
+          assigned_at: new Date().toISOString(),
+        })
+      
+      if (assignmentError) {
+        console.warn("[v0] Failed to create staff assignment:", assignmentError)
+        // We don't fail the whole operation for this
+      }
+    }
+
+    // Create initial activity log
+    try {
+      await supabaseServer
+        .from("customer_activity_logs")
+        .insert({
+          customer_id: customer.id,
+          user_id: authContext!.user.id,
+          activity_type: 'CREATE',
+          description: 'Customer created',
+        });
+    } catch (err) {
+      console.warn("[v0] Failed to create activity log:", err)
+      // Non-critical error, don't fail the operation
+    }
+
+    // Log the customer creation for audit trail
+    try {
+      const auditContext = AuthMiddleware.extractAuditContext(authContext || null, request);
+      await AuditLogger.logCreate(
+        'customers',
+        customer.id,
+        customer,
+        {
+          userId: auditContext.userId,
+          userEmail: auditContext.userEmail,
+          ipAddress: auditContext.ipAddress,
+          userAgent: auditContext.userAgent,
+          sessionId: auditContext.sessionId || undefined
+        }
+      );
+    } catch (auditError) {
+      console.error('Audit logging failed for customer creation:', auditError);
+      // Don't fail the main operation due to audit logging issues
+    }
+
+    await logService.logInfo(requestId, 'Customer created successfully', {
+      ...requestContext,
+      userId: authContext!.user.id,
+      userRole: authContext!.user.role,
+      franchiseId: finalFranchiseId,
+      responseStatus: 201,
+      dbLatencyMs: Date.now() - startTime,
+    });
+
+    return NextResponse.json(ApiResponseBuilder.success(customer, "Customer created successfully"), { status: 201 })
+  } catch (error) {
+    await logService.logError(requestId, error as Error, {
+      ...logService.extractRequestContext(request),
+      responseStatus: 500,
+      dbLatencyMs: Date.now() - startTime,
+    });
+    console.error("[v0] Customer API error:", error)
+    return NextResponse.json(ApiResponseBuilder.serverError(), { status: 500 })
+  }
+}

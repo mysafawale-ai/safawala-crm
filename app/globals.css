@@ -1,0 +1,617 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@theme {
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-playfair);
+  --font-crimson: "Crimson Text";
+  --font-dancing: "Dancing Script";
+  --font-cinzel: "Cinzel";
+
+  /* Updated to use lighter cream variants throughout */
+  --heritage-cream: #fefaf6;
+  --heritage-cream-light: #fcf7f0;
+  --heritage-cream-medium: #f9f2e8;
+  --heritage-cream-dark: #f6e1c3;
+  --heritage-accent: #102516;
+  --heritage-accent-light: #1a3a26;
+}
+
+@layer base {
+  :root {
+    /* Adding missing CSS custom properties for popover components */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply text-foreground;
+    /* Lighter cream background with subtle patterns */
+    background: #fefaf6;
+    background-image: radial-gradient(circle at 20% 20%, rgba(16, 37, 22, 0.02) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(249, 242, 232, 0.4) 0%, transparent 50%),
+      repeating-linear-gradient(45deg, transparent 0px, rgba(16, 37, 22, 0.01) 1px, transparent 2px, transparent 20px);
+    background-size: 100% 100%, 100% 100%, 30px 30px;
+    color: #102516;
+  }
+}
+
+@layer components {
+  /* Buttons using dark green accent color */
+  .btn-primary,
+  .btn-secondary,
+  .btn-dark,
+  .btn-maroon,
+  .btn-heritage-dark {
+    @apply text-white shadow-lg transition-all duration-300 relative overflow-hidden;
+    background: linear-gradient(135deg, #102516 0%, #1a3a26 100%);
+    border: 1px solid rgba(16, 37, 22, 0.5);
+    font-family: var(--font-cinzel), serif;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(16, 37, 22, 0.3);
+    color: #fefaf6;
+  }
+
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .btn-dark:hover,
+  .btn-maroon:hover,
+  .btn-heritage-dark:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 37, 22, 0.4);
+    background: linear-gradient(135deg, #1a3a26 0%, #102516 100%);
+  }
+
+  /* Cards using lighter cream variants for softer appearance */
+  .card-heritage,
+  .card-heritage-light,
+  .card-cream {
+    @apply rounded-2xl shadow-lg relative overflow-hidden;
+    background: linear-gradient(145deg, #fcf7f0 0%, #f9f2e8 100%);
+    border: 1px solid rgba(16, 37, 22, 0.08);
+    box-shadow: 0 8px 25px rgba(16, 37, 22, 0.08);
+    color: #102516;
+  }
+
+  .card-heritage::before,
+  .card-heritage-light::before,
+  .card-cream::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #102516, #1a3a26, #102516);
+    opacity: 0.8;
+  }
+
+  /* Containers using lighter cream variants */
+  .heritage-container,
+  .heritage-container-light,
+  .heritage-container-cream {
+    @apply relative;
+    background: linear-gradient(145deg, #fcf7f0 0%, #f9f2e8 100%);
+    border: 1px solid rgba(16, 37, 22, 0.08);
+    box-shadow: 0 4px 15px rgba(16, 37, 22, 0.06);
+    color: #102516;
+  }
+
+  /* Inputs using lightest cream variant */
+  .input-heritage,
+  .input-heritage-light,
+  .input-cream {
+    background: rgba(254, 250, 246, 0.95);
+    border: 1px solid rgba(16, 37, 22, 0.15);
+    color: #102516;
+    transition: all 0.3s ease;
+    font-family: var(--font-crimson), serif;
+    box-shadow: inset 0 1px 3px rgba(16, 37, 22, 0.03);
+  }
+
+  .input-heritage:focus,
+  .input-heritage-light:focus,
+  .input-cream:focus {
+    border-color: #102516;
+    box-shadow: 0 0 0 2px rgba(16, 37, 22, 0.15);
+    background: #fcf7f0;
+  }
+
+  .input-heritage::placeholder,
+  .input-heritage-light::placeholder,
+  .input-cream::placeholder {
+    color: rgba(16, 37, 22, 0.5);
+  }
+
+  /* Typography using dark green accent */
+  .headline-royal,
+  .vintage-title {
+    font-family: var(--font-playfair), serif;
+    font-weight: 700;
+    color: #102516;
+    text-shadow: 0 2px 4px rgba(16, 37, 22, 0.1);
+  }
+
+  .subheadline-vintage,
+  .vintage-subtitle,
+  .vintage-heading,
+  .text-ornamental {
+    font-family: var(--font-crimson), serif;
+    color: #102516;
+  }
+
+  /* Sidebar using lighter cream variants */
+  .heritage-sidebar {
+    background: linear-gradient(180deg, #fefaf6 0%, #fcf7f0 100%);
+    border-right: 2px solid #102516;
+    box-shadow: 4px 0 20px rgba(16, 37, 22, 0.12);
+    position: relative;
+  }
+
+  .heritage-sidebar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: radial-gradient(circle at 30% 30%, rgba(16, 37, 22, 0.02) 0%, transparent 50%),
+      repeating-linear-gradient(45deg, transparent 0px, rgba(16, 37, 22, 0.008) 1px, transparent 2px, transparent 25px);
+    pointer-events: none;
+  }
+
+  .heritage-sidebar-item {
+    background: rgba(254, 250, 246, 0.9);
+    border: 1px solid rgba(16, 37, 22, 0.08);
+    transition: all 0.3s ease;
+    color: #102516;
+    font-family: var(--font-crimson), serif;
+    font-weight: 500;
+  }
+
+  .heritage-sidebar-item:hover {
+    background: linear-gradient(135deg, #fcf7f0 0%, #f9f2e8 100%);
+    color: #102516;
+    transform: translateX(4px);
+    box-shadow: 0 4px 15px rgba(249, 242, 232, 0.4);
+  }
+
+  .heritage-sidebar-item[data-active="true"] {
+    background: linear-gradient(135deg, #f6e1c3 0%, #f9f2e8 100%);
+    color: #102516;
+    box-shadow: 0 4px 15px rgba(246, 225, 195, 0.3);
+    font-weight: 600;
+  }
+
+  /* Dashboard cards using lighter cream variants */
+  .dashboard-card-heritage {
+    background: linear-gradient(145deg, #fcf7f0 0%, #f9f2e8 100%);
+    border: 1px solid rgba(16, 37, 22, 0.08);
+    box-shadow: 0 8px 25px rgba(16, 37, 22, 0.08);
+    color: #102516;
+  }
+
+  /* Crown ornament with heritage green color */
+  .crown-ornament::before {
+    content: "♔";
+    display: block;
+    font-size: 2rem;
+    color: #102516;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(16, 37, 22, 0.3);
+    animation: crown-glow 3s ease-in-out infinite alternate;
+  }
+
+  @keyframes crown-glow {
+    0% {
+      text-shadow: 0 2px 4px rgba(16, 37, 22, 0.3);
+    }
+    100% {
+      text-shadow: 0 2px 8px rgba(16, 37, 22, 0.5);
+    }
+  }
+
+  /* Traditional Indian heritage design elements */
+
+  /* Mughal Jaali work for borders */
+  .jaali-border {
+    position: relative;
+    border: 2px solid #102516;
+  }
+
+  .jaali-border::before {
+    content: "";
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background-image: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 8px,
+        rgba(16, 37, 22, 0.3) 8px,
+        rgba(16, 37, 22, 0.3) 10px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent 0px,
+        transparent 8px,
+        rgba(16, 37, 22, 0.3) 8px,
+        rgba(16, 37, 22, 0.3) 10px
+      );
+    background-size: 20px 20px;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  .jaali-border::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
+    background-image: radial-gradient(circle at center, rgba(16, 37, 22, 0.1) 1px, transparent 1px);
+    background-size: 12px 12px;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Rajasthani mandalas for section dividers */
+  .mandala-divider {
+    position: relative;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2rem 0;
+  }
+
+  .mandala-divider::before {
+    content: "❋";
+    font-size: 2.5rem;
+    color: #102516;
+    text-shadow: 0 2px 4px rgba(16, 37, 22, 0.3);
+    animation: mandala-rotate 20s linear infinite;
+  }
+
+  .mandala-divider::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, #102516 20%, #102516 80%, transparent 100%);
+    z-index: -1;
+  }
+
+  @keyframes mandala-rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Banarasi weave textures for background overlays */
+  .banarasi-overlay {
+    position: relative;
+  }
+
+  .banarasi-overlay::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: repeating-linear-gradient(
+        45deg,
+        transparent 0px,
+        rgba(16, 37, 22, 0.05) 1px,
+        transparent 2px,
+        transparent 8px
+      ),
+      repeating-linear-gradient(-45deg, transparent 0px, rgba(122, 91, 78, 0.05) 1px, transparent 2px, transparent 12px),
+      radial-gradient(circle at 25% 25%, rgba(16, 37, 22, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(122, 91, 78, 0.03) 0%, transparent 50%);
+    background-size: 16px 16px, 24px 24px, 40px 40px, 40px 40px;
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  /* Peacock motifs for icons and CTAs */
+  .peacock-icon {
+    position: relative;
+    display: inline-block;
+  }
+
+  .peacock-icon::before {
+    content: "🦚";
+    font-size: 1.2em;
+    filter: hue-rotate(180deg) saturate(0.8);
+  }
+
+  .peacock-cta {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .peacock-cta::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(16, 37, 22, 0.1) 0%, transparent 70%);
+    transform: scale(0);
+    transition: transform 0.6s ease;
+  }
+
+  .peacock-cta:hover::before {
+    transform: scale(1);
+  }
+
+  /* Lotus motifs for decorative elements */
+  .lotus-ornament {
+    position: relative;
+    display: inline-block;
+  }
+
+  .lotus-ornament::before {
+    content: "🪷";
+    font-size: 1.5em;
+    color: #102516;
+    text-shadow: 0 2px 4px rgba(16, 37, 22, 0.2);
+    animation: lotus-bloom 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes lotus-bloom {
+    0% {
+      transform: scale(1) rotate(0deg);
+    }
+    100% {
+      transform: scale(1.1) rotate(5deg);
+    }
+  }
+
+  /* Enhanced heritage containers with traditional patterns */
+  .heritage-container-ornate {
+    @apply heritage-container banarasi-overlay jaali-border;
+    padding: 2rem;
+    border-radius: 1rem;
+  }
+
+  .heritage-card-ornate {
+    @apply card-heritage banarasi-overlay;
+    position: relative;
+  }
+
+  .heritage-card-ornate::after {
+    content: "";
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 30px;
+    height: 30px;
+    background: radial-gradient(circle, rgba(16, 37, 22, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  /* Traditional section headers with ornamental elements */
+  .heritage-section-header {
+    position: relative;
+    text-align: center;
+    padding: 2rem 0;
+  }
+
+  .heritage-section-header::before {
+    content: "❋ ❋ ❋";
+    display: block;
+    font-size: 1.2rem;
+    color: #102516;
+    margin-bottom: 1rem;
+    letter-spacing: 1rem;
+    opacity: 0.7;
+  }
+
+  .heritage-section-header::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #102516 50%, transparent 100%);
+  }
+
+  /* Enhanced buttons with traditional motifs */
+  .btn-heritage-ornate {
+    @apply peacock-cta;
+    position: relative;
+    padding: 0.75rem 2rem;
+    border-radius: 0.75rem;
+    background: linear-gradient(135deg, #102516 0%, #1a3a26 100%);
+    border: 1px solid rgba(16, 37, 22, 0.5);
+    color: #fefaf6;
+    font-family: var(--font-cinzel), serif;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(16, 37, 22, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .btn-heritage-ornate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 37, 22, 0.4);
+    background: linear-gradient(135deg, #1a3a26 0%, #102516 100%);
+  }
+
+  /* Small elements using dark green accent color */
+  .heritage-accent-element,
+  .small-element-heritage {
+    background-color: #102516;
+    color: #fefaf6;
+    border: 1px solid #1a3a26;
+  }
+
+  .heritage-accent-border {
+    border-color: #102516;
+  }
+
+  .heritage-accent-text {
+    color: #102516;
+  }
+}
+
+@layer utilities {
+  /* Simplified color utilities using unified palette */
+  .text-heritage-accent {
+    color: #102516;
+  }
+  .text-heritage-brown {
+    color: #7a5b4e;
+  }
+  .text-heritage-brown-light {
+    color: #a08073;
+  }
+  .text-heritage-brown-lighter {
+    color: #c4a898;
+  }
+  .text-heritage-brown-lightest {
+    color: #e8ddd6;
+  }
+
+  .bg-heritage-accent {
+    background-color: #102516;
+  }
+  .bg-heritage-brown {
+    background-color: #7a5b4e;
+  }
+  .bg-heritage-brown-light {
+    background-color: #a08073;
+  }
+  .bg-heritage-brown-lighter {
+    background-color: #c4a898;
+  }
+  .bg-heritage-brown-lightest {
+    background-color: #e8ddd6;
+  }
+
+  .border-heritage-accent {
+    border-color: #102516;
+  }
+  .border-heritage-brown {
+    border-color: #7a5b4e;
+  }
+  .border-heritage-brown-light {
+    border-color: #a08073;
+  }
+
+  /* Updated color utilities using lighter cream variants */
+  .text-heritage-cream {
+    color: #fefaf6;
+  }
+  .text-heritage-cream-light {
+    color: #fcf7f0;
+  }
+  .text-heritage-cream-medium {
+    color: #f9f2e8;
+  }
+  .text-heritage-cream-dark {
+    color: #f6e1c3;
+  }
+
+  .bg-heritage-cream {
+    background-color: #fefaf6;
+  }
+  .bg-heritage-cream-light {
+    background-color: #fcf7f0;
+  }
+  .bg-heritage-cream-medium {
+    background-color: #f9f2e8;
+  }
+  .bg-heritage-cream-dark {
+    background-color: #f6e1c3;
+  }
+
+  .border-heritage-cream {
+    border-color: #fefaf6;
+  }
+  .border-heritage-cream-light {
+    border-color: #fcf7f0;
+  }
+  .border-heritage-cream-medium {
+    border-color: #f9f2e8;
+  }
+  .border-heritage-cream-dark {
+    border-color: #f6e1c3;
+  }
+}

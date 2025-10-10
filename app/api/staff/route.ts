@@ -1,0 +1,233 @@
+import { NextRequest, NextResponse } from "next/server"
+import { supabase } from "@/lib/supabase"
+
+// Simple password encoding function (not for production use)
+function encodePassword(password: string): string {
+  return `encoded_${password}_${Date.now()}`
+}
+
+/**
+ * Get user session from cookie and validate franchise access
+ */
+async function getUserFromSession(request: NextRequest) {
+  try {
+    const cookieHeader = request.cookies.get("safawala_session")
+    if (!cookieHeader?.value) {
+      throw new Error("No session found")
+    }
+    
+    const sessionData = JSON.parse(cookieHeader.value)
+    if (!sessionData.id) {
+      throw new Error("Invalid session")
+    }
+
+    // Use service role to fetch user details
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, franchise_id, role")
+      .eq("id", sessionData.id)
+      .eq("is_active", true)
+      .single()
+
+    if (error || !user) {
+      throw new Error("User not found")
+    }
+
+    return {
+      userId: user.id,
+      franchiseId: user.franchise_id,
+      role: user.role,
+      isSuperAdmin: user.role === "super_admin"
+    }
+  } catch (error) {
+    throw new Error("Authentication required")
+  }
+}
+
+/**
+ * GET /api/staff
+ * Fetch all staff members with optional filtering (franchise-isolated)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // 🔒 SECURITY: Authenticate user and get franchise context
+    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const searchParams = request.nextUrl.searchParams
+    const role = searchParams.get("role")
+    const search = searchParams.get("search")
+    
+    // Start building the query
+    let query = supabase
+      .from("users")
+      .select(`
+        *,
+        franchise:franchises(name, code)
+      `)
+      .order("created_at", { ascending: false })
+    
+    // 🔒 FRANCHISE ISOLATION: Super admin sees all, others see only their franchise
+    if (!isSuperAdmin && franchiseId) {
+      query = query.eq("franchise_id", franchiseId)
+    }
+    
+    // Apply filters if they exist
+    if (role && role !== "all") {
+      query = query.eq("role", role)
+    }
+    
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`)
+    }
+    
+    const { data, error } = await query
+    
+    if (error) {
+      console.error("Error fetching staff:", error)
+      return NextResponse.json({ error: "Failed to fetch staff members" }, { status: 500 })
+    }
+    
+    return NextResponse.json({ staff: data })
+  } catch (error) {
+    console.error("Error in staff GET route:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/**
+ * POST /api/staff
+ * Create a new staff member (franchise-isolated)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // 🔒 SECURITY: Authenticate user and get franchise context
+    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { name, email, password, role, permissions, is_active = true } = body
+    
+    // 🔒 FRANCHISE ISOLATION: Auto-assign franchise_id from session (super admin can override)
+    const staffFranchiseId = isSuperAdmin && body.franchise_id 
+      ? body.franchise_id 
+      : franchiseId
+    
+    // Basic validation
+    if (!name || !email || !password || !role) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
+    }
+    
+    // Encode the password
+    const password_hash = encodePassword(password)
+    
+    // Check if email already exists
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("email")
+      .eq("email", email)
+      .single()
+    
+    if (existingUser) {
+      return NextResponse.json({ error: "Email already exists" }, { status: 409 })
+    }
+    
+    // Insert new user
+    const { data, error } = await supabase
+      .from("users")
+      .insert([{
+        name,
+        email,
+        password_hash,
+        role,
+        franchise_id: staffFranchiseId,
+        permissions,
+        is_active
+      }])
+      .select(`
+        *,
+        franchise:franchises(name, code)
+      `)
+      .single()
+    
+    if (error) {
+      console.error("Error creating staff member:", error)
+      return NextResponse.json({ error: "Failed to create staff member" }, { status: 500 })
+    }
+    
+    return NextResponse.json({ 
+      message: "Staff member created successfully", 
+      user: data 
+    }, { status: 201 })
+  } catch (error) {
+    console.error("Error in staff POST route:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/**
+ * PUT /api/staff
+ * Update multiple staff members (batch update)
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { users } = body
+    
+    if (!Array.isArray(users) || users.length === 0) {
+      return NextResponse.json({ error: "Invalid user data" }, { status: 400 })
+    }
+    
+    const results = []
+    
+    // Process each user update
+    for (const user of users) {
+      const { id, ...updateData } = user
+      
+      if (!id) {
+        results.push({ success: false, error: "Missing user ID", user })
+        continue
+      }
+      
+      // Remove password if empty
+      if (updateData.password === '') {
+        delete updateData.password
+      }
+      
+      // Encode password if provided
+      if (updateData.password) {
+        updateData.password_hash = encodePassword(updateData.password)
+        delete updateData.password
+      }
+      
+      const { data, error } = await supabase
+        .from("users")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+      
+      if (error) {
+        results.push({ success: false, error: error.message, id })
+      } else {
+        results.push({ success: true, user: data[0], id })
+      }
+    }
+    
+    return NextResponse.json({ results })
+  } catch (error) {
+    console.error("Error in staff PUT route:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
