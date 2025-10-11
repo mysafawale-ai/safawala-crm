@@ -162,8 +162,19 @@ export default function CustomerDetailPage() {
       const response = await fetch(`/api/customers/${customerId}`, { method: "DELETE" })
       
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to delete customer")
+        let errorMessage = "Failed to delete customer"
+        try {
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            errorMessage = `Server error: ${response.status} ${response.statusText}`
+          }
+        } catch (parseError) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+        throw new Error(errorMessage)
       }
 
       toast({
