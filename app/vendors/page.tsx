@@ -106,29 +106,32 @@ export default function VendorsPage() {
 
   const loadVendors = async () => {
     try {
-      console.log("[v0] Starting to fetch vendors from Supabase...")
+      console.log("[Vendors] Starting to fetch vendors from API...")
 
-      const { data, error } = await supabase
-        .from("vendors")
-        .select(`
-          *,
-          created_at,
-          updated_at
-        `)
-        .order("created_at", { ascending: false })
+      const response = await fetch(`/api/vendors?status=${statusFilter}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
 
-      if (error) {
-        console.error("[v0] Error fetching vendors:", error)
-        throw error
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to fetch vendors" }))
+        throw new Error(errorData.error || `Server error: ${response.status}`)
       }
 
-      console.log("[v0] Vendors fetched successfully:", data?.length || 0, "records")
-      console.log("[v0] Vendor details:", data)
+      const result = await response.json()
+      console.log("[Vendors] Vendors fetched successfully:", result.vendors?.length || 0, "records")
 
-      setVendors(data || [])
-    } catch (error) {
-      console.error("Error loading vendors:", error)
-      toast.error("Failed to load vendors")
+      setVendors(result.vendors || [])
+      
+      if (result.warning) {
+        console.warn("[Vendors]", result.warning)
+      }
+    } catch (error: any) {
+      console.error("[Vendors] Error loading vendors:", error)
+      toast.error(error.message || "Failed to load vendors")
     } finally {
       setLoading(false)
     }
@@ -206,12 +209,30 @@ export default function VendorsPage() {
         address: newVendor.address,
         pricing_per_item: newVendor.pricing_per_item,
         notes: newVendor.notes,
-        is_active: true,
       }
 
-      const { error } = await supabase.from("vendors").insert([vendorData])
+      console.log("[Vendors] Creating vendor:", vendorData)
 
-      if (error) throw error
+      const response = await fetch("/api/vendors", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(vendorData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to create vendor" }))
+        throw new Error(errorData.error || `Server error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("[Vendors] Vendor created successfully:", result.vendor)
+
+      if (result.warning) {
+        console.warn("[Vendors]", result.warning)
+      }
 
       toast.success("Vendor created successfully")
       setIsVendorDialogOpen(false)
@@ -226,9 +247,9 @@ export default function VendorsPage() {
         services: [],
       })
       loadVendors()
-    } catch (error) {
-      console.error("Error creating vendor:", error)
-      toast.error("Failed to create vendor")
+    } catch (error: any) {
+      console.error("[Vendors] Error creating vendor:", error)
+      toast.error(error.message || "Failed to create vendor")
     }
   }
 
@@ -236,58 +257,113 @@ export default function VendorsPage() {
     if (!editingVendor) return
 
     try {
-      const { error } = await supabase
-        .from("vendors")
-        .update({
-          name: editingVendor.name,
-          contact_person: editingVendor.contact_person,
-          phone: editingVendor.phone,
-          email: editingVendor.email,
-          address: editingVendor.address || "", // fallback to empty string if null
-          pricing_per_item: editingVendor.pricing_per_item,
-          notes: editingVendor.notes || "", // fallback to empty string if null
-          is_active: editingVendor.is_active,
-        })
-        .eq("id", editingVendor.id)
+      const updateData = {
+        name: editingVendor.name,
+        contact_person: editingVendor.contact_person,
+        phone: editingVendor.phone,
+        email: editingVendor.email,
+        address: editingVendor.address || "",
+        pricing_per_item: editingVendor.pricing_per_item,
+        notes: editingVendor.notes || "",
+        is_active: editingVendor.is_active,
+      }
 
-      if (error) throw error
+      console.log("[Vendors] Updating vendor:", editingVendor.id, updateData)
+
+      const response = await fetch(`/api/vendors/${editingVendor.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(updateData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to update vendor" }))
+        throw new Error(errorData.error || `Server error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("[Vendors] Vendor updated successfully:", result.vendor)
+
+      if (result.warning) {
+        console.warn("[Vendors]", result.warning)
+      }
 
       toast.success("Vendor updated successfully")
       setEditingVendor(null)
       loadVendors()
-    } catch (error) {
-      console.error("Error updating vendor:", error)
-      toast.error("Failed to update vendor")
+    } catch (error: any) {
+      console.error("[Vendors] Error updating vendor:", error)
+      toast.error(error.message || "Failed to update vendor")
     }
   }
 
   const handleDeleteVendor = async (vendorId: string) => {
     try {
-      const { error } = await supabase.from("vendors").delete().eq("id", vendorId)
+      console.log("[Vendors] Deleting vendor:", vendorId)
 
-      if (error) throw error
+      const response = await fetch(`/api/vendors/${vendorId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      })
 
-      toast.success("Vendor deleted successfully")
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to delete vendor" }))
+        throw new Error(errorData.error || `Server error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("[Vendors] Vendor deleted successfully:", result.message)
+
+      if (result.warning) {
+        console.warn("[Vendors]", result.warning)
+      }
+
+      toast.success(result.message || "Vendor deleted successfully")
       setConfirmationDialog(null)
       loadVendors()
-    } catch (error) {
-      console.error("Error deleting vendor:", error)
-      toast.error("Failed to delete vendor")
+    } catch (error: any) {
+      console.error("[Vendors] Error deleting vendor:", error)
+      toast.error(error.message || "Failed to delete vendor")
     }
   }
 
   const handleDeactivateVendor = async (vendorId: string) => {
     try {
-      const { error } = await supabase.from("vendors").update({ is_active: false }).eq("id", vendorId)
+      console.log("[Vendors] Deactivating vendor:", vendorId)
 
-      if (error) throw error
+      const response = await fetch(`/api/vendors/${vendorId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ is_active: false }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to deactivate vendor" }))
+        throw new Error(errorData.error || `Server error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("[Vendors] Vendor deactivated successfully:", result.vendor)
+
+      if (result.warning) {
+        console.warn("[Vendors]", result.warning)
+      }
 
       toast.success("Vendor deactivated successfully")
       setConfirmationDialog(null)
       loadVendors()
-    } catch (error) {
-      console.error("Error deactivating vendor:", error)
-      toast.error("Failed to deactivate vendor")
+    } catch (error: any) {
+      console.error("[Vendors] Error deactivating vendor:", error)
+      toast.error(error.message || "Failed to deactivate vendor")
     }
   }
 
