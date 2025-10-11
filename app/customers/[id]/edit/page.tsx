@@ -76,16 +76,23 @@ export default function EditCustomerPage() {
           });
           
           setCustomer(data)
-          setFormData({
+          
+          const computedWhatsApp = data.whatsapp || data.phone || "";
+          console.log("🔧 Setting formData with computed WhatsApp:", computedWhatsApp);
+          
+          const newFormData = {
             name: data.name || "",
             phone: data.phone || "",
-            whatsapp: data.whatsapp || data.phone || "",  // Fix: Auto-fill WhatsApp from data or use phone
+            whatsapp: computedWhatsApp,  // Fix: Auto-fill WhatsApp from data or use phone
             email: data.email || "",
             address: data.address || "",
             city: data.city || "",
             state: data.state || "",
             pincode: data.pincode || "",
-          })
+          };
+          
+          console.log("📝 Final formData being set:", newFormData);
+          setFormData(newFormData);
         }
       } catch (error) {
         console.error("Error loading customer:", error)
@@ -98,6 +105,11 @@ export default function EditCustomerPage() {
 
     loadCustomer()
   }, [customerId, router])
+
+  // Debug: Log formData.whatsapp changes
+  useEffect(() => {
+    console.log("📱 WhatsApp field value changed:", formData.whatsapp);
+  }, [formData.whatsapp]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
