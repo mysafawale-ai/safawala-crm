@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import bcrypt from "bcryptjs"
 
-// Simple password encoding function (not for production use)
-function encodePassword(password: string): string {
-  return `encoded_${password}_${Date.now()}`
+/**
+ * Hash password using bcrypt
+ */
+async function hashPassword(password: string): Promise<string> {
+  const salt = await bcrypt.genSalt(10)
+  return bcrypt.hash(password, salt)
 }
 
 /**
@@ -141,9 +145,15 @@ export async function PATCH(
     if (permissions !== undefined) updateData.permissions = permissions
     if (is_active !== undefined) updateData.is_active = is_active
     
-    // Encode password if provided
-    if (password && password.length >= 6) {
-      updateData.password_hash = encodePassword(password)
+    // Hash password if provided (with validation)
+    if (password && password.length > 0) {
+      if (password.length < 8) {
+        return NextResponse.json(
+          { error: "Password must be at least 8 characters long" }, 
+          { status: 400 }
+        )
+      }
+      updateData.password_hash = await hashPassword(password)
     }
     
     const supabase = createClient()
@@ -197,23 +207,63 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // 🔒 SECURITY: Authenticate user and get franchise context
+    const { userId, franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    
     const id = params.id
     
     if (!id) {
       return NextResponse.json({ error: "Staff ID is required" }, { status: 400 })
     }
     
+    // 🔒 PREVENT SELF-DELETION
+    if (id === userId) {
+      return NextResponse.json(
+        { error: "Cannot delete your own account. Please ask another admin to remove your account." }, 
+        { status: 403 }
+      )
+    }
+    
     const supabase = createClient()
     
-    // Check if user exists
-    const { data: existingUser } = await supabase
+    // Check if user exists and get their details
+    const { data: existingUser, error: fetchError } = await supabase
       .from("users")
-      .select("id")
+      .select("id, franchise_id, role, is_active")
       .eq("id", id)
       .single()
     
-    if (!existingUser) {
+    if (fetchError || !existingUser) {
       return NextResponse.json({ error: "Staff member not found" }, { status: 404 })
+    }
+    
+    // 🔒 PREVENT DELETING LAST ACTIVE ADMIN IN FRANCHISE
+    if (existingUser.role === 'franchise_admin' && existingUser.is_active) {
+      const { data: adminCount } = await supabase
+        .from("users")
+        .select("id")
+        .eq("franchise_id", existingUser.franchise_id)
+        .eq("role", "franchise_admin")
+        .eq("is_active", true)
+      
+      if (adminCount && adminCount.length <= 1) {
+        return NextResponse.json(
+          { error: "Cannot delete the last active admin. Assign another admin first." }, 
+          { status: 403 }
+        )
+      }
+    }
+    
+    // 🔒 FRANCHISE ISOLATION: Non-super-admins can only delete staff in their franchise
+    if (!isSuperAdmin && existingUser.franchise_id !== franchiseId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Can only delete staff in your own franchise" }, 
+        { status: 403 }
+      )
     }
     
     // Delete user

@@ -368,8 +368,8 @@ export default function StaffPage() {
       return
     }
 
-    if (newUserData.password.length < 6) {
-      toast.error('Password must be at least 6 characters long')
+    if (newUserData.password.length < 8) {
+      toast.error('Password must be at least 8 characters long')
       return
     }
 
@@ -427,6 +427,12 @@ export default function StaffPage() {
       return
     }
 
+    // Validate password if provided
+    if (newUserData.password && newUserData.password.length > 0 && newUserData.password.length < 8) {
+      toast.error('Password must be at least 8 characters long')
+      return
+    }
+
     setNewUserLoading(true)
     try {
       const updateData: any = {
@@ -437,8 +443,8 @@ export default function StaffPage() {
         permissions: newUserData.permissions
       }
 
-      // Only include password if provided
-      if (newUserData.password && newUserData.password.length >= 6) {
+      // Only include password if provided and not empty
+      if (newUserData.password && newUserData.password.trim().length > 0) {
         updateData.password = newUserData.password
       }
 
@@ -1069,7 +1075,7 @@ export default function StaffPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Leave blank to keep current password. If changing, must be at least 6 characters.
+                    Leave blank to keep current password. If changing, must be at least 8 characters.
                   </p>
                 </div>
                 

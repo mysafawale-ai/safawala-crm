@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import bcrypt from "bcryptjs"
 
-// Simple password encoding function (not for production use)
-function encodePassword(password: string): string {
-  return `encoded_${password}_${Date.now()}`
+/**
+ * Hash password using bcrypt
+ */
+async function hashPassword(password: string): Promise<string> {
+  const salt = await bcrypt.genSalt(10)
+  return bcrypt.hash(password, salt)
 }
 
 /**
@@ -149,8 +153,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
     
-    // Encode the password
-    const password_hash = encodePassword(password)
+    // Validate password strength
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters long" }, { status: 400 })
+    }
+    
+    // Hash the password using bcrypt
+    const password_hash = await hashPassword(password)
     
     const supabase = createClient()
     
@@ -228,9 +237,13 @@ export async function PUT(request: NextRequest) {
         delete updateData.password
       }
       
-      // Encode password if provided
+      // Hash password if provided
       if (updateData.password) {
-        updateData.password_hash = encodePassword(updateData.password)
+        if (updateData.password.length < 8) {
+          results.push({ success: false, error: "Password must be at least 8 characters", id })
+          continue
+        }
+        updateData.password_hash = await hashPassword(updateData.password)
         delete updateData.password
       }
       
