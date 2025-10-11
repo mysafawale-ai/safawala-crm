@@ -1,9 +1,5 @@
 "use client"
 
-// Client-side Supabase and dynamic params; avoid static prerender
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"

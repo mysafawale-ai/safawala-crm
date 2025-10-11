@@ -6,6 +6,9 @@ import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster as SonnerToaster } from "sonner"
 
+// Force dynamic rendering for all pages (CRM needs runtime data)
+export const dynamic = 'force-dynamic'
+
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" })
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair" })

@@ -1,9 +1,5 @@
 "use client"
 
-// This page uses client-side Supabase; disable static prerender
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
