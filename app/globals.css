@@ -244,15 +244,20 @@
 
   /* Sidebar header logo container fix */
   .heritage-sidebar [data-sidebar="header"] {
-    padding: 0.5rem 0;
-    overflow: hidden;
+    padding: 0.75rem 0;
+    overflow: visible;
   }
 
   .heritage-sidebar [data-sidebar="header"] img {
     image-rendering: -webkit-optimize-contrast;
+    image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     transform: translateZ(0);
     backface-visibility: hidden;
+    will-change: transform;
+    filter: contrast(1.1) brightness(1.02);
   }
 
   .heritage-sidebar-item {

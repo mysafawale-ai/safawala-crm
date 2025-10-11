@@ -298,12 +298,16 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                 className="heritage-sidebar-item"
               >
                 <Link href="/dashboard" className="w-full">
-                  <div className="flex w-full items-center justify-center py-3 px-2">
+                  <div className="flex w-full items-center justify-center py-4">
                     <img 
                       src="/safalogo.svg" 
                       alt="Safawala Logo" 
-                      className="w-[70%] md:w-[75%] h-auto max-h-[60px] object-contain" 
-                      style={{ imageRendering: "crisp-edges" }}
+                      className="w-[85%] md:w-[90%] h-auto max-h-[50px] object-contain" 
+                      style={{ 
+                        imageRendering: "-webkit-optimize-contrast",
+                        WebkitFontSmoothing: "antialiased",
+                        transform: "translateZ(0)",
+                      }}
                     />
                   </div>
                 </Link>
