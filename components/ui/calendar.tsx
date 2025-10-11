@@ -24,10 +24,12 @@ function Calendar({
   formatters,
   components,
   renderDayBadge,
+  squareCells = true,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>['variant']
   renderDayBadge?: RenderDayBadge
+  squareCells?: boolean
 }) {
   const defaultClassNames = getDefaultClassNames()
 
@@ -107,7 +109,8 @@ function Calendar({
           defaultClassNames.week_number,
         ),
         day: cn(
-          'relative w-full h-full p-0 text-center [&:first-child[data-selected=true]_button]:rounded-l-md [&:last-child[data-selected=true]_button]:rounded-r-md group/day aspect-square select-none',
+          'relative w-full h-full p-0 text-center [&:first-child[data-selected=true]_button]:rounded-l-md [&:last-child[data-selected=true]_button]:rounded-r-md group/day select-none',
+          squareCells ? 'aspect-square' : '',
           defaultClassNames.day,
         ),
         range_start: cn(
@@ -195,6 +198,8 @@ function CalendarDayButton({
     if (modifiers.focused) ref.current?.focus()
   }, [modifiers.focused])
 
+  const badgeContent = extras?.renderDayBadge?.(day.date)
+
   return (
     <Button
       ref={ref}
@@ -219,10 +224,10 @@ function CalendarDayButton({
     >
       {/* Day label */}
       <span>{children}</span>
-      {/* Optional badge */}
-      {extras?.renderDayBadge ? (
+      {/* Optional badge (render only when content exists) */}
+      {badgeContent ? (
         <span className="pointer-events-none absolute -top-1 -right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-black/80 text-[10px] leading-none text-white px-1">
-          {extras.renderDayBadge(day.date)}
+          {badgeContent}
         </span>
       ) : null}
     </Button>

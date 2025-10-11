@@ -199,7 +199,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         </div>
       </CardHeader>
       <CardContent className="w-full">
-        <div className={`mx-auto ${compact ? (mini ? 'max-w-xs' : 'max-w-sm') : 'md:w-[70%]'} w-full`}>
+        <div className={`mx-auto w-full ${compact ? (mini ? 'max-w-[420px] md:max-w-[680px]' : 'max-w-sm md:max-w-[800px]') : 'md:w-[70%]'}`}>
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -215,6 +215,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
               const count = getBookingsForDate(date).length
               return count>0 ? count : null
             }}
+            squareCells={false}
             className={`rounded-md border w-full ${compact ? (mini ? '[--cell-size:1rem]' : '[--cell-size:1.25rem]') : '[--cell-size:2.2rem] md:[--cell-size:2.4rem]'}`}
           />
           {/* Always show a small legend for reference */}
