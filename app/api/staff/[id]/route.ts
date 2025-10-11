@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import bcrypt from "bcryptjs"
 
+// Ensure dynamic rendering for Vercel edge caching behavior
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * Hash password using bcrypt
  */

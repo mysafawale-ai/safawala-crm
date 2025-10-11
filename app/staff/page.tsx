@@ -453,17 +453,48 @@ export default function StaffPage() {
         updateData.password = newUserData.password
       }
 
-      const response = await fetch(`/api/staff/${selectedUser.id}`, {
+      let response = await fetch(`/api/staff/${selectedUser.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(updateData)
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update staff member')
+        // If dynamic route returns HTML/404, fallback to stable endpoint
+        let shouldFallback = false
+        const contentType = response.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json') || response.status === 404) {
+          shouldFallback = true
+          try {
+            const preview = await response.text()
+            console.error('[Staff] Edit got non-JSON response:', preview.substring(0, 200))
+          } catch {}
+        }
+
+        if (shouldFallback) {
+          console.warn('[Staff] Falling back to stable endpoint /api/staff/update')
+          response = await fetch('/api/staff/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ id: selectedUser.id, ...updateData })
+          })
+        }
+
+        if (!response.ok) {
+          const ct = response.headers.get('content-type')
+          if (ct && ct.includes('application/json')) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Failed to update staff member')
+          } else {
+            const html = await response.text()
+            console.error('[Staff] Edit error HTML:', html.substring(0, 200))
+            throw new Error('Server error: Invalid response format. Please refresh and try again.')
+          }
+        }
       }
 
       const { user } = await response.json()
@@ -882,7 +913,7 @@ export default function StaffPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalUsers}</div>
+              <div className="text-2xl font-bold">{totalUsersCount}</div>
             </CardContent>
           </Card>
           <Card>

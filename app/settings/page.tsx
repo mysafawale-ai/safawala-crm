@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ComprehensiveSettings from "@/components/settings/comprehensive-settings"
+import { SuperAdminAggregate } from "@/components/settings/super-admin-aggregate"
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function SettingsPage() {
   const [franchiseId, setFranchiseId] = useState<string | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -25,6 +27,7 @@ export default function SettingsPage() {
           const userData = await response.json()
           console.log('[Settings] User data:', userData.name, 'Franchise:', userData.franchise_name)
           console.log('[Settings] Franchise ID:', userData.franchise_id)
+          setIsSuperAdmin(userData.role === 'super_admin')
           
           if (userData.franchise_id) {
             setFranchiseId(userData.franchise_id)
@@ -97,5 +100,13 @@ export default function SettingsPage() {
     )
   }
 
-  return <ComprehensiveSettings franchiseId={franchiseId} />
+  // Super admin: show aggregated view wrapper
+  return (
+    <div className="space-y-6">
+      {isSuperAdmin && (
+        <SuperAdminAggregate />
+      )}
+      <ComprehensiveSettings franchiseId={franchiseId} />
+    </div>
+  )
 }
