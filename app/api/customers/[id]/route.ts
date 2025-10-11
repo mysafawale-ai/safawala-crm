@@ -56,7 +56,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       query = query.eq("franchise_id", defaultFranchiseId)
     }
 
-  const { data: customer, error } = await query.single()
+    let { data: customer, error } = await query.single()
+
+    // Fallback if deleted_at column not yet migrated
+    if (error && /deleted_at|column .* does not exist/i.test(String((error as any).message))) {
+      console.warn('[Customer GET] deleted_at missing. Retrying without filter.')
+      const retry = await supabaseServer
+        .from('customers')
+        .select('*')
+        .eq('id', id)
+        .single()
+      customer = retry.data as any
+      error = retry.error as any
+    }
 
     if (error) {
       if (error.code === "PGRST116") {
@@ -395,7 +407,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     })();
     const deleteReason: string | null = body?.reason || null;
 
-    const { error: deleteError } = await supabaseServer
+    let { error: deleteError } = await supabaseServer
       .from("customers")
       .update({
         deleted_at: new Date().toISOString(),
@@ -405,11 +417,27 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .eq("id", id)
 
     if (deleteError) {
+      // Fallback: if columns not migrated yet, perform hard delete
+      if (/deleted_at|column .* does not exist/i.test(String(deleteError.message))) {
+        console.warn('[Customer DELETE] Soft-delete columns missing. Performing hard delete fallback.')
+        const hard = await supabaseServer
+          .from('customers')
+          .delete()
+          .eq('id', id)
+        if (hard.error) {
+          console.error("[v0] Customer DELETE fallback error:", hard.error)
+          return NextResponse.json(
+            ApiResponseBuilder.serverError("Failed to delete customer", hard.error.message),
+            { status: 500 }
+          )
+        }
+      } else {
       console.error("[v0] Customer DELETE error:", deleteError)
       return NextResponse.json(
         ApiResponseBuilder.serverError("Failed to delete customer", deleteError.message),
         { status: 500 }
       )
+      }
     }
 
     // Log customer deletion for audit trail

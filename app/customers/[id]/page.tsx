@@ -74,12 +74,24 @@ export default function CustomerDetailPage() {
       setLoading(true)
 
       // Load customer details
-      const { data: customerData, error: customerError } = await supabase
+      let { data: customerData, error: customerError } = await supabase
         .from("customers")
         .select("*")
         .eq("id", customerId)
         .is('deleted_at', null)
         .single()
+
+      // Fallback when column doesn't exist yet on prod
+      if (customerError && /deleted_at|column .* does not exist/i.test(String((customerError as any).message))) {
+        console.warn('[Customer Detail] deleted_at missing. Retrying without filter.')
+        const retry = await supabase
+          .from('customers')
+          .select('*')
+          .eq('id', customerId)
+          .single()
+        customerError = retry.error as any
+        customerData = retry.data as any
+      }
 
       if (customerError) throw customerError
       if (!customerData) {

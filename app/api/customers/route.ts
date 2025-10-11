@@ -73,7 +73,30 @@ export async function GET(request: NextRequest) {
       query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
     }
 
-    const { data, error } = await query
+    let { data, error } = await query
+
+    // Fallback if deleted_at column not yet migrated in production
+    if (error && /deleted_at|column .* does not exist/i.test(String(error.message))) {
+      console.warn("[Customers API] deleted_at column missing. Falling back without soft-delete filter.")
+      let fallback = supabase
+        .from("customers")
+        .select(`
+          *,
+          franchise:franchises(id, name, code)
+        `)
+        .order("created_at", { ascending: false })
+
+      if (!isSuperAdmin && franchiseId) {
+        fallback = fallback.eq("franchise_id", franchiseId)
+      }
+      if (search && search.trim()) {
+        fallback = fallback.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
+      }
+
+      const res = await fallback
+      data = res.data as any
+      error = res.error as any
+    }
 
     if (error) {
       console.error("[Customers API] Error:", error)
