@@ -298,7 +298,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                 className="heritage-sidebar-item"
               >
                 <Link href="/dashboard" className="w-full">
-                  <div className="flex w-full items-center justify-center py-4">
+                  <div className="flex w-full items-center justify-start py-4 pl-3">
                     <img 
                       src="/safalogo.svg" 
                       alt="Safawala Logo" 
