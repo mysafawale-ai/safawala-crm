@@ -165,38 +165,111 @@ export default function CustomerDetailPage() {
   }
 
   const handleDeleteConfirm = async () => {
+    // Validate customer ID
+    if (!customerId || typeof customerId !== 'string') {
+      toast({
+        title: "Error",
+        description: "Invalid customer ID. Cannot proceed with deletion.",
+        variant: "destructive",
+      })
+      setDeleteDialogOpen(false)
+      return
+    }
+
+    // Validate customer data is loaded
+    if (!customer) {
+      toast({
+        title: "Error",
+        description: "Customer data not loaded. Please refresh and try again.",
+        variant: "destructive",
+      })
+      setDeleteDialogOpen(false)
+      return
+    }
+
+    console.log('[Delete Customer Detail] Starting deletion for:', {
+      id: customerId,
+      name: customer.name,
+      code: customer.customer_code
+    })
+
     try {
-      const response = await fetch(`/api/customers/${customerId}`, { method: "DELETE" })
-      
+      // Make DELETE request
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      console.log('[Delete Customer Detail] Response status:', response.status)
+
+      // Handle non-OK responses
       if (!response.ok) {
         let errorMessage = "Failed to delete customer"
-        try {
-          const contentType = response.headers.get("content-type")
-          if (contentType && contentType.includes("application/json")) {
+        
+        // Try to parse error response
+        const contentType = response.headers.get("content-type")
+        if (contentType?.includes("application/json")) {
+          try {
             const errorData = await response.json()
-            errorMessage = errorData.error || errorMessage
-          } else {
+            errorMessage = errorData.error || errorData.message || errorMessage
+            
+            // Handle specific error cases
+            if (response.status === 404) {
+              errorMessage = "Customer not found. It may have already been deleted."
+            } else if (response.status === 409) {
+              errorMessage = errorData.error || "Cannot delete customer with existing bookings or orders."
+            } else if (response.status === 401 || response.status === 403) {
+              errorMessage = "You don't have permission to delete this customer."
+            }
+          } catch (parseError) {
+            console.error('[Delete Customer Detail] Failed to parse error response:', parseError)
             errorMessage = `Server error: ${response.status} ${response.statusText}`
           }
-        } catch (parseError) {
+        } else {
           errorMessage = `Server error: ${response.status} ${response.statusText}`
         }
+
         throw new Error(errorMessage)
       }
 
+      // Parse success response
+      let responseData
+      try {
+        const contentType = response.headers.get("content-type")
+        if (contentType?.includes("application/json")) {
+          responseData = await response.json()
+        }
+      } catch (parseError) {
+        console.warn('[Delete Customer Detail] Could not parse success response:', parseError)
+      }
+
+      // Success!
+      console.log('[Delete Customer Detail] Successfully deleted:', responseData)
+      
       toast({
         title: "Success",
-        description: "Customer deleted successfully.",
+        description: `Customer "${customer.name}" deleted successfully.`,
       })
 
-      router.push("/customers")
+      // Redirect to customers list after short delay
+      setTimeout(() => {
+        router.push("/customers")
+      }, 500)
+
     } catch (error: any) {
-      console.error("Error deleting customer:", error)
+      console.error('[Delete Customer Detail] Error:', error)
+      
+      // Show user-friendly error message
+      const errorMessage = error.message || "Failed to delete customer. Please try again."
       toast({
         title: "Error",
-        description: error.message || "Failed to delete customer. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
+      
+      // Keep dialog open on error so user can try again or cancel
     } finally {
       setDeleteDialogOpen(false)
     }

@@ -88,33 +88,95 @@ export default function CustomersPage() {
   }
 
   const handleDeleteConfirm = async () => {
-    if (!customerToDelete) return
+    if (!customerToDelete) {
+      toast.error("No customer selected for deletion")
+      return
+    }
+
+    // Validate customer ID
+    const customerId = customerToDelete.id
+    if (!customerId || typeof customerId !== 'string') {
+      toast.error("Invalid customer ID")
+      setDeleteDialogOpen(false)
+      setCustomerToDelete(null)
+      return
+    }
+
+    console.log('[Delete Customer] Starting deletion for:', {
+      id: customerId,
+      name: customerToDelete.name,
+      code: customerToDelete.customer_code
+    })
 
     try {
-      const response = await fetch(`/api/customers/${customerToDelete.id}`, { method: "DELETE" })
+      // Make DELETE request
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      console.log('[Delete Customer] Response status:', response.status)
+
+      // Handle non-OK responses
       if (!response.ok) {
         let errorMessage = "Failed to delete customer"
-        try {
-          const contentType = response.headers.get("content-type")
-          if (contentType && contentType.includes("application/json")) {
+        
+        // Try to parse error response
+        const contentType = response.headers.get("content-type")
+        if (contentType?.includes("application/json")) {
+          try {
             const errorData = await response.json()
-            errorMessage = errorData.error || errorMessage
-          } else {
+            errorMessage = errorData.error || errorData.message || errorMessage
+            
+            // Handle specific error cases
+            if (response.status === 404) {
+              errorMessage = "Customer not found. It may have already been deleted."
+            } else if (response.status === 409) {
+              errorMessage = errorData.error || "Cannot delete customer with existing bookings or orders."
+            } else if (response.status === 401 || response.status === 403) {
+              errorMessage = "You don't have permission to delete this customer."
+            }
+          } catch (parseError) {
+            console.error('[Delete Customer] Failed to parse error response:', parseError)
             errorMessage = `Server error: ${response.status} ${response.statusText}`
           }
-        } catch (parseError) {
+        } else {
           errorMessage = `Server error: ${response.status} ${response.statusText}`
         }
+
         throw new Error(errorMessage)
       }
 
-      toast.success("Customer deleted successfully")
+      // Parse success response
+      let responseData
+      try {
+        const contentType = response.headers.get("content-type")
+        if (contentType?.includes("application/json")) {
+          responseData = await response.json()
+        }
+      } catch (parseError) {
+        console.warn('[Delete Customer] Could not parse success response:', parseError)
+      }
+
+      // Success!
+      console.log('[Delete Customer] Successfully deleted:', responseData)
+      toast.success(`Customer "${customerToDelete.name}" deleted successfully`)
+      
+      // Close dialog and refresh list
       setDeleteDialogOpen(false)
       setCustomerToDelete(null)
       refresh()
+
     } catch (error: any) {
-      console.error("Error deleting customer:", error)
-      toast.error(error.message || "Failed to delete customer")
+      console.error('[Delete Customer] Error:', error)
+      
+      // Show user-friendly error message
+      const errorMessage = error.message || "Failed to delete customer. Please try again."
+      toast.error(errorMessage)
+      
+      // Keep dialog open on error so user can try again or cancel
     }
   }
 
