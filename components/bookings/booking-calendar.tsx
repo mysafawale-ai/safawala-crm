@@ -113,11 +113,11 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
     const bookingCount = getBookingsForDate(date).length
 
     if (bookingCount === 0) {
-      return "blue" // Zero bookings = blue
+      return "zero" // Zero bookings = green per requirement
     } else if (bookingCount >= 20) {
-      return "red" // 20+ bookings = red
+      return "full" // 20+ bookings = red
     } else {
-      return "green" // 1-20 bookings = green
+      return "mid" // 1-20 bookings = blue
     }
   }
 
@@ -142,9 +142,9 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
   const dayModifiers = React.useMemo(() => {
     const modifiers: Record<string, Date[]> = {
       past: [],
-      blue: [], // 0 bookings
-      green: [], // 1-20 bookings
-      red: [], // 20+ bookings
+      zero: [], // 0 bookings (green)
+      mid: [], // 1-20 bookings (blue)
+      full: [], // 20+ bookings (red)
     }
 
     // Generate dates for the current month and next few months
@@ -154,7 +154,7 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
     for (let d = new Date(today.getFullYear(), today.getMonth() - 1, 1); d <= endDate; d.setDate(d.getDate() + 1)) {
       const currentDate = new Date(d)
       const status = getDateStatus(currentDate)
-      modifiers[status].push(new Date(currentDate))
+      if (modifiers[status]) modifiers[status].push(new Date(currentDate))
     }
 
     return modifiers
@@ -162,12 +162,12 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
 
   const dayClassNames = {
     past: "!bg-muted !text-muted-foreground opacity-60",
-    // 0 bookings → soft brand color
-    blue: "!bg-primary/10 !text-primary hover:!bg-primary/20",
-    // 1-20 bookings → success tone
-    green: "!bg-emerald-600 !text-white hover:!bg-emerald-700",
-    // 20+ bookings → destructive tone
-    red: "!bg-destructive !text-destructive-foreground hover:!bg-destructive/90",
+    // 0 bookings → green
+    zero: "!bg-emerald-600 !text-white hover:!bg-emerald-700",
+    // 1-20 bookings → blue
+    mid: "!bg-blue-600 !text-white hover:!bg-blue-700",
+    // 20+ bookings → red
+    full: "!bg-red-600 !text-white hover:!bg-red-700",
   }
 
   return (
@@ -198,7 +198,7 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
         </div>
       </CardHeader>
       <CardContent className="w-full">
-        <div className={`mx-auto w-full ${compact ? 'h-[280px]' : 'md:w-[70%] h-[50vh]'} overflow-hidden`}>
+        <div className={`mx-auto ${compact ? 'max-w-sm' : 'md:w-[70%]'} w-full`}>
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -214,8 +214,14 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
               const count = getBookingsForDate(date).length
               return count>0 ? count : null
             }}
-            className={`rounded-md border w-full h-full ${compact ? '[--cell-size:1.6rem]' : '[--cell-size:2.2rem] md:[--cell-size:2.4rem]'}`}
+            className={`rounded-md border w-full ${compact ? '[--cell-size:1.25rem]' : '[--cell-size:2.2rem] md:[--cell-size:2.4rem]'}`}
           />
+          {/* Always show a small legend for reference */}
+          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground justify-center">
+            <span className="inline-flex items-center gap-2"><span className="inline-block w-2.5 h-2.5 rounded bg-emerald-600" /> 0 Bookings</span>
+            <span className="inline-flex items-center gap-2"><span className="inline-block w-2.5 h-2.5 rounded bg-blue-600" /> 1-20 Bookings</span>
+            <span className="inline-flex items-center gap-2"><span className="inline-block w-2.5 h-2.5 rounded bg-red-600" /> 20+ Bookings</span>
+          </div>
         </div>
       </CardContent>
 
