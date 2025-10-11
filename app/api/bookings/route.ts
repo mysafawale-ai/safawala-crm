@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       console.log(`[Bookings API] Super admin mode - showing all bookings`)
     }
 
-    const [productRes, packageRes] = await Promise.all([productQuery, packageQuery])
+  const [productRes, packageRes] = await Promise.all([productQuery, packageQuery])
     
     if (productRes.error && packageRes.error) {
       console.error("[Bookings API] Error:", productRes.error || packageRes.error)
@@ -88,7 +88,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 500 })
     }
 
-    // Map to unified Booking shape
+    // Compute item quantity totals for each booking
+    const productIds = (productRes.data || []).map((r: any) => r.id)
+    const packageIds = (packageRes.data || []).map((r: any) => r.id)
+
+    let productTotals: Record<string, number> = {}
+    let packageTotals: Record<string, number> = {}
+
+    if (productIds.length > 0) {
+      const { data: poItems } = await supabase
+        .from('product_order_items')
+        .select('order_id, quantity')
+        .in('order_id', productIds)
+      for (const row of poItems || []) {
+        productTotals[row.order_id] = (productTotals[row.order_id] || 0) + (Number(row.quantity) || 0)
+      }
+    }
+
+    if (packageIds.length > 0) {
+      const { data: pkgItems } = await supabase
+        .from('package_booking_items')
+        .select('booking_id, quantity, extra_safas')
+        .in('booking_id', packageIds)
+      for (const row of pkgItems || []) {
+        const base = Number(row.quantity) || 0
+        const extra = Number(row.extra_safas) || 0
+        packageTotals[row.booking_id] = (packageTotals[row.booking_id] || 0) + base + extra
+      }
+    }
+
+    // Map to unified Booking shape with total_safas
     const productRows = (productRes.data || []).map((r: any) => ({
       id: r.id,
       booking_number: r.order_number,
@@ -109,6 +138,7 @@ export async function GET(request: NextRequest) {
       source: 'product_order' as const,
       type: r.booking_type || 'rental',
       booking_kind: 'product' as const,
+      total_safas: productTotals[r.id] || 0,
     }))
 
     const packageRows = (packageRes.data || []).map((r: any) => ({
@@ -131,6 +161,7 @@ export async function GET(request: NextRequest) {
       source: 'package_booking' as const,
       type: 'package' as const,
       booking_kind: 'package' as const,
+      total_safas: packageTotals[r.id] || 0,
     }))
 
     const data = [...productRows, ...packageRows].sort(

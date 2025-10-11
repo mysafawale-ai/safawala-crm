@@ -23,6 +23,7 @@ interface BookingData {
   total_amount: number
   status: string
   assigned_staff_name?: string
+  total_safas?: number
   booking_items: {
     product_name: string
     quantity: number
@@ -78,6 +79,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         venue_address: r.venue_address || '',
         total_amount: Number(r.total_amount) || 0,
         status: r.status,
+        total_safas: Number(r.total_safas) || 0,
         assigned_staff_name: undefined,
         booking_items: [],
         customer: {
@@ -318,19 +320,12 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          {booking.booking_items.length > 0 ? (
-                            <div className="text-center">
-                              <span className="text-2xl font-bold text-primary">
-                                {booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
-                              </span>
-                              <div className="text-xs text-gray-500 mt-1">Total Safas</div>
-                            </div>
-                          ) : (
-                            <div className="text-center">
-                              <span className="text-xl font-semibold text-muted-foreground">0</span>
-                              <div className="text-xs text-muted-foreground mt-1">No Items</div>
-                            </div>
-                          )}
+                          <div className="text-center">
+                            <span className="text-2xl font-bold text-primary">
+                              {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">Total Safas</div>
+                          </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
                           <div>
