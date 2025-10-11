@@ -31,10 +31,10 @@ export default function EditBookingPage() {
 
       const typeParam = searchParams.get('type')
       const tryUrls = [
-        typeParam ? `/api/bookings/${bookingId}?type=${typeParam}` : '',
-        `/api/bookings/${bookingId}`,
-        `/api/bookings/${bookingId}?type=product_order`,
-        `/api/bookings/${bookingId}?type=package_booking`,
+        typeParam ? `/api/bookings/details?id=${bookingId}&type=${typeParam}` : '',
+        `/api/bookings/details?id=${bookingId}`,
+        `/api/bookings/details?id=${bookingId}&type=product_order`,
+        `/api/bookings/details?id=${bookingId}&type=package_booking`,
       ].filter(Boolean) as string[]
 
       let apiBooking: any = null
