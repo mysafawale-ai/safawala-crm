@@ -312,7 +312,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const { id } = params
     console.log('[DELETE] Processing delete for customer ID:', id);
-    const defaultFranchiseId = await getDefaultFranchiseId()
 
     if (!id || typeof id !== "string") {
       return NextResponse.json(
@@ -330,32 +329,36 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Check if customer exists and belongs to the franchise
-    let existingQuery = supabaseServer.from("customers").select("*").eq("id", id)
-    if (defaultFranchiseId) {
-      // Check if user can access this franchise
-      if (!AuthMiddleware.canAccessFranchise(authContext!.user, defaultFranchiseId)) {
-        return NextResponse.json(
-          ApiResponseBuilder.validationError("Access denied to this franchise"),
-          { status: 403 }
-        );
-      }
-      existingQuery = existingQuery.eq("franchise_id", defaultFranchiseId)
-    }
-
-    const { data: existingCustomer, error: existingError } = await existingQuery.single()
+    // 1) Fetch by ID only (no franchise filter) to avoid false 404s
+    const { data: existingCustomer, error: existingError } = await supabaseServer
+      .from("customers")
+      .select("*")
+      .eq("id", id)
+      .single()
 
     if (existingError) {
-      if (existingError.code === "PGRST116") {
+      if ((existingError as any).code === "PGRST116") {
         return NextResponse.json(
           ApiResponseBuilder.notFoundError("Customer not found"),
           { status: 404 }
         )
       }
+      console.error('[DELETE] Error fetching customer:', existingError)
       return NextResponse.json(
-        ApiResponseBuilder.serverError("Failed to fetch customer for deletion", existingError.message),
+        ApiResponseBuilder.serverError("Failed to fetch customer for deletion", (existingError as any).message),
         { status: 500 }
       )
+    }
+
+    // 2) Authorization: ensure requester can access the customer's franchise
+    if (existingCustomer?.franchise_id) {
+      const allowed = AuthMiddleware.canAccessFranchise(authContext!.user, existingCustomer.franchise_id)
+      if (!allowed) {
+        return NextResponse.json(
+          ApiResponseBuilder.validationError("Access denied to this franchise"),
+          { status: 403 }
+        )
+      }
     }
 
     // Check for related records (bookings, orders, etc.) before deletion
