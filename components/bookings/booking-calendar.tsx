@@ -47,10 +47,15 @@ export function BookingCalendar({ franchiseId }: BookingCalendarProps) {
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  // Initialize Supabase client on the client at runtime only
+  const supabase = React.useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !key) {
+      console.warn("Supabase env not available on client; API calls will fail until configured")
+    }
+    return createClient(url || "", key || "")
+  }, [])
 
   React.useEffect(() => {
     fetchBookings()

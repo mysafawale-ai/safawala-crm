@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+export const dynamic = 'force-dynamic'
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 
 // Supabase client is lazy via supabaseServer

@@ -1,5 +1,9 @@
 "use client"
 
+// Client-side Supabase and dynamic params; avoid static prerender
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +15,16 @@ import { ArrowLeft, Save, CheckCircle2 } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import { toast } from "@/hooks/use-toast"
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+function useSupabaseClient() {
+  return useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+    if (!url || !key) {
+      console.warn("Supabase env missing in DeliveryReturnPage; client calls may fail")
+    }
+    return createClient(url, key)
+  }, [])
+}
 
 interface ProductRow {
   product_id: string
@@ -27,6 +40,7 @@ export default function DeliveryReturnPage() {
   const params = useParams()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const supabase = useSupabaseClient()
   const [delivery, setDelivery] = useState<any>(null)
   const [booking, setBooking] = useState<any>(null)
   const [items, setItems] = useState<ProductRow[]>([])

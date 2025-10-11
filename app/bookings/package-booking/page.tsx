@@ -1,5 +1,9 @@
 "use client"
 
+// Uses client-side Supabase extensively; avoid static prerender
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"

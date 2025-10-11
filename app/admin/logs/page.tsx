@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +50,7 @@ interface LogsResponse {
   };
 }
 
-export default function AdminLogsPage() {
+function AdminLogsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -485,4 +485,13 @@ export default function AdminLogsPage() {
       </Dialog>
     </div>
   );
+}
+
+export default function AdminLogsPage() {
+  // Wrap content in Suspense to support useSearchParams
+  return (
+    <Suspense fallback={<div className="p-6">Loading…</div>}>
+      <AdminLogsContent />
+    </Suspense>
+  )
 }
