@@ -2,10 +2,20 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
-  // Use service role client to bypass RLS for authentication
-  const supabase = createClient()
   try {
     console.log("[v0] Login API called")
+
+    // Check Supabase configuration first
+    let supabase
+    try {
+      supabase = createClient()
+    } catch (configError) {
+      console.error("[v0] Supabase configuration error:", configError)
+      return NextResponse.json({ 
+        error: "Server configuration error. Please contact administrator.",
+        details: configError instanceof Error ? configError.message : String(configError)
+      }, { status: 500 })
+    }
 
     let body
     try {
