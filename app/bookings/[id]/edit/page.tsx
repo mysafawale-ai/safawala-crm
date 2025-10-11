@@ -29,13 +29,26 @@ export default function EditBookingPage() {
     try {
       setLoading(true)
 
-      // Respect type from query (?type=product_order|package_booking)
       const typeParam = searchParams.get('type')
-      const typeQs = typeParam ? `?type=${typeParam}` : ''
-      // Fetch booking via API
-      const res = await fetch(`/api/bookings/${bookingId}${typeQs}`)
-      if (!res.ok) throw new Error('Failed to fetch booking')
-      const { booking: apiBooking } = await res.json()
+      const tryUrls = [
+        typeParam ? `/api/bookings/${bookingId}?type=${typeParam}` : '',
+        `/api/bookings/${bookingId}`,
+        `/api/bookings/${bookingId}?type=product_order`,
+        `/api/bookings/${bookingId}?type=package_booking`,
+      ].filter(Boolean) as string[]
+
+      let apiBooking: any = null
+      let lastErr: any = null
+      for (const url of tryUrls) {
+        try {
+          const r = await fetch(url)
+          if (!r.ok) { lastErr = await r.text().catch(()=>r.statusText); continue }
+          const json = await r.json()
+          apiBooking = json.booking
+          if (apiBooking) break
+        } catch (e) { lastErr = e }
+      }
+      if (!apiBooking) throw new Error(`Failed to fetch booking${lastErr?`: ${lastErr}`:''}`)
 
       // Load customers/products via existing UI hooks/APIs
       const [cRes, pRes] = await Promise.all([
@@ -82,11 +95,23 @@ export default function EditBookingPage() {
         event_for: bookingData.eventFor,
       }
 
-      const typeParam = searchParams.get('type') || (booking as any)?.source || 'unified'
-      const qs = typeParam && typeParam!=='unified' ? `?type=${typeParam}` : ''
-      const res = await fetch(`/api/bookings/${params.id}${qs}`,
-        { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-      if (!res.ok) throw new Error('Failed to update booking')
+      const typeParam = searchParams.get('type') || (booking as any)?.source
+      const tryUrls = [
+        typeParam ? `/api/bookings/${params.id}?type=${typeParam}` : '',
+        `/api/bookings/${params.id}`,
+        `/api/bookings/${params.id}?type=product_order`,
+        `/api/bookings/${params.id}?type=package_booking`,
+      ].filter(Boolean) as string[]
+
+      let ok = false, lastErr: any = null
+      for (const url of tryUrls) {
+        try {
+          const r = await fetch(url, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+          if (r.ok) { ok = true; break }
+          lastErr = await r.text().catch(()=>r.statusText)
+        } catch (e) { lastErr = e }
+      }
+      if (!ok) throw new Error(`Failed to update booking${lastErr?`: ${lastErr}`:''}`)
 
       toast({
         title: "Success",
