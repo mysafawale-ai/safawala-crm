@@ -63,6 +63,18 @@ export default function EditCustomerPage() {
         if (error) throw error
 
         if (data) {
+          // Debug: Log the actual data from database
+          console.log("📊 Customer data loaded:", {
+            id: data.id,
+            name: data.name,
+            phone: data.phone,
+            whatsapp: data.whatsapp,
+            whatsappType: typeof data.whatsapp,
+            whatsappIsNull: data.whatsapp === null,
+            whatsappIsUndefined: data.whatsapp === undefined,
+            whatsappComputed: data.whatsapp || data.phone || ""
+          });
+          
           setCustomer(data)
           setFormData({
             name: data.name || "",
