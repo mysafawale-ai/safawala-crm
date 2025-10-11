@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { createClient } from "@supabase/supabase-js"
 import { format, isBefore, startOfDay } from "date-fns"
 import { Search, CalendarIcon } from "lucide-react"
 
@@ -48,16 +47,6 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
 
-  // Initialize Supabase client on the client at runtime only
-  const supabase = React.useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) {
-      console.warn("Supabase env not available on client; API calls will fail until configured")
-    }
-    return createClient(url || "", key || "")
-  }, [])
-
   React.useEffect(() => {
     fetchBookings()
   }, [franchiseId])
@@ -65,80 +54,37 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
   const fetchBookings = async () => {
     try {
       setLoading(true)
-
-      let query = supabase
-        .from("bookings")
-        .select(`
-          id,
-          booking_number,
-          event_date,
-          delivery_date,
-          return_date,
-          event_type,
-          venue_name,
-          venue_address,
-          total_amount,
-          status,
-          customer:customers(name, phone, city, address, area, whatsapp),
-          booking_items(
-            product:products(name),
-            quantity
-          ),
-          assigned_staff:users(name)
-        `)
-        .order("event_date", { ascending: true })
-
-      if (franchiseId) {
-        query = query.eq("franchise_id", franchiseId)
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        console.error("[v0] Error fetching bookings:", error)
+      // Always use server API which applies franchise isolation via session.
+      const res = await fetch('/api/bookings', { cache: 'no-store' })
+      if (!res.ok) {
+        console.error('[v0] Error fetching bookings via /api/bookings:', res.status, await res.text().catch(()=>''))
         return
       }
+      const json = await res.json()
+      const rows: any[] = json?.data || []
 
-      console.log("[v0] Raw booking data from database:", data?.slice(0, 2)) // Debug first 2 records
+      const formattedBookings: BookingData[] = rows.map((r: any) => ({
+        id: r.id,
+        booking_number: r.booking_number,
+        customer_name: r.customer?.name || 'Unknown Customer',
+        customer_phone: r.customer?.phone || '',
+        event_date: r.event_date,
+        delivery_date: r.delivery_date,
+        return_date: r.pickup_date, // API field name
+        event_type: r.event_type,
+        venue_name: r.venue_name || 'Not Specified',
+        venue_address: r.venue_address || '',
+        total_amount: Number(r.total_amount) || 0,
+        status: r.status,
+        assigned_staff_name: undefined,
+        booking_items: [],
+        customer: {
+          name: r.customer?.name || 'Unknown Customer',
+          city: r.customer?.city || 'Not Specified',
+          address: r.customer?.address || 'Not Specified',
+        },
+      }))
 
-      const formattedBookings: BookingData[] =
-        data?.map((booking: any) => {
-          console.log("[v0] Processing booking:", {
-            id: booking.id,
-            venue_name: booking.venue_name,
-            customer_area: (booking as any).customer?.area,
-            customer_city: (booking as any).customer?.city,
-            customer_address: (booking as any).customer?.address,
-          })
-
-          return {
-            id: booking.id,
-            booking_number: booking.booking_number,
-            customer_name: (booking as any).customer?.name || "Unknown Customer",
-            customer_phone: (booking as any).customer?.phone || (booking as any).customer?.whatsapp || "",
-            event_date: booking.event_date,
-            delivery_date: booking.delivery_date,
-            return_date: booking.return_date,
-            event_type: booking.event_type,
-            venue_name: booking.venue_name || "Not Specified",
-            venue_address: booking.venue_address || "",
-            total_amount: booking.total_amount,
-            status: booking.status,
-            assigned_staff_name: (booking as any).assigned_staff?.name,
-            booking_items:
-              booking.booking_items?.map((item: any) => ({
-                product_name: (item as any).product?.name || "Unknown Product",
-                quantity: item.quantity,
-              })) || [],
-            customer: {
-              name: (booking as any).customer?.name || "Unknown Customer",
-              city: (booking as any).customer?.city || "Not Specified",
-              address: (booking as any).customer?.area || (booking as any).customer?.address || "Not Specified",
-            },
-          }
-        }) || []
-
-      console.log("[v0] Formatted bookings sample:", formattedBookings.slice(0, 2))
       setBookings(formattedBookings)
     } catch (error) {
       console.error("[v0] Error in fetchBookings:", error)
