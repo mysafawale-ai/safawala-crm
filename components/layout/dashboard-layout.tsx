@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -34,6 +34,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const [user, setUser] = useState<User | null>(null)
   const [showAssignTask, setShowAssignTask] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
+  const [profilePhoto, setProfilePhoto] = useState<string>("")
   const router = useRouter()
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         
         setUser(userData)
         await fetchNotifications(userData)
+        await fetchProfilePhoto(userData)
       } catch (error) {
         console.error("[DashboardLayout] Auth error:", error)
         router.push("/")
@@ -86,13 +88,41 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
       // Log notification types for debugging
       if (data && data.length > 0) {
-        const types = data.map((n) => n.type).filter((v, i, a) => a.indexOf(v) === i)
+        const types = data.map((n: any) => n.type).filter((v: any, i: number, a: any[]) => a.indexOf(v) === i)
         console.log("[v0] Notification types found:", types)
       }
 
       setNotifications(data || [])
     } catch (error) {
       console.error("[v0] Failed to fetch notifications:", error)
+    }
+  }
+
+  const fetchProfilePhoto = async (currentUser: User) => {
+    try {
+      if (!currentUser.franchise_id || !currentUser.id) {
+        console.log("[DashboardLayout] Missing franchise_id or user_id, skipping profile photo fetch")
+        return
+      }
+
+      const params = new URLSearchParams({
+        franchise_id: currentUser.franchise_id,
+        user_id: currentUser.id,
+      })
+
+      const response = await fetch(`/api/settings/profile?${params}`)
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.data?.profile_photo_url) {
+          console.log("[DashboardLayout] Profile photo loaded:", result.data.profile_photo_url)
+          setProfilePhoto(result.data.profile_photo_url)
+        } else {
+          console.log("[DashboardLayout] No profile photo found")
+        }
+      }
+    } catch (error) {
+      console.error("[DashboardLayout] Failed to fetch profile photo:", error)
     }
   }
 
@@ -232,6 +262,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0">
                   <Avatar className="h-6 w-6 sm:h-8 sm:w-8">
+                    {profilePhoto && <AvatarImage src={profilePhoto} alt={user.name} />}
                     <AvatarFallback className="text-xs sm:text-sm bg-primary text-primary-foreground">
                       {user.name
                         .split(" ")
