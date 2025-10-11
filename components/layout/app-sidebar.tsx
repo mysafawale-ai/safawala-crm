@@ -300,13 +300,12 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                 <Link href="/dashboard" className="w-full">
                   <div className="flex w-full items-center justify-start py-4 pl-3">
                     <img 
-                      src="/safalogo.svg" 
+                      src="/safawalalogo.png" 
                       alt="Safawala Logo" 
                       className="w-[85%] md:w-[90%] h-auto max-h-[50px] object-contain" 
                       style={{ 
                         imageRendering: "-webkit-optimize-contrast",
                         WebkitFontSmoothing: "antialiased",
-                        transform: "translateZ(0)",
                       }}
                     />
                   </div>
