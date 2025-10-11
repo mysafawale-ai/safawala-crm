@@ -312,7 +312,7 @@ export default function VendorsPage() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ entity: "vendor", id: vendorId })
+        body: JSON.stringify({ entity: "vendor", id: vendorId, hard: true })
       })
 
       if (!response.ok) {
@@ -327,7 +327,7 @@ export default function VendorsPage() {
         console.warn("[Vendors]", result.warning)
       }
 
-      toast.success(result.message || "Vendor deleted successfully")
+      toast.success("Vendor permanently deleted")
       setConfirmationDialog(null)
       loadVendors()
     } catch (error: any) {
