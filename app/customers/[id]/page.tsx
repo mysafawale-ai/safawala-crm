@@ -40,7 +40,14 @@ export default function CustomerDetailPage() {
   const router = useRouter()
   const params = useParams()
   const { toast } = useToast()
-  const customerId = params.id as string
+  
+  // Sanitize the customer ID - remove any non-UUID characters and trim
+  let rawId = params.id as string
+  // Extract valid UUID pattern (8-4-4-4-12 format)
+  const uuidMatch = rawId?.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+  const customerId = uuidMatch ? uuidMatch[1] : rawId
+  
+  console.log('Raw ID:', rawId, 'Sanitized ID:', customerId)
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
