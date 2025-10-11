@@ -242,6 +242,19 @@
     z-index: 1;
   }
 
+  /* Sidebar header logo container fix */
+  .heritage-sidebar [data-sidebar="header"] {
+    padding: 0.5rem 0;
+    overflow: hidden;
+  }
+
+  .heritage-sidebar [data-sidebar="header"] img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
   .heritage-sidebar-item {
     background: rgba(254, 250, 246, 0.9);
     border: 1px solid rgba(16, 37, 22, 0.08);
