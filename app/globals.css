@@ -204,10 +204,16 @@
 
   /* Sidebar using lighter cream variants */
   .heritage-sidebar {
-    background: linear-gradient(180deg, #fefaf6 0%, #fcf7f0 100%);
+    background: linear-gradient(180deg, #fefaf6 0%, #fcf7f0 100%) !important;
     border-right: 2px solid #102516;
     box-shadow: 4px 0 20px rgba(16, 37, 22, 0.12);
     position: relative;
+  }
+
+  /* Mobile sidebar background fix */
+  .heritage-sidebar[data-mobile="true"],
+  [data-mobile="true"] .heritage-sidebar {
+    background: linear-gradient(180deg, #fefaf6 0%, #fcf7f0 100%) !important;
   }
 
   .heritage-sidebar::before {
@@ -220,6 +226,12 @@
     background-image: radial-gradient(circle at 30% 30%, rgba(16, 37, 22, 0.02) 0%, transparent 50%),
       repeating-linear-gradient(45deg, transparent 0px, rgba(16, 37, 22, 0.008) 1px, transparent 2px, transparent 25px);
     pointer-events: none;
+    z-index: 0;
+  }
+
+  .heritage-sidebar > * {
+    position: relative;
+    z-index: 1;
   }
 
   .heritage-sidebar-item {
