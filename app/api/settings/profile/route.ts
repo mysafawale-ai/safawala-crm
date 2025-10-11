@@ -183,6 +183,14 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('[Profile API PUT] Request body:', {
+      hasId: !!body.id,
+      hasFranchiseId: !!body.franchise_id,
+      id: body.id,
+      franchise_id: body.franchise_id,
+      keys: Object.keys(body)
+    })
+    
     const {
       id,
       franchise_id,
@@ -207,6 +215,7 @@ export async function PUT(request: NextRequest) {
     } = body
 
     if (!id || !franchise_id) {
+      console.error('[Profile API PUT] Missing required fields:', { id, franchise_id })
       return NextResponse.json(
         { error: 'Profile ID and franchise ID are required' },
         { status: 400 }
@@ -251,13 +260,19 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Error updating profile:', error)
+      console.error('[Profile API PUT] Database error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      })
       return NextResponse.json(
-        { error: 'Failed to update profile' },
+        { error: `Failed to update profile: ${error.message}` },
         { status: 500 }
       )
     }
 
+    console.log('[Profile API PUT] Success:', { profileId: data.id })
     return NextResponse.json({
       success: true,
       data,

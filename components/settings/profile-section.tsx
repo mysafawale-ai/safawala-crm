@@ -272,12 +272,14 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
     
     // Validate franchise ID first
     if (!franchiseId) {
+      console.error('[Profile] Cannot save: No franchise ID')
       ToastService.error('Cannot save profile: Missing franchise ID. Please contact support.')
       return
     }
     
     // Validate form
     if (!validateForm()) {
+      console.error('[Profile] Validation failed:', validationErrors)
       ToastService.error('Please fix the validation errors before saving')
       return
     }
@@ -290,11 +292,13 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
         : { ...profileForm, franchise_id: franchiseId }
 
       // Debug logging
-      console.log('Profile save attempt:', {
+      console.log('[Profile] Save attempt:', {
         method,
         franchiseId,
         hasProfile: !!profile,
-        formData: profileForm
+        profileId: profile?.id,
+        formDataKeys: Object.keys(profileForm),
+        bodyKeys: Object.keys(body)
       })
 
       const response = await fetch('/api/settings/profile', {
@@ -305,16 +309,16 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
 
       if (response.ok) {
         const result = await response.json()
-        console.log('Profile saved successfully:', result)
+        console.log('[Profile] Saved successfully:', result)
         ToastService.operations.settingsSaved()
         fetchProfile()
       } else {
         const errorData = await response.json()
-        console.error('Profile save failed:', { status: response.status, error: errorData })
-        await ToastService.handleApiError(response, 'save profile')
+        console.error('[Profile] Save failed:', { status: response.status, error: errorData })
+        ToastService.error(`Failed to save profile. ${errorData.error || 'Unknown error'}`)
       }
     } catch (error: any) {
-      console.error('Error saving profile:', error)
+      console.error('[Profile] Error saving:', error)
       ToastService.operations.settingsSaveFailed('Unable to connect to server')
     } finally {
       setSaving(false)
