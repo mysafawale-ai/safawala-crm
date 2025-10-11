@@ -533,7 +533,7 @@ export default function BookingsPage() {
 
         <TabsContent value="calendar">
           <div className="w-full p-6">
-            <BookingCalendar compact franchiseId={currentUser?.role !== 'super_admin' ? currentUser?.franchise_id : undefined} />
+            <BookingCalendar compact mini franchiseId={currentUser?.role !== 'super_admin' ? currentUser?.franchise_id : undefined} />
           </div>
         </TabsContent>
       </Tabs>

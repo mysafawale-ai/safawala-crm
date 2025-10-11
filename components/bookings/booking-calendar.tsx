@@ -37,9 +37,10 @@ interface BookingData {
 interface BookingCalendarProps {
   franchiseId?: string
   compact?: boolean
+  mini?: boolean // ultra-compact size
 }
 
-export function BookingCalendar({ franchiseId, compact = false }: BookingCalendarProps) {
+export function BookingCalendar({ franchiseId, compact = false, mini = false }: BookingCalendarProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date>()
   const [showDateDetails, setShowDateDetails] = React.useState(false)
   const [bookings, setBookings] = React.useState<BookingData[]>([])
@@ -198,7 +199,7 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
         </div>
       </CardHeader>
       <CardContent className="w-full">
-        <div className={`mx-auto ${compact ? 'max-w-sm' : 'md:w-[70%]'} w-full`}>
+        <div className={`mx-auto ${compact ? (mini ? 'max-w-xs' : 'max-w-sm') : 'md:w-[70%]'} w-full`}>
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -214,13 +215,13 @@ export function BookingCalendar({ franchiseId, compact = false }: BookingCalenda
               const count = getBookingsForDate(date).length
               return count>0 ? count : null
             }}
-            className={`rounded-md border w-full ${compact ? '[--cell-size:1.25rem]' : '[--cell-size:2.2rem] md:[--cell-size:2.4rem]'}`}
+            className={`rounded-md border w-full ${compact ? (mini ? '[--cell-size:1rem]' : '[--cell-size:1.25rem]') : '[--cell-size:2.2rem] md:[--cell-size:2.4rem]'}`}
           />
           {/* Always show a small legend for reference */}
-          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground justify-center">
-            <span className="inline-flex items-center gap-2"><span className="inline-block w-2.5 h-2.5 rounded bg-emerald-600" /> 0 Bookings</span>
-            <span className="inline-flex items-center gap-2"><span className="inline-block w-2.5 h-2.5 rounded bg-blue-600" /> 1-20 Bookings</span>
-            <span className="inline-flex items-center gap-2"><span className="inline-block w-2.5 h-2.5 rounded bg-red-600" /> 20+ Bookings</span>
+          <div className={`mt-3 flex items-center ${mini ? 'gap-3 text-[11px]' : 'gap-4 text-xs'} text-muted-foreground justify-center`}>
+            <span className="inline-flex items-center gap-2"><span className={`inline-block ${mini ? 'w-2 h-2' : 'w-2.5 h-2.5'} rounded bg-emerald-600`} /> 0 Bookings</span>
+            <span className="inline-flex items-center gap-2"><span className={`inline-block ${mini ? 'w-2 h-2' : 'w-2.5 h-2.5'} rounded bg-blue-600`} /> 1-20 Bookings</span>
+            <span className="inline-flex items-center gap-2"><span className={`inline-block ${mini ? 'w-2 h-2' : 'w-2.5 h-2.5'} rounded bg-red-600`} /> 20+ Bookings</span>
           </div>
         </div>
       </CardContent>
