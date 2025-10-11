@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     console.log(`[Vendors API] Fetching vendors for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status") // 'active', 'inactive', or 'all'
+  const status = searchParams.get("status") // 'active', 'inactive', or 'all'
 
     // Try to fetch with all filters first
     try {
@@ -69,14 +69,13 @@ export async function GET(request: NextRequest) {
         query = query.eq("franchise_id", franchiseId)
       }
 
-      // Filter by is_active if requested
+      // Filter by is_active only when explicitly requested
       if (status === "active") {
         query = query.eq("is_active", true)
       } else if (status === "inactive") {
         query = query.eq("is_active", false)
-      } else if (!status || status === "all") {
-        // Default: show only active vendors
-        query = query.eq("is_active", true)
+      } else {
+        // status === 'all' or missing -> do NOT filter by is_active
       }
       
       const { data, error } = await query

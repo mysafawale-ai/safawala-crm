@@ -96,7 +96,7 @@ export default function VendorsPage() {
 
   useEffect(() => {
     loadVendors()
-  }, [])
+  }, [statusFilter])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -338,13 +338,13 @@ export default function VendorsPage() {
     try {
       console.log("[Vendors] Deactivating vendor:", vendorId)
 
-      const response = await fetch(`/api/vendors/${vendorId}`, {
-        method: "PUT",
+      const response = await fetch(`/api/vendors/update`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ is_active: false }),
+        body: JSON.stringify({ id: vendorId, is_active: false }),
       })
 
       if (!response.ok) {
@@ -400,6 +400,7 @@ export default function VendorsPage() {
 
   const serviceTypes = ["laundry", "dry_cleaning", "both", "catering", "decoration", "photography", "transportation"]
   const activeVendors = vendors.filter((v) => v.is_active).length
+  const inactiveVendors = vendors.filter((v) => !v.is_active).length
   const totalVendors = vendors.length
 
   const getVendorStats = (vendorId: string) => {
@@ -532,7 +533,7 @@ export default function VendorsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Vendors</CardTitle>
@@ -549,6 +550,15 @@ export default function VendorsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeVendors}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Inactive Vendors</CardTitle>
+            <Card className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{inactiveVendors}</div>
           </CardContent>
         </Card>
       </div>
@@ -578,7 +588,9 @@ export default function VendorsPage() {
       {/* Vendors Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Vendors ({filteredVendors.length})</CardTitle>
+          <CardTitle>
+            {statusFilter === 'inactive' ? 'Inactive Vendors' : statusFilter === 'active' ? 'Active Vendors' : 'Vendors'} ({filteredVendors.length})
+          </CardTitle>
           <CardDescription>Manage your vendor relationships and contact information</CardDescription>
         </CardHeader>
         <CardContent>
@@ -644,6 +656,28 @@ export default function VendorsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {statusFilter === 'all' && inactiveVendors > 0 && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Inactive Vendors ({inactiveVendors})</CardTitle>
+            <CardDescription>These vendors are currently deactivated</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {vendors.filter(v => !v.is_active).map(vendor => (
+                <div key={vendor.id} className="flex items-center justify-between border rounded-md p-3">
+                  <div>
+                    <div className="font-medium">{vendor.name}</div>
+                    <div className="text-sm text-muted-foreground">{vendor.contact_person || 'No contact person'} • {vendor.phone}</div>
+                  </div>
+                  <Badge variant="destructive">Inactive</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Edit Vendor Dialog */}
       <Dialog open={!!editingVendor} onOpenChange={(open) => !open && setEditingVendor(null)}>
