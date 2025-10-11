@@ -90,13 +90,7 @@ export async function POST(request: NextRequest) {
       throw fetchError
     }
 
-    // Only check is_active if column exists
-    if (Object.prototype.hasOwnProperty.call(existingVendor, 'is_active') && existingVendor.is_active === false) {
-      return NextResponse.json(
-        { error: "Cannot update inactive vendor" },
-        { status: 400 }
-      )
-    }
+    // Allow updating even if vendor is inactive (so reactivation and edits are possible)
 
     // Authorize by franchise if column exists
     if (!isSuperAdmin && Object.prototype.hasOwnProperty.call(existingVendor, 'franchise_id') && existingVendor.franchise_id && existingVendor.franchise_id !== franchiseId) {
