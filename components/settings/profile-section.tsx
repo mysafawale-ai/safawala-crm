@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -22,8 +21,6 @@ import {
   Calendar,
   Save,
   Loader2,
-  FileSignature,
-  Edit3,
   AlertCircle
 } from 'lucide-react'
 
@@ -33,20 +30,13 @@ interface UserProfile {
   last_name: string
   email: string
   phone: string
-  role: string
   designation: string
   department: string
   employee_id?: string
   date_of_joining?: string
-  address: string
-  city: string
-  state: string
-  postal_code: string
   emergency_contact_name?: string
   emergency_contact_phone?: string
-  bio?: string
   profile_photo_url?: string
-  signature_url?: string
 }
 
 interface ProfileSectionProps {
@@ -67,20 +57,13 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
     last_name: '',
     email: '',
     phone: '',
-    role: '',
     designation: '',
     department: '',
     employee_id: '',
     date_of_joining: '',
-    address: '',
-    city: '',
-    state: '',
-    postal_code: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
-    bio: '',
-    profile_photo_url: '',
-    signature_url: ''
+    profile_photo_url: ''
   })
 
   useEffect(() => {
@@ -117,20 +100,13 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
             last_name: result.data.last_name || '',
             email: result.data.email || '',
             phone: result.data.phone || '',
-            role: result.data.role || '',
             designation: result.data.designation || '',
             department: result.data.department || '',
             employee_id: result.data.employee_id || '',
             date_of_joining: result.data.date_of_joining || '',
-            address: result.data.address || '',
-            city: result.data.city || '',
-            state: result.data.state || '',
-            postal_code: result.data.postal_code || '',
             emergency_contact_name: result.data.emergency_contact_name || '',
             emergency_contact_phone: result.data.emergency_contact_phone || '',
-            bio: result.data.bio || '',
-            profile_photo_url: result.data.profile_photo_url || '',
-            signature_url: result.data.signature_url || ''
+            profile_photo_url: result.data.profile_photo_url || ''
           })
         }
       } else if (response.status === 500) {
@@ -155,7 +131,21 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
     setProfileForm(prev => ({ ...prev, [field]: value }))
   }
 
-  const validateFile = (file: File, type: 'profile' | 'signature') => {
+  const generateEmployeeId = () => {
+    // Generate unique Employee ID: EMP-FRANCHISE-TIMESTAMP-RANDOM
+    const timestamp = Date.now().toString().slice(-6) // Last 6 digits of timestamp
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase() // 3 random chars
+    const franchiseCode = franchiseId.substring(0, 8).toUpperCase() // First 8 chars of franchise ID
+    const employeeId = `EMP-${franchiseCode}-${timestamp}-${random}`
+    
+    setProfileForm(prev => ({ ...prev, employee_id: employeeId }))
+    ToastService.success({
+      title: 'Employee ID Generated',
+      description: `Generated ID: ${employeeId}`
+    })
+  }
+
+  const validateFile = (file: File) => {
     const maxSize = 2 * 1024 * 1024 // 2MB
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
     
@@ -167,19 +157,11 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
       return 'Only JPEG, PNG, and WebP images are allowed'
     }
     
-    if (type === 'signature') {
-      // Additional validation for signature
-      if (file.size < 1024) {
-        return 'Signature file seems too small, please use a higher quality image'
-      }
-    }
-    
     return null
   }
 
-  const handleFileUpload = (field: 'profile_photo_url' | 'signature_url', file: File) => {
-    const fileType = field === 'profile_photo_url' ? 'profile' : 'signature'
-    const validationError = validateFile(file, fileType)
+  const handleFileUpload = (field: 'profile_photo_url', file: File) => {
+    const validationError = validateFile(file)
     
     if (validationError) {
       ToastService.error(validationError)
@@ -192,7 +174,7 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
     reader.onload = (event) => {
       handleFormChange(field, event.target?.result as string)
       setFileUploading(prev => ({ ...prev, [field]: false }))
-      ToastService.success(`${fileType === 'profile' ? 'Profile photo' : 'Signature'} uploaded successfully`)
+      ToastService.success('Profile photo uploaded successfully')
     }
     reader.onerror = () => {
       setFileUploading(prev => ({ ...prev, [field]: false }))
@@ -386,12 +368,11 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
                 {profileForm.first_name} {profileForm.last_name}
               </h3>
               <p className="text-gray-600">{profileForm.designation}</p>
-              <div className="flex gap-2 mt-2">
-                <Badge variant="outline">{profileForm.role}</Badge>
-                {profileForm.department && (
+              {profileForm.department && (
+                <div className="flex gap-2 mt-2">
                   <Badge variant="secondary">{profileForm.department}</Badge>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -481,12 +462,23 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="employee_id">Employee ID</Label>
-              <Input
-                id="employee_id"
-                value={profileForm.employee_id}
-                onChange={(e) => handleFormChange('employee_id', e.target.value)}
-                placeholder="EMP001"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="employee_id"
+                  value={profileForm.employee_id}
+                  onChange={(e) => handleFormChange('employee_id', e.target.value)}
+                  placeholder="EMP001 or click Generate"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={generateEmployeeId}
+                  className="whitespace-nowrap"
+                >
+                  Generate
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -529,78 +521,6 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
                   onChange={(e) => handleFormChange('emergency_contact_phone', e.target.value)}
                   placeholder="+91 98765 43210"
                 />
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-
-          {/* Bio */}
-          <div className="space-y-2">
-            <Label htmlFor="bio">Bio / About</Label>
-            <Textarea
-              id="bio"
-              value={profileForm.bio}
-              onChange={(e) => handleFormChange('bio', e.target.value)}
-              placeholder="Brief description about yourself..."
-              rows={3}
-              className={getFieldClassName('bio')}
-              maxLength={500}
-            />
-            <div className="flex justify-between items-center">
-              {renderFieldError('bio')}
-              <span className="text-xs text-gray-500">
-                {profileForm.bio?.length || 0}/500 characters
-              </span>
-            </div>
-          </div>
-
-          {/* Signature Upload */}
-          <div className="space-y-4">
-            <h4 className="font-medium flex items-center gap-2">
-              <FileSignature className="h-4 w-4" />
-              Digital Signature
-            </h4>
-            
-            <div className="flex items-center gap-4">
-              {profileForm.signature_url ? (
-                <div className="relative">
-                  <img 
-                    src={profileForm.signature_url} 
-                    alt="Digital Signature" 
-                    className="w-32 h-16 object-contain border rounded bg-white"
-                  />
-                  <Label htmlFor="signature_upload" className="absolute -top-2 -right-2 cursor-pointer">
-                    <div className="bg-blue-600 text-white p-1 rounded-full hover:bg-blue-700 transition-colors">
-                      <Edit3 className="h-3 w-3" />
-                    </div>
-                  </Label>
-                </div>
-              ) : (
-                <Label htmlFor="signature_upload" className="cursor-pointer">
-                  <div className="w-32 h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center hover:border-blue-400 transition-colors">
-                    <div className="text-center">
-                      <Upload className="h-6 w-6 mx-auto text-gray-400 mb-1" />
-                      <p className="text-xs text-gray-500">Upload Signature</p>
-                    </div>
-                  </div>
-                </Label>
-              )}
-              
-              <Input
-                id="signature_upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleFileUpload('signature_url', file)
-                }}
-              />
-              
-              <div className="text-sm text-gray-500">
-                <p>Upload your digital signature</p>
-                <p className="text-xs">Recommended: PNG with transparent background</p>
               </div>
             </div>
           </div>

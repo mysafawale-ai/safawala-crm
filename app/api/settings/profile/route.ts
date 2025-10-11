@@ -198,20 +198,13 @@ export async function PUT(request: NextRequest) {
       last_name,
       email,
       phone,
-      role,
       designation,
       department,
       employee_id,
       date_of_joining,
-      address,
-      city,
-      state,
-      postal_code,
       emergency_contact_name,
       emergency_contact_phone,
-      bio,
-      profile_photo_url,
-      signature_url
+      profile_photo_url
     } = body
 
     if (!id || !franchise_id) {
@@ -227,20 +220,13 @@ export async function PUT(request: NextRequest) {
       last_name,
       email,
       phone,
-      role,
       designation,
       department,
       employee_id,
       date_of_joining,
-      address,
-      city,
-      state,
-      postal_code,
       emergency_contact_name,
       emergency_contact_phone,
-      bio,
       profile_photo_url,
-      signature_url,
       updated_at: new Date().toISOString()
     }
 
