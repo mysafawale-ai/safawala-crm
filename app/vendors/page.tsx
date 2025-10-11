@@ -368,6 +368,39 @@ export default function VendorsPage() {
     }
   }
 
+  const handleReactivateVendor = async (vendorId: string) => {
+    try {
+      console.log("[Vendors] Reactivating vendor:", vendorId)
+
+      const response = await fetch(`/api/vendors/update`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ id: vendorId, is_active: true }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to reactivate vendor" }))
+        throw new Error(errorData.error || `Server error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log("[Vendors] Vendor reactivated successfully:", result.vendor)
+
+      if (result.warning) {
+        console.warn("[Vendors]", result.warning)
+      }
+
+      toast.success("Vendor reactivated successfully")
+      loadVendors()
+    } catch (error: any) {
+      console.error("[Vendors] Error reactivating vendor:", error)
+      toast.error(error.message || "Failed to reactivate vendor")
+    }
+  }
+
   const handleDeleteVendorWithConfirmation = (vendor: Vendor) => {
     setConfirmationDialog({
       open: true,
@@ -671,7 +704,12 @@ export default function VendorsPage() {
                     <div className="font-medium">{vendor.name}</div>
                     <div className="text-sm text-muted-foreground">{vendor.contact_person || 'No contact person'} • {vendor.phone}</div>
                   </div>
-                  <Badge variant="destructive">Inactive</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive">Inactive</Badge>
+                    <Button size="sm" variant="outline" onClick={() => handleReactivateVendor(vendor.id)}>
+                      Reactivate
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
