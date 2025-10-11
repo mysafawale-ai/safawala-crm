@@ -57,7 +57,7 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
   const fetchCompanyInfo = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/settings/company`)
+      const response = await fetch(`/api/settings/company?franchise_id=${franchiseId}`)
       
       if (!response.ok) {
         await ToastService.handleApiError(response, 'load company information')
@@ -165,7 +165,10 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          franchise_id: franchiseId
+        }),
       })
 
       if (response.ok) {

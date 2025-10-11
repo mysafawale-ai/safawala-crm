@@ -6,10 +6,20 @@ import { ApiResponseBuilder, validateRequiredFields, validateEmail } from '@/lib
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient()
+    const { searchParams } = new URL(request.url)
+    const franchiseId = searchParams.get('franchise_id')
+
+    if (!franchiseId) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError('Franchise ID is required', 'franchise_id'),
+        { status: 400 }
+      )
+    }
 
     const { data, error } = await supabase
       .from('company_settings')
       .select('*')
+      .eq('franchise_id', franchiseId)
       .single()
 
     if (error && error.code !== 'PGRST116') {
@@ -38,8 +48,8 @@ export async function POST(request: NextRequest) {
     const supabase = createClient()
     const body = await request.json()
 
-    // Validate required fields
-    const requiredFields = ['company_name', 'email']
+    // Validate required fields including franchise_id
+    const requiredFields = ['franchise_id', 'company_name', 'email']
     const validation = validateRequiredFields(body, requiredFields)
     if (validation) {
       return NextResponse.json(
@@ -57,6 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     const {
+      franchise_id,
       company_name,
       email,
       phone,
@@ -71,10 +82,11 @@ export async function POST(request: NextRequest) {
       terms_conditions
     } = body
 
-    // Check if settings exist
+    // Check if settings exist for this franchise
     const { data: existing, error: fetchError } = await supabase
       .from('company_settings')
       .select('id')
+      .eq('franchise_id', franchise_id)
       .single()
 
     if (fetchError && fetchError.code !== 'PGRST116') {
@@ -86,6 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     const settingsData = {
+      franchise_id,
       company_name: company_name.trim(),
       email: email.trim().toLowerCase(),
       phone: phone?.trim() || null,
@@ -108,6 +121,7 @@ export async function POST(request: NextRequest) {
         .from('company_settings')
         .update(settingsData)
         .eq('id', existing.id)
+        .eq('franchise_id', franchise_id)
         .select()
         .single()
     } else {
