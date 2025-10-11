@@ -299,7 +299,11 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
               >
                 <Link href="/dashboard" className="w-full">
                   <div className="flex w-full items-center justify-start pl-1 pr-2 mt-2 mb-2">
-                    <img src="/safalogo.svg" alt="Safawala Logo" className="w-[80%] h-auto object-contain" />
+                    <img 
+                      src="/safalogo.svg" 
+                      alt="Safawala Logo" 
+                      className="w-[80%] md:w-[80%] sm:w-[70%] h-auto object-contain" 
+                    />
                   </div>
                 </Link>
               </SidebarMenuButton>

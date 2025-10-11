@@ -210,9 +210,17 @@
     position: relative;
   }
 
-  /* Mobile sidebar background fix */
+  /* Mobile sidebar background fix - multiple selectors for specificity */
   .heritage-sidebar[data-mobile="true"],
-  [data-mobile="true"] .heritage-sidebar {
+  [data-mobile="true"] .heritage-sidebar,
+  [data-mobile="true"].heritage-sidebar,
+  .heritage-sidebar[data-sidebar="sidebar"],
+  [data-sidebar="sidebar"].heritage-sidebar {
+    background: linear-gradient(180deg, #fefaf6 0%, #fcf7f0 100%) !important;
+  }
+
+  /* Sheet content override for mobile sidebar */
+  [data-mobile="true"][data-sidebar="sidebar"] {
     background: linear-gradient(180deg, #fefaf6 0%, #fcf7f0 100%) !important;
   }
 
