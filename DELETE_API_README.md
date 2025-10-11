@@ -6,7 +6,7 @@ Purpose: Centralized deletion handler with soft-delete by default and hard-delet
 
 Request body:
 {
-  "entity": "vendor" | "vendors" | "customer" | "customers",
+  "entity": "vendor" | "vendors" | "customer" | "customers" | "booking" | "bookings" | "expense" | "expenses",
   "id": "<uuid>",
   "hard": false // optional; when true, performs hard delete
 }
@@ -15,6 +15,8 @@ Behavior:
 - Soft delete preferred (sets is_active=false and updates updated_at) when the column exists.
 - If is_active column is missing, falls back to hard delete.
 - Vendors: prevents deletion if there are active purchases (pending/partial).
+- Bookings: blocks deletion if payments exist; otherwise prefers to mark status=cancelled (and is_active=false when available). Falls back to hard delete.
+- Expenses: standard soft delete when available, otherwise hard delete.
 - Auth: only super_admin, franchise_admin, and staff can delete; non-super admins must match franchise_id if present.
 
 Responses:

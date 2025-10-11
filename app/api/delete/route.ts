@@ -5,13 +5,21 @@ import { createClient } from "@/lib/supabase/server"
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-type SupportedEntity = "vendor" | "vendors" | "customer" | "customers"
+type SupportedEntity =
+  | "vendor" | "vendors"
+  | "customer" | "customers"
+  | "booking" | "bookings"
+  | "expense" | "expenses"
 
 const ENTITY_TABLE_MAP: Record<SupportedEntity, string> = {
   vendor: "vendors",
   vendors: "vendors",
   customer: "customers",
   customers: "customers",
+  booking: "bookings",
+  bookings: "bookings",
+  expense: "expenses",
+  expenses: "expenses",
 }
 
 function normalizeEntity(entity: string): SupportedEntity | null {
@@ -113,6 +121,20 @@ export async function POST(request: NextRequest) {
         )
       }
     }
+    if (table === "bookings") {
+      // Prevent deletion if payments exist for this booking
+      const { data: paymentsRef } = await supabase
+        .from("payments")
+        .select("id")
+        .eq("booking_id", id)
+        .limit(1)
+      if (paymentsRef && paymentsRef.length > 0) {
+        return NextResponse.json(
+          { error: "Cannot delete booking with existing payments. Refund/remove payments first or mark booking cancelled." },
+          { status: 409 }
+        )
+      }
+    }
 
     // 4) Perform deletion
     const doHardDelete = Boolean(hard)
@@ -123,7 +145,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: `${table.slice(0, -1)} deleted successfully`, hard: true })
     }
 
-    // Soft delete preferred if is_active exists
+    // Entity-specific preferred soft delete behavior
+    if (table === "bookings") {
+      // Prefer to mark as cancelled (and inactive if available)
+      const now = new Date().toISOString()
+      // Try enhanced cancellation first
+      const enhanced = { is_active: false as any, status: "cancelled", cancelled_at: now, updated_at: now }
+      try {
+        const { data: updated, error: updError } = await supabase
+          .from(table)
+          .update(enhanced as any)
+          .eq("id", id)
+          .select()
+          .single()
+
+        if (updError) {
+          const msg = String((updError as any).message || "")
+          if (/column|does not exist/i.test(msg)) {
+            // Retry without is_active
+            const { data: updated2, error: updError2 } = await supabase
+              .from(table)
+              .update({ status: "cancelled", cancelled_at: now, updated_at: now } as any)
+              .eq("id", id)
+              .select()
+              .single()
+            if (updError2) {
+              const msg2 = String((updError2 as any).message || "")
+              if (/column|does not exist/i.test(msg2)) {
+                // Retry with only is_active
+                const { data: updated3, error: updError3 } = await supabase
+                  .from(table)
+                  .update({ is_active: false, updated_at: now } as any)
+                  .eq("id", id)
+                  .select()
+                  .single()
+                if (updError3) throw updError3
+                return NextResponse.json({ message: "Booking cancelled (inactive)", record: updated3 })
+              }
+              throw updError2
+            }
+            return NextResponse.json({ message: "Booking cancelled", record: updated2 })
+          }
+          throw updError
+        }
+        return NextResponse.json({ message: "Booking cancelled", record: updated })
+      } catch (err) {
+        // Final fallback: hard delete (safe since we checked payments above)
+        const { error: delError } = await supabase.from(table).delete().eq("id", id)
+        if (delError) throw delError
+        return NextResponse.json({ message: "Booking deleted successfully" })
+      }
+    }
+
+    // Generic soft delete preferred if is_active exists
     try {
       const { data: updated, error: updError } = await supabase
         .from(table)
