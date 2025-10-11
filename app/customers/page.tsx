@@ -109,12 +109,14 @@ export default function CustomersPage() {
     })
 
     try {
-      // Make DELETE request
-      const response = await fetch(`/api/customers/${customerId}`, {
-        method: "DELETE",
+      // Use unified delete endpoint for permanent deletion
+      const response = await fetch(`/api/delete`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
+        body: JSON.stringify({ entity: 'customer', id: customerId, hard: true })
       })
 
       console.log('[Delete Customer] Response status:', response.status)
@@ -161,8 +163,8 @@ export default function CustomersPage() {
       }
 
       // Success!
-      console.log('[Delete Customer] Successfully deleted:', responseData)
-      toast.success(`Customer "${customerToDelete.name}" deleted successfully`)
+  console.log('[Delete Customer] Successfully deleted:', responseData)
+  toast.success(`Customer "${customerToDelete.name}" permanently deleted`)
       
       // Close dialog and refresh list
       setDeleteDialogOpen(false)
