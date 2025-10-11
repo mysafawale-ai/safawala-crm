@@ -713,7 +713,7 @@ export default function StaffPage() {
                         type={showPassword ? "text" : "password"}
                         value={newUserData.password}
                         onChange={(e) => handleInputChange('password', e.target.value)}
-                        placeholder="Enter password (min 6 characters)"
+                        placeholder="Enter password (min 8 characters)"
                       />
                       <Button
                         type="button"
@@ -730,7 +730,7 @@ export default function StaffPage() {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Password must be at least 6 characters long
+                      Password must be at least 8 characters long
                     </p>
                   </div>
                   
