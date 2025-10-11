@@ -64,14 +64,15 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       const json = await res.json()
       const rows: any[] = json?.data || []
 
+      const toDateOnly = (v: any) => (v ? format(new Date(v), 'yyyy-MM-dd') : '')
       const formattedBookings: BookingData[] = rows.map((r: any) => ({
         id: r.id,
         booking_number: r.booking_number,
         customer_name: r.customer?.name || 'Unknown Customer',
         customer_phone: r.customer?.phone || '',
-        event_date: r.event_date,
-        delivery_date: r.delivery_date,
-        return_date: r.pickup_date, // API field name
+        event_date: toDateOnly(r.event_date),
+        delivery_date: toDateOnly(r.delivery_date),
+        return_date: toDateOnly(r.pickup_date), // API field name
         event_type: r.event_type,
         venue_name: r.venue_name || 'Not Specified',
         venue_address: r.venue_address || '',

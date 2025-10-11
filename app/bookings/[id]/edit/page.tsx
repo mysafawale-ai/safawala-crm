@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, RefreshCw } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+// Switch to server APIs instead of direct client Supabase to respect franchise isolation and current schema
 import { useToast } from "@/hooks/use-toast"
 import { BookingForm } from "@/components/bookings/booking-form"
 import type { Booking, Customer, Product } from "@/lib/types"
@@ -28,41 +28,20 @@ export default function EditBookingPage() {
     try {
       setLoading(true)
 
-      const { data: bookingData, error: bookingError } = await supabase
-        .from("bookings")
-        .select(`
-          *,
-          customer:customers(*),
-          booking_items(
-            id,
-            quantity,
-            unit_price,
-            total_price,
-            product:products(*)
-          )
-        `)
-        .eq("id", bookingId)
-        .single()
+      // Fetch unified booking via API
+      const res = await fetch(`/api/bookings/${bookingId}`)
+      if (!res.ok) throw new Error('Failed to fetch booking')
+      const { booking: apiBooking } = await res.json()
 
-      if (bookingError) throw bookingError
+      // Load customers/products via existing UI hooks/APIs
+      const [cRes, pRes] = await Promise.all([
+        fetch('/api/customers').then(r=>r.ok?r.json():{data:[]}).catch(()=>({data:[]})),
+        fetch('/api/products').then(r=>r.ok?r.json():{data:[]}).catch(()=>({data:[]})),
+      ])
 
-      if (bookingData.booking_items) {
-        bookingData.booking_items = bookingData.booking_items.filter((item) => item.quantity > 0)
-      }
-
-      // Load customers
-      const { data: customersData, error: customersError } = await supabase.from("customers").select("*").order("name")
-
-      if (customersError) throw customersError
-
-      // Load products
-      const { data: productsData, error: productsError } = await supabase.from("products").select("*").order("name")
-
-      if (productsError) throw productsError
-
-      setBooking(bookingData)
-      setCustomers(customersData || [])
-      setProducts(productsData || [])
+      setBooking(apiBooking)
+      setCustomers(cRes.data||[])
+      setProducts(pRes.data||[])
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
@@ -77,80 +56,33 @@ export default function EditBookingPage() {
 
   const handleUpdateBooking = async (bookingData: any) => {
     try {
-      const { error: bookingError } = await supabase
-        .from("bookings")
-        .update({
-          customer_id: bookingData.isNewCustomer ? null : bookingData.customer,
-          type: bookingData.bookingType,
-          payment_type: bookingData.paymentType,
-          status: booking?.status || "pending",
-          event_date: bookingData.eventDate?.toISOString(),
-          delivery_date: bookingData.deliveryDate?.toISOString(),
-          pickup_date: bookingData.returnDate?.toISOString(),
-          total_amount: bookingData.totalAmount,
-          notes: bookingData.notes,
-          groom_name: bookingData.groomName,
-          groom_additional_whatsapp: bookingData.groomWhatsapp,
-          groom_home_address: bookingData.groomHomeAddress,
-          bride_name: bookingData.brideName,
-          bride_additional_whatsapp: bookingData.brideWhatsapp,
-          bride_home_address: bookingData.brideHomeAddress,
-          venue_name: bookingData.venueName,
-          venue_address: bookingData.venueAddress,
-          event_type: bookingData.eventType,
-          event_for: bookingData.eventFor,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", params.id)
-
-      if (bookingError) throw bookingError
-
-      // Handle new customer creation if needed
-      if (bookingData.isNewCustomer) {
-        const { data: newCustomer, error: customerError } = await supabase
-          .from("customers")
-          .insert([
-            {
-              name: bookingData.customer.name,
-              phone: bookingData.customer.phone,
-              whatsapp: bookingData.customer.whatsapp || bookingData.customer.phone,
-              email: bookingData.customer.email,
-              address: bookingData.customer.address,
-              city: bookingData.customer.city,
-              state: bookingData.customer.state,
-              area: bookingData.customer.area,
-            },
-          ])
-          .select()
-          .single()
-
-        if (customerError) throw customerError
-
-        // Update booking with new customer ID
-        await supabase.from("bookings").update({ customer_id: newCustomer.id }).eq("id", params.id)
+      const payload = {
+        customer_id: bookingData.isNewCustomer ? null : bookingData.customer,
+        type: bookingData.bookingType,
+        payment_type: bookingData.paymentType,
+        status: booking?.status || 'pending',
+        event_date: bookingData.eventDate?.toISOString(),
+        delivery_date: bookingData.deliveryDate?.toISOString(),
+        return_date: bookingData.returnDate?.toISOString(),
+        total_amount: bookingData.totalAmount,
+        notes: bookingData.notes,
+        groom_name: bookingData.groomName,
+        groom_additional_whatsapp: bookingData.groomWhatsapp,
+        groom_home_address: bookingData.groomHomeAddress,
+        bride_name: bookingData.brideName,
+        bride_additional_whatsapp: bookingData.brideWhatsapp,
+        bride_home_address: bookingData.brideHomeAddress,
+        venue_name: bookingData.venueName,
+        venue_address: bookingData.venueAddress,
+        event_type: bookingData.eventType,
+        event_for: bookingData.eventFor,
       }
 
-      // Delete existing booking items
-      await supabase.from("booking_items").delete().eq("booking_id", params.id)
-
-      // Insert updated booking items
-      const bookingItems = Object.entries(bookingData.selectedProducts).map(([productId, quantity]) => {
-        const product = products.find((p) => p.id === productId)
-        const unitPrice = bookingData.bookingType === "rental" ? product?.rental_price : product?.price
-        return {
-          booking_id: params.id,
-          product_id: productId,
-          quantity: quantity as number,
-          unit_price: unitPrice || 0,
-          total_price: (unitPrice || 0) * (quantity as number),
-        }
-      })
-
-      if (bookingItems.length > 0) {
-        const { error: itemsError } = await supabase.from("booking_items").insert(bookingItems)
-
-        if (itemsError) throw itemsError
-      }
+      const type = (booking as any)?.source || 'unified'
+      const qs = type && type!=='unified' ? `?type=${type}` : ''
+      const res = await fetch(`/api/bookings/${params.id}${qs}`,
+        { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      if (!res.ok) throw new Error('Failed to update booking')
 
       toast({
         title: "Success",
