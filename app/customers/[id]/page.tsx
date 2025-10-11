@@ -1,5 +1,3 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AvatarInitials } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   ArrowLeft,
   Phone,
@@ -37,6 +45,7 @@ export default function CustomerDetailPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // Stats
   const [stats, setStats] = useState({
@@ -84,7 +93,7 @@ export default function CustomerDetailPage() {
         `)
         .in(
           "booking_id",
-          (bookingsData || []).map((b) => b.id),
+          (bookingsData || []).map((b: any) => b.id),
         )
         .order("created_at", { ascending: false })
 
@@ -93,7 +102,7 @@ export default function CustomerDetailPage() {
 
       // Calculate stats
       const totalBookings = bookingsData?.length || 0
-      const totalSpent = bookingsData?.reduce((sum, booking) => sum + booking.amount_paid, 0) || 0
+      const totalSpent = bookingsData?.reduce((sum: number, booking: any) => sum + (booking.amount_paid || 0), 0) || 0
       const lastBookingDate = bookingsData?.[0]?.created_at || null
 
       setStats({
@@ -142,13 +151,18 @@ export default function CustomerDetailPage() {
     router.push(`/customers/${customerId}/edit`)
   }
 
-  const handleDeleteCustomer = async () => {
-    if (!confirm("Are you sure you want to delete this customer? This action cannot be undone.")) return
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true)
+  }
 
+  const handleDeleteConfirm = async () => {
     try {
-      const { error } = await supabase.from("customers").delete().eq("id", customerId)
-
-      if (error) throw error
+      const response = await fetch(`/api/customers/${customerId}`, { method: "DELETE" })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete customer")
+      }
 
       toast({
         title: "Success",
@@ -156,13 +170,15 @@ export default function CustomerDetailPage() {
       })
 
       router.push("/customers")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting customer:", error)
       toast({
         title: "Error",
-        description: "Failed to delete customer. Please try again.",
+        description: error.message || "Failed to delete customer. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setDeleteDialogOpen(false)
     }
   }
 
@@ -217,7 +233,7 @@ export default function CustomerDetailPage() {
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button variant="destructive" onClick={handleDeleteCustomer}>
+          <Button variant="destructive" onClick={handleDeleteClick}>
             <Trash2 className="mr-2 h-4 w-4" />
             Delete
           </Button>
@@ -346,7 +362,7 @@ export default function CustomerDetailPage() {
                 <CardTitle>Recent Payments</CardTitle>
               </CardHeader>
               <CardContent>
-                {payments.slice(0, 5).map((payment) => (
+                {payments.slice(0, 5).map((payment: any) => (
                   <div key={payment.id} className="flex items-center justify-between py-2">
                     <div>
                       <p className="font-medium">₹{payment.amount.toLocaleString()}</p>
@@ -355,8 +371,8 @@ export default function CustomerDetailPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-muted-foreground capitalize">{payment.method}</p>
-                      {getPaymentStatusBadge(payment.status)}
+                      <p className="text-sm text-muted-foreground capitalize">{payment.method || 'N/A'}</p>
+                      {getPaymentStatusBadge(payment.status || 'pending')}
                     </div>
                   </div>
                 ))}
@@ -387,10 +403,10 @@ export default function CustomerDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bookings.map((booking) => (
+                  {bookings.map((booking: any) => (
                     <TableRow key={booking.id}>
                       <TableCell className="font-medium">{booking.booking_number}</TableCell>
-                      <TableCell className="capitalize">{booking.type.replace("_", " ")}</TableCell>
+                      <TableCell className="capitalize">{booking.type?.replace("_", " ") || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(booking.status)}</TableCell>
                       <TableCell>₹{booking.total_amount.toLocaleString()}</TableCell>
                       <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
@@ -432,11 +448,11 @@ export default function CustomerDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payments.map((payment) => (
+                  {payments.map((payment: any) => (
                     <TableRow key={payment.id}>
                       <TableCell className="font-medium">₹{payment.amount.toLocaleString()}</TableCell>
-                      <TableCell className="capitalize">{payment.method.replace("_", " ")}</TableCell>
-                      <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
+                      <TableCell className="capitalize">{payment.method?.replace("_", " ") || 'N/A'}</TableCell>
+                      <TableCell>{getPaymentStatusBadge(payment.status || 'pending')}</TableCell>
                       <TableCell>{payment.booking?.booking_number || "N/A"}</TableCell>
                       <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
                     </TableRow>
@@ -509,6 +525,28 @@ export default function CustomerDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{customer?.name}</strong> and all associated data including
+              bookings and payments. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Customer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

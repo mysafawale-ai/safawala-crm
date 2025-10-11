@@ -67,7 +67,7 @@ export default function EditCustomerPage() {
           setFormData({
             name: data.name || "",
             phone: data.phone || "",
-            whatsapp: data.whatsapp || "",
+            whatsapp: data.whatsapp || data.phone || "",  // Fix: Auto-fill WhatsApp from data or use phone
             email: data.email || "",
             address: data.address || "",
             city: data.city || "",

@@ -1,11 +1,19 @@
-"use client"
-
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { useData } from "@/hooks/use-data"
 import { getCurrentUser } from "@/lib/auth"
@@ -32,6 +40,8 @@ import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/ske
 export default function CustomersPage() {
   const [user, setUser] = useState<User | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
   const router = useRouter()
 
   const { data: customers = [], loading, error, refresh } = useData<Customer[]>("customers")
@@ -70,15 +80,28 @@ export default function CustomersPage() {
     window.open(whatsappUrl, "_blank")
   }
 
-  const handleDelete = async (customerId: string) => {
+  const handleDeleteClick = (customer: Customer) => {
+    setCustomerToDelete(customer)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!customerToDelete) return
+
     try {
-      const response = await fetch(`/api/customers/${customerId}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("Failed to delete customer")
+      const response = await fetch(`/api/customers/${customerToDelete.id}`, { method: "DELETE" })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete customer")
+      }
 
       toast.success("Customer deleted successfully")
+      setDeleteDialogOpen(false)
+      setCustomerToDelete(null)
       refresh()
-    } catch (error) {
-      toast.error("Failed to delete customer")
+    } catch (error: any) {
+      console.error("Error deleting customer:", error)
+      toast.error(error.message || "Failed to delete customer")
     }
   }
 
@@ -320,7 +343,7 @@ export default function CustomersPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(customer.id)}
+                      onClick={() => handleDeleteClick(customer)}
                       className="text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -349,6 +372,28 @@ export default function CustomersPage() {
             </div>
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete <strong>{customerToDelete?.name}</strong> and all associated data.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setCustomerToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete Customer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   )
