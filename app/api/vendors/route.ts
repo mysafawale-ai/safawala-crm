@@ -53,18 +53,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") // 'active', 'inactive', or 'all'
 
-    let query = supabase
-      .from("vendors")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    // Franchise isolation: super_admin sees all, others see only their franchise
-    if (!isSuperAdmin && franchiseId) {
-      query = query.eq("franchise_id", franchiseId)
-    }
-
-    // Try to filter by is_active column (may not exist in production yet)
+    // Try to fetch with all filters first
     try {
+      let query = supabase
+        .from("vendors")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      // Franchise isolation: super_admin sees all, others see only their franchise
+      if (!isSuperAdmin && franchiseId) {
+        query = query.eq("franchise_id", franchiseId)
+      }
+
+      // Filter by is_active if requested
       if (status === "active") {
         query = query.eq("is_active", true)
       } else if (status === "inactive") {
@@ -77,24 +78,22 @@ export async function GET(request: NextRequest) {
       const { data, error } = await query
 
       if (error) {
-        // If error is about missing column, retry without is_active filter
-        if (error.message?.includes("column") && error.message?.includes("is_active")) {
-          console.log("[Vendors API] is_active column not found, retrying without filter")
-          query = supabase
+        // Check if error is due to missing column
+        const errorMsg = error.message?.toLowerCase() || ""
+        if (errorMsg.includes("column") && (errorMsg.includes("franchise_id") || errorMsg.includes("is_active"))) {
+          console.log("[Vendors API] Column missing, falling back to basic query")
+          
+          // Fallback: fetch all vendors without filters
+          const { data: fallbackData, error: fallbackError } = await supabase
             .from("vendors")
             .select("*")
             .order("created_at", { ascending: false })
           
-          if (!isSuperAdmin && franchiseId) {
-            query = query.eq("franchise_id", franchiseId)
-          }
-          
-          const { data: retryData, error: retryError } = await query
-          if (retryError) throw retryError
+          if (fallbackError) throw fallbackError
           
           return NextResponse.json({ 
-            vendors: retryData || [],
-            warning: "is_active filtering not available - run migration ADD_VENDORS_FRANCHISE_ISOLATION.sql"
+            vendors: fallbackData || [],
+            warning: "⚠️ Database schema incomplete. Please run migration: ADD_VENDORS_FRANCHISE_ISOLATION.sql"
           })
         }
         throw error
@@ -102,24 +101,21 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({ vendors: data || [] })
     } catch (error: any) {
-      // Fallback for missing is_active column
-      if (error.message?.includes("column") && error.message?.includes("is_active")) {
-        console.log("[Vendors API] Fallback: fetching vendors without is_active filter")
-        let fallbackQuery = supabase
+      // Ultimate fallback: fetch all vendors without any filters
+      const errorMsg = error.message?.toLowerCase() || ""
+      if (errorMsg.includes("column") || errorMsg.includes("does not exist")) {
+        console.log("[Vendors API] Fallback: fetching all vendors without filters")
+        
+        const { data, error: fallbackError } = await supabase
           .from("vendors")
           .select("*")
           .order("created_at", { ascending: false })
         
-        if (!isSuperAdmin && franchiseId) {
-          fallbackQuery = fallbackQuery.eq("franchise_id", franchiseId)
-        }
-        
-        const { data, error: fallbackError } = await fallbackQuery
         if (fallbackError) throw fallbackError
         
         return NextResponse.json({ 
           vendors: data || [],
-          warning: "is_active filtering not available - run migration ADD_VENDORS_FRANCHISE_ISOLATION.sql"
+          warning: "⚠️ Database schema incomplete. Run migration: ADD_VENDORS_FRANCHISE_ISOLATION.sql"
         })
       }
       throw error
@@ -161,69 +157,77 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check for duplicate vendor name in same franchise
-    const { data: existing } = await supabase
-      .from("vendors")
-      .select("id, name")
-      .eq("name", body.name)
-      .eq("franchise_id", franchiseId)
-      .maybeSingle()
+    // Check for duplicate vendor name (skip franchise check if column doesn't exist)
+    try {
+      const { data: existing } = await supabase
+        .from("vendors")
+        .select("id, name")
+        .eq("name", body.name)
+        .eq("franchise_id", franchiseId)
+        .maybeSingle()
 
-    if (existing) {
-      return NextResponse.json(
-        { error: `Vendor "${body.name}" already exists in your franchise` },
-        { status: 409 }
-      )
+      if (existing) {
+        return NextResponse.json(
+          { error: `Vendor "${body.name}" already exists in your franchise` },
+          { status: 409 }
+        )
+      }
+    } catch (dupError: any) {
+      // If franchise_id column doesn't exist, skip duplicate check
+      const errorMsg = dupError.message?.toLowerCase() || ""
+      if (errorMsg.includes("column") && errorMsg.includes("franchise_id")) {
+        console.log("[Vendors API] franchise_id column missing, skipping duplicate check")
+      } else {
+        throw dupError
+      }
     }
 
-    // Prepare vendor data with franchise isolation
+    // Prepare vendor data - start with core columns that definitely exist
     const vendorData: any = {
       name: body.name,
       phone: body.phone || null,
       email: body.email || null,
       address: body.address || null,
-      franchise_id: franchiseId, // Always use user's franchise
     }
 
-    // Add optional fields if columns exist (graceful degradation)
-    if (body.contact_person !== undefined) {
-      vendorData.contact_person = body.contact_person
-    }
-    if (body.pricing_per_item !== undefined) {
-      vendorData.pricing_per_item = body.pricing_per_item
-    }
-    if (body.notes !== undefined) {
-      vendorData.notes = body.notes
-    }
+    // Try to add optional fields (they may not exist in schema yet)
     if (body.gst_number !== undefined) {
       vendorData.gst_number = body.gst_number
     }
 
-    // Try to set is_active flag (fallback if column doesn't exist)
+    // Try to insert with minimal data first, then retry with more fields
     try {
-      vendorData.is_active = true
+      // Try with all fields including new columns
+      const fullData = {
+        ...vendorData,
+        franchise_id: franchiseId,
+        contact_person: body.contact_person || null,
+        pricing_per_item: body.pricing_per_item || 0,
+        notes: body.notes || null,
+        is_active: true,
+      }
       
       const { data, error } = await supabase
         .from("vendors")
-        .insert([vendorData])
+        .insert([fullData])
         .select()
         .single()
 
       if (error) {
-        // If error is about missing column, retry without that field
-        if (error.message?.includes("column")) {
-          console.log("[Vendors API] Some columns missing, retrying with minimal data")
+        // If error is about missing column, retry with minimal data
+        const errorMsg = error.message?.toLowerCase() || ""
+        if (errorMsg.includes("column") || errorMsg.includes("does not exist")) {
+          console.log("[Vendors API] Some columns missing, retrying with core fields only")
           
-          // Retry with only core columns that definitely exist
+          // Retry with only the absolutely essential columns
           const minimalData: any = {
             name: body.name,
             phone: body.phone || null,
             email: body.email || null,
             address: body.address || null,
-            franchise_id: franchiseId,
           }
 
-          // Try adding gst_number if it exists
+          // Try adding gst_number if it exists in schema
           if (body.gst_number) {
             minimalData.gst_number = body.gst_number
           }
@@ -238,7 +242,7 @@ export async function POST(request: NextRequest) {
 
           return NextResponse.json({
             vendor: retryData,
-            warning: "Some fields not saved - run migration ADD_VENDORS_FRANCHISE_ISOLATION.sql"
+            warning: "⚠️ Vendor created with limited data. Run migration: ADD_VENDORS_FRANCHISE_ISOLATION.sql"
           }, { status: 201 })
         }
         throw error
@@ -248,19 +252,21 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       console.error("[Vendors API] POST error:", error)
       
-      // Additional fallback for column errors
-      if (error.message?.includes("column")) {
-        const minimalData: any = {
+      // Final fallback: absolute minimum data
+      const errorMsg = error.message?.toLowerCase() || ""
+      if (errorMsg.includes("column") || errorMsg.includes("does not exist")) {
+        console.log("[Vendors API] Final fallback: inserting with absolute minimum fields")
+        
+        const absoluteMinimal: any = {
           name: body.name,
           phone: body.phone || null,
           email: body.email || null,
           address: body.address || null,
-          franchise_id: franchiseId,
         }
 
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("vendors")
-          .insert([minimalData])
+          .insert([absoluteMinimal])
           .select()
           .single()
 
@@ -268,7 +274,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           vendor: fallbackData,
-          warning: "Partial data saved - run migration ADD_VENDORS_FRANCHISE_ISOLATION.sql"
+          warning: "⚠️ Vendor created with minimal data. Please run migration: ADD_VENDORS_FRANCHISE_ISOLATION.sql"
         }, { status: 201 })
       }
 
