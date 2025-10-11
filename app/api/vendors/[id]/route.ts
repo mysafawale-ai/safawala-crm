@@ -215,16 +215,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       throw fetchError
     }
 
-    // 2) Check if vendor is inactive (if column exists)
-    if (existingVendor.is_active === false) {
+    // 2) Check if vendor is inactive (only if column exists)
+    if (existingVendor.hasOwnProperty('is_active') && existingVendor.is_active === false) {
       return NextResponse.json(
         { error: "Cannot update inactive vendor" },
         { status: 400 }
       )
     }
 
-    // 3) Authorize by vendor's franchise_id
-    if (!isSuperAdmin && existingVendor.franchise_id !== franchiseId) {
+    // 3) Authorize by vendor's franchise_id (only if column exists)
+    if (!isSuperAdmin && existingVendor.hasOwnProperty('franchise_id') && existingVendor.franchise_id && existingVendor.franchise_id !== franchiseId) {
       return NextResponse.json(
         { error: "You don't have access to update this vendor" },
         { status: 403 }
@@ -247,64 +247,71 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Check for duplicate name in same franchise (if changing name)
-    if (body.name && body.name !== existingVendor.name) {
-      const { data: duplicate } = await supabase
-        .from("vendors")
-        .select("id")
-        .eq("name", body.name)
-        .eq("franchise_id", franchiseId)
-        .neq("id", id)
-        .maybeSingle()
+    // Check for duplicate name in same franchise (if changing name and franchise_id exists)
+    if (body.name && body.name !== existingVendor.name && existingVendor.hasOwnProperty('franchise_id')) {
+      try {
+        const { data: duplicate } = await supabase
+          .from("vendors")
+          .select("id")
+          .eq("name", body.name)
+          .eq("franchise_id", franchiseId)
+          .neq("id", id)
+          .maybeSingle()
 
-      if (duplicate) {
-        return NextResponse.json(
-          { error: `Vendor "${body.name}" already exists in your franchise` },
-          { status: 409 }
-        )
+        if (duplicate) {
+          return NextResponse.json(
+            { error: `Vendor "${body.name}" already exists in your franchise` },
+            { status: 409 }
+          )
+        }
+      } catch (dupError: any) {
+        // If franchise_id column doesn't exist, skip duplicate check
+        const errorMsg = dupError.message?.toLowerCase() || ""
+        if (errorMsg.includes("column") && errorMsg.includes("franchise_id")) {
+          console.log("[Vendors API] franchise_id column missing, skipping duplicate check")
+        } else {
+          throw dupError
+        }
       }
     }
 
-    // Prepare update data (only include provided fields)
-    const updateData: any = {
+    // Prepare update data - start with core fields that definitely exist
+    const coreUpdateData: any = {
       updated_at: new Date().toISOString(),
     }
 
-    if (body.name !== undefined) updateData.name = body.name
-    if (body.phone !== undefined) updateData.phone = body.phone
-    if (body.email !== undefined) updateData.email = body.email
-    if (body.address !== undefined) updateData.address = body.address
-    if (body.contact_person !== undefined) updateData.contact_person = body.contact_person
-    if (body.pricing_per_item !== undefined) updateData.pricing_per_item = body.pricing_per_item
-    if (body.notes !== undefined) updateData.notes = body.notes
-    if (body.gst_number !== undefined) updateData.gst_number = body.gst_number
+    // Add core fields that exist in original schema
+    if (body.name !== undefined) coreUpdateData.name = body.name
+    if (body.phone !== undefined) coreUpdateData.phone = body.phone
+    if (body.email !== undefined) coreUpdateData.email = body.email
+    if (body.address !== undefined) coreUpdateData.address = body.address
+    if (body.gst_number !== undefined) coreUpdateData.gst_number = body.gst_number
 
-    // Try update with all fields
+    // Try to add new columns if they exist
+    const enhancedUpdateData = { ...coreUpdateData }
+    if (body.contact_person !== undefined) enhancedUpdateData.contact_person = body.contact_person
+    if (body.pricing_per_item !== undefined) enhancedUpdateData.pricing_per_item = body.pricing_per_item
+    if (body.notes !== undefined) enhancedUpdateData.notes = body.notes
+    if (body.is_active !== undefined) enhancedUpdateData.is_active = body.is_active
+
+    // Try update with all fields first
     try {
       const { data, error } = await supabase
         .from("vendors")
-        .update(updateData)
+        .update(enhancedUpdateData)
         .eq("id", id)
         .select()
         .single()
 
       if (error) {
-        // If column error, retry with minimal fields
-        if (error.message?.includes("column")) {
-          console.log("[Vendors API] Some columns missing, retrying with core fields")
+        // If column error, retry with core fields only
+        const errorMsg = error.message?.toLowerCase() || ""
+        if (errorMsg.includes("column") || errorMsg.includes("does not exist")) {
+          console.log("[Vendors API] Some columns missing, retrying with core fields only")
           
-          const minimalUpdate: any = {
-            updated_at: new Date().toISOString(),
-          }
-          if (body.name !== undefined) minimalUpdate.name = body.name
-          if (body.phone !== undefined) minimalUpdate.phone = body.phone
-          if (body.email !== undefined) minimalUpdate.email = body.email
-          if (body.address !== undefined) minimalUpdate.address = body.address
-          if (body.gst_number !== undefined) minimalUpdate.gst_number = body.gst_number
-
           const { data: retryData, error: retryError } = await supabase
             .from("vendors")
-            .update(minimalUpdate)
+            .update(coreUpdateData)
             .eq("id", id)
             .select()
             .single()
@@ -313,7 +320,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
           return NextResponse.json({
             vendor: retryData,
-            warning: "Some fields not saved - run migration ADD_VENDORS_FRANCHISE_ISOLATION.sql"
+            warning: "⚠️ Some fields not saved. Run migration: ADD_VENDORS_FRANCHISE_ISOLATION.sql"
           })
         }
         throw error
