@@ -258,6 +258,7 @@ export default function VendorsPage() {
 
     try {
       const updateData = {
+        id: editingVendor.id,
         name: editingVendor.name,
         contact_person: editingVendor.contact_person,
         phone: editingVendor.phone,
@@ -270,8 +271,8 @@ export default function VendorsPage() {
 
       console.log("[Vendors] Updating vendor:", editingVendor.id, updateData)
 
-      const response = await fetch(`/api/vendors/${editingVendor.id}`, {
-        method: "PUT",
+      const response = await fetch(`/api/vendors/update`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
