@@ -78,12 +78,12 @@ export default function CustomerDetailPage() {
         .from("customers")
         .select("*")
         .eq("id", customerId)
-        .is('deleted_at', null)
+        .eq('is_active', true)
         .single()
 
-      // Fallback when column doesn't exist yet on prod
-      if (customerError && /deleted_at|column .* does not exist/i.test(String((customerError as any).message))) {
-        console.warn('[Customer Detail] deleted_at missing. Retrying without filter.')
+      // Fallback when is_active column doesn't exist yet on prod
+      if (customerError && /is_active|column .* does not exist/i.test(String((customerError as any).message))) {
+        console.warn('[Customer Detail] is_active missing. Retrying without filter.')
         const retry = await supabase
           .from('customers')
           .select('*')
@@ -95,7 +95,7 @@ export default function CustomerDetailPage() {
 
       if (customerError) throw customerError
       if (!customerData) {
-        throw new Error('Customer not found or has been deleted')
+        throw new Error('Customer not found or has been deactivated')
       }
       setCustomer(customerData)
 

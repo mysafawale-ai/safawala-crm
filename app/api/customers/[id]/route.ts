@@ -38,29 +38,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    let query = supabaseServer
+    // 1) Fetch by ID only (no franchise filter) to avoid false 404s
+    let { data: customer, error } = await supabaseServer
       .from("customers")
       .select("*")
       .eq("id", id)
-      .is('deleted_at', null)
+      .eq('is_active', true)
+      .single()
 
-    // Apply franchise filter if available
-    if (defaultFranchiseId) {
-      // Check if user can access this franchise
-      if (!AuthMiddleware.canAccessFranchise(authContext!.user, defaultFranchiseId)) {
-        return NextResponse.json(
-          ApiResponseBuilder.validationError("Access denied to this franchise"),
-          { status: 403 }
-        );
-      }
-      query = query.eq("franchise_id", defaultFranchiseId)
-    }
-
-    let { data: customer, error } = await query.single()
-
-    // Fallback if deleted_at column not yet migrated
-    if (error && /deleted_at|column .* does not exist/i.test(String((error as any).message))) {
-      console.warn('[Customer GET] deleted_at missing. Retrying without filter.')
+    // Fallback if is_active column not yet migrated
+    if (error && /is_active|column .* does not exist/i.test(String((error as any).message))) {
+      console.warn('[Customer GET] is_active missing. Retrying without filter.')
       const retry = await supabaseServer
         .from('customers')
         .select('*')
@@ -172,30 +160,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Check if customer exists and belongs to the franchise
-    let existingQuery = supabaseServer
+    // 1) Fetch by ID first to check existence and franchise access
+    const { data: existingCustomer, error: existingError } = await supabaseServer
       .from("customers")
       .select("*")
       .eq("id", id)
-    if (defaultFranchiseId) {
-      // Check if user can access this franchise
-      if (!AuthMiddleware.canAccessFranchise(authContext!.user, defaultFranchiseId)) {
-        return NextResponse.json(
-          ApiResponseBuilder.validationError("Access denied to this franchise"),
-          { status: 403 }
-        );
-      }
-      existingQuery = existingQuery.eq("franchise_id", defaultFranchiseId)
-    }
-
-  const { data: existingCustomer, error: existingError } = await existingQuery.single()
-    // Block updates to soft-deleted records
-    if (existingCustomer.deleted_at) {
-      return NextResponse.json(
-        ApiResponseBuilder.conflictError("Cannot update a deleted customer. Restore it first."),
-        { status: 409 }
-      )
-    }
+      .single()
 
     if (existingError) {
       if (existingError.code === "PGRST116") {
@@ -205,8 +175,27 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         )
       }
       return NextResponse.json(
-        ApiResponseBuilder.serverError("Failed to fetch existing customer", existingError.message),
+        ApiResponseBuilder.serverError("Failed to fetch customer for update", existingError.message),
         { status: 500 }
+      )
+    }
+
+    // 2) Authorization: ensure requester can access the customer's franchise
+    if (existingCustomer?.franchise_id) {
+      const allowed = AuthMiddleware.canAccessFranchise(authContext!.user, existingCustomer.franchise_id)
+      if (!allowed) {
+        return NextResponse.json(
+          ApiResponseBuilder.validationError("Access denied to this franchise"),
+          { status: 403 }
+        )
+      }
+    }
+
+    // 3) Block updates to inactive customers  
+    if (existingCustomer.is_active === false) {
+      return NextResponse.json(
+        ApiResponseBuilder.conflictError("Cannot update an inactive customer. Activate it first."),
+        { status: 409 }
       )
     }
 
@@ -401,42 +390,36 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Perform soft delete instead of hard delete
-    const body = await (async () => {
-      try { return await request.json() } catch { return {} }
-    })();
-    const deleteReason: string | null = body?.reason || null;
-
+    // Perform soft delete by setting is_active = false
     let { error: deleteError } = await supabaseServer
       .from("customers")
       .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: authContext!.user.id,
-        delete_reason: deleteReason,
+        is_active: false,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", id)
 
     if (deleteError) {
-      // Fallback: if columns not migrated yet, perform hard delete
-      if (/deleted_at|column .* does not exist/i.test(String(deleteError.message))) {
-        console.warn('[Customer DELETE] Soft-delete columns missing. Performing hard delete fallback.')
+      // Fallback: if is_active column not migrated yet, perform hard delete
+      if (/is_active|column .* does not exist/i.test(String(deleteError.message))) {
+        console.warn('[Customer DELETE] is_active column missing. Performing hard delete fallback.')
         const hard = await supabaseServer
           .from('customers')
           .delete()
           .eq('id', id)
         if (hard.error) {
-          console.error("[v0] Customer DELETE fallback error:", hard.error)
+          console.error("[Customer DELETE] Hard delete fallback error:", hard.error)
           return NextResponse.json(
             ApiResponseBuilder.serverError("Failed to delete customer", hard.error.message),
             { status: 500 }
           )
         }
       } else {
-      console.error("[v0] Customer DELETE error:", deleteError)
-      return NextResponse.json(
-        ApiResponseBuilder.serverError("Failed to delete customer", deleteError.message),
-        { status: 500 }
-      )
+        console.error("[Customer DELETE] Soft delete error:", deleteError)
+        return NextResponse.json(
+          ApiResponseBuilder.serverError("Failed to delete customer", deleteError.message),
+          { status: 500 }
+        )
       }
     }
 
@@ -462,8 +445,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(
       ApiResponseBuilder.success(
-        { id, name: existingCustomer.name, deleted_at: new Date().toISOString() },
-        `Customer "${existingCustomer.name}" moved to recycle bin`
+        { id, name: existingCustomer.name, is_active: false },
+        `Customer "${existingCustomer.name}" deactivated successfully`
       )
     )
   } catch (error) {

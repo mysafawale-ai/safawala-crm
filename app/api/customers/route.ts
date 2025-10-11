@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
 
-    // Build query with franchise filter and exclude soft-deleted
+    // Build query with franchise filter and only show active customers
     let query = supabase
       .from("customers")
       .select(`
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         franchise:franchises(id, name, code)
       `)
       .order("created_at", { ascending: false })
-      .is('deleted_at', null)
+      .eq('is_active', true)
 
     // CRITICAL: Filter by franchise_id unless super admin
     if (!isSuperAdmin && franchiseId) {
@@ -75,9 +75,9 @@ export async function GET(request: NextRequest) {
 
     let { data, error } = await query
 
-    // Fallback if deleted_at column not yet migrated in production
-    if (error && /deleted_at|column .* does not exist/i.test(String(error.message))) {
-      console.warn("[Customers API] deleted_at column missing. Falling back without soft-delete filter.")
+    // Fallback if is_active column not yet migrated
+    if (error && /is_active|column .* does not exist/i.test(String(error.message))) {
+      console.warn("[Customers API] is_active column missing. Falling back to show all customers.")
       let fallback = supabase
         .from("customers")
         .select(`
