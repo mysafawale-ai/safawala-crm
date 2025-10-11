@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * Get user session from cookie and validate franchise access
  */
@@ -48,10 +52,26 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log('[Toggle Status API] === REQUEST RECEIVED ===')
+  console.log('[Toggle Status API] Params:', params)
+  console.log('[Toggle Status API] URL:', request.url)
+  
   try {
-    // 🔒 SECURITY: Authenticate user
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    console.log('[Toggle Status] Starting request for user:', params.id)
     
+    // 🔒 SECURITY: Authenticate user
+    let authContext
+    try {
+      authContext = await getUserFromSession(request)
+      console.log('[Toggle Status] Auth successful:', authContext.userId)
+    } catch (authError) {
+      console.error('[Toggle Status] Auth failed:', authError)
+      return NextResponse.json({ 
+        error: "Authentication required. Please login again." 
+      }, { status: 401 })
+    }
+    
+    const { franchiseId, isSuperAdmin } = authContext
     const id = params.id
     
     if (!id) {
