@@ -299,15 +299,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  console.log('[DELETE] Customer delete endpoint called with params:', params);
+  
   try {
     // Authentication check
     const authResult = await requireAuth(request, 'staff');
     if (!authResult.success) {
+      console.log('[DELETE] Auth failed:', authResult.response);
       return NextResponse.json(authResult.response, { status: 401 });
     }
     const { authContext } = authResult;
 
     const { id } = params
+    console.log('[DELETE] Processing delete for customer ID:', id);
     const defaultFranchiseId = await getDefaultFranchiseId()
 
     if (!id || typeof id !== "string") {
