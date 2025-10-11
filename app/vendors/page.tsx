@@ -305,12 +305,14 @@ export default function VendorsPage() {
     try {
       console.log("[Vendors] Deleting vendor:", vendorId)
 
-      const response = await fetch(`/api/vendors/${vendorId}`, {
-        method: "DELETE",
+      // Use unified delete endpoint to avoid dynamic route 404s
+      const response = await fetch(`/api/delete`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
+        body: JSON.stringify({ entity: "vendor", id: vendorId })
       })
 
       if (!response.ok) {
@@ -318,8 +320,8 @@ export default function VendorsPage() {
         throw new Error(errorData.error || `Server error: ${response.status}`)
       }
 
-      const result = await response.json()
-      console.log("[Vendors] Vendor deleted successfully:", result.message)
+  const result = await response.json()
+  console.log("[Vendors] Vendor deleted successfully:", result.message)
 
       if (result.warning) {
         console.warn("[Vendors]", result.warning)
