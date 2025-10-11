@@ -238,11 +238,6 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
       }
     }
     
-    // Role validation
-    if (!profileForm.role) {
-      errors.role = 'Role is required'
-    }
-    
     // Date validation
     if (profileForm.date_of_joining) {
       const joiningDate = new Date(profileForm.date_of_joining)
@@ -250,16 +245,6 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
       if (joiningDate > today) {
         errors.date_of_joining = 'Joining date cannot be in the future'
       }
-    }
-    
-    // Postal code validation
-    if (profileForm.postal_code && !/^\d{5,10}$/.test(profileForm.postal_code)) {
-      errors.postal_code = 'Please enter a valid postal code'
-    }
-    
-    // Bio character limit
-    if (profileForm.bio && profileForm.bio.length > 500) {
-      errors.bio = 'Bio must be less than 500 characters'
     }
     
     setValidationErrors(errors)
@@ -473,22 +458,6 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
           {/* Professional Information */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="role">Role *</Label>
-              <Select value={profileForm.role} onValueChange={(value) => handleFormChange('role', value)}>
-                <SelectTrigger className={getFieldClassName('role')}>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
-              {renderFieldError('role')}
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="designation">Designation</Label>
               <div className="relative">
                 <Briefcase className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -510,9 +479,6 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
                 placeholder="Operations"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="employee_id">Employee ID</Label>
               <Input
@@ -522,6 +488,9 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
                 placeholder="EMP001"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date_of_joining">Date of Joining</Label>
               <div className="relative">
@@ -536,58 +505,6 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
                 />
               </div>
               {renderFieldError('date_of_joining')}
-            </div>
-          </div>
-
-          {/* Address Information */}
-          <div className="space-y-4">
-            <h4 className="font-medium flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Address Information
-            </h4>
-            
-            <div className="space-y-2">
-              <Label htmlFor="address">Street Address</Label>
-              <Textarea
-                id="address"
-                value={profileForm.address}
-                onChange={(e) => handleFormChange('address', e.target.value)}
-                placeholder="123 Main Street, Building Name"
-                rows={2}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  value={profileForm.city}
-                  onChange={(e) => handleFormChange('city', e.target.value)}
-                  placeholder="Mumbai"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  value={profileForm.state}
-                  onChange={(e) => handleFormChange('state', e.target.value)}
-                  placeholder="Maharashtra"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="postal_code">Postal Code</Label>
-                <Input
-                  id="postal_code"
-                  value={profileForm.postal_code}
-                  onChange={(e) => handleFormChange('postal_code', e.target.value)}
-                  placeholder="400001"
-                  className={getFieldClassName('postal_code')}
-                  maxLength={10}
-                />
-                {renderFieldError('postal_code')}
-              </div>
             </div>
           </div>
 
@@ -615,6 +532,8 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
               </div>
             </div>
           </div>
+
+          {/* Action Buttons */}
 
           {/* Bio */}
           <div className="space-y-2">
