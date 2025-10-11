@@ -705,7 +705,7 @@ export default function EditProductPage() {
                   <Input
                     id="price"
                     type="number"
-                    min="0"
+                    min="1"
                     step="0.01"
                     value={formData.price === 0 ? "" : formData.price}
                     onChange={(e) => {
@@ -795,7 +795,7 @@ export default function EditProductPage() {
                     id="stock_total"
                     type="number"
                     min="0"
-                    value={formData.stock_total === 1 ? "" : formData.stock_total}
+                    value={formData.stock_total}
                     onChange={(e) => {
                       const value = e.target.value
                       if (value === "") {

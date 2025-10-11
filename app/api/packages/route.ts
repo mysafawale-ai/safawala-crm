@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseServer } from "@/lib/supabase-server-simple"
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * Get user session from cookie and validate franchise access
  */
@@ -107,7 +110,9 @@ export async function POST(request: NextRequest) {
       package_type,
       category_id,
       display_order = 1,
-      variants = []
+      variants = [],
+      security_deposit,
+      extra_safa_price,
     } = body
 
     // 🔒 FRANCHISE ISOLATION: Auto-assign franchise_id from session (super admin can override)
@@ -127,6 +132,8 @@ export async function POST(request: NextRequest) {
         franchise_id: packageFranchiseId,
         display_order,
         created_by: userId,
+        security_deposit,
+        extra_safa_price,
         is_active: true
       })
       .select()

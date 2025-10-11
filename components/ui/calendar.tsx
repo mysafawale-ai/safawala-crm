@@ -11,6 +11,10 @@ import { DayButton, DayPicker, getDefaultClassNames } from 'react-day-picker'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 
+type RenderDayBadge = (date: Date) => React.ReactNode
+
+const CalendarExtrasContext = React.createContext<{ renderDayBadge?: RenderDayBadge } | null>(null)
+
 function Calendar({
   className,
   classNames,
@@ -19,14 +23,17 @@ function Calendar({
   buttonVariant = 'ghost',
   formatters,
   components,
+  renderDayBadge,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>['variant']
+  renderDayBadge?: RenderDayBadge
 }) {
   const defaultClassNames = getDefaultClassNames()
 
   return (
-    <DayPicker
+    <CalendarExtrasContext.Provider value={{ renderDayBadge }}>
+      <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
         'bg-background group/calendar p-4 [--cell-size:2.4rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',
@@ -169,6 +176,7 @@ function Calendar({
       }}
       {...props}
     />
+    </CalendarExtrasContext.Provider>
   )
 }
 
@@ -176,9 +184,11 @@ function CalendarDayButton({
   className,
   day,
   modifiers,
+  children,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames()
+  const extras = React.useContext(CalendarExtrasContext)
 
   const ref = React.useRef<HTMLButtonElement>(null)
   React.useEffect(() => {
@@ -206,7 +216,16 @@ function CalendarDayButton({
         className,
       )}
       {...props}
-    />
+    >
+      {/* Day label */}
+      <span>{children}</span>
+      {/* Optional badge */}
+      {extras?.renderDayBadge ? (
+        <span className="pointer-events-none absolute -top-1 -right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-black/80 text-[10px] leading-none text-white px-1">
+          {extras.renderDayBadge(day.date)}
+        </span>
+      ) : null}
+    </Button>
   )
 }
 

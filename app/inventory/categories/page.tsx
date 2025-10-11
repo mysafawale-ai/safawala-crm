@@ -78,6 +78,12 @@ export default function CategoriesPage() {
   const fetchCategories = async () => {
     try {
       setLoading(true)
+      // Fetch current user to enforce franchise isolation
+      const userRes = await fetch('/api/auth/user')
+      if (!userRes.ok) throw new Error('Failed to fetch user')
+      const user = await userRes.json()
+      const isSuperAdmin = user?.role === 'super_admin'
+      const franchiseId = user?.franchise_id
       
       // Fetch categories with product counts
       const { data: categoriesData, error: categoriesError } = await supabase
@@ -91,10 +97,16 @@ export default function CategoriesPage() {
       // Get product counts separately for main categories
       const categoryCounts = await Promise.all(
         (categoriesData || []).map(async (category) => {
-          const { count } = await supabase
+          let countQuery = supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
             .eq('category_id', category.id)
+
+          if (!isSuperAdmin && franchiseId) {
+            countQuery = countQuery.eq('franchise_id', franchiseId)
+          }
+
+          const { count } = await countQuery
           
           return {
             ...category,
@@ -115,10 +127,16 @@ export default function CategoriesPage() {
       // Get product counts separately for subcategories
       const subCategoryCounts = await Promise.all(
         (subCategoriesData || []).map(async (category) => {
-          const { count } = await supabase
+          let countQuery = supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
             .eq('category_id', category.id)
+
+          if (!isSuperAdmin && franchiseId) {
+            countQuery = countQuery.eq('franchise_id', franchiseId)
+          }
+
+          const { count } = await countQuery
           
           return {
             ...category,

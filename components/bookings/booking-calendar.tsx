@@ -37,9 +37,10 @@ interface BookingData {
 
 interface BookingCalendarProps {
   franchiseId?: string
+  compact?: boolean
 }
 
-export function BookingCalendar({ franchiseId }: BookingCalendarProps) {
+export function BookingCalendar({ franchiseId, compact = false }: BookingCalendarProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date>()
   const [showDateDetails, setShowDateDetails] = React.useState(false)
   const [bookings, setBookings] = React.useState<BookingData[]>([])
@@ -224,32 +225,34 @@ export function BookingCalendar({ franchiseId }: BookingCalendarProps) {
   }
 
   return (
-    <Card className="shadow-sm w-full">
-      <CardHeader className="pb-2">
+    <Card className={`shadow-sm w-full ${compact ? 'p-2' : ''}`}>
+      <CardHeader className={`${compact ? 'py-2' : 'pb-2'}`}>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Booking Calendar</CardTitle>
-          <div className="flex items-center gap-4 text-xs md:text-sm">
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded bg-muted ring-1 ring-muted-foreground/30" />
-              <span className="text-muted-foreground">Past Date</span>
+          <CardTitle className={`${compact ? 'text-base' : 'text-xl'}`}>Booking Calendar</CardTitle>
+          {!compact && (
+            <div className="flex items-center gap-4 text-xs md:text-sm">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-muted ring-1 ring-muted-foreground/30" />
+                <span className="text-muted-foreground">Past Date</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-primary/70 ring-1 ring-primary/40" />
+                <span className="text-muted-foreground">0 Bookings</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-emerald-600 ring-1 ring-emerald-700/40" />
+                <span className="text-muted-foreground">1-20 Bookings</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-3 h-3 rounded bg-destructive ring-1 ring-destructive/40" />
+                <span className="text-muted-foreground">20+ Bookings</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded bg-primary/70 ring-1 ring-primary/40" />
-              <span className="text-muted-foreground">0 Bookings</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded bg-emerald-600 ring-1 ring-emerald-700/40" />
-              <span className="text-muted-foreground">1-20 Bookings</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-3 h-3 rounded bg-destructive ring-1 ring-destructive/40" />
-              <span className="text-muted-foreground">20+ Bookings</span>
-            </div>
-          </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="w-full">
-        <div className="mx-auto w-full md:w-[70%] h-[50vh] overflow-hidden">
+        <div className={`mx-auto w-full ${compact ? 'h-[280px]' : 'md:w-[70%] h-[50vh]'} overflow-hidden`}>
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -261,7 +264,11 @@ export function BookingCalendar({ franchiseId }: BookingCalendarProps) {
             }}
             modifiers={dayModifiers}
             modifiersClassNames={dayClassNames}
-            className="rounded-md border w-full h-full [--cell-size:2.2rem] md:[--cell-size:2.4rem]"
+            renderDayBadge={(date)=>{
+              const count = getBookingsForDate(date).length
+              return count>0 ? count : null
+            }}
+            className={`rounded-md border w-full h-full ${compact ? '[--cell-size:1.6rem]' : '[--cell-size:2.2rem] md:[--cell-size:2.4rem]'}`}
           />
         </div>
       </CardContent>
@@ -273,7 +280,7 @@ export function BookingCalendar({ franchiseId }: BookingCalendarProps) {
           setShowDateDetails(open)
         }}
       >
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={`${compact ? 'max-w-md' : 'max-w-7xl'} max-h-[90vh] overflow-y-auto`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarIcon className="w-5 h-5" />
@@ -283,7 +290,7 @@ export function BookingCalendar({ franchiseId }: BookingCalendarProps) {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 ${compact ? 'hidden' : ''}`}>
               <Search className="w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by customer name, booking number, venue, or city..."
@@ -293,13 +300,20 @@ export function BookingCalendar({ franchiseId }: BookingCalendarProps) {
               />
             </div>
 
-            {filteredDateBookings.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground space-y-3">
-                <div>{dateBookings.length === 0 ? "No bookings for this date" : "No bookings match your search"}</div>
-                <a href="/book-package" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
-                  + Create Booking
-                </a>
+            {dateBookings.length === 0 ? (
+              <div className="text-center py-8 space-y-4">
+                <div className="text-muted-foreground">No bookings for this date</div>
+                <div className="flex items-center justify-center gap-3">
+                  <a href="/create-product-order" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
+                    + Book Product Order
+                  </a>
+                  <a href="/book-package" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
+                    + Book a Package
+                  </a>
+                </div>
               </div>
+            ) : filteredDateBookings.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No bookings match your search</div>
             ) : (
               <div className="overflow-x-auto border rounded-lg">
                 <table className="w-full border-collapse bg-white">

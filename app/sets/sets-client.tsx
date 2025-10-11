@@ -282,9 +282,14 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
     setIsLoading(true)
     try {
-      const { error } = await supabase.from("package_sets").delete().eq("id", deleteConfirmation.packageId)
-
-      if (error) throw error
+      const res = await fetch('/api/packages/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: deleteConfirmation.packageId }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to delete package')
 
       await refetchData()
       toast.success("Package deleted successfully!")
@@ -321,31 +326,35 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
 
       if (editingPackage) {
-        // Update existing package
-        const { error } = await supabase
-          .from("package_sets")
-          .update({
+        // Update existing package via API
+        const res = await fetch('/api/packages/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            id: editingPackage.id,
             name: packageForm.name,
             description: packageForm.description,
             base_price: Number.parseFloat(packageForm.base_price),
             security_deposit: Number.parseFloat(packageForm.security_deposit),
             extra_safa_price: Number.parseFloat(packageForm.extra_safa_price),
             franchise_id: packageForm.franchise_id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingPackage.id)
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.error || 'Failed to update package')
 
-        if (error) throw error
-
-        console.log("[v0] Package updated successfully in database")
+        console.log("[v0] Package updated successfully via API")
         setEditingPackage(null)
         toast.success("Package updated successfully!")
       } else {
-        // Create new package
-        console.log("[v0] Attempting to create new package")
-        const { data, error } = await supabase
-          .from("package_sets")
-          .insert({
+        // Create new package via API
+        console.log("[v0] Attempting to create new package via API")
+        const res = await fetch('/api/packages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
             name: packageForm.name,
             description: packageForm.description,
             base_price: Number.parseFloat(packageForm.base_price),
@@ -355,20 +364,12 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             is_active: true,
             display_order: (selectedCategory?.packages || []).length + 1,
             category_id: selectedCategory?.id,
-            created_at: new Date().toISOString(),
-          })
-          .select()
-          .single()
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.error || 'Failed to create package')
 
-        if (error) {
-          console.error("[v0] Database error details:", error)
-          if (error.message.includes("row-level security policy")) {
-            throw new Error("Permission denied. You may not have the required permissions to create packages.")
-          }
-          throw error
-        }
-
-        console.log("[v0] Package created successfully in database:", data)
+        console.log("[v0] Package created successfully via API:", json?.data)
         toast.success("Package created successfully!")
       }
 
@@ -545,35 +546,25 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         return
       }
 
-      const distancePricingData = {
+      const payload: any = {
         variant_id: selectedVariant.id,
         distance_range: distancePricingForm.range.trim(),
         min_km: distancePricingForm.min_km,
         max_km: distancePricingForm.max_km,
         base_price_addition: distancePricingForm.base_price_addition,
         is_active: true,
-        updated_at: new Date().toISOString(),
       }
+      if (editingDistancePricing) payload.id = editingDistancePricing.id
 
-      if (editingDistancePricing) {
-        // Update existing distance pricing
-        const { error } = await supabase
-          .from("distance_pricing")
-          .update(distancePricingData)
-          .eq("id", editingDistancePricing.id)
-
-        if (error) throw error
-        toast.success("Distance pricing updated successfully!")
-      } else {
-        // Create new distance pricing
-        const { error } = await supabase.from("distance_pricing").insert({
-          ...distancePricingData,
-          created_at: new Date().toISOString(),
-        })
-
-        if (error) throw error
-        toast.success("Distance pricing created successfully!")
-      }
+      const res = await fetch('/api/distance-pricing/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to save distance pricing')
+      toast.success(editingDistancePricing ? 'Distance pricing updated successfully!' : 'Distance pricing created successfully!')
 
       await refetchData()
     } catch (error) {
@@ -608,9 +599,14 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       setIsLoading(true)
       console.log("[v0] Deleting distance pricing:", distancePricingId)
 
-      const { error } = await supabase.from("distance_pricing").delete().eq("id", distancePricingId)
-
-      if (error) throw error
+      const res = await fetch('/api/distance-pricing/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: distancePricingId }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to delete distance pricing')
 
       toast.success("Distance pricing deleted successfully!")
       await refetchData()
@@ -655,27 +651,41 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
       console.log(`[v0] Packages fetched: ${packagesData?.length || 0}`)
 
-      console.log("[v0] Fetching variants...")
-      const { data: variantsData, error: variantsError } = await supabase
-        .from("package_variants")
-        .select("*")
-        .order("display_order")
-      if (variantsError) {
-        console.error("[v0] Variants fetch error:", variantsError)
-        throw variantsError
+      // Only fetch variants for the filtered packages
+      const packageIds = (packagesData || []).map((p:any) => p.id)
+      let variantsData: any[] = []
+      if (packageIds.length > 0) {
+        console.log("[v0] Fetching variants for filtered packages...", packageIds.length)
+        const { data: vData, error: variantsError } = await supabase
+          .from("package_variants")
+          .select("*")
+          .in("package_id", packageIds)
+          .order("display_order")
+        if (variantsError) {
+          console.error("[v0] Variants fetch error:", variantsError)
+          throw variantsError
+        }
+        variantsData = vData || []
       }
-      console.log(`[v0] Variants fetched: ${variantsData?.length || 0}`)
+      console.log(`[v0] Variants fetched: ${variantsData.length}`)
 
-      console.log("[v0] Fetching distance pricing...")
-      const { data: distancePricingData, error: distancePricingError } = await supabase
-        .from("distance_pricing")
-        .select("*")
-        .order("min_km")
-      if (distancePricingError) {
-        console.error("[v0] Distance pricing fetch error:", distancePricingError)
-        throw distancePricingError
+      // Only fetch distance pricing for those variants
+      const variantIds = variantsData.map((v:any) => v.id)
+      let distancePricingData: any[] = []
+      if (variantIds.length > 0) {
+        console.log("[v0] Fetching distance pricing for filtered variants...", variantIds.length)
+        const { data: dpData, error: distancePricingError } = await supabase
+          .from("distance_pricing")
+          .select("*")
+          .in("variant_id", variantIds)
+          .order("min_km")
+        if (distancePricingError) {
+          console.error("[v0] Distance pricing fetch error:", distancePricingError)
+          throw distancePricingError
+        }
+        distancePricingData = (dpData || []).map((dp:any) => ({ ...dp, range: dp.range ?? dp.distance_range ?? '' }))
       }
-      console.log(`[v0] Distance pricing fetched: ${distancePricingData?.length || 0}`)
+      console.log(`[v0] Distance pricing fetched: ${distancePricingData.length}`)
 
       console.log("[v0] Processing data relationships...")
       const categoriesWithPackages = categoriesData.map((category) => ({
@@ -705,14 +715,14 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           
           // Update selectedPackage if it exists
           if (selectedPackage) {
-            const updatedPackage = updatedCategory.packages?.find(pkg => pkg.id === selectedPackage.id)
+            const updatedPackage = updatedCategory.packages?.find((pkg: PackageType) => pkg.id === selectedPackage.id)
             if (updatedPackage) {
               console.log("[v0] Updating selectedPackage with fresh data")
               setSelectedPackage(updatedPackage)
               
               // Update selectedVariant if it exists
               if (selectedVariant) {
-                const updatedVariant = updatedPackage.variants?.find(v => v.id === selectedVariant.id)
+                const updatedVariant = updatedPackage.variants?.find((v: PackageVariant) => v.id === selectedVariant.id)
                 if (updatedVariant) {
                   console.log("[v0] Updating selectedVariant with fresh data")
                   setSelectedVariant(updatedVariant)

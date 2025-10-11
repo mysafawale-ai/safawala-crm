@@ -823,7 +823,15 @@ export default function AddProductPage() {
                         id="stock_total"
                         type="number"
                         value={formData.stock_total}
-                        onChange={(e) => handleInputChange("stock_total", Number.parseInt(e.target.value) || 1)}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                          if (raw === "") {
+                            handleInputChange("stock_total", 1)
+                          } else {
+                            const n = Number.parseInt(raw.replace(/^0+(?=\d)/, ""))
+                            handleInputChange("stock_total", Number.isFinite(n) && n >= 1 ? n : 1)
+                          }
+                        }}
                         placeholder="1"
                         min="1"
                       />

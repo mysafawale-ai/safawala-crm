@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -54,6 +54,19 @@ export default function BookingsPage() {
   const [sort, setSort] = useState<{field:'date'|'amount'; dir:'asc'|'desc'}>({ field:'date', dir:'desc'})
 
   const { data: bookings = [], loading, error, refresh } = useData<Booking[]>("bookings")
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/auth/user')
+        if (res.ok) {
+          const user = await res.json()
+          setCurrentUser(user)
+        }
+      } catch {}
+    })()
+  }, [])
   const { data: statsData } = useData<any>("booking-stats")
   const stats = statsData || {}
 
@@ -520,7 +533,7 @@ export default function BookingsPage() {
 
         <TabsContent value="calendar">
           <div className="w-full p-6">
-            <BookingCalendar />
+            <BookingCalendar compact franchiseId={currentUser?.role !== 'super_admin' ? currentUser?.franchise_id : undefined} />
           </div>
         </TabsContent>
       </Tabs>

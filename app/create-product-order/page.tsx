@@ -137,10 +137,30 @@ export default function CreateProductOrderPage() {
   useEffect(() => {
     ;(async () => {
       try {
+        // Fetch current user to apply franchise isolation
+        const userRes = await fetch('/api/auth/user')
+        if (!userRes.ok) throw new Error('Failed to fetch user')
+        const user = await userRes.json()
+
+        // Base queries
+        let customersQuery = supabase.from("customers").select("*").order("name")
+        let productsQuery = supabase.from("products").select("*").order("name")
+        let staffQuery = supabase
+          .from("users")
+          .select("id,name,email,role,franchise_id")
+          .in("role", ["staff", "franchise_admin"]).order("name")
+
+        // Apply franchise filter for non-super-admins
+        if (user.role !== 'super_admin' && user.franchise_id) {
+          customersQuery = customersQuery.eq('franchise_id', user.franchise_id)
+          productsQuery = productsQuery.eq('franchise_id', user.franchise_id)
+          staffQuery = staffQuery.eq('franchise_id', user.franchise_id)
+        }
+
         const [cust, prod, staff] = await Promise.all([
-          supabase.from("customers").select("*").order("name"),
-          supabase.from("products").select("*").order("name"),
-          supabase.from("users").select("id,name,email,role,franchise_id").in("role", ["staff", "franchise_admin"]).order("name"),
+          customersQuery,
+          productsQuery,
+          staffQuery,
         ])
 
         if (cust.error) throw cust.error
