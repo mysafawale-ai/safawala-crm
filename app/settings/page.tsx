@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 
 export default function SettingsPage() {
   const [franchiseId, setFranchiseId] = useState<string | null>(null)
-  // Settings are isolated per franchise (even for super admin)
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -26,6 +26,7 @@ export default function SettingsPage() {
           const userData = await response.json()
           console.log('[Settings] User data:', userData.name, 'Franchise:', userData.franchise_name)
           console.log('[Settings] Franchise ID:', userData.franchise_id)
+          setIsSuperAdmin(userData.role === 'super_admin')
           
           if (userData.franchise_id) {
             setFranchiseId(userData.franchise_id)
@@ -75,6 +76,24 @@ export default function SettingsPage() {
             <Button onClick={() => window.location.reload()}>
               Try Again
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Block settings for super admin (temporary requirement)
+  if (isSuperAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-96">
+          <CardContent className="flex flex-col items-center gap-4 pt-6">
+            <AlertCircle className="h-8 w-8 text-yellow-600" />
+            <p className="text-lg font-medium">Settings Unavailable</p>
+            <p className="text-sm text-gray-600 text-center">
+              Settings are disabled for Super Admin at the moment.
+            </p>
+            <Button onClick={() => router.back()}>Go Back</Button>
           </CardContent>
         </Card>
       </div>

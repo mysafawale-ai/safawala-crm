@@ -2,9 +2,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { ApiResponseBuilder, validateRequiredFields, validateEmail } from '@/lib/api-response'
 
+// Helper to read current user and role from session cookie
+async function getUserFromSession(request: NextRequest) {
+  try {
+    const cookieHeader = request.cookies.get('safawala_session')
+    if (!cookieHeader?.value) throw new Error('No session')
+    const sessionData = JSON.parse(cookieHeader.value)
+    if (!sessionData.id) throw new Error('Invalid session')
+    const supabase = createClient()
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, role, franchise_id')
+      .eq('id', sessionData.id)
+      .eq('is_active', true)
+      .single()
+    if (!user) throw new Error('User not found')
+    return user
+  } catch (e) {
+    return null
+  }
+}
+
 // GET - Fetch company settings
 export async function GET(request: NextRequest) {
   try {
+    // Block super admin from accessing settings for now
+    const authUser = await getUserFromSession(request)
+    if (!authUser) {
+      return NextResponse.json(
+        ApiResponseBuilder.serverError('Authentication required'),
+        { status: 401 }
+      )
+    }
+    if (authUser.role === 'super_admin') {
+      return NextResponse.json({ error: 'Settings are disabled for super admin' }, { status: 403 })
+    }
+
     const supabase = createClient()
     const { searchParams } = new URL(request.url)
     const franchiseId = searchParams.get('franchise_id')
@@ -45,6 +78,18 @@ export async function GET(request: NextRequest) {
 // POST/PUT - Create or update company settings
 export async function POST(request: NextRequest) {
   try {
+    // Block super admin from saving settings for now
+    const authUser = await getUserFromSession(request)
+    if (!authUser) {
+      return NextResponse.json(
+        ApiResponseBuilder.serverError('Authentication required'),
+        { status: 401 }
+      )
+    }
+    if (authUser.role === 'super_admin') {
+      return NextResponse.json({ error: 'Settings are disabled for super admin' }, { status: 403 })
+    }
+
     const supabase = createClient()
     const body = await request.json()
 
