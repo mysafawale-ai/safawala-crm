@@ -543,8 +543,10 @@ export default function StaffPage() {
         }
       }
 
-      const result = await response.json()
-      console.log('[Staff] Toggle result:', result)
+  const handler = response.headers.get('x-route') || 'unknown'
+  const result = await response.json()
+  console.log('[Staff] Toggle handled by:', handler)
+  console.log('[Staff] Toggle result:', result)
       const updatedUser = result.user
 
       setUsers(prev => prev.map(u => (u.id === user.id ? updatedUser : u)))
