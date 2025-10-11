@@ -125,10 +125,13 @@ export async function POST(
       return NextResponse.json({ error: "Failed to update staff status" }, { status: 500 })
     }
     
-    return NextResponse.json({ 
-      message: `Staff member ${newStatus ? 'activated' : 'deactivated'} successfully`, 
-      user: data 
-    })
+    return NextResponse.json(
+      {
+        message: `Staff member ${newStatus ? 'activated' : 'deactivated'} successfully`,
+        user: data,
+      },
+      { headers: { 'x-route': 'dynamic' } }
+    )
   } catch (error) {
     console.error("Error in staff toggle-status route:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -103,10 +103,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update staff status' }, { status: 500 })
     }
 
-    return NextResponse.json({
-      message: `Staff member ${newStatus ? 'activated' : 'deactivated'} successfully`,
-      user: data
-    })
+    return NextResponse.json(
+      {
+        message: `Staff member ${newStatus ? 'activated' : 'deactivated'} successfully`,
+        user: data,
+      },
+      { headers: { 'x-route': 'fallback' } }
+    )
   } catch (error) {
     console.error('[Toggle Status Fallback] Unhandled error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
