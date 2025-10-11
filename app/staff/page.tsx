@@ -496,27 +496,41 @@ export default function StaffPage() {
 
   const handleToggleStatus = async (user: User) => {
     try {
+      console.log('[Staff] Toggling status for user:', user.id)
       const response = await fetch(`/api/staff/${user.id}/toggle-status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       })
 
+      console.log('[Staff] Toggle response status:', response.status)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update staff status')
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to update staff status')
+        } else {
+          // Got HTML instead of JSON - likely a 404 or routing issue
+          const htmlText = await response.text()
+          console.error('[Staff] Got HTML response instead of JSON:', htmlText.substring(0, 200))
+          throw new Error('Server error: Invalid response format. Please refresh and try again.')
+        }
       }
 
-      const { user: updatedUser } = await response.json()
+      const result = await response.json()
+      console.log('[Staff] Toggle result:', result)
+      const updatedUser = result.user
 
       setUsers(prev => prev.map(u => 
         u.id === user.id ? updatedUser : u
       ))
       toast.success(`Staff member ${user.is_active ? 'deactivated' : 'activated'} successfully!`)
-    } catch (error) {
-      console.error('Error toggling user status:', error)
-      toast.error('Failed to update staff member status')
+    } catch (error: any) {
+      console.error('[Staff] Error toggling user status:', error)
+      toast.error(error.message || 'Failed to update staff member status')
     }
   }
 
