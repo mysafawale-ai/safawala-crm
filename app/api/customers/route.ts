@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     const supabase = createClient()
 
     const body = await request.json()
-    const { name, phone, email, address, city, state, pincode, notes } = body
+    const { name, phone, whatsapp, email, address, city, state, pincode, notes } = body
 
     // Validation
     if (!name || name.trim().length === 0) {
@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
       .insert({
         name: name.trim(),
         phone: phone.trim(),
+        whatsapp: whatsapp?.trim() || null,  // FIX: Save WhatsApp field
         email: email?.trim() || null,
         address: address?.trim() || null,
         city: city?.trim() || null,

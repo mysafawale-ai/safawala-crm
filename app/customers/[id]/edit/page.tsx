@@ -63,22 +63,9 @@ export default function EditCustomerPage() {
         if (error) throw error
 
         if (data) {
-          // Debug: Log the actual data from database
-          console.log("📊 Customer data loaded:", {
-            id: data.id,
-            name: data.name,
-            phone: data.phone,
-            whatsapp: data.whatsapp,
-            whatsappType: typeof data.whatsapp,
-            whatsappIsNull: data.whatsapp === null,
-            whatsappIsUndefined: data.whatsapp === undefined,
-            whatsappComputed: data.whatsapp || data.phone || ""
-          });
-          
           setCustomer(data)
           
           const computedWhatsApp = data.whatsapp || data.phone || "";
-          console.log("🔧 Setting formData with computed WhatsApp:", computedWhatsApp);
           
           const newFormData = {
             name: data.name || "",
@@ -91,7 +78,6 @@ export default function EditCustomerPage() {
             pincode: data.pincode || "",
           };
           
-          console.log("📝 Final formData being set:", newFormData);
           setFormData(newFormData);
         }
       } catch (error) {
@@ -225,10 +211,13 @@ export default function EditCustomerPage() {
                   <Label htmlFor="whatsapp">WhatsApp</Label>
                   <Input
                     id="whatsapp"
+                    key={`whatsapp-${customer?.id}`}
                     value={formData.whatsapp}
                     onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                     placeholder="WhatsApp number"
                   />
+                  {/* Debug display */}
+                  <p className="text-xs text-gray-500">Debug: {formData.whatsapp || '(empty)'}</p>
                 </div>
 
                 <div className="space-y-2">
