@@ -82,18 +82,21 @@ export default function SettingsPage() {
     )
   }
 
-  // Block settings for super admin (temporary requirement)
+  // Super Admin: render an isolated placeholder panel (does not touch franchise settings)
   if (isSuperAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="w-96">
-          <CardContent className="flex flex-col items-center gap-4 pt-6">
-            <AlertCircle className="h-8 w-8 text-yellow-600" />
-            <p className="text-lg font-medium">Settings Unavailable</p>
-            <p className="text-sm text-gray-600 text-center">
-              Settings are disabled for Super Admin at the moment.
-            </p>
-            <Button onClick={() => router.back()}>Go Back</Button>
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardContent className="py-6">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold">Super Admin Settings</h1>
+              <p className="text-sm text-muted-foreground">
+                This page is isolated from franchise settings. No company/franchise data is shown or editable here.
+              </p>
+            </div>
+            <div className="mt-6 text-sm text-muted-foreground">
+              We can add global platform settings here later (branding defaults, app-level toggles, security policies, etc.).
+            </div>
           </CardContent>
         </Card>
       </div>
