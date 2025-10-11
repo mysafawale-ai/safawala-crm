@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
 
-    // Build query with franchise filter
+    // Build query with franchise filter and exclude soft-deleted
     let query = supabase
       .from("customers")
       .select(`
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         franchise:franchises(id, name, code)
       `)
       .order("created_at", { ascending: false })
+      .is('deleted_at', null)
 
     // CRITICAL: Filter by franchise_id unless super admin
     if (!isSuperAdmin && franchiseId) {

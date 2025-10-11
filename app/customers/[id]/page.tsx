@@ -78,9 +78,13 @@ export default function CustomerDetailPage() {
         .from("customers")
         .select("*")
         .eq("id", customerId)
+        .is('deleted_at', null)
         .single()
 
       if (customerError) throw customerError
+      if (!customerData) {
+        throw new Error('Customer not found or has been deleted')
+      }
       setCustomer(customerData)
 
       // Load customer bookings

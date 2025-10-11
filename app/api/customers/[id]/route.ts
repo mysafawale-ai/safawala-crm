@@ -38,7 +38,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    let query = supabaseServer.from("customers").select("*").eq("id", id)
+    let query = supabaseServer
+      .from("customers")
+      .select("*")
+      .eq("id", id)
+      .is('deleted_at', null)
 
     // Apply franchise filter if available
     if (defaultFranchiseId) {
@@ -52,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       query = query.eq("franchise_id", defaultFranchiseId)
     }
 
-    const { data: customer, error } = await query.single()
+  const { data: customer, error } = await query.single()
 
     if (error) {
       if (error.code === "PGRST116") {
@@ -157,7 +161,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if customer exists and belongs to the franchise
-    let existingQuery = supabaseServer.from("customers").select("*").eq("id", id)
+    let existingQuery = supabaseServer
+      .from("customers")
+      .select("*")
+      .eq("id", id)
     if (defaultFranchiseId) {
       // Check if user can access this franchise
       if (!AuthMiddleware.canAccessFranchise(authContext!.user, defaultFranchiseId)) {
@@ -169,7 +176,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       existingQuery = existingQuery.eq("franchise_id", defaultFranchiseId)
     }
 
-    const { data: existingCustomer, error: existingError } = await existingQuery.single()
+  const { data: existingCustomer, error: existingError } = await existingQuery.single()
+    // Block updates to soft-deleted records
+    if (existingCustomer.deleted_at) {
+      return NextResponse.json(
+        ApiResponseBuilder.conflictError("Cannot update a deleted customer. Restore it first."),
+        { status: 409 }
+      )
+    }
 
     if (existingError) {
       if (existingError.code === "PGRST116") {
@@ -375,10 +389,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Perform hard delete
+    // Perform soft delete instead of hard delete
+    const body = await (async () => {
+      try { return await request.json() } catch { return {} }
+    })();
+    const deleteReason: string | null = body?.reason || null;
+
     const { error: deleteError } = await supabaseServer
       .from("customers")
-      .delete()
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: authContext!.user.id,
+        delete_reason: deleteReason,
+      })
       .eq("id", id)
 
     if (deleteError) {
@@ -411,8 +434,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(
       ApiResponseBuilder.success(
-        { id, name: existingCustomer.name },
-        `Customer "${existingCustomer.name}" deleted successfully`
+        { id, name: existingCustomer.name, deleted_at: new Date().toISOString() },
+        `Customer "${existingCustomer.name}" moved to recycle bin`
       )
     )
   } catch (error) {
