@@ -497,25 +497,48 @@ export default function StaffPage() {
   const handleToggleStatus = async (user: User) => {
     try {
       console.log('[Staff] Toggling status for user:', user.id)
-      const response = await fetch(`/api/staff/${user.id}/toggle-status`, {
+      const dynamicUrl = `/api/staff/${user.id}/toggle-status`
+      let response = await fetch(dynamicUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
       })
 
       console.log('[Staff] Toggle response status:', response.status)
 
+      // If dynamic route fails (404 or HTML), fallback to stable route
       if (!response.ok) {
+        let shouldFallback = false
         const contentType = response.headers.get('content-type')
-        if (contentType && contentType.includes('application/json')) {
+        if (!contentType || !contentType.includes('application/json')) {
+          // Likely an HTML 404 page
+          shouldFallback = true
+          const htmlText = await response.text()
+          console.error('[Staff] Got HTML response instead of JSON:', htmlText.substring(0, 200))
+        } else if (response.status === 404) {
+          shouldFallback = true
+        }
+
+        if (shouldFallback) {
+          console.warn('[Staff] Falling back to stable endpoint /api/staff/toggle-status')
+          response = await fetch('/api/staff/toggle-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ id: user.id })
+          })
+        }
+      }
+
+      if (!response.ok) {
+        // If still not OK, try to parse JSON, otherwise show message
+        const contentType2 = response.headers.get('content-type')
+        if (contentType2 && contentType2.includes('application/json')) {
           const errorData = await response.json()
           throw new Error(errorData.error || 'Failed to update staff status')
         } else {
-          // Got HTML instead of JSON - likely a 404 or routing issue
           const htmlText = await response.text()
-          console.error('[Staff] Got HTML response instead of JSON:', htmlText.substring(0, 200))
+          console.error('[Staff] Error HTML:', htmlText.substring(0, 200))
           throw new Error('Server error: Invalid response format. Please refresh and try again.')
         }
       }
@@ -524,9 +547,7 @@ export default function StaffPage() {
       console.log('[Staff] Toggle result:', result)
       const updatedUser = result.user
 
-      setUsers(prev => prev.map(u => 
-        u.id === user.id ? updatedUser : u
-      ))
+      setUsers(prev => prev.map(u => (u.id === user.id ? updatedUser : u)))
       toast.success(`Staff member ${user.is_active ? 'deactivated' : 'activated'} successfully!`)
     } catch (error: any) {
       console.error('[Staff] Error toggling user status:', error)
