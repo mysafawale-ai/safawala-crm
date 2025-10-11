@@ -24,10 +24,12 @@ export default function SettingsPage() {
         if (response.ok) {
           const userData = await response.json()
           console.log('[Settings] User data:', userData.name, 'Franchise:', userData.franchise_name)
+          console.log('[Settings] Franchise ID:', userData.franchise_id)
           
           if (userData.franchise_id) {
             setFranchiseId(userData.franchise_id)
           } else {
+            console.error('[Settings] No franchise_id in user data:', userData)
             setError('No franchise associated with your account')
           }
         } else {
@@ -78,5 +80,22 @@ export default function SettingsPage() {
     )
   }
 
-  return <ComprehensiveSettings franchiseId={franchiseId || undefined} />
+  // Don't render if no franchise ID
+  if (!franchiseId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-96">
+          <CardContent className="flex flex-col items-center gap-4 pt-6">
+            <AlertCircle className="h-8 w-8 text-yellow-600" />
+            <p className="text-lg font-medium">Franchise Required</p>
+            <p className="text-sm text-gray-600 text-center">
+              No franchise is associated with your account. Please contact support.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return <ComprehensiveSettings franchiseId={franchiseId} />
 }

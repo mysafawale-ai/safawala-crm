@@ -51,10 +51,17 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchCompanyInfo()
+    if (franchiseId) {
+      fetchCompanyInfo()
+    }
   }, [franchiseId])
 
   const fetchCompanyInfo = async () => {
+    if (!franchiseId) {
+      console.error('[Company Settings] No franchise ID provided')
+      return
+    }
+    
     try {
       setLoading(true)
       const response = await fetch(`/api/settings/company?franchise_id=${franchiseId}`)
@@ -139,6 +146,12 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate franchise ID first
+    if (!franchiseId) {
+      ToastService.error('No franchise ID available. Please refresh the page.')
+      return
+    }
     
     // Basic validation
     if (!data.company_name.trim()) {
