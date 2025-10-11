@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, RefreshCw } from "lucide-react"
 // Switch to server APIs instead of direct client Supabase to respect franchise isolation and current schema
@@ -12,6 +12,7 @@ import type { Booking, Customer, Product } from "@/lib/types"
 export default function EditBookingPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [booking, setBooking] = useState<Booking | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -22,14 +23,17 @@ export default function EditBookingPage() {
     if (params.id) {
       loadData(params.id as string)
     }
-  }, [params.id])
+  }, [params.id, searchParams])
 
   const loadData = async (bookingId: string) => {
     try {
       setLoading(true)
 
-      // Fetch unified booking via API
-      const res = await fetch(`/api/bookings/${bookingId}`)
+      // Respect type from query (?type=product_order|package_booking)
+      const typeParam = searchParams.get('type')
+      const typeQs = typeParam ? `?type=${typeParam}` : ''
+      // Fetch booking via API
+      const res = await fetch(`/api/bookings/${bookingId}${typeQs}`)
       if (!res.ok) throw new Error('Failed to fetch booking')
       const { booking: apiBooking } = await res.json()
 
@@ -78,8 +82,8 @@ export default function EditBookingPage() {
         event_for: bookingData.eventFor,
       }
 
-      const type = (booking as any)?.source || 'unified'
-      const qs = type && type!=='unified' ? `?type=${type}` : ''
+      const typeParam = searchParams.get('type') || (booking as any)?.source || 'unified'
+      const qs = typeParam && typeParam!=='unified' ? `?type=${typeParam}` : ''
       const res = await fetch(`/api/bookings/${params.id}${qs}`,
         { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
       if (!res.ok) throw new Error('Failed to update booking')
@@ -89,7 +93,7 @@ export default function EditBookingPage() {
         description: "Booking updated successfully!",
       })
 
-      router.push(`/bookings/${params.id}`)
+  router.push(`/bookings/${params.id}`)
     } catch (error) {
       console.error("Error updating booking:", error)
       toast({
