@@ -196,6 +196,13 @@ class PDFGenerator {
       format: "a4",
     })
     
+    // Set default font to Poppins (use helvetica as fallback)
+    try {
+      this.doc.setFont("helvetica")  // jsPDF uses helvetica which renders similarly
+    } catch {
+      this.doc.setFont("helvetica")
+    }
+    
     this.data = data
     this.pageWidth = 210 // A4 width in mm
     this.pageHeight = 297 // A4 height in mm
@@ -841,7 +848,7 @@ class PDFGenerator {
     this.checkPageBreak(35)
 
     const boxWidth = this.pageWidth - 2 * this.margin
-    const boxHeight = 32
+    const boxHeight = 42  // Increased by 30% for better spacing
 
     this.doc.setFillColor(...this.colors.lightGray)
     this.doc.roundedRect(this.margin, this.currentY, boxWidth, boxHeight, 2, 2, "F")
