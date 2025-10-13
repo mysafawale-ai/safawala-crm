@@ -127,12 +127,13 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
 
   const handleDateClick = (date: Date) => {
     console.log("[v0] Date clicked:", format(date, "yyyy-MM-dd"))
-    setSelectedDate(date)
     const dayBookings = getBookingsForDate(date)
     console.log("[v0] Bookings found for date:", dayBookings.length)
     setDateBookings(dayBookings)
     setShowDateDetails(true)
     console.log("[v0] Popup should open, showDateDetails:", true)
+    // Clear selection immediately to prevent black selected state
+    setTimeout(() => setSelectedDate(undefined), 0)
   }
 
   const filteredDateBookings = dateBookings.filter(
@@ -218,7 +219,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
               return count>0 ? count : null
             }}
             squareCells={false}
-            className={`rounded-lg border-2 border-border/50 w-full bg-background/50 ${compact ? (mini ? '[--cell-size:1rem]' : '[--cell-size:1.25rem]') : '[--cell-size:2.5rem] md:[--cell-size:2.8rem]'}`}
+            className={`rounded-lg border-2 border-border/50 w-full bg-background/50 ${compact ? (mini ? '[--cell-size:1.5rem]' : '[--cell-size:2rem]') : '[--cell-size:3.5rem] md:[--cell-size:4rem]'}`}
           />
           {/* Always show a small legend for reference */}
           <div className={`mt-4 flex items-center ${mini ? 'gap-3 text-[11px]' : 'gap-5 text-xs'} justify-center bg-muted/30 rounded-lg py-2.5 px-4`}>
