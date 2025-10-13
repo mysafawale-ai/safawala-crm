@@ -708,12 +708,8 @@ class ModernPDFGenerator {
 
     const taxLabel = this.data.pricing.tax_percentage 
       ? `GST (${this.data.pricing.tax_percentage}%)`
-      : "Tax"
+      : "GST (18%)"
     summaryItems.push([taxLabel, formatCurrency(this.data.pricing.tax_amount)])
-
-    if (this.data.pricing.security_deposit > 0) {
-      summaryItems.push(["Security Deposit", formatCurrency(this.data.pricing.security_deposit)])
-    }
 
     summaryItems.forEach(([label, value]) => {
       this.doc.setFont("helvetica", "normal")
@@ -729,40 +725,58 @@ class ModernPDFGenerator {
     this.doc.line(summaryX + 5, yPos, summaryX + summaryWidth - 5, yPos)
     yPos += 5
 
-    // Total
-    this.doc.setFillColor(...this.colors.primary)
+    // Total Amount (with green background)
+    this.doc.setFillColor(...this.colors.secondary)
     this.doc.roundedRect(summaryX + 3, yPos - 5, summaryWidth - 6, 10, 2, 2, "F")
     
-    this.doc.setFontSize(11)
+    this.doc.setFontSize(12)
     this.doc.setTextColor(...this.colors.white)
     this.doc.setFont("helvetica", "bold")
-    this.doc.text("TOTAL", summaryX + 5, yPos + 1)
-    this.doc.text(formatCurrency(this.data.pricing.total_amount), summaryX + summaryWidth - 5, yPos + 1, { align: "right" })
+    this.doc.text("TOTAL AMOUNT:", summaryX + 8, yPos + 2)
+    this.doc.text(formatCurrency(this.data.pricing.total_amount), summaryX + summaryWidth - 8, yPos + 2, { align: "right" })
 
-    // Payment breakdown
+    yPos += 12
+
+    // Payment breakdown section
     if (this.data.pricing.advance_amount && this.data.pricing.advance_amount > 0) {
-      yPos += 12
-      this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.secondary)
+      this.doc.setFontSize(9)
       this.doc.setFont("helvetica", "normal")
 
       const advLabel = this.data.pricing.advance_percentage 
-        ? `Advance (${this.data.pricing.advance_percentage}%)`
-        : "Advance"
+        ? `Pay Now (${this.data.pricing.advance_percentage}%):`
+        : "Pay Now:"
       
+      this.doc.setTextColor(...this.colors.primary)
       this.doc.text(advLabel, summaryX + 5, yPos)
       this.doc.setFont("helvetica", "bold")
-      this.doc.setTextColor(...this.colors.primary)
       this.doc.text(formatCurrency(this.data.pricing.advance_amount), summaryX + summaryWidth - 5, yPos, { align: "right" })
 
-      if (this.data.pricing.balance_amount) {
-        yPos += 5
+      if (this.data.pricing.balance_amount && this.data.pricing.balance_amount > 0) {
+        yPos += 6
         this.doc.setFont("helvetica", "normal")
-        this.doc.setTextColor(...this.colors.secondary)
-        this.doc.text("Balance", summaryX + 5, yPos)
+        this.doc.setTextColor(...this.colors.darkText)
+        this.doc.text("Remaining:", summaryX + 5, yPos)
         this.doc.setFont("helvetica", "bold")
         this.doc.text(formatCurrency(this.data.pricing.balance_amount), summaryX + summaryWidth - 5, yPos, { align: "right" })
       }
+    }
+
+    // Security deposit section (if applicable)
+    if (this.data.pricing.security_deposit > 0) {
+      yPos += 10
+      
+      // Small divider
+      this.doc.setDrawColor(...this.colors.borderGray)
+      this.doc.setLineWidth(0.2)
+      this.doc.line(summaryX + 5, yPos, summaryX + summaryWidth - 5, yPos)
+      yPos += 6
+      
+      this.doc.setFontSize(8)
+      this.doc.setTextColor(...this.colors.secondary)
+      this.doc.setFont("helvetica", "bold")
+      this.doc.text("Security Deposit (Refundable):", summaryX + 5, yPos)
+      this.doc.setFont("helvetica", "bold")
+      this.doc.text(formatCurrency(this.data.pricing.security_deposit), summaryX + summaryWidth - 5, yPos, { align: "right" })
     }
 
     this.currentY += 60
@@ -891,11 +905,13 @@ class ModernPDFGenerator {
       this.doc.setFont("helvetica", "bold")
       this.doc.text("Notes", this.margin + 5, this.currentY + 6)
 
-      this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.darkText)
+      this.doc.setFontSize(10)
+      this.doc.setTextColor(100, 100, 100)
       this.doc.setFont("helvetica", "normal")
       
-      const lines = wrapText(this.doc, this.data.notes, width - 10)
+      // Normalize text to remove weird spacing
+      const normalizedNotes = this.data.notes.replace(/\s+/g, ' ').trim()
+      const lines = wrapText(this.doc, normalizedNotes, width - 10)
       lines.forEach((line, idx) => {
         this.doc.text(line, this.margin + 5, this.currentY + 11 + idx * 4)
       })
