@@ -824,9 +824,9 @@ class PDFGenerator {
       this.doc.setFont("helvetica", "bold")
   this.doc.text("NOTES", this.margin + 3, this.currentY + 5)
 
-      // Content
-      this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.darkText)
+      // Content - with 90% opacity (lighter gray color)
+      this.doc.setFontSize(9)
+      this.doc.setTextColor(77, 77, 77)  // 90% opacity gray instead of darkText
       this.doc.setFont("helvetica", "normal")
       
       const notesLines = wrapText(this.doc, this.data.notes, this.pageWidth - 2 * this.margin - 10)
