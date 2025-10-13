@@ -56,6 +56,8 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('franchise_id', franchiseId)
       .single()
+    
+    console.log('[Company Settings] Retrieved settings:', settings)
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
       console.error('Error fetching company settings:', error)
@@ -83,12 +85,15 @@ export async function GET(request: NextRequest) {
         city: franchise?.city || '',
         state: '',
         gst_number: '',
+        pincode: '',
+        pan_number: '',
         logo_url: null,
         timezone: 'Asia/Kolkata',
         currency: 'INR',
         website: null,
         language: null,
         date_format: null,
+        terms_and_conditions: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -123,13 +128,16 @@ export async function POST(request: NextRequest) {
       address,
       city,
       state,
+      pincode,
       gst_number,
+      pan_number,
       logo_url,
       timezone,
       currency,
       website,
       language,
-      date_format
+      date_format,
+      terms_and_conditions
     } = body
 
     // Validate required fields
@@ -155,13 +163,16 @@ export async function POST(request: NextRequest) {
       address,
       city,
       state,
+      pincode,
       gst_number,
+      pan_number,
       logo_url,
       timezone: timezone || 'Asia/Kolkata',
       currency: currency || 'INR',
       website,
       language,
       date_format,
+      terms_and_conditions,
       updated_at: new Date().toISOString()
     }
 

@@ -25,6 +25,8 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
     const companyResponse = await fetch("/api/company-settings")
     const companyData = companyResponse.ok ? await companyResponse.json() : null
     const companySettings = companyData?.data || companyData
+    
+    console.log("[PDF Data] Company settings:", companySettings)
 
     // Fetch branding settings (colors, logo, signature) if franchise_id available
     let brandingColors = { primary: "#1a2a56", secondary: "#6b7280", accent: "#d4af37" }
@@ -174,16 +176,24 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
       // Additional info
       notes: includeNotes ? (quote.notes || undefined) : undefined,
       special_instructions: quote.special_instructions || undefined,
-      terms_and_conditions: includeTerms ? [
-        "All items must be returned in the same condition as provided.",
-        "Security deposit will be refunded after inspection of returned items.",
-        "Any damage or loss will be charged from the security deposit.",
-        "Booking confirmation requires advance payment as specified.",
-        "Cancellation charges apply as per our cancellation policy.",
-        "Delivery and pickup timings must be coordinated in advance.",
-        "Customer is responsible for the safety of items during the rental period.",
-        "Payment balance must be cleared before or on the delivery date.",
-      ] : undefined,
+      terms_and_conditions: includeTerms ? (
+        // Use terms from company settings if available, split by newlines
+        companySettings?.terms_and_conditions 
+          ? companySettings.terms_and_conditions
+              .split('\n')
+              .map((term: string) => term.trim())
+              .filter((term: string) => term.length > 0)
+          : [
+              "All items must be returned in the same condition as provided.",
+              "Security deposit will be refunded after inspection of returned items.",
+              "Any damage or loss will be charged from the security deposit.",
+              "Booking confirmation requires advance payment as specified.",
+              "Cancellation charges apply as per our cancellation policy.",
+              "Delivery and pickup timings must be coordinated in advance.",
+              "Customer is responsible for the safety of items during the rental period.",
+              "Payment balance must be cleared before or on the delivery date.",
+            ]
+      ) : undefined,
 
       // Banking
       banking: bankingInfo,
