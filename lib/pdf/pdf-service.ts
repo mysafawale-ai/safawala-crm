@@ -957,7 +957,7 @@ class PDFGenerator {
     this.doc.setFont("helvetica", "bold")
   this.doc.text("TERMS & CONDITIONS", this.margin + 3, this.currentY + 5)
 
-    this.currentY += 10
+    this.currentY += 12  // Increased from 10 to 12 for more space
 
     this.doc.setFontSize(7.5)
     this.doc.setTextColor(...this.colors.darkText)
