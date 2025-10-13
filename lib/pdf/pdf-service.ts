@@ -826,10 +826,12 @@ class PDFGenerator {
 
       // Content - larger, lighter text
       this.doc.setFontSize(10)
-      this.doc.setTextColor(100, 100, 100)  // Lighter gray for better readability
+      this.doc.setTextColor(100, 100, 100)
       this.doc.setFont("helvetica", "normal")
       
-      const notesLines = wrapText(this.doc, this.data.notes, this.pageWidth - 2 * this.margin - 10)
+      // Normalize text - remove extra spaces and weird characters
+      const cleanNotes = this.data.notes.replace(/\s+/g, ' ').trim()
+      const notesLines = wrapText(this.doc, cleanNotes, this.pageWidth - 2 * this.margin - 10)
       notesLines.forEach((line, index) => {
         this.doc.text(line, this.margin + 3, this.currentY + 10 + (index * 4))
       })
