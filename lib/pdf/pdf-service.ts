@@ -517,8 +517,8 @@ class PDFGenerator {
       this.doc.setLineWidth(0.3)
       this.doc.roundedRect(leftCol, this.currentY, colWidth, eventBoxHeight, 2, 2, "S")
 
-      // Header
-      this.doc.setFillColor(...this.colors.primary)
+      // Header - use secondary color (matcha green)
+      this.doc.setFillColor(...this.colors.secondary)
       this.doc.roundedRect(leftCol, this.currentY, colWidth, 7, 2, 2, "F")
       
       this.doc.setFontSize(9)
@@ -561,8 +561,8 @@ class PDFGenerator {
       this.doc.setLineWidth(0.3)
       this.doc.roundedRect(rightCol, this.currentY, colWidth, deliveryBoxHeight, 2, 2, "S")
 
-      // Header
-      this.doc.setFillColor(...this.colors.primary)
+      // Header - use secondary color (matcha green)
+      this.doc.setFillColor(...this.colors.secondary)
       this.doc.roundedRect(rightCol, this.currentY, colWidth, 7, 2, 2, "F")
       
       this.doc.setFontSize(9)
@@ -723,9 +723,9 @@ class PDFGenerator {
     this.doc.setLineWidth(0.5)
     this.doc.line(summaryX + 5, yPos, summaryX + summaryWidth - 5, yPos)
 
-    // Total
+    // Total - use secondary color (matcha green)
     yPos += 5
-    this.doc.setFillColor(...this.colors.primary)
+    this.doc.setFillColor(...this.colors.secondary)
     this.doc.roundedRect(summaryX + 3, yPos - 4, summaryWidth - 6, 8, 2, 2, "F")
     
     this.doc.setFontSize(10)
@@ -850,8 +850,8 @@ class PDFGenerator {
     this.doc.setLineWidth(0.5)
     this.doc.roundedRect(this.margin, this.currentY, boxWidth, boxHeight, 2, 2, "S")
 
-    // Header
-    this.doc.setFillColor(...this.colors.primary)
+    // Header - use secondary color (matcha green)
+    this.doc.setFillColor(...this.colors.secondary)
     this.doc.roundedRect(this.margin, this.currentY, boxWidth, 8, 2, 2, "F")
     
     this.doc.setFontSize(10)
@@ -901,13 +901,17 @@ class PDFGenerator {
       this.doc.text(value, rightCol + 20, y)
     })
 
-    // Draw QR code if available
+    // Draw QR code if available - position in top right of banking box
     if (this.assets.qr) {
       try {
-        this.doc.addImage(this.assets.qr, "PNG", this.pageWidth - this.margin - 26, this.currentY - boxHeight + 8, 22, 22)
+        const qrSize = 25
+        const qrX = this.pageWidth - this.margin - qrSize - 5
+        const qrY = this.currentY + 10
+        
+        this.doc.addImage(this.assets.qr, "PNG", qrX, qrY, qrSize, qrSize)
         this.doc.setFontSize(7)
         this.doc.setTextColor(...this.colors.darkText)
-        this.doc.text("Scan to Pay", this.pageWidth - this.margin - 15, this.currentY - boxHeight + 32, { align: "center" })
+        this.doc.text("Scan to Pay", qrX + (qrSize / 2), qrY + qrSize + 3, { align: "center" })
       } catch {
         // ignore image errors
       }
