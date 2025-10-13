@@ -178,7 +178,6 @@ class ModernPDFGenerator {
   private colors: {
     primary: [number, number, number]
     secondary: [number, number, number]
-    accent: [number, number, number]
     white: [number, number, number]
     lightBg: [number, number, number]
     darkText: [number, number, number]
@@ -204,12 +203,11 @@ class ModernPDFGenerator {
     this.currentY = this.margin
     this.currentPage = 1
 
-    // Setup colors
-    const branding = data.branding || { primary: "#3b82f6", secondary: "#64748b", accent: "#10b981" }
+    // Setup colors - only use primary and secondary from branding
+    const branding = data.branding || { primary: "#3b82f6", secondary: "#64748b" }
     this.colors = {
       primary: hexToRgb(branding.primary),
       secondary: hexToRgb(branding.secondary),
-      accent: hexToRgb(branding.accent),
       white: [255, 255, 255],
       lightBg: [249, 250, 251],
       darkText: [17, 24, 39],
@@ -702,7 +700,7 @@ class ModernPDFGenerator {
       
       this.doc.text(advLabel, summaryX + 5, yPos)
       this.doc.setFont("helvetica", "bold")
-      this.doc.setTextColor(...this.colors.accent)
+      this.doc.setTextColor(...this.colors.primary)
       this.doc.text(formatCurrency(this.data.pricing.advance_amount), summaryX + summaryWidth - 5, yPos, { align: "right" })
 
       if (this.data.pricing.balance_amount) {
@@ -734,7 +732,7 @@ class ModernPDFGenerator {
     this.doc.setFillColor(...this.colors.lightBg)
     this.doc.roundedRect(this.margin, this.currentY, cardWidth, cardHeight, 3, 3, "F")
     
-    this.doc.setDrawColor(...this.colors.accent)
+    this.doc.setDrawColor(...this.colors.secondary)
     this.doc.setLineWidth(0.4)
     this.doc.roundedRect(this.margin, this.currentY, cardWidth, cardHeight, 3, 3, "S")
 
@@ -801,15 +799,15 @@ class ModernPDFGenerator {
       this.checkPageBreak(25)
       
       const width = this.pageWidth - 2 * this.margin
-      this.doc.setFillColor(255, 250, 240)
+      this.doc.setFillColor(...this.colors.lightBg)
       this.doc.roundedRect(this.margin, this.currentY, width, 22, 2, 2, "F")
       
-      this.doc.setDrawColor(251, 191, 36)
+      this.doc.setDrawColor(...this.colors.secondary)
       this.doc.setLineWidth(0.3)
       this.doc.roundedRect(this.margin, this.currentY, width, 22, 2, 2, "S")
 
       this.doc.setFontSize(9)
-      this.doc.setTextColor(180, 83, 9)
+      this.doc.setTextColor(...this.colors.primary)
       this.doc.setFont("helvetica", "bold")
       this.doc.text("Special Instructions", this.margin + 5, this.currentY + 6)
 
@@ -829,7 +827,7 @@ class ModernPDFGenerator {
       this.checkPageBreak(20)
       
       const width = this.pageWidth - 2 * this.margin
-      this.doc.setFillColor(240, 249, 255)
+      this.doc.setFillColor(...this.colors.lightBg)
       this.doc.roundedRect(this.margin, this.currentY, width, 18, 2, 2, "F")
       
       this.doc.setDrawColor(...this.colors.primary)

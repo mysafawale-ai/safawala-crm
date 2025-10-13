@@ -364,12 +364,12 @@ class PDFGenerator {
     this.doc.roundedRect(badgeX, badgeY, 35, 10, 2, 2, "F")
     
     this.doc.setFontSize(12)
-    this.doc.setTextColor(255, 255, 255) // White text on primary badge
+    this.doc.setTextColor(...this.colors.white)
     this.doc.setFont("helvetica", "bold")
     this.doc.text(docType, badgeX + 17.5, badgeY + 7, { align: "center" })
 
     // Contact info bar - slightly darker shade of cream
-    this.doc.setFillColor(250, 248, 244) // Slightly darker than header
+    this.doc.setFillColor(...this.colors.lightCream)
     this.doc.rect(0, 35, this.pageWidth, 15, "F")
 
     this.doc.setFontSize(8)
@@ -510,7 +510,7 @@ class PDFGenerator {
     if (this.data.event) {
       const eventBoxHeight = 30
 
-      this.doc.setFillColor(255, 253, 240) // Light gold
+      this.doc.setFillColor(...this.colors.lightGray)
       this.doc.roundedRect(leftCol, this.currentY, colWidth, eventBoxHeight, 2, 2, "F")
       
       this.doc.setDrawColor(...this.colors.secondary)
@@ -554,7 +554,7 @@ class PDFGenerator {
     if (this.data.delivery) {
       const deliveryBoxHeight = 20
 
-      this.doc.setFillColor(240, 253, 255) // Light blue
+      this.doc.setFillColor(...this.colors.lightGray)
       this.doc.roundedRect(rightCol, this.currentY, colWidth, deliveryBoxHeight, 2, 2, "F")
       
       this.doc.setDrawColor(...this.colors.primary)
@@ -673,7 +673,7 @@ class PDFGenerator {
     const lineHeight = 6
 
     // Summary box background
-    this.doc.setFillColor(255, 253, 240)
+    this.doc.setFillColor(...this.colors.lightGray)
     this.doc.roundedRect(summaryX, this.currentY, summaryWidth, 50, 3, 3, "F")
     
     this.doc.setDrawColor(...this.colors.secondary)
@@ -694,7 +694,7 @@ class PDFGenerator {
     if (this.data.pricing.discount && this.data.pricing.discount > 0) {
       yPos += lineHeight
       this.doc.setFont("helvetica", "normal")
-      this.doc.setTextColor(220, 38, 38) // Red
+      this.doc.setTextColor(...this.colors.secondary) // Use secondary for discount
       this.doc.text("Discount:", summaryX + 5, yPos)
       this.doc.text(`-${formatCurrency(this.data.pricing.discount)}`, summaryX + summaryWidth - 5, yPos, { align: "right" })
       this.doc.setTextColor(...this.colors.darkText)
@@ -774,16 +774,16 @@ class PDFGenerator {
 
     if (this.data.special_instructions) {
       // Special Instructions box
-      this.doc.setFillColor(255, 240, 245)
+      this.doc.setFillColor(...this.colors.lightGray)
       this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 25, 2, 2, "F")
       
-      this.doc.setDrawColor(236, 72, 153)
+      this.doc.setDrawColor(...this.colors.secondary)
       this.doc.setLineWidth(0.3)
       this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 25, 2, 2, "S")
 
       // Header
       this.doc.setFontSize(9)
-      this.doc.setTextColor(236, 72, 153)
+      this.doc.setTextColor(...this.colors.primary)
       this.doc.setFont("helvetica", "bold")
   this.doc.text("SPECIAL INSTRUCTIONS", this.margin + 3, this.currentY + 5)
 
@@ -804,7 +804,7 @@ class PDFGenerator {
       this.checkPageBreak(25)
 
       // Notes box
-      this.doc.setFillColor(240, 249, 255)
+      this.doc.setFillColor(...this.colors.lightGray)
       this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 20, 2, 2, "F")
       
       this.doc.setDrawColor(...this.colors.primary)
@@ -843,15 +843,15 @@ class PDFGenerator {
     const boxWidth = this.pageWidth - 2 * this.margin
     const boxHeight = 32
 
-    this.doc.setFillColor(240, 255, 240)
+    this.doc.setFillColor(...this.colors.lightGray)
     this.doc.roundedRect(this.margin, this.currentY, boxWidth, boxHeight, 2, 2, "F")
     
-    this.doc.setDrawColor(34, 197, 94)
+    this.doc.setDrawColor(...this.colors.primary)
     this.doc.setLineWidth(0.5)
     this.doc.roundedRect(this.margin, this.currentY, boxWidth, boxHeight, 2, 2, "S")
 
     // Header
-    this.doc.setFillColor(34, 197, 94)
+    this.doc.setFillColor(...this.colors.primary)
     this.doc.roundedRect(this.margin, this.currentY, boxWidth, 8, 2, 2, "F")
     
     this.doc.setFontSize(10)
