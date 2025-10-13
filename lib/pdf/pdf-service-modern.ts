@@ -1,7 +1,7 @@
 /**
- * Professional PDF Generation Service
- * Used for Quotes and Invoices
- * Supports multi-page documents with proper page breaks
+ * Modern Professional PDF Generation Service
+ * Alternative design for Quotes and Invoices
+ * Features: Clean layout, card-based design, better spacing
  */
 
 import jsPDF from "jspdf"
@@ -129,11 +129,10 @@ function hexToRgb(hex: string): [number, number, number] {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result
     ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
-    : [25, 42, 86] // Default navy blue
+    : [59, 130, 246] // Default blue
 }
 
 function formatCurrency(amount: number): string {
-  // Use 'Rs.' prefix to avoid font issues with the rupee glyph on some viewers
   return `Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
@@ -169,10 +168,10 @@ function wrapText(doc: jsPDF, text: string, maxWidth: number): string[] {
 }
 
 // ============================================================================
-// PDF GENERATION CLASS
+// MODERN PDF GENERATOR CLASS
 // ============================================================================
 
-class PDFGenerator {
+class ModernPDFGenerator {
   private doc: jsPDF
   private data: DocumentData
   private assets: { logo?: string; signature?: string; qr?: string } = {}
@@ -181,9 +180,9 @@ class PDFGenerator {
     secondary: [number, number, number]
     accent: [number, number, number]
     white: [number, number, number]
-    lightGray: [number, number, number]
+    lightBg: [number, number, number]
     darkText: [number, number, number]
-    success: [number, number, number]
+    borderGray: [number, number, number]
   }
   private pageWidth: number
   private pageHeight: number
@@ -199,27 +198,27 @@ class PDFGenerator {
     })
     
     this.data = data
-    this.pageWidth = 210 // A4 width in mm
-    this.pageHeight = 297 // A4 height in mm
+    this.pageWidth = 210
+    this.pageHeight = 297
     this.margin = 15
     this.currentY = this.margin
     this.currentPage = 1
 
-    // Setup colors from branding or defaults
-    const branding = data.branding || { primary: "#1a2a56", secondary: "#6b7280", accent: "#d4af37" }
+    // Setup colors
+    const branding = data.branding || { primary: "#3b82f6", secondary: "#64748b", accent: "#10b981" }
     this.colors = {
       primary: hexToRgb(branding.primary),
       secondary: hexToRgb(branding.secondary),
       accent: hexToRgb(branding.accent),
       white: [255, 255, 255],
-      lightGray: [245, 245, 245],
-      darkText: [30, 30, 30],
-      success: [16, 185, 129],
+      lightBg: [249, 250, 251],
+      darkText: [17, 24, 39],
+      borderGray: [229, 231, 235],
     }
   }
 
   // ==========================================================================
-  // ASSET LOADING (logo, signature, QR)
+  // ASSET LOADING
   // ==========================================================================
 
   private async fetchAsDataURL(url: string): Promise<string | undefined> {
@@ -276,7 +275,7 @@ class PDFGenerator {
   // ==========================================================================
 
   private checkPageBreak(requiredSpace: number): void {
-    if (this.currentY + requiredSpace > this.pageHeight - this.margin) {
+    if (this.currentY + requiredSpace > this.pageHeight - this.margin - 15) {
       this.addNewPage()
     }
   }
@@ -286,22 +285,22 @@ class PDFGenerator {
     this.currentPage++
     this.currentY = this.margin
     this.addPageHeader()
-    this.currentY += 10
+    this.currentY += 8
   }
 
   private addPageHeader(): void {
     if (this.currentPage === 1) return
 
-    // Add small header on subsequent pages
-    this.doc.setFontSize(8)
+    // Minimal header on subsequent pages
+    this.doc.setFontSize(9)
     this.doc.setTextColor(...this.colors.secondary)
+    this.doc.setFont("helvetica", "normal")
     this.doc.text(
       `${this.data.company.name} - ${this.data.document_type.toUpperCase()} ${this.data.document_number}`,
       this.margin,
       this.margin - 5
     )
     
-    // Page number
     this.doc.text(
       `Page ${this.currentPage}`,
       this.pageWidth - this.margin,
@@ -309,171 +308,149 @@ class PDFGenerator {
       { align: "right" }
     )
 
-    // Separator line
-    this.doc.setDrawColor(...this.colors.lightGray)
-    this.doc.setLineWidth(0.3)
+    this.doc.setDrawColor(...this.colors.borderGray)
+    this.doc.setLineWidth(0.2)
     this.doc.line(this.margin, this.margin, this.pageWidth - this.margin, this.margin)
   }
 
   // ==========================================================================
-  // HEADER SECTION
+  // HEADER SECTION - MODERN DESIGN
   // ==========================================================================
 
   private addHeader(): void {
-    const startY = this.currentY
+    // Clean white header with bottom border
+    const headerHeight = 45
 
-    // Background header bar
-    this.doc.setFillColor(...this.colors.primary)
-    this.doc.rect(0, 0, this.pageWidth, 50, "F")
-
-    // Company logo or placeholder
+    // Logo section
     if (this.assets.logo) {
       try {
-        // Add logo image (max 18x18 mm area)
-        this.doc.addImage(this.assets.logo, "PNG", this.margin, 10, 18, 18)
+        this.doc.addImage(this.assets.logo, "PNG", this.margin, this.currentY, 20, 20)
       } catch {
-        // Fallback to initial circle if image fails
-        this.doc.setFillColor(...this.colors.accent)
-        this.doc.circle(this.margin + 10, 20, 8, "F")
+        this.addLogoPlaceholder()
       }
     } else {
-      // Company initial circle
-      this.doc.setFillColor(...this.colors.accent)
-      this.doc.circle(this.margin + 10, 20, 8, "F")
-      this.doc.setFontSize(14)
-      this.doc.setTextColor(...this.colors.white)
-      this.doc.setFont("helvetica", "bold")
-      const initial = this.data.company.name.charAt(0).toUpperCase()
-      this.doc.text(initial, this.margin + 10, 22, { align: "center" })
+      this.addLogoPlaceholder()
     }
 
-    // Company name and tagline
+    // Company name and info
+    const companyX = this.margin + 25
     this.doc.setFontSize(18)
-    this.doc.setTextColor(...this.colors.white)
+    this.doc.setTextColor(...this.colors.darkText)
     this.doc.setFont("helvetica", "bold")
-    this.doc.text(this.data.company.name, this.margin + 25, 18)
+    this.doc.text(this.data.company.name, companyX, this.currentY + 8)
 
     this.doc.setFontSize(8)
+    this.doc.setTextColor(...this.colors.secondary)
     this.doc.setFont("helvetica", "normal")
-    this.doc.text("Premium Wedding & Event Accessories", this.margin + 25, 24)
-
-    // Document type badge
-    const docType = this.data.document_type.toUpperCase()
-    const badgeX = this.pageWidth - this.margin - 35
-    const badgeY = 12
-
-    this.doc.setFillColor(...this.colors.accent)
-    this.doc.roundedRect(badgeX, badgeY, 35, 10, 2, 2, "F")
+    this.doc.text(
+      `${this.data.company.address}, ${this.data.company.city}, ${this.data.company.state}`,
+      companyX,
+      this.currentY + 14
+    )
     
-    this.doc.setFontSize(12)
-    this.doc.setTextColor(...this.colors.primary)
-    this.doc.setFont("helvetica", "bold")
-    this.doc.text(docType, badgeX + 17.5, badgeY + 7, { align: "center" })
+    this.doc.text(
+      `Phone: ${this.data.company.phone} | Email: ${this.data.company.email}`,
+      companyX,
+      this.currentY + 18
+    )
 
-    // Contact info bar
-    this.doc.setFillColor(this.colors.primary[0] + 10, this.colors.primary[1] + 10, this.colors.primary[2] + 10)
-    this.doc.rect(0, 35, this.pageWidth, 15, "F")
-
-    this.doc.setFontSize(8)
-    this.doc.setTextColor(...this.colors.white)
-    this.doc.setFont("helvetica", "normal")
-
-    const contactY = 43
-    // Phone
-    let xPos = this.margin
-    this.doc.text(`Phone: ${this.data.company.phone}`, xPos, contactY)
-
-    // Email
-    xPos = this.margin + 60
-    this.doc.text(`Email: ${this.data.company.email}` , xPos, contactY)
-
-    // Website
-    if (this.data.company.website) {
-      xPos = this.pageWidth - this.margin - 40
-      this.doc.text(`${this.data.company.website}`, xPos, contactY)
+    if (this.data.company.gst_number) {
+      this.doc.text(`GSTIN: ${this.data.company.gst_number}`, companyX, this.currentY + 22)
     }
 
-    this.currentY = 55
+    // Document type badge (top right)
+    const badgeText = this.data.document_type.toUpperCase()
+    const badgeWidth = 35
+    const badgeX = this.pageWidth - this.margin - badgeWidth
+    const badgeY = this.currentY + 3
+
+    this.doc.setFillColor(...this.colors.primary)
+    this.doc.roundedRect(badgeX, badgeY, badgeWidth, 12, 2, 2, "F")
+    
+    this.doc.setFontSize(14)
+    this.doc.setTextColor(...this.colors.white)
+    this.doc.setFont("helvetica", "bold")
+    this.doc.text(badgeText, badgeX + badgeWidth / 2, badgeY + 8.5, { align: "center" })
+
+    // Document number
+    this.doc.setFontSize(10)
+    this.doc.setTextColor(...this.colors.darkText)
+    this.doc.setFont("helvetica", "bold")
+    this.doc.text(this.data.document_number, badgeX + badgeWidth / 2, badgeY + 15, { align: "center" })
+
+    // Bottom border
+    this.currentY += headerHeight
+    this.doc.setDrawColor(...this.colors.primary)
+    this.doc.setLineWidth(0.5)
+    this.doc.line(this.margin, this.currentY, this.pageWidth - this.margin, this.currentY)
+    
+    this.currentY += 8
+  }
+
+  private addLogoPlaceholder(): void {
+    this.doc.setFillColor(...this.colors.primary)
+    this.doc.roundedRect(this.margin, this.currentY, 20, 20, 3, 3, "F")
+    
+    this.doc.setFontSize(16)
+    this.doc.setTextColor(...this.colors.white)
+    this.doc.setFont("helvetica", "bold")
+    const initial = this.data.company.name.charAt(0).toUpperCase()
+    this.doc.text(initial, this.margin + 10, this.currentY + 13, { align: "center" })
   }
 
   // ==========================================================================
-  // DOCUMENT INFO & PARTIES
+  // DOCUMENT INFO CARDS - SIDE BY SIDE
   // ==========================================================================
 
-  private addDocumentInfo(): void {
-    this.checkPageBreak(40)
+  private addDocumentInfoCards(): void {
+    this.checkPageBreak(55)
 
-    const leftCol = this.margin
-    const rightCol = this.pageWidth / 2 + 5
-    const colWidth = this.pageWidth / 2 - this.margin - 5
-    const boxHeight = 38
+    const cardWidth = (this.pageWidth - 2 * this.margin - 5) / 2
+    const cardHeight = 50
+    const leftX = this.margin
+    const rightX = this.margin + cardWidth + 5
 
-    // Customer Info Box
-    this.doc.setFillColor(...this.colors.lightGray)
-    this.doc.roundedRect(leftCol, this.currentY, colWidth, boxHeight, 2, 2, "F")
+    // Customer Card (Left)
+    this.addCard(leftX, this.currentY, cardWidth, cardHeight, "Customer Details")
     
-    this.doc.setDrawColor(...this.colors.secondary)
-    this.doc.setLineWidth(0.3)
-    this.doc.roundedRect(leftCol, this.currentY, colWidth, boxHeight, 2, 2, "S")
-
-    // Customer header
-    this.doc.setFillColor(...this.colors.primary)
-    this.doc.roundedRect(leftCol, this.currentY, colWidth, 8, 2, 2, "F")
-    
-    this.doc.setFontSize(10)
-    this.doc.setTextColor(...this.colors.white)
-    this.doc.setFont("helvetica", "bold")
-  this.doc.text("CUSTOMER DETAILS", leftCol + 3, this.currentY + 5.5)
-
-    // Customer details
-    let yPos = this.currentY + 13
-    this.doc.setFontSize(8)
+    let yPos = this.currentY + 12
+    this.doc.setFontSize(11)
     this.doc.setTextColor(...this.colors.darkText)
     this.doc.setFont("helvetica", "bold")
-    this.doc.text(this.data.customer.name, leftCol + 3, yPos)
-    
-    yPos += 4
+    this.doc.text(this.data.customer.name, leftX + 5, yPos)
+
+    yPos += 6
+    this.doc.setFontSize(9)
     this.doc.setFont("helvetica", "normal")
-  this.doc.text(`Phone: ${this.data.customer.phone}`, leftCol + 3, yPos)
-    
+    this.doc.setTextColor(...this.colors.secondary)
+    this.doc.text(`Phone: ${this.data.customer.phone}`, leftX + 5, yPos)
+
     if (this.data.customer.email) {
-      yPos += 4
-  this.doc.text(`Email: ${this.data.customer.email}`, leftCol + 3, yPos)
+      yPos += 5
+      this.doc.text(`Email: ${this.data.customer.email}`, leftX + 5, yPos)
     }
 
     if (this.data.customer.address) {
-      yPos += 4
-      const addressLines = wrapText(this.doc, `${this.data.customer.address}, ${this.data.customer.city || ""}, ${this.data.customer.state || ""}`, colWidth - 6)
-      addressLines.forEach((line, index) => {
-        this.doc.text(line, leftCol + 3, yPos + (index * 4))
+      yPos += 5
+      const addressLines = wrapText(
+        this.doc,
+        `${this.data.customer.address}, ${this.data.customer.city || ""}, ${this.data.customer.state || ""}`,
+        cardWidth - 10
+      )
+      addressLines.forEach((line, idx) => {
+        this.doc.text(line, leftX + 5, yPos + idx * 4)
       })
     }
 
-    // Document Info Box
-    this.doc.setFillColor(...this.colors.lightGray)
-    this.doc.roundedRect(rightCol, this.currentY, colWidth, boxHeight, 2, 2, "F")
-    
-    this.doc.setDrawColor(...this.colors.secondary)
-    this.doc.setLineWidth(0.3)
-    this.doc.roundedRect(rightCol, this.currentY, colWidth, boxHeight, 2, 2, "S")
+    // Document Info Card (Right)
+    this.addCard(rightX, this.currentY, cardWidth, cardHeight, `${this.data.document_type === "quote" ? "Quote" : "Invoice"} Information`)
 
-    // Document header
-    this.doc.setFillColor(...this.colors.accent)
-    this.doc.roundedRect(rightCol, this.currentY, colWidth, 8, 2, 2, "F")
-    
-    this.doc.setFontSize(10)
-    this.doc.setTextColor(...this.colors.white)
-    this.doc.setFont("helvetica", "bold")
-  this.doc.text(`${this.data.document_type.toUpperCase()} INFO`, rightCol + 3, this.currentY + 5.5)
-
-    // Document details
-    yPos = this.currentY + 13
-    this.doc.setFontSize(8)
-    this.doc.setTextColor(...this.colors.darkText)
+    yPos = this.currentY + 12
+    this.doc.setFontSize(9)
+    this.doc.setTextColor(...this.colors.secondary)
     this.doc.setFont("helvetica", "normal")
 
     const docInfo = [
-      [`${this.data.document_type === "quote" ? "Quote" : "Invoice"} #:`, this.data.document_number],
       ["Date:", formatDate(this.data.document_date)],
     ]
 
@@ -485,52 +462,37 @@ class PDFGenerator {
       docInfo.push(["Status:", this.data.status.toUpperCase()])
     }
 
-    docInfo.forEach(([label, value], index) => {
+    docInfo.forEach(([label, value]) => {
       this.doc.setFont("helvetica", "bold")
-      this.doc.text(label, rightCol + 3, yPos + (index * 4.5))
+      this.doc.text(label, rightX + 5, yPos)
       this.doc.setFont("helvetica", "normal")
-      this.doc.text(value, rightCol + 25, yPos + (index * 4.5))
+      this.doc.text(value, rightX + 30, yPos)
+      yPos += 5
     })
 
-    this.currentY += boxHeight + 8
+    this.currentY += cardHeight + 8
   }
 
   // ==========================================================================
-  // EVENT & DELIVERY INFO
+  // EVENT & DELIVERY CARDS
   // ==========================================================================
 
-  private addEventAndDeliveryInfo(): void {
+  private addEventDeliveryCards(): void {
     if (!this.data.event && !this.data.delivery) return
 
     this.checkPageBreak(35)
 
-    const leftCol = this.margin
-    const rightCol = this.pageWidth / 2 + 5
-    const colWidth = this.pageWidth / 2 - this.margin - 5
+    const cardWidth = (this.pageWidth - 2 * this.margin - 5) / 2
+    const cardHeight = 32
+    const leftX = this.margin
+    const rightX = this.margin + cardWidth + 5
 
-    // Event Info
     if (this.data.event) {
-      const eventBoxHeight = 30
-
-      this.doc.setFillColor(255, 253, 240) // Light gold
-      this.doc.roundedRect(leftCol, this.currentY, colWidth, eventBoxHeight, 2, 2, "F")
+      this.addCard(leftX, this.currentY, cardWidth, cardHeight, "Event Details")
       
-      this.doc.setDrawColor(...this.colors.accent)
-      this.doc.setLineWidth(0.3)
-      this.doc.roundedRect(leftCol, this.currentY, colWidth, eventBoxHeight, 2, 2, "S")
-
-      // Header
-      this.doc.setFillColor(...this.colors.accent)
-      this.doc.roundedRect(leftCol, this.currentY, colWidth, 7, 2, 2, "F")
-      
-      this.doc.setFontSize(9)
-      this.doc.setTextColor(...this.colors.white)
-      this.doc.setFont("helvetica", "bold")
-  this.doc.text("EVENT DETAILS", leftCol + 3, this.currentY + 5)
-
       let yPos = this.currentY + 12
-      this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.darkText)
+      this.doc.setFontSize(9)
+      this.doc.setTextColor(...this.colors.secondary)
       this.doc.setFont("helvetica", "normal")
 
       const eventInfo = [
@@ -540,122 +502,121 @@ class PDFGenerator {
 
       if (this.data.event.groom_name) eventInfo.push(["Groom:", this.data.event.groom_name])
       if (this.data.event.bride_name) eventInfo.push(["Bride:", this.data.event.bride_name])
-      if (this.data.event.venue_name) eventInfo.push(["Venue:", this.data.event.venue_name])
 
-      eventInfo.forEach(([label, value], index) => {
-        if (yPos > this.currentY + eventBoxHeight - 3) return
+      eventInfo.forEach(([label, value]) => {
         this.doc.setFont("helvetica", "bold")
-        this.doc.text(label, leftCol + 3, yPos)
+        this.doc.text(label, leftX + 5, yPos)
         this.doc.setFont("helvetica", "normal")
-        this.doc.text(value, leftCol + 20, yPos)
-        yPos += 4
+        this.doc.text(value, leftX + 20, yPos)
+        yPos += 5
       })
     }
 
-    // Delivery Info
     if (this.data.delivery) {
-      const deliveryBoxHeight = 20
-
-      this.doc.setFillColor(240, 253, 255) // Light blue
-      this.doc.roundedRect(rightCol, this.currentY, colWidth, deliveryBoxHeight, 2, 2, "F")
+      this.addCard(rightX, this.currentY, cardWidth, cardHeight, "Delivery Schedule")
       
-      this.doc.setDrawColor(...this.colors.primary)
-      this.doc.setLineWidth(0.3)
-      this.doc.roundedRect(rightCol, this.currentY, colWidth, deliveryBoxHeight, 2, 2, "S")
-
-      // Header
-      this.doc.setFillColor(...this.colors.primary)
-      this.doc.roundedRect(rightCol, this.currentY, colWidth, 7, 2, 2, "F")
-      
-      this.doc.setFontSize(9)
-      this.doc.setTextColor(...this.colors.white)
-      this.doc.setFont("helvetica", "bold")
-  this.doc.text("DELIVERY INFO", rightCol + 3, this.currentY + 5)
-
       let yPos = this.currentY + 12
-      this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.darkText)
+      this.doc.setFontSize(9)
+      this.doc.setTextColor(...this.colors.secondary)
       this.doc.setFont("helvetica", "normal")
 
       this.doc.setFont("helvetica", "bold")
-      this.doc.text("Delivery:", rightCol + 3, yPos)
+      this.doc.text("Delivery:", rightX + 5, yPos)
       this.doc.setFont("helvetica", "normal")
-      this.doc.text(formatDate(this.data.delivery.delivery_date), rightCol + 20, yPos)
+      this.doc.text(formatDate(this.data.delivery.delivery_date), rightX + 25, yPos)
 
-      yPos += 4
+      yPos += 5
       this.doc.setFont("helvetica", "bold")
-      this.doc.text("Return:", rightCol + 3, yPos)
+      this.doc.text("Return:", rightX + 5, yPos)
       this.doc.setFont("helvetica", "normal")
-      this.doc.text(formatDate(this.data.delivery.return_date), rightCol + 20, yPos)
+      this.doc.text(formatDate(this.data.delivery.return_date), rightX + 25, yPos)
     }
 
-    this.currentY += 35
+    this.currentY += cardHeight + 8
   }
 
   // ==========================================================================
-  // ITEMS TABLE
+  // HELPER: CARD DRAWING
+  // ==========================================================================
+
+  private addCard(x: number, y: number, width: number, height: number, title: string): void {
+    // Card background
+    this.doc.setFillColor(...this.colors.lightBg)
+    this.doc.roundedRect(x, y, width, height, 2, 2, "F")
+    
+    // Card border
+    this.doc.setDrawColor(...this.colors.borderGray)
+    this.doc.setLineWidth(0.3)
+    this.doc.roundedRect(x, y, width, height, 2, 2, "S")
+
+    // Card title bar
+    this.doc.setFillColor(...this.colors.white)
+    this.doc.rect(x + 1, y + 1, width - 2, 8, "F")
+    
+    this.doc.setFontSize(9)
+    this.doc.setTextColor(...this.colors.darkText)
+    this.doc.setFont("helvetica", "bold")
+    this.doc.text(title, x + 5, y + 6)
+  }
+
+  // ==========================================================================
+  // ITEMS TABLE - CLEAN MODERN DESIGN
   // ==========================================================================
 
   private addItemsTable(): void {
     this.checkPageBreak(50)
 
-    // Section header
-    this.doc.setFillColor(...this.colors.primary)
-    this.doc.rect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 8, "F")
-    
-    this.doc.setFontSize(11)
-    this.doc.setTextColor(...this.colors.white)
+    // Section title
+    this.doc.setFontSize(12)
+    this.doc.setTextColor(...this.colors.darkText)
     this.doc.setFont("helvetica", "bold")
-  this.doc.text("ITEMS & SERVICES", this.margin + 3, this.currentY + 5.5)
+    this.doc.text("Items & Services", this.margin, this.currentY)
 
-    this.currentY += 10
+    this.currentY += 6
 
-    // Prepare table data
-    const headers = [["#", "Item Description", "Category", "Qty", "Rate", "Amount", "Deposit"]]
+    const headers = [["#", "Description", "Category", "Qty", "Rate", "Amount", "Deposit"]]
     const rows = this.data.items.map((item, index) => [
       (index + 1).toString(),
       item.product_name,
-      item.category || "General",
+      item.category || "-",
       item.quantity.toString(),
       formatCurrency(item.unit_price),
       formatCurrency(item.total_price),
       formatCurrency(item.security_deposit || 0),
     ])
 
-    // Generate table
     autoTable(this.doc, {
       head: headers,
       body: rows,
       startY: this.currentY,
-      theme: "grid",
+      theme: "plain",
       headStyles: {
         fillColor: this.colors.primary as any,
         textColor: this.colors.white as any,
         fontSize: 9,
         fontStyle: "bold",
         halign: "center",
-        cellPadding: 3,
+        cellPadding: 4,
       },
       bodyStyles: {
-        fontSize: 8,
+        fontSize: 8.5,
         textColor: this.colors.darkText as any,
-        cellPadding: 3,
+        cellPadding: 4,
       },
       alternateRowStyles: {
-        fillColor: [250, 250, 250] as any,
+        fillColor: this.colors.lightBg as any,
       },
       columnStyles: {
         0: { cellWidth: 10, halign: "center" },
-        1: { cellWidth: 55 },
+        1: { cellWidth: 60 },
         2: { cellWidth: 25 },
-        3: { cellWidth: 15, halign: "center" },
-        4: { cellWidth: 25, halign: "right" },
+        3: { cellWidth: 12, halign: "center" },
+        4: { cellWidth: 28, halign: "right" },
         5: { cellWidth: 28, halign: "right" },
         6: { cellWidth: 27, halign: "right" },
       },
       margin: { left: this.margin, right: this.margin },
       didDrawPage: (data) => {
-        // Update current Y position after table
         this.currentY = data.cursor?.y || this.currentY
       },
     })
@@ -664,267 +625,241 @@ class PDFGenerator {
   }
 
   // ==========================================================================
-  // PRICING SUMMARY
+  // PRICING SUMMARY - MODERN CARD
   // ==========================================================================
 
   private addPricingSummary(): void {
-    this.checkPageBreak(55)
+    this.checkPageBreak(60)
 
-    const summaryX = this.pageWidth - this.margin - 70
-    const summaryWidth = 70
-    const lineHeight = 6
+    const summaryWidth = 75
+    const summaryX = this.pageWidth - this.margin - summaryWidth
+    const summaryY = this.currentY
 
-    // Summary box background
-    this.doc.setFillColor(255, 253, 240)
-    this.doc.roundedRect(summaryX, this.currentY, summaryWidth, 50, 3, 3, "F")
+    // Summary card
+    this.doc.setFillColor(...this.colors.lightBg)
+    this.doc.roundedRect(summaryX, summaryY, summaryWidth, 55, 3, 3, "F")
     
-    this.doc.setDrawColor(...this.colors.accent)
-    this.doc.setLineWidth(0.5)
-    this.doc.roundedRect(summaryX, this.currentY, summaryWidth, 50, 3, 3, "S")
+    this.doc.setDrawColor(...this.colors.borderGray)
+    this.doc.setLineWidth(0.3)
+    this.doc.roundedRect(summaryX, summaryY, summaryWidth, 55, 3, 3, "S")
 
-    let yPos = this.currentY + 8
-    this.doc.setFontSize(8)
+    let yPos = summaryY + 8
+    this.doc.setFontSize(9)
     this.doc.setTextColor(...this.colors.darkText)
 
-    // Subtotal
-    this.doc.setFont("helvetica", "normal")
-    this.doc.text("Subtotal:", summaryX + 5, yPos)
-    this.doc.setFont("helvetica", "bold")
-    this.doc.text(formatCurrency(this.data.pricing.subtotal), summaryX + summaryWidth - 5, yPos, { align: "right" })
+    // Line items
+    const summaryItems = [
+      ["Subtotal", formatCurrency(this.data.pricing.subtotal)],
+    ]
 
-    // Discount
     if (this.data.pricing.discount && this.data.pricing.discount > 0) {
-      yPos += lineHeight
-      this.doc.setFont("helvetica", "normal")
-      this.doc.setTextColor(220, 38, 38) // Red
-      this.doc.text("Discount:", summaryX + 5, yPos)
-      this.doc.text(`-${formatCurrency(this.data.pricing.discount)}`, summaryX + summaryWidth - 5, yPos, { align: "right" })
-      this.doc.setTextColor(...this.colors.darkText)
+      summaryItems.push(["Discount", `-${formatCurrency(this.data.pricing.discount)}`])
     }
 
-    // Tax
-    yPos += lineHeight
-    this.doc.setFont("helvetica", "normal")
-    const taxLabel = this.data.pricing.tax_percentage ? `GST (${this.data.pricing.tax_percentage}%):` : "Tax:"
-    this.doc.text(taxLabel, summaryX + 5, yPos)
-    this.doc.setFont("helvetica", "bold")
-    this.doc.text(formatCurrency(this.data.pricing.tax_amount), summaryX + summaryWidth - 5, yPos, { align: "right" })
+    const taxLabel = this.data.pricing.tax_percentage 
+      ? `GST (${this.data.pricing.tax_percentage}%)`
+      : "Tax"
+    summaryItems.push([taxLabel, formatCurrency(this.data.pricing.tax_amount)])
 
-    // Security Deposit
     if (this.data.pricing.security_deposit > 0) {
-      yPos += lineHeight
-      this.doc.setFont("helvetica", "normal")
-      this.doc.text("Security Deposit:", summaryX + 5, yPos)
-      this.doc.setFont("helvetica", "bold")
-      this.doc.text(formatCurrency(this.data.pricing.security_deposit), summaryX + summaryWidth - 5, yPos, { align: "right" })
+      summaryItems.push(["Security Deposit", formatCurrency(this.data.pricing.security_deposit)])
     }
 
-    // Separator
-    yPos += 3
-    this.doc.setDrawColor(...this.colors.accent)
-    this.doc.setLineWidth(0.5)
+    summaryItems.forEach(([label, value]) => {
+      this.doc.setFont("helvetica", "normal")
+      this.doc.text(label, summaryX + 5, yPos)
+      this.doc.setFont("helvetica", "bold")
+      this.doc.text(value, summaryX + summaryWidth - 5, yPos, { align: "right" })
+      yPos += 6
+    })
+
+    // Divider
+    yPos += 2
+    this.doc.setDrawColor(...this.colors.borderGray)
     this.doc.line(summaryX + 5, yPos, summaryX + summaryWidth - 5, yPos)
+    yPos += 5
 
     // Total
-    yPos += 5
-    this.doc.setFillColor(...this.colors.success)
-    this.doc.roundedRect(summaryX + 3, yPos - 4, summaryWidth - 6, 8, 2, 2, "F")
+    this.doc.setFillColor(...this.colors.primary)
+    this.doc.roundedRect(summaryX + 3, yPos - 5, summaryWidth - 6, 10, 2, 2, "F")
     
-    this.doc.setFontSize(10)
+    this.doc.setFontSize(11)
     this.doc.setTextColor(...this.colors.white)
     this.doc.setFont("helvetica", "bold")
-    this.doc.text("TOTAL AMOUNT:", summaryX + 5, yPos + 1)
-    this.doc.setFontSize(11)
+    this.doc.text("TOTAL", summaryX + 5, yPos + 1)
     this.doc.text(formatCurrency(this.data.pricing.total_amount), summaryX + summaryWidth - 5, yPos + 1, { align: "right" })
 
-    // Payment breakdown if applicable
+    // Payment breakdown
     if (this.data.pricing.advance_amount && this.data.pricing.advance_amount > 0) {
-      yPos += 10
+      yPos += 12
       this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.darkText)
+      this.doc.setTextColor(...this.colors.secondary)
       this.doc.setFont("helvetica", "normal")
 
       const advLabel = this.data.pricing.advance_percentage 
-        ? `Pay Now (${this.data.pricing.advance_percentage}%):`
-        : "Pay Now:"
+        ? `Advance (${this.data.pricing.advance_percentage}%)`
+        : "Advance"
+      
       this.doc.text(advLabel, summaryX + 5, yPos)
       this.doc.setFont("helvetica", "bold")
-      this.doc.setTextColor(...this.colors.success)
+      this.doc.setTextColor(...this.colors.accent)
       this.doc.text(formatCurrency(this.data.pricing.advance_amount), summaryX + summaryWidth - 5, yPos, { align: "right" })
 
       if (this.data.pricing.balance_amount) {
         yPos += 5
         this.doc.setFont("helvetica", "normal")
-        this.doc.setTextColor(...this.colors.darkText)
-        this.doc.text("Remaining:", summaryX + 5, yPos)
+        this.doc.setTextColor(...this.colors.secondary)
+        this.doc.text("Balance", summaryX + 5, yPos)
         this.doc.setFont("helvetica", "bold")
         this.doc.text(formatCurrency(this.data.pricing.balance_amount), summaryX + summaryWidth - 5, yPos, { align: "right" })
       }
     }
 
-    this.currentY += 55
+    this.currentY += 60
   }
 
   // ==========================================================================
-  // NOTES & SPECIAL INSTRUCTIONS
-  // ==========================================================================
-
-  private addNotesAndInstructions(): void {
-    if (!this.data.notes && !this.data.special_instructions) return
-
-    this.checkPageBreak(30)
-
-    if (this.data.special_instructions) {
-      // Special Instructions box
-      this.doc.setFillColor(255, 240, 245)
-      this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 25, 2, 2, "F")
-      
-      this.doc.setDrawColor(236, 72, 153)
-      this.doc.setLineWidth(0.3)
-      this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 25, 2, 2, "S")
-
-      // Header
-      this.doc.setFontSize(9)
-      this.doc.setTextColor(236, 72, 153)
-      this.doc.setFont("helvetica", "bold")
-  this.doc.text("SPECIAL INSTRUCTIONS", this.margin + 3, this.currentY + 5)
-
-      // Content
-      this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.darkText)
-      this.doc.setFont("helvetica", "normal")
-      
-      const instructionLines = wrapText(this.doc, this.data.special_instructions, this.pageWidth - 2 * this.margin - 10)
-      instructionLines.forEach((line, index) => {
-        this.doc.text(line, this.margin + 3, this.currentY + 12 + (index * 4))
-      })
-
-      this.currentY += 28
-    }
-
-    if (this.data.notes) {
-      this.checkPageBreak(25)
-
-      // Notes box
-      this.doc.setFillColor(240, 249, 255)
-      this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 20, 2, 2, "F")
-      
-      this.doc.setDrawColor(...this.colors.primary)
-      this.doc.setLineWidth(0.3)
-      this.doc.roundedRect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 20, 2, 2, "S")
-
-      // Header
-      this.doc.setFontSize(9)
-      this.doc.setTextColor(...this.colors.primary)
-      this.doc.setFont("helvetica", "bold")
-  this.doc.text("NOTES", this.margin + 3, this.currentY + 5)
-
-      // Content
-      this.doc.setFontSize(8)
-      this.doc.setTextColor(...this.colors.darkText)
-      this.doc.setFont("helvetica", "normal")
-      
-      const notesLines = wrapText(this.doc, this.data.notes, this.pageWidth - 2 * this.margin - 10)
-      notesLines.forEach((line, index) => {
-        this.doc.text(line, this.margin + 3, this.currentY + 10 + (index * 4))
-      })
-
-      this.currentY += 23
-    }
-  }
-
-  // ==========================================================================
-  // BANKING DETAILS
+  // BANKING & QR - MODERN LAYOUT
   // ==========================================================================
 
   private addBankingDetails(): void {
     if (!this.data.banking) return
 
-    this.checkPageBreak(35)
+    this.checkPageBreak(40)
 
-    const boxWidth = this.pageWidth - 2 * this.margin
-    const boxHeight = 32
+    const cardWidth = this.pageWidth - 2 * this.margin
+    const cardHeight = 35
 
-    this.doc.setFillColor(240, 255, 240)
-    this.doc.roundedRect(this.margin, this.currentY, boxWidth, boxHeight, 2, 2, "F")
+    // Banking card
+    this.doc.setFillColor(...this.colors.lightBg)
+    this.doc.roundedRect(this.margin, this.currentY, cardWidth, cardHeight, 3, 3, "F")
     
-    this.doc.setDrawColor(34, 197, 94)
-    this.doc.setLineWidth(0.5)
-    this.doc.roundedRect(this.margin, this.currentY, boxWidth, boxHeight, 2, 2, "S")
+    this.doc.setDrawColor(...this.colors.accent)
+    this.doc.setLineWidth(0.4)
+    this.doc.roundedRect(this.margin, this.currentY, cardWidth, cardHeight, 3, 3, "S")
 
-    // Header
-    this.doc.setFillColor(34, 197, 94)
-    this.doc.roundedRect(this.margin, this.currentY, boxWidth, 8, 2, 2, "F")
-    
+    // Title
     this.doc.setFontSize(10)
-    this.doc.setTextColor(...this.colors.white)
-    this.doc.setFont("helvetica", "bold")
-  this.doc.text("PAYMENT INFORMATION", this.margin + 3, this.currentY + 5.5)
-
-    // Banking details in two columns
-    let yPos = this.currentY + 13
-    this.doc.setFontSize(8)
     this.doc.setTextColor(...this.colors.darkText)
+    this.doc.setFont("helvetica", "bold")
+    this.doc.text("Payment Information", this.margin + 5, this.currentY + 8)
+
+    // Banking details
+    let yPos = this.currentY + 15
+    const leftCol = this.margin + 5
+    const midCol = this.margin + 75
+    const rightCol = this.margin + 145
+
+    this.doc.setFontSize(8)
+    this.doc.setTextColor(...this.colors.secondary)
     this.doc.setFont("helvetica", "normal")
 
-    const leftCol = this.margin + 5
-  const rightCol = this.margin + (boxWidth / 2)
-
-    // Left column
-    const leftDetails = [
-      ["Bank Name:", this.data.banking.bank_name],
+    const details = [
+      ["Bank:", this.data.banking.bank_name],
       ["Account Holder:", this.data.banking.account_holder],
       ["Account Number:", this.data.banking.account_number],
-    ]
-
-    leftDetails.forEach(([label, value], index) => {
-      const y = yPos + (index * 5)
-      this.doc.setFont("helvetica", "bold")
-      this.doc.text(label, leftCol, y)
-      this.doc.setFont("helvetica", "normal")
-      this.doc.text(value, leftCol + 30, y)
-    })
-
-    // Right column
-    const rightDetails = [
       ["IFSC Code:", this.data.banking.ifsc_code],
-      ["Branch:", this.data.banking.branch],
     ]
 
     if (this.data.banking.upi_id) {
-      rightDetails.push(["UPI ID:", this.data.banking.upi_id])
+      details.push(["UPI ID:", this.data.banking.upi_id])
     }
 
-    rightDetails.forEach(([label, value], index) => {
-      const y = yPos + (index * 5)
+    details.forEach(([label, value], idx) => {
+      const col = idx < 3 ? leftCol : midCol
+      const row = yPos + (idx % 3) * 5
+      
       this.doc.setFont("helvetica", "bold")
-      this.doc.text(label, rightCol, y)
+      this.doc.text(label, col, row)
       this.doc.setFont("helvetica", "normal")
-      this.doc.text(value, rightCol + 20, y)
+      this.doc.text(value, col + 35, row)
     })
 
-    // Draw QR code if available
+    // QR Code
     if (this.assets.qr) {
       try {
-        this.doc.addImage(this.assets.qr, "PNG", this.pageWidth - this.margin - 26, this.currentY - boxHeight + 8, 22, 22)
+        this.doc.addImage(this.assets.qr, "PNG", rightCol, this.currentY + 10, 22, 22)
         this.doc.setFontSize(7)
-        this.doc.setTextColor(...this.colors.darkText)
-        this.doc.text("Scan to Pay", this.pageWidth - this.margin - 15, this.currentY - boxHeight + 32, { align: "center" })
+        this.doc.setTextColor(...this.colors.secondary)
+        this.doc.text("Scan to Pay", rightCol + 11, this.currentY + 34, { align: "center" })
       } catch {
-        // ignore image errors
+        // Ignore image errors
       }
     }
 
-    this.currentY += boxHeight + 5
+    this.currentY += cardHeight + 8
   }
 
   // ==========================================================================
-  // TERMS & CONDITIONS
+  // NOTES & TERMS - CLEAN CARDS
+  // ==========================================================================
+
+  private addNotesAndInstructions(): void {
+    if (!this.data.notes && !this.data.special_instructions) return
+
+    if (this.data.special_instructions) {
+      this.checkPageBreak(25)
+      
+      const width = this.pageWidth - 2 * this.margin
+      this.doc.setFillColor(255, 250, 240)
+      this.doc.roundedRect(this.margin, this.currentY, width, 22, 2, 2, "F")
+      
+      this.doc.setDrawColor(251, 191, 36)
+      this.doc.setLineWidth(0.3)
+      this.doc.roundedRect(this.margin, this.currentY, width, 22, 2, 2, "S")
+
+      this.doc.setFontSize(9)
+      this.doc.setTextColor(180, 83, 9)
+      this.doc.setFont("helvetica", "bold")
+      this.doc.text("Special Instructions", this.margin + 5, this.currentY + 6)
+
+      this.doc.setFontSize(8)
+      this.doc.setTextColor(...this.colors.darkText)
+      this.doc.setFont("helvetica", "normal")
+      
+      const lines = wrapText(this.doc, this.data.special_instructions, width - 10)
+      lines.forEach((line, idx) => {
+        this.doc.text(line, this.margin + 5, this.currentY + 12 + idx * 4)
+      })
+
+      this.currentY += 25
+    }
+
+    if (this.data.notes) {
+      this.checkPageBreak(20)
+      
+      const width = this.pageWidth - 2 * this.margin
+      this.doc.setFillColor(240, 249, 255)
+      this.doc.roundedRect(this.margin, this.currentY, width, 18, 2, 2, "F")
+      
+      this.doc.setDrawColor(...this.colors.primary)
+      this.doc.setLineWidth(0.3)
+      this.doc.roundedRect(this.margin, this.currentY, width, 18, 2, 2, "S")
+
+      this.doc.setFontSize(9)
+      this.doc.setTextColor(...this.colors.primary)
+      this.doc.setFont("helvetica", "bold")
+      this.doc.text("Notes", this.margin + 5, this.currentY + 6)
+
+      this.doc.setFontSize(8)
+      this.doc.setTextColor(...this.colors.darkText)
+      this.doc.setFont("helvetica", "normal")
+      
+      const lines = wrapText(this.doc, this.data.notes, width - 10)
+      lines.forEach((line, idx) => {
+        this.doc.text(line, this.margin + 5, this.currentY + 11 + idx * 4)
+      })
+
+      this.currentY += 21
+    }
+  }
+
+  // ==========================================================================
+  // TERMS & CONDITIONS - SIMPLE LIST
   // ==========================================================================
 
   private addTermsAndConditions(): void {
     if (!this.data.terms_and_conditions || this.data.terms_and_conditions.length === 0) {
-      // Add default terms
       this.data.terms_and_conditions = [
         "All items must be returned in the same condition as provided.",
         "Security deposit will be refunded after inspection of returned items.",
@@ -939,19 +874,15 @@ class PDFGenerator {
 
     this.checkPageBreak(50)
 
-    // Section header
-    this.doc.setFillColor(...this.colors.secondary)
-    this.doc.rect(this.margin, this.currentY, this.pageWidth - 2 * this.margin, 7, "F")
-    
     this.doc.setFontSize(10)
-    this.doc.setTextColor(...this.colors.white)
+    this.doc.setTextColor(...this.colors.darkText)
     this.doc.setFont("helvetica", "bold")
-  this.doc.text("TERMS & CONDITIONS", this.margin + 3, this.currentY + 5)
+    this.doc.text("Terms & Conditions", this.margin, this.currentY)
 
-    this.currentY += 10
+    this.currentY += 6
 
     this.doc.setFontSize(7.5)
-    this.doc.setTextColor(...this.colors.darkText)
+    this.doc.setTextColor(...this.colors.secondary)
     this.doc.setFont("helvetica", "normal")
 
     this.data.terms_and_conditions.forEach((term, index) => {
@@ -959,7 +890,7 @@ class PDFGenerator {
       
       const termLines = wrapText(this.doc, `${index + 1}. ${term}`, this.pageWidth - 2 * this.margin - 5)
       termLines.forEach((line, lineIndex) => {
-        this.doc.text(line, this.margin + 3, this.currentY + (lineIndex * 4))
+        this.doc.text(line, this.margin + 3, this.currentY + lineIndex * 4)
       })
       this.currentY += termLines.length * 4 + 1
     })
@@ -968,54 +899,56 @@ class PDFGenerator {
   }
 
   // ==========================================================================
-  // FOOTER
+  // FOOTER - CLEAN & MINIMAL
   // ==========================================================================
 
   private addFooter(): void {
     const footerY = this.pageHeight - 20
 
-    // Check if we need a new page
     if (this.currentY > footerY - 10) {
       this.addNewPage()
     }
 
-    // Signature section
+    // Signature lines
     const signatureY = footerY - 15
     const leftSigX = this.margin + 20
     const rightSigX = this.pageWidth - this.margin - 40
 
-    this.doc.setDrawColor(...this.colors.secondary)
+    this.doc.setDrawColor(...this.colors.borderGray)
     this.doc.setLineWidth(0.3)
     
     // Customer signature
     this.doc.line(leftSigX, signatureY, leftSigX + 40, signatureY)
     this.doc.setFontSize(8)
-    this.doc.setTextColor(...this.colors.darkText)
+    this.doc.setTextColor(...this.colors.secondary)
     this.doc.setFont("helvetica", "normal")
     this.doc.text("Customer Signature", leftSigX + 20, signatureY + 5, { align: "center" })
 
     // Company signature
     this.doc.line(rightSigX, signatureY, rightSigX + 40, signatureY)
-    // Signature image (optional)
+    
     if (this.assets.signature) {
       try {
         this.doc.addImage(this.assets.signature, "PNG", rightSigX + 8, signatureY - 14, 24, 12)
       } catch {
-        // ignore image errors
+        // Ignore
       }
     }
+    
     this.doc.text("Authorized Signature", rightSigX + 20, signatureY + 5, { align: "center" })
 
     // Footer bar
-    this.doc.setFillColor(...this.colors.primary)
+    this.doc.setFillColor(...this.colors.lightBg)
     this.doc.rect(0, footerY, this.pageWidth, 20, "F")
 
-    // Footer content
+    this.doc.setDrawColor(...this.colors.borderGray)
+    this.doc.line(0, footerY, this.pageWidth, footerY)
+
     this.doc.setFontSize(7)
-    this.doc.setTextColor(...this.colors.white)
+    this.doc.setTextColor(...this.colors.secondary)
     this.doc.setFont("helvetica", "normal")
     
-    const footerText = `${this.data.company.name} | ${this.data.company.address}, ${this.data.company.city}, ${this.data.company.state}`
+    const footerText = `${this.data.company.name} | ${this.data.company.phone} | ${this.data.company.email}`
     this.doc.text(footerText, this.pageWidth / 2, footerY + 7, { align: "center" })
 
     if (this.data.company.gst_number) {
@@ -1032,13 +965,11 @@ class PDFGenerator {
 
   public async generate(): Promise<Blob> {
     try {
-      // Load any external assets (logo, signature, QR)
       await this.loadAssets()
 
-      // Generate all sections
       this.addHeader()
-      this.addDocumentInfo()
-      this.addEventAndDeliveryInfo()
+      this.addDocumentInfoCards()
+      this.addEventDeliveryCards()
       this.addItemsTable()
       this.addPricingSummary()
       this.addNotesAndInstructions()
@@ -1046,10 +977,9 @@ class PDFGenerator {
       this.addTermsAndConditions()
       this.addFooter()
 
-      // Return PDF as blob
       return this.doc.output("blob")
     } catch (error) {
-      console.error("[PDF Generator] Error:", error)
+      console.error("[Modern PDF Generator] Error:", error)
       throw new Error(`PDF generation failed: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
   }
@@ -1059,8 +989,8 @@ class PDFGenerator {
 // PUBLIC API
 // ============================================================================
 
-export async function generatePDF(data: DocumentData): Promise<Blob> {
-  const generator = new PDFGenerator(data)
+export async function generateModernPDF(data: DocumentData): Promise<Blob> {
+  const generator = new ModernPDFGenerator(data)
   return await generator.generate()
 }
 

@@ -36,10 +36,11 @@ import { QuoteService } from "@/lib/services/quote-service"
 import { BookingService } from "@/lib/services/booking-service"
 import { ConvertQuoteDialog } from "@/components/quotes/convert-quote-dialog"
 import { useToast } from "@/hooks/use-toast"
-import type { Quote } from "@/lib/types"
-import { downloadQuotePDF } from "@/lib/pdf/prepare-quote-pdf"
+import type { Quote, User as UserType } from "@/lib/types"
+import { downloadQuotePDF, type PDFDesignType } from "@/lib/pdf/generate-quote-pdf"
 import { useRouter } from "next/navigation"
 import { BookingTypeDialog } from "@/components/quotes/booking-type-dialog"
+import { getCurrentUser } from "@/lib/auth"
 
 interface QuoteStats {
   total: number
@@ -125,6 +126,7 @@ const defaultQuoteTemplates: QuoteTemplate[] = [
 
 function QuotesPageContent() {
   const router = useRouter()
+  const [user, setUser] = useState<UserType | null>(null)
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [filteredQuotes, setFilteredQuotes] = useState<Quote[]>([])
   const [stats, setStats] = useState<QuoteStats>({
@@ -152,6 +154,7 @@ function QuotesPageContent() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showBookingTypeDialog, setShowBookingTypeDialog] = useState(false)
+  const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
 
   const demoQuoteData = {
     id: "QT001",
@@ -351,14 +354,16 @@ function QuotesPageContent() {
 
   const handleDownloadPDF = async (quote: Quote) => {
     try {
-      // TODO: Get franchise_id from user session
-      const franchiseId = undefined // Replace with actual franchise_id from auth context
+      const franchiseId = user?.franchise_id
+      if (!franchiseId) {
+        console.warn("[PDF Download] No franchise_id available")
+      }
       
-      await downloadQuotePDF(quote, franchiseId)
+      await downloadQuotePDF(quote, franchiseId, pdfDesign)
 
       toast({
         title: "Success",
-        description: `Quote PDF downloaded successfully`,
+        description: `Quote PDF (${pdfDesign}) downloaded successfully`,
       })
     } catch (error) {
       console.error("Error downloading PDF:", error)
@@ -510,6 +515,26 @@ function QuotesPageContent() {
               <RefreshCw className="h-3 w-3 mr-1" />
               Refresh
             </Button>
+            {/* PDF Design Selector */}
+            <Select value={pdfDesign} onValueChange={(value: PDFDesignType) => setPdfDesign(value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="classic">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Classic PDF
+                  </div>
+                </SelectItem>
+                <SelectItem value="modern">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Modern PDF
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               onClick={() => setShowBookingTypeDialog(true)}
             >
@@ -1134,6 +1159,7 @@ function QuotesPageContent() {
 
 export default function QuotesPage() {
   const router = useRouter()
+  const [user, setUser] = useState<UserType | null>(null)
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [filteredQuotes, setFilteredQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
@@ -1144,6 +1170,7 @@ export default function QuotesPage() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showBookingTypeDialog, setShowBookingTypeDialog] = useState(false)
+  const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
   const [stats, setStats] = useState({
     total: 0,
     generated: 0,
@@ -1162,6 +1189,12 @@ export default function QuotesPage() {
   const { toast } = useToast()
 
   useEffect(() => {
+    const initUser = async () => {
+      const currentUser = await getCurrentUser()
+      setUser(currentUser)
+    }
+    initUser()
+    
     loadQuotes()
     loadStats()
 
@@ -1329,14 +1362,16 @@ export default function QuotesPage() {
 
   const handleDownloadPDF = async (quote: Quote) => {
     try {
-      // TODO: Get franchise_id from user session
-      const franchiseId = undefined // Replace with actual franchise_id from auth context
+      const franchiseId = user?.franchise_id
+      if (!franchiseId) {
+        console.warn("[PDF Download] No franchise_id available")
+      }
       
-      await downloadQuotePDF(quote, franchiseId)
+      await downloadQuotePDF(quote, franchiseId, pdfDesign)
 
       toast({
         title: "Success",
-        description: `Quote PDF downloaded successfully`,
+        description: `Quote PDF (${pdfDesign}) downloaded successfully`,
       })
     } catch (error) {
       console.error("Error downloading PDF:", error)

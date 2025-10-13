@@ -26,13 +26,18 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
     const companyData = companyResponse.ok ? await companyResponse.json() : null
     const companySettings = companyData?.data || companyData
 
-    // Fetch branding colors if franchise_id available
+    // Fetch branding settings (colors, logo, signature) if franchise_id available
     let brandingColors = { primary: "#1a2a56", secondary: "#6b7280", accent: "#d4af37" }
+    let logoUrl: string | null = null
+    let signatureUrl: string | null = null
     
     if (franchiseId) {
       try {
+        console.log(`[PDF Data] Fetching branding settings for franchise: ${franchiseId}`)
         const brandingResponse = await fetch(`/api/settings/branding?franchise_id=${franchiseId}`)
         const brandingData = brandingResponse.ok ? await brandingResponse.json() : null
+        
+        console.log(`[PDF Data] Branding response:`, brandingData)
         
         if (brandingData?.data) {
           brandingColors = {
@@ -40,10 +45,20 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
             secondary: brandingData.data.secondary_color || brandingColors.secondary,
             accent: brandingData.data.accent_color || brandingColors.accent,
           }
+          // Get logo and signature from branding settings
+          logoUrl = brandingData.data.logo_url || null
+          signatureUrl = brandingData.data.signature_url || null
+          
+          console.log(`[PDF Data] Logo URL: ${logoUrl}`)
+          console.log(`[PDF Data] Signature URL: ${signatureUrl}`)
+        } else {
+          console.warn("[PDF Data] No branding data found")
         }
       } catch (error) {
-        console.warn("[PDF Data] Failed to fetch branding colors, using defaults", error)
+        console.warn("[PDF Data] Failed to fetch branding settings, using defaults", error)
       }
+    } else {
+      console.warn("[PDF Data] No franchise_id provided, cannot fetch branding settings")
     }
 
     // Fetch banking details if franchise_id available
@@ -64,7 +79,8 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
             ifsc_code: primaryBank.ifsc_code || "",
             branch: primaryBank.branch_name || "",
             upi_id: primaryBank.upi_id || undefined,
-            qr_code_url: primaryBank.qr_code_url || undefined,
+            // Support either qr_file_path (new) or qr_code_url (legacy)
+            qr_code_url: primaryBank.qr_file_path || primaryBank.qr_code_url || undefined,
           }
         }
       } catch (error) {
@@ -97,7 +113,9 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
         email: companySettings?.email || "info@safawala.com",
         website: companySettings?.website || undefined,
         gst_number: companySettings?.gst_number || undefined,
-        logo_url: companySettings?.logo_url || null,
+        // Logo and signature from branding settings
+        logo_url: logoUrl,
+        signature_url: signatureUrl,
       },
 
       // Customer info
