@@ -322,8 +322,8 @@ class PDFGenerator {
   private addHeader(): void {
     const startY = this.currentY
 
-    // Background header bar
-    this.doc.setFillColor(...this.colors.primary)
+    // Light background header bar with subtle gradient effect
+    this.doc.setFillColor(248, 248, 250) // Very light gray/white
     this.doc.rect(0, 0, this.pageWidth, 50, "F")
 
     // Company logo or placeholder
@@ -333,12 +333,12 @@ class PDFGenerator {
         this.doc.addImage(this.assets.logo, "PNG", this.margin, 10, 18, 18)
       } catch {
         // Fallback to initial circle if image fails
-        this.doc.setFillColor(...this.colors.accent)
+        this.doc.setFillColor(...this.colors.primary)
         this.doc.circle(this.margin + 10, 20, 8, "F")
       }
     } else {
       // Company initial circle
-      this.doc.setFillColor(...this.colors.accent)
+      this.doc.setFillColor(...this.colors.primary)
       this.doc.circle(this.margin + 10, 20, 8, "F")
       this.doc.setFontSize(14)
       this.doc.setTextColor(...this.colors.white)
@@ -347,14 +347,15 @@ class PDFGenerator {
       this.doc.text(initial, this.margin + 10, 22, { align: "center" })
     }
 
-    // Company name and tagline
+    // Company name and tagline (now in dark text)
     this.doc.setFontSize(18)
-    this.doc.setTextColor(...this.colors.white)
+    this.doc.setTextColor(...this.colors.primary)
     this.doc.setFont("helvetica", "bold")
     this.doc.text(this.data.company.name, this.margin + 25, 18)
 
     this.doc.setFontSize(8)
     this.doc.setFont("helvetica", "normal")
+    this.doc.setTextColor(...this.colors.secondary)
     this.doc.text("Premium Wedding & Event Accessories", this.margin + 25, 24)
 
     // Document type badge
@@ -366,16 +367,16 @@ class PDFGenerator {
     this.doc.roundedRect(badgeX, badgeY, 35, 10, 2, 2, "F")
     
     this.doc.setFontSize(12)
-    this.doc.setTextColor(...this.colors.primary)
+    this.doc.setTextColor(255, 255, 255) // White text on accent badge
     this.doc.setFont("helvetica", "bold")
     this.doc.text(docType, badgeX + 17.5, badgeY + 7, { align: "center" })
 
-    // Contact info bar
-    this.doc.setFillColor(this.colors.primary[0] + 10, this.colors.primary[1] + 10, this.colors.primary[2] + 10)
+    // Contact info bar - lighter shade
+    this.doc.setFillColor(240, 242, 245) // Light gray
     this.doc.rect(0, 35, this.pageWidth, 15, "F")
 
     this.doc.setFontSize(8)
-    this.doc.setTextColor(...this.colors.white)
+    this.doc.setTextColor(...this.colors.darkText) // Dark text for readability
     this.doc.setFont("helvetica", "normal")
 
     const contactY = 43
