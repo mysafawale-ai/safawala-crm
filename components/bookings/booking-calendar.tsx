@@ -165,43 +165,42 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   }, [bookings])
 
   const dayClassNames = {
-    past: "!bg-muted !text-muted-foreground opacity-60",
+    past: "!bg-muted/60 !text-muted-foreground !opacity-60 !cursor-not-allowed hover:!bg-muted/60",
     // 0 bookings → green
-    zero: "!bg-emerald-600 !text-white hover:!bg-emerald-700",
+    zero: "!bg-emerald-500/90 !text-white hover:!bg-emerald-600 !cursor-pointer !border !border-emerald-600/30 shadow-sm",
     // 1-20 bookings → blue
-    mid: "!bg-blue-600 !text-white hover:!bg-blue-700",
+    mid: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm",
     // 20+ bookings → red
-    full: "!bg-red-600 !text-white hover:!bg-red-700",
+    full: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm",
   }
 
   return (
-    <Card className={`shadow-sm w-full ${compact ? 'p-2' : ''}`}>
-      <CardHeader className={`${compact ? 'py-2' : 'pb-2'}`}>
+    <Card className={`shadow-md border-border/40 w-full ${compact ? 'p-2' : ''}`}>
+      <CardHeader className={`${compact ? 'py-3 px-4' : 'pb-4 px-6'} border-b bg-gradient-to-br from-background to-muted/20`}>
         <div className="flex items-center justify-between">
-          <CardTitle className={`${compact ? 'text-base' : 'text-xl'}`}>Booking Calendar</CardTitle>
+          <CardTitle className={`${compact ? 'text-base' : 'text-xl'} font-semibold flex items-center gap-2`}>
+            <CalendarIcon className="w-5 h-5 text-primary" />
+            Booking Calendar
+          </CardTitle>
           {!compact && (
-            <div className="flex items-center gap-4 text-xs md:text-sm">
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded bg-muted ring-1 ring-muted-foreground/30" />
-                <span className="text-muted-foreground">Past Date</span>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-emerald-500 border border-emerald-600/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">0 Bookings</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded bg-primary/70 ring-1 ring-primary/40" />
-                <span className="text-muted-foreground">0 Bookings</span>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-blue-500 border border-blue-600/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">1-20 Bookings</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded bg-emerald-600 ring-1 ring-emerald-700/40" />
-                <span className="text-muted-foreground">1-20 Bookings</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-3 h-3 rounded bg-destructive ring-1 ring-destructive/40" />
-                <span className="text-muted-foreground">20+ Bookings</span>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-red-500 border border-red-600/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">20+ Bookings</span>
               </div>
             </div>
           )}
         </div>
       </CardHeader>
-      <CardContent className="w-full">
+      <CardContent className={`w-full ${compact ? 'p-3' : 'p-6'}`}>
         <div className={`mx-auto w-full ${compact ? (mini ? 'max-w-[420px] md:max-w-[680px]' : 'max-w-sm md:max-w-[800px]') : 'md:w-[70%]'}`}>
           <Calendar
             mode="single"
@@ -219,13 +218,13 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
               return count>0 ? count : null
             }}
             squareCells={false}
-            className={`rounded-md border w-full ${compact ? (mini ? '[--cell-size:1rem]' : '[--cell-size:1.25rem]') : '[--cell-size:2.2rem] md:[--cell-size:2.4rem]'}`}
+            className={`rounded-lg border-2 border-border/50 w-full bg-background/50 ${compact ? (mini ? '[--cell-size:1rem]' : '[--cell-size:1.25rem]') : '[--cell-size:2.5rem] md:[--cell-size:2.8rem]'}`}
           />
           {/* Always show a small legend for reference */}
-          <div className={`mt-3 flex items-center ${mini ? 'gap-3 text-[11px]' : 'gap-4 text-xs'} text-muted-foreground justify-center`}>
-            <span className="inline-flex items-center gap-2"><span className={`inline-block ${mini ? 'w-2 h-2' : 'w-2.5 h-2.5'} rounded bg-emerald-600`} /> 0 Bookings</span>
-            <span className="inline-flex items-center gap-2"><span className={`inline-block ${mini ? 'w-2 h-2' : 'w-2.5 h-2.5'} rounded bg-blue-600`} /> 1-20 Bookings</span>
-            <span className="inline-flex items-center gap-2"><span className={`inline-block ${mini ? 'w-2 h-2' : 'w-2.5 h-2.5'} rounded bg-red-600`} /> 20+ Bookings</span>
+          <div className={`mt-4 flex items-center ${mini ? 'gap-3 text-[11px]' : 'gap-5 text-xs'} justify-center bg-muted/30 rounded-lg py-2.5 px-4`}>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-emerald-500 border border-emerald-600/30`} /> 0 Bookings</span>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-blue-500 border border-blue-600/30`} /> 1-20 Bookings</span>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-red-500 border border-red-600/30`} /> 20+ Bookings</span>
           </div>
         </div>
       </CardContent>

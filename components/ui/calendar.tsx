@@ -216,17 +216,17 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        'data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[selected-single=true]:font-semibold data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 dark:hover:text-accent-foreground flex h-[--cell-size] w-full min-w-[--cell-size] flex-col gap-0.5 leading-none font-normal text-sm group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md [&>span]:text-xs [&>span]:opacity-70',
+        'data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[selected-single=true]:font-semibold data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 dark:hover:text-accent-foreground flex h-[--cell-size] w-full min-w-[--cell-size] flex-col gap-0.5 leading-none font-medium text-sm group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] data-[range-end=true]:rounded-md data-[range-end=true]:rounded-r-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md data-[range-start=true]:rounded-l-md [&>span]:text-xs [&>span]:opacity-90 transition-all duration-150 rounded-lg pointer-events-auto',
         defaultClassNames.day,
         className,
       )}
       {...props}
     >
       {/* Day label */}
-      <span>{children}</span>
+      <span className="pointer-events-none">{children}</span>
       {/* Optional badge (render only when content exists) */}
       {badgeContent ? (
-        <span className="pointer-events-none absolute -top-1 -right-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-black/80 text-[10px] leading-none text-white px-1">
+        <span className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold leading-none text-primary-foreground px-1 shadow-md border border-background">
           {badgeContent}
         </span>
       ) : null}
