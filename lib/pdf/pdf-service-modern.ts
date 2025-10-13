@@ -57,7 +57,11 @@ interface EventInfo {
   event_date: string
   event_for?: string
   groom_name?: string
+  groom_whatsapp?: string
+  groom_address?: string
   bride_name?: string
+  bride_whatsapp?: string
+  bride_address?: string
   venue_name?: string
   venue_address?: string
 }
@@ -423,6 +427,11 @@ class ModernPDFGenerator {
     this.doc.setTextColor(...this.colors.secondary)
     this.doc.text(`Phone: ${this.data.customer.phone}`, leftX + 5, yPos)
 
+    if (this.data.customer.whatsapp) {
+      yPos += 5
+      this.doc.text(`WhatsApp: ${this.data.customer.whatsapp}`, leftX + 5, yPos)
+    }
+
     if (this.data.customer.email) {
       yPos += 5
       this.doc.text(`Email: ${this.data.customer.email}`, leftX + 5, yPos)
@@ -456,10 +465,6 @@ class ModernPDFGenerator {
       docInfo.push(["Valid Until:", formatDate(this.data.valid_until)])
     }
 
-    if (this.data.status) {
-      docInfo.push(["Status:", this.data.status.toUpperCase()])
-    }
-
     docInfo.forEach(([label, value]) => {
       this.doc.setFont("helvetica", "bold")
       this.doc.text(label, rightX + 5, yPos)
@@ -478,10 +483,10 @@ class ModernPDFGenerator {
   private addEventDeliveryCards(): void {
     if (!this.data.event && !this.data.delivery) return
 
-    this.checkPageBreak(35)
+    this.checkPageBreak(70)
 
     const cardWidth = (this.pageWidth - 2 * this.margin - 5) / 2
-    const cardHeight = 32
+    const cardHeight = 65
     const leftX = this.margin
     const rightX = this.margin + cardWidth + 5
 
@@ -498,9 +503,6 @@ class ModernPDFGenerator {
         ["Date:", formatDate(this.data.event.event_date)],
       ]
 
-      if (this.data.event.groom_name) eventInfo.push(["Groom:", this.data.event.groom_name])
-      if (this.data.event.bride_name) eventInfo.push(["Bride:", this.data.event.bride_name])
-
       eventInfo.forEach(([label, value]) => {
         this.doc.setFont("helvetica", "bold")
         this.doc.text(label, leftX + 5, yPos)
@@ -508,6 +510,56 @@ class ModernPDFGenerator {
         this.doc.text(value, leftX + 20, yPos)
         yPos += 5
       })
+
+      // Groom details
+      if (this.data.event.groom_name) {
+        yPos += 2
+        this.doc.setFont("helvetica", "bold")
+        this.doc.text("Groom:", leftX + 5, yPos)
+        this.doc.setFont("helvetica", "normal")
+        this.doc.text(this.data.event.groom_name, leftX + 20, yPos)
+        yPos += 4
+        
+        if (this.data.event.groom_whatsapp) {
+          this.doc.setFontSize(8)
+          this.doc.text(`WhatsApp: ${this.data.event.groom_whatsapp}`, leftX + 7, yPos)
+          yPos += 4
+        }
+        
+        if (this.data.event.groom_address) {
+          const groomAddressLines = wrapText(this.doc, this.data.event.groom_address, cardWidth - 14)
+          groomAddressLines.forEach((line, idx) => {
+            this.doc.text(line, leftX + 7, yPos + idx * 3.5)
+          })
+          yPos += groomAddressLines.length * 3.5 + 1
+        }
+        this.doc.setFontSize(9)
+      }
+
+      // Bride details
+      if (this.data.event.bride_name) {
+        yPos += 2
+        this.doc.setFont("helvetica", "bold")
+        this.doc.text("Bride:", leftX + 5, yPos)
+        this.doc.setFont("helvetica", "normal")
+        this.doc.text(this.data.event.bride_name, leftX + 20, yPos)
+        yPos += 4
+        
+        if (this.data.event.bride_whatsapp) {
+          this.doc.setFontSize(8)
+          this.doc.text(`WhatsApp: ${this.data.event.bride_whatsapp}`, leftX + 7, yPos)
+          yPos += 4
+        }
+        
+        if (this.data.event.bride_address) {
+          const brideAddressLines = wrapText(this.doc, this.data.event.bride_address, cardWidth - 14)
+          brideAddressLines.forEach((line, idx) => {
+            this.doc.text(line, leftX + 7, yPos + idx * 3.5)
+          })
+          yPos += brideAddressLines.length * 3.5
+        }
+        this.doc.setFontSize(9)
+      }
     }
 
     if (this.data.delivery) {

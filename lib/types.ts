@@ -362,6 +362,7 @@ export interface Quote {
   customer_name?: string
   customer_phone?: string
   customer_whatsapp?: string
+  customer_whatsapp2?: string
   customer_email?: string
   customer_address?: string
   customer_city?: string
@@ -371,7 +372,11 @@ export interface Quote {
   // Event details
   event_for?: "groom" | "bride" | "both"
   groom_name?: string
+  groom_whatsapp?: string
+  groom_address?: string
   bride_name?: string
+  bride_whatsapp?: string
+  bride_address?: string
   venue_name?: string
   venue_address?: string
 

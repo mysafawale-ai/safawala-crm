@@ -20,6 +20,7 @@ interface QuoteData {
   customer: {
     name: string
     phone: string
+    whatsapp?: string
     email?: string
     address: string
   }
@@ -42,7 +43,11 @@ interface QuoteData {
     delivery_date?: string
     pickup_date?: string
     groom_name?: string
+    groom_whatsapp?: string
+    groom_address?: string
     bride_name?: string
+    bride_whatsapp?: string
+    bride_address?: string
     venue_name?: string
     venue_address?: string
     special_instructions?: string
@@ -115,6 +120,7 @@ export async function generateQuotePDF(data: QuoteData): Promise<Blob> {
       customer: {
         name: safeString(data.customer?.name, "Customer"),
         phone: safeString(data.customer?.phone, "N/A"),
+        whatsapp: safeString(data.customer?.whatsapp, ""),
         email: safeString(data.customer?.email, ""),
         address: safeString(data.customer?.address, "Address not provided"),
       },
@@ -137,7 +143,11 @@ export async function generateQuotePDF(data: QuoteData): Promise<Blob> {
         delivery_date: safeString(data.bookingDetails?.delivery_date, ""),
         pickup_date: safeString(data.bookingDetails?.pickup_date, ""),
         groom_name: safeString(data.bookingDetails?.groom_name, ""),
+        groom_whatsapp: safeString(data.bookingDetails?.groom_whatsapp, ""),
+        groom_address: safeString(data.bookingDetails?.groom_address, ""),
         bride_name: safeString(data.bookingDetails?.bride_name, ""),
+        bride_whatsapp: safeString(data.bookingDetails?.bride_whatsapp, ""),
+        bride_address: safeString(data.bookingDetails?.bride_address, ""),
         venue_name: safeString(data.bookingDetails?.venue_name, ""),
         venue_address: safeString(data.bookingDetails?.venue_address, ""),
         special_instructions: safeString(data.bookingDetails?.special_instructions, ""),

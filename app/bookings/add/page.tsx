@@ -72,7 +72,11 @@ interface BookingFormData {
   delivery_date: string
   pickup_date: string
   groom_name: string
+  groom_whatsapp: string
+  groom_address: string
   bride_name: string
+  bride_whatsapp: string
+  bride_address: string
   venue_name: string
   venue_address: string
   special_instructions: string
@@ -111,7 +115,11 @@ export default function NewBookingPage() {
     delivery_date: "",
     pickup_date: "",
     groom_name: "",
+    groom_whatsapp: "",
+    groom_address: "",
     bride_name: "",
+    bride_whatsapp: "",
+    bride_address: "",
     venue_name: "",
     venue_address: "",
     special_instructions: "",
@@ -367,7 +375,11 @@ export default function NewBookingPage() {
           delivery_date: formData.delivery_date,
           pickup_date: formData.pickup_date,
           groom_name: formData.groom_name,
+          groom_whatsapp: formData.groom_whatsapp,
+          groom_address: formData.groom_address,
           bride_name: formData.bride_name,
+          bride_whatsapp: formData.bride_whatsapp,
+          bride_address: formData.bride_address,
           venue_name: formData.venue_name,
           venue_address: formData.venue_address,
           special_instructions: formData.special_instructions,
@@ -864,6 +876,48 @@ export default function NewBookingPage() {
                         value={formData.bride_name}
                         onChange={(e) => handleInputChange("bride_name", e.target.value)}
                         placeholder="Bride's name"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="groom_whatsapp">Groom WhatsApp</Label>
+                      <Input
+                        id="groom_whatsapp"
+                        value={formData.groom_whatsapp}
+                        onChange={(e) => handleInputChange("groom_whatsapp", e.target.value)}
+                        placeholder="Groom's WhatsApp number"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bride_whatsapp">Bride WhatsApp</Label>
+                      <Input
+                        id="bride_whatsapp"
+                        value={formData.bride_whatsapp}
+                        onChange={(e) => handleInputChange("bride_whatsapp", e.target.value)}
+                        placeholder="Bride's WhatsApp number"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="groom_address">Groom Home Address</Label>
+                      <Textarea
+                        id="groom_address"
+                        value={formData.groom_address}
+                        onChange={(e) => handleInputChange("groom_address", e.target.value)}
+                        placeholder="Groom's home address"
+                        rows={2}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="bride_address">Bride Home Address</Label>
+                      <Textarea
+                        id="bride_address"
+                        value={formData.bride_address}
+                        onChange={(e) => handleInputChange("bride_address", e.target.value)}
+                        placeholder="Bride's home address"
+                        rows={2}
                       />
                     </div>
                   </div>
