@@ -178,8 +178,8 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
       special_instructions: quote.special_instructions || undefined,
       terms_and_conditions: includeTerms ? (
         // Use terms from company settings if available, split by newlines
-        companySettings?.terms_and_conditions 
-          ? companySettings.terms_and_conditions
+        companySettings?.terms_conditions 
+          ? companySettings.terms_conditions
               .split('\n')
               .map((term: string) => term.trim())
               .filter((term: string) => term.length > 0)

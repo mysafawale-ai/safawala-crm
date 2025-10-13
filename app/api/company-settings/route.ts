@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         website: null,
         language: null,
         date_format: null,
-        terms_and_conditions: null,
+        terms_conditions: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       website,
       language,
       date_format,
-      terms_and_conditions
+      terms_conditions
     } = body
 
     // Validate required fields
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
       website,
       language,
       date_format,
-      terms_and_conditions,
+      terms_conditions,
       updated_at: new Date().toISOString()
     }
 
