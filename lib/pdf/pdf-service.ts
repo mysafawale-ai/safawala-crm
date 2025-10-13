@@ -14,7 +14,6 @@ import autoTable from "jspdf-autotable"
 interface BrandingColors {
   primary: string
   secondary: string
-  accent: string
 }
 
 interface CompanyInfo {
@@ -179,11 +178,10 @@ class PDFGenerator {
   private colors: {
     primary: [number, number, number]
     secondary: [number, number, number]
-    accent: [number, number, number]
     white: [number, number, number]
     lightGray: [number, number, number]
+    lightCream: [number, number, number]
     darkText: [number, number, number]
-    success: [number, number, number]
   }
   private pageWidth: number
   private pageHeight: number
@@ -205,16 +203,15 @@ class PDFGenerator {
     this.currentY = this.margin
     this.currentPage = 1
 
-    // Setup colors from branding or defaults
-    const branding = data.branding || { primary: "#1a2a56", secondary: "#6b7280", accent: "#d4af37" }
+    // Setup colors from branding or defaults - ONLY use primary and secondary
+    const branding = data.branding || { primary: "#1a2a56", secondary: "#6b7280" }
     this.colors = {
       primary: hexToRgb(branding.primary),
       secondary: hexToRgb(branding.secondary),
-      accent: hexToRgb(branding.accent),
       white: [255, 255, 255],
       lightGray: [245, 245, 245],
+      lightCream: [253, 251, 247], // #fdfbf7 for header
       darkText: [30, 30, 30],
-      success: [16, 185, 129],
     }
   }
 
@@ -322,8 +319,8 @@ class PDFGenerator {
   private addHeader(): void {
     const startY = this.currentY
 
-    // Light background header bar with subtle gradient effect
-    this.doc.setFillColor(248, 248, 250) // Very light gray/white
+    // Light cream background header bar (#fdfbf7)
+    this.doc.setFillColor(...this.colors.lightCream)
     this.doc.rect(0, 0, this.pageWidth, 50, "F")
 
     // Company logo or placeholder
@@ -363,16 +360,16 @@ class PDFGenerator {
     const badgeX = this.pageWidth - this.margin - 35
     const badgeY = 12
 
-    this.doc.setFillColor(...this.colors.accent)
+    this.doc.setFillColor(...this.colors.primary)
     this.doc.roundedRect(badgeX, badgeY, 35, 10, 2, 2, "F")
     
     this.doc.setFontSize(12)
-    this.doc.setTextColor(255, 255, 255) // White text on accent badge
+    this.doc.setTextColor(255, 255, 255) // White text on primary badge
     this.doc.setFont("helvetica", "bold")
     this.doc.text(docType, badgeX + 17.5, badgeY + 7, { align: "center" })
 
-    // Contact info bar - lighter shade
-    this.doc.setFillColor(240, 242, 245) // Light gray
+    // Contact info bar - slightly darker shade of cream
+    this.doc.setFillColor(250, 248, 244) // Slightly darker than header
     this.doc.rect(0, 35, this.pageWidth, 15, "F")
 
     this.doc.setFontSize(8)
@@ -459,7 +456,7 @@ class PDFGenerator {
     this.doc.roundedRect(rightCol, this.currentY, colWidth, boxHeight, 2, 2, "S")
 
     // Document header
-    this.doc.setFillColor(...this.colors.accent)
+    this.doc.setFillColor(...this.colors.primary)
     this.doc.roundedRect(rightCol, this.currentY, colWidth, 8, 2, 2, "F")
     
     this.doc.setFontSize(10)
@@ -516,12 +513,12 @@ class PDFGenerator {
       this.doc.setFillColor(255, 253, 240) // Light gold
       this.doc.roundedRect(leftCol, this.currentY, colWidth, eventBoxHeight, 2, 2, "F")
       
-      this.doc.setDrawColor(...this.colors.accent)
+      this.doc.setDrawColor(...this.colors.secondary)
       this.doc.setLineWidth(0.3)
       this.doc.roundedRect(leftCol, this.currentY, colWidth, eventBoxHeight, 2, 2, "S")
 
       // Header
-      this.doc.setFillColor(...this.colors.accent)
+      this.doc.setFillColor(...this.colors.primary)
       this.doc.roundedRect(leftCol, this.currentY, colWidth, 7, 2, 2, "F")
       
       this.doc.setFontSize(9)
@@ -679,7 +676,7 @@ class PDFGenerator {
     this.doc.setFillColor(255, 253, 240)
     this.doc.roundedRect(summaryX, this.currentY, summaryWidth, 50, 3, 3, "F")
     
-    this.doc.setDrawColor(...this.colors.accent)
+    this.doc.setDrawColor(...this.colors.secondary)
     this.doc.setLineWidth(0.5)
     this.doc.roundedRect(summaryX, this.currentY, summaryWidth, 50, 3, 3, "S")
 
@@ -722,13 +719,13 @@ class PDFGenerator {
 
     // Separator
     yPos += 3
-    this.doc.setDrawColor(...this.colors.accent)
+    this.doc.setDrawColor(...this.colors.secondary)
     this.doc.setLineWidth(0.5)
     this.doc.line(summaryX + 5, yPos, summaryX + summaryWidth - 5, yPos)
 
     // Total
     yPos += 5
-    this.doc.setFillColor(...this.colors.success)
+    this.doc.setFillColor(...this.colors.primary)
     this.doc.roundedRect(summaryX + 3, yPos - 4, summaryWidth - 6, 8, 2, 2, "F")
     
     this.doc.setFontSize(10)
@@ -750,7 +747,7 @@ class PDFGenerator {
         : "Pay Now:"
       this.doc.text(advLabel, summaryX + 5, yPos)
       this.doc.setFont("helvetica", "bold")
-      this.doc.setTextColor(...this.colors.success)
+      this.doc.setTextColor(...this.colors.primary)
       this.doc.text(formatCurrency(this.data.pricing.advance_amount), summaryX + summaryWidth - 5, yPos, { align: "right" })
 
       if (this.data.pricing.balance_amount) {

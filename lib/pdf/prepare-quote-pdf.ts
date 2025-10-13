@@ -29,7 +29,8 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
     console.log("[PDF Data] Company settings:", companySettings)
 
     // Fetch branding settings (colors, logo, signature) if franchise_id available
-    let brandingColors = { primary: "#1a2a56", secondary: "#6b7280", accent: "#d4af37" }
+    // Only use primary and secondary colors as per requirement
+    let brandingColors = { primary: "#1a2a56", secondary: "#6b7280" }
     let logoUrl: string | null = null
     let signatureUrl: string | null = null
     
@@ -45,7 +46,6 @@ export async function prepareQuotePDFData(options: PrepareQuotePDFOptions): Prom
           brandingColors = {
             primary: brandingData.data.primary_color || brandingColors.primary,
             secondary: brandingData.data.secondary_color || brandingColors.secondary,
-            accent: brandingData.data.accent_color || brandingColors.accent,
           }
           // Get logo and signature from branding settings
           logoUrl = brandingData.data.logo_url || null
