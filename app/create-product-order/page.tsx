@@ -97,6 +97,8 @@ export default function CreateProductOrderPage() {
   // State
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [selectedStaff, setSelectedStaff] = useState<string>("none")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -168,6 +170,9 @@ export default function CreateProductOrderPage() {
 
         setCustomers(cust.data || [])
         setProducts(prod.data || [])
+        // Extract unique categories
+        const uniqueCategories = Array.from(new Set((prod.data || []).map((p: Product) => p.category).filter(Boolean))) as string[]
+        setCategories(uniqueCategories.sort())
         setStaffMembers(staff.data || [])
       } catch (e) {
         console.error(e)
@@ -189,10 +194,12 @@ export default function CreateProductOrderPage() {
 
   const filteredProducts = useMemo(
     () =>
-      products.filter((p) =>
-        p.name.toLowerCase().includes(productSearch.toLowerCase())
-      ),
-    [products, productSearch]
+      products.filter((p) => {
+        const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase())
+        const matchesCategory = !selectedCategory || p.category === selectedCategory
+        return matchesSearch && matchesCategory
+      }),
+    [products, productSearch, selectedCategory]
   )
 
   // Product management
@@ -893,6 +900,28 @@ export default function CreateProductOrderPage() {
                 <CardTitle>Select Products</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Category Filter Buttons */}
+                {categories.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant={selectedCategory === null ? "default" : "outline"}
+                      onClick={() => setSelectedCategory(null)}
+                    >
+                      All Categories
+                    </Button>
+                    {categories.map((cat) => (
+                      <Button
+                        key={cat}
+                        size="sm"
+                        variant={selectedCategory === cat ? "default" : "outline"}
+                        onClick={() => setSelectedCategory(cat)}
+                      >
+                        {cat}
+                      </Button>
+                    ))}
+                  </div>
+                )}
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
