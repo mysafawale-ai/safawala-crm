@@ -6,173 +6,89 @@ import { Button } from "@/components/ui/button"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { getCurrentUser } from "@/lib/auth"
 import type { User } from "@/lib/types"
-import { Calendar, Users, Package, DollarSign, Eye, Bell, Check, CheckCheck, ArrowLeft, RefreshCw } from "lucide-react"
+import { Calendar, Users, Package, DollarSign, Eye, Bell, Check, CheckCheck, ArrowLeft, RefreshCw, Archive, Trash2, AlertCircle, AlertTriangle, Info } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase as supabaseClient } from "@/lib/supabase"
-
-interface Notification {
-  id: string
-  type: "booking" | "payment" | "inventory" | "customer" | "quote" | "vendor" | "expense" | "task" | "system"
-  title: string
-  message: string
-  timestamp: Date
-  read: boolean
-  priority: "high" | "medium" | "low"
-  actionUrl?: string
-}
+import { useNotifications } from "@/lib/hooks/use-notifications"
+import { formatDistanceToNow } from "date-fns"
 
 export default function NotificationsPage() {
   const [user, setUser] = useState<User | null>(null)
-  const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<string>("all")
-  const supabase = supabaseClient
+  
+  // Use the new notification hook
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    archiveNotification,
+    refreshNotifications
+  } = useNotifications()
 
-  const fetchData = async () => {
-    try {
+  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    const fetchUser = async () => {
       const currentUser = await getCurrentUser()
-      if (!currentUser) {
-        return
+      if (currentUser) {
+        setUser(currentUser)
       }
-      setUser(currentUser)
-
-      console.log("[v0] Fetching notifications from Supabase...")
-
-      // Try to fetch from Supabase first, fall back to mock data
-      let notificationsData: Notification[] = []
-
-      try {
-        if (supabase) {
-          let query = supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(50)
-
-          if (currentUser.role !== "super_admin") {
-            if (currentUser.franchise_id) {
-              query = query.or(`franchise_id.eq.${currentUser.franchise_id},user_id.eq.${currentUser.id}`)
-            } else {
-              query = query.eq("user_id", currentUser.id)
-            }
-          }
-
-          const { data: supabaseNotifications, error } = await query
-
-          if (error) {
-            console.error("[v0] Error fetching notifications:", error)
-            throw error
-          }
-
-          // Transform Supabase data to match our interface
-          notificationsData = supabaseNotifications.map((n: any) => ({
-            id: n.id,
-            type: n.type || "booking",
-            title: n.title,
-            message: n.message,
-            timestamp: new Date(n.created_at),
-            read: n.read || false,
-            priority: n.priority || "medium",
-            actionUrl: n.action_url,
-          }))
-
-          console.log(`[v0] Loaded ${notificationsData.length} real notifications from Supabase`)
-
-          if (notificationsData.length === 0) {
-            toast.success("No notifications yet")
-          } else {
-            toast.success(`Notifications loaded (${notificationsData.length})`)
-          }
-        }
-      } catch (supabaseError) {
-        console.error("[v0] Failed to fetch notifications:", supabaseError)
-  toast.error("Failed to load notifications")
-      }
-
-      setNotifications(notificationsData)
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error)
-  toast.error("Failed to load notifications")
-    } finally {
       setLoading(false)
     }
-  }
+    fetchUser()
+  }, [])
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await fetchData()
+    await refreshNotifications()
     setRefreshing(false)
     toast.success("Notifications refreshed")
   }
 
-  const markAsRead = async (notificationId: string) => {
-    try {
-      if (supabase) {
-        const { error } = await supabase
-          .from("notifications")
-          .update({ read: true, updated_at: new Date().toISOString() })
-          .eq("id", notificationId)
-
-        if (error) {
-          console.log("[v0] Could not update notification in Supabase, updating locally only")
-        } else {
-          console.log("[v0] Notification marked as read in Supabase")
-        }
-      }
-    } catch (error) {
-      console.log("[v0] Supabase update failed, updating locally only")
-    }
-
-    setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)))
-    toast.success("Notification marked as read")
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markAsRead(notificationId)
   }
 
-  const markAllAsRead = async () => {
-    try {
-      if (supabase) {
-        const { error } = await supabase
-          .from("notifications")
-          .update({ read: true, updated_at: new Date().toISOString() })
-          .eq("read", false)
-
-        if (error) {
-          console.log("[v0] Could not update notifications in Supabase, updating locally only")
-        } else {
-          console.log("[v0] All notifications marked as read in Supabase")
-        }
-      }
-    } catch (error) {
-      console.log("[v0] Supabase update failed, updating locally only")
-    }
-
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    toast.success("All notifications marked as read")
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead()
   }
 
-  const deleteNotification = (notificationId: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
-    toast.success("Notification deleted")
+  const handleArchive = async (notificationId: string) => {
+    await archiveNotification(notificationId)
+  }
+
+  const handleDelete = async (notificationId: string) => {
+    await deleteNotification(notificationId)
   }
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "booking":
+      case "booking_created":
+      case "booking_updated":
+      case "booking_cancelled":
+      case "booking_completed":
         return Calendar
-      case "payment":
+      case "payment_received":
+      case "payment_failed":
+      case "payment_pending":
+      case "payment_refunded":
         return DollarSign
-      case "inventory":
+      case "inventory_low_stock":
+      case "inventory_out_of_stock":
+      case "inventory_restocked":
         return Package
-      case "customer":
+      case "customer_created":
+      case "customer_updated":
         return Users
-      case "quote":
-        return Eye
-      case "vendor":
-        return Users
-      case "expense":
-        return DollarSign
-      case "task":
-        return Bell
-      case "system":
+      case "task_assigned":
+      case "task_completed":
+      case "task_overdue":
         return Bell
       default:
         return Bell
@@ -181,41 +97,51 @@ export default function NotificationsPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high":
+      case "critical":
         return "bg-red-100 text-red-800 border-red-200"
+      case "high":
+        return "bg-orange-100 text-orange-800 border-orange-200"
       case "medium":
         return "bg-yellow-100 text-yellow-800 border-yellow-200"
       case "low":
         return "bg-green-100 text-green-800 border-green-200"
+      case "info":
+        return "bg-blue-100 text-blue-800 border-blue-200"
       default:
         return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
 
-  const formatTimeAgo = (date: Date) => {
-    const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case "critical":
+      case "high":
+        return <AlertCircle className="h-4 w-4" />
+      case "medium":
+        return <AlertTriangle className="h-4 w-4" />
+      default:
+        return <Info className="h-4 w-4" />
+    }
+  }
 
-    if (diffInMinutes < 1) return "Just now"
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
-    return `${Math.floor(diffInMinutes / 1440)}d ago`
+  const formatTimeAgo = (date: Date | string) => {
+    return formatDistanceToNow(new Date(date), { addSuffix: true })
   }
 
   const filteredNotifications = notifications.filter((notification) => {
     if (filter === "all") return true
-    if (filter === "unread") return !notification.read
-    if (filter === "read") return notification.read
-    return notification.type === filter
+    if (filter === "unread") return !notification.is_read
+    if (filter === "read") return notification.is_read
+    return notification.type.includes(filter)
   })
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const getTypeCount = (typePrefix: string) => {
+    return notifications.filter((n) => n.type.startsWith(typePrefix)).length
+  }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const readCount = notifications.filter((n) => n.is_read).length
 
-  if (loading) {
+  if (loading || notificationsLoading) {
     return (
       <DashboardLayout userRole={user?.role}>
         <div className="space-y-6">
@@ -232,7 +158,6 @@ export default function NotificationsPage() {
       </DashboardLayout>
     )
   }
-
   return (
     <DashboardLayout userRole={user?.role}>
       <div className="space-y-6">
@@ -258,7 +183,7 @@ export default function NotificationsPage() {
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </Button>
             {unreadCount > 0 && (
-              <Button variant="outline" size="sm" onClick={markAllAsRead}>
+              <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
                 <CheckCheck className="h-4 w-4 mr-2" />
                 Mark All Read
               </Button>
@@ -281,33 +206,24 @@ export default function NotificationsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Notifications ({notifications.length})</SelectItem>
                   <SelectItem value="unread">Unread Only ({unreadCount})</SelectItem>
-                  <SelectItem value="read">Read Only ({notifications.length - unreadCount})</SelectItem>
+                  <SelectItem value="read">Read Only ({readCount})</SelectItem>
                   <SelectItem value="booking">
-                    📅 Bookings ({notifications.filter((n) => n.type === "booking").length})
+                    📅 Bookings ({getTypeCount("booking")})
                   </SelectItem>
                   <SelectItem value="payment">
-                    💰 Payments ({notifications.filter((n) => n.type === "payment").length})
+                    💰 Payments ({getTypeCount("payment")})
                   </SelectItem>
                   <SelectItem value="inventory">
-                    📦 Inventory ({notifications.filter((n) => n.type === "inventory").length})
+                    📦 Inventory ({getTypeCount("inventory")})
                   </SelectItem>
                   <SelectItem value="customer">
-                    👤 Customers ({notifications.filter((n) => n.type === "customer").length})
+                    👤 Customers ({getTypeCount("customer")})
                   </SelectItem>
-                  <SelectItem value="quote">
-                    📋 Quotes ({notifications.filter((n) => n.type === "quote").length})
-                  </SelectItem>
-                  <SelectItem value="vendor">
-                    🏪 Vendors ({notifications.filter((n) => n.type === "vendor").length})
-                  </SelectItem>
-                  <SelectItem value="expense">
-                    💳 Expenses ({notifications.filter((n) => n.type === "expense").length})
+                  <SelectItem value="delivery">
+                    🚚 Deliveries ({getTypeCount("delivery")})
                   </SelectItem>
                   <SelectItem value="task">
-                    ✅ Tasks ({notifications.filter((n) => n.type === "task").length})
-                  </SelectItem>
-                  <SelectItem value="system">
-                    🔧 System ({notifications.filter((n) => n.type === "system").length})
+                    ✅ Tasks ({getTypeCount("task")})
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -340,7 +256,7 @@ export default function NotificationsPage() {
                     <div
                       key={notification.id}
                       className={`p-4 border rounded-lg transition-all hover:shadow-md ${
-                        !notification.read ? "bg-blue-50 border-blue-200" : "bg-white"
+                        !notification.is_read ? "bg-blue-50 border-blue-200" : "bg-white"
                       }`}
                     >
                       <div className="flex items-start gap-4">
@@ -353,32 +269,57 @@ export default function NotificationsPage() {
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="font-semibold text-sm">{notification.title}</h3>
                                 <Badge className={getPriorityColor(notification.priority)}>
-                                  {notification.priority}
+                                  {getPriorityIcon(notification.priority)}
+                                  <span className="ml-1">{notification.priority}</span>
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
-                                  {notification.type}
+                                  {notification.type.replace(/_/g, ' ')}
                                 </Badge>
                               </div>
                               <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
-                              <p className="text-xs text-gray-400">{formatTimeAgo(notification.timestamp)}</p>
+                              <p className="text-xs text-gray-400">{formatTimeAgo(notification.created_at)}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                              {!notification.read && (
-                                <Button variant="ghost" size="sm" onClick={() => markAsRead(notification.id)}>
+                              {!notification.is_read && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleMarkAsRead(notification.id)}
+                                  title="Mark as read"
+                                >
                                   <Check className="h-4 w-4" />
                                 </Button>
                               )}
-                              {notification.actionUrl && (
-                                <Link href={notification.actionUrl}>
+                              {!notification.is_archived && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleArchive(notification.id)}
+                                  title="Archive"
+                                >
+                                  <Archive className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDelete(notification.id)}
+                                title="Delete"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              {notification.action_url && (
+                                <Link href={notification.action_url}>
                                   <Button variant="outline" size="sm">
-                                    View
+                                    {notification.action_label || "View"}
                                   </Button>
                                 </Link>
                               )}
                             </div>
                           </div>
                         </div>
-                        {!notification.read && (
+                        {!notification.is_read && (
                           <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
                         )}
                       </div>

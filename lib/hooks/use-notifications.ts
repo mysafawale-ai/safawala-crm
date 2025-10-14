@@ -34,6 +34,7 @@ interface UseNotificationsReturn {
   markAsRead: (notificationId: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   archiveNotification: (notificationId: string) => Promise<void>
+  deleteNotification: (notificationId: string) => Promise<void>
   refreshNotifications: () => Promise<void>
 }
 
@@ -153,6 +154,26 @@ export function useNotifications(): UseNotificationsReturn {
     }
   }, [])
 
+  // Delete notification (hard delete)
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+
+      if (error) throw error
+
+      // Remove from local state
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
+
+      toast.success('Notification deleted')
+    } catch (error) {
+      console.error('Error deleting notification:', error)
+      toast.error('Failed to delete notification')
+    }
+  }, [])
+
   // Subscribe to realtime notifications
   useEffect(() => {
     let mounted = true
@@ -230,6 +251,7 @@ export function useNotifications(): UseNotificationsReturn {
     markAsRead,
     markAllAsRead,
     archiveNotification,
+    deleteNotification,
     refreshNotifications
   }
 }

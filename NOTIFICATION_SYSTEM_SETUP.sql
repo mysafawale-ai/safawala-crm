@@ -51,7 +51,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_priority ON notifications(priority);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = false;
+-- Partial index for unread notifications (created after table exists)
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read) WHERE (is_read = false);
 
 -- 3. Create notification preferences table
 CREATE TABLE IF NOT EXISTS notification_preferences (
