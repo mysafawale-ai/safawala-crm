@@ -529,7 +529,7 @@ export default function BookingsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedBookings.map((booking) => (
+                    {paginatedBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-medium">{booking.booking_number}</TableCell>
                         <TableCell>
