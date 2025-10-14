@@ -52,6 +52,10 @@ export default function BookingsPage() {
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table")
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [sort, setSort] = useState<{field:'date'|'amount'; dir:'asc'|'desc'}>({ field:'date', dir:'desc'})
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 25
 
   const { data: bookings = [], loading, error, refresh } = useData<Booking[]>("bookings")
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -111,6 +115,46 @@ export default function BookingsPage() {
   })
   const toggleSort = (field:'date'|'amount') => {
     setSort(prev => prev.field===field ? { field, dir: prev.dir==='asc'?'desc':'asc'} : { field, dir:'asc'})
+  }
+
+  // Pagination calculations
+  const totalItems = sortedBookings.length
+  const totalPages = Math.ceil(totalItems / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedBookings = sortedBookings.slice(startIndex, endIndex)
+  
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, typeFilter])
+  
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)))
+  }
+  
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 7) {
+      // Show all pages if 7 or less
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      // Always show first page
+      pages.push(1)
+      
+      if (currentPage > 3) pages.push('...')
+      
+      // Show pages around current page
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i)
+      }
+      
+      if (currentPage < totalPages - 2) pages.push('...')
+      
+      // Always show last page
+      pages.push(totalPages)
+    }
+    return pages
   }
 
   const calendarData = (bookings || []).reduce(
@@ -455,7 +499,7 @@ export default function BookingsPage() {
               <CardTitle>All Bookings ({filteredBookings.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {filteredBookings.length === 0 ? (
+              {paginatedBookings.length === 0 ? (
                 <div className="text-center py-12">
                   <Package className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No bookings found</h3>
@@ -526,6 +570,53 @@ export default function BookingsPage() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+              
+              {/* Pagination Controls */}
+              {totalItems > 0 && (
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} results
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {getPageNumbers().map((page, idx) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                        ) : (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => goToPage(page as number)}
+                            className="min-w-[2.5rem]"
+                          >
+                            {page}
+                          </Button>
+                        )
+                      ))}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
