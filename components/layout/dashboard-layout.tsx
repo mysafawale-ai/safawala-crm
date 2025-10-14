@@ -24,6 +24,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase"
 import { CompanyHeader } from "./company-header"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -197,66 +198,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
               </Button>
             )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="relative p-1.5 sm:p-2 h-8 w-8 sm:h-9 sm:w-9">
-                  <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
-                  {unreadNotifications > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 text-xs bg-red-500 text-white flex items-center justify-center">
-                      {unreadNotifications > 9 ? "9+" : unreadNotifications}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 sm:w-96 max-w-[calc(100vw-1rem)] mr-2">
-                <DropdownMenuLabel className="flex items-center justify-between px-4 py-2">
-                  <span className="font-semibold">Notifications</span>
-                  {unreadNotifications > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {unreadNotifications} new
-                    </Badge>
-                  )}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="max-h-80 overflow-y-auto">
-                  {notifications.slice(0, 5).map((notification) => (
-                    <DropdownMenuItem
-                      key={notification.id}
-                      className="flex flex-col items-start p-4 cursor-pointer hover:bg-accent"
-                    >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="font-medium text-sm truncate flex-1 mr-2">{notification.title}</span>
-                        {!notification.read && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>}
-                      </div>
-                      <span className="text-xs text-muted-foreground mb-2 line-clamp-2">{notification.message}</span>
-                      <div className="flex items-center justify-between w-full">
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {notification.type}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(notification.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-                {notifications.length === 0 && (
-                  <DropdownMenuItem className="text-center text-muted-foreground py-8 cursor-default">
-                    <div className="flex flex-col items-center gap-2">
-                      <Bell className="h-8 w-8 text-muted-foreground/50" />
-                      <span>No notifications yet</span>
-                      <span className="text-xs">All CRM activities will appear here</span>
-                    </div>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/notifications" className="w-full text-center py-3 font-medium">
-                    View All Notifications
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* New Notification Bell Component */}
+            <NotificationBell />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
