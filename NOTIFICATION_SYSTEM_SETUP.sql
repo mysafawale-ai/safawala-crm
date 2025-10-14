@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   metadata JSONB DEFAULT '{}'::jsonb, -- Additional data (amounts, names, etc.)
   
   -- Status
-  is_read BOOLEAN DEFAULT FALSE,
-  is_archived BOOLEAN DEFAULT FALSE,
+  is_read BOOLEAN DEFAULT false,
+  is_archived BOOLEAN DEFAULT false,
   read_at TIMESTAMP WITH TIME ZONE,
   
   -- Actions
@@ -46,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_priority ON notifications(priority);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = false;
 
 -- 3. Create notification preferences table
 CREATE TABLE IF NOT EXISTS notification_preferences (
@@ -54,9 +54,9 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   
   -- Channel preferences
-  in_app_enabled BOOLEAN DEFAULT TRUE,
-  email_enabled BOOLEAN DEFAULT TRUE,
-  sms_enabled BOOLEAN DEFAULT FALSE,
+  in_app_enabled BOOLEAN DEFAULT true,
+  email_enabled BOOLEAN DEFAULT true,
+  sms_enabled BOOLEAN DEFAULT false,
   
   -- Category preferences (user can disable specific types)
   preferences JSONB DEFAULT '{
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   }'::jsonb,
   
   -- Quiet hours
-  quiet_hours_enabled BOOLEAN DEFAULT FALSE,
+  quiet_hours_enabled BOOLEAN DEFAULT false,
   quiet_hours_start TIME,
   quiet_hours_end TIME,
   
@@ -272,8 +272,8 @@ BEGIN
     SELECT COUNT(*)::INTEGER
     FROM notifications
     WHERE user_id = p_user_id
-      AND is_read = FALSE
-      AND is_archived = FALSE
+      AND is_read = false
+      AND is_archived = false
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -283,7 +283,7 @@ CREATE OR REPLACE FUNCTION mark_notification_read(p_notification_id UUID, p_user
 RETURNS BOOLEAN AS $$
 BEGIN
   UPDATE notifications
-  SET is_read = TRUE, read_at = NOW(), updated_at = NOW()
+  SET is_read = true, read_at = NOW(), updated_at = NOW()
   WHERE id = p_notification_id AND user_id = p_user_id;
   
   RETURN FOUND;
@@ -297,8 +297,8 @@ DECLARE
   v_count INTEGER;
 BEGIN
   UPDATE notifications
-  SET is_read = TRUE, read_at = NOW(), updated_at = NOW()
-  WHERE user_id = p_user_id AND is_read = FALSE;
+  SET is_read = true, read_at = NOW(), updated_at = NOW()
+  WHERE user_id = p_user_id AND is_read = false;
   
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN v_count;
