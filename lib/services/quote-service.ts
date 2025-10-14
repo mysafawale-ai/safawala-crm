@@ -106,10 +106,10 @@ export class QuoteService {
         .from("product_orders")
         .select(`
           *,
-          customer:customers(name, phone, email),
+          customer:customers!left(name, phone, email),
           product_order_items(
             *,
-            product:inventory(name)
+            product:inventory!left(name)
           )
         `)
         .eq("is_quote", true)
@@ -120,10 +120,10 @@ export class QuoteService {
         .from("package_bookings")
         .select(`
           *,
-          customer:customers(name, phone, email),
+          customer:customers!left(name, phone, email),
           package_booking_items(
             *,
-            package:package_sets(name)
+            package:package_sets!left(name)
           )
         `)
         .eq("is_quote", true)
