@@ -1,6 +1,11 @@
 -- =====================================================
 -- NOTIFICATION TRIGGERS FOR ALL CRM ACTIVITIES
 -- Auto-create notifications on database events
+-- 
+-- FRANCHISE ISOLATION: All notifications are strictly 
+-- franchise-isolated. Only staff members within the SAME 
+-- franchise will receive notifications, including super_admin
+-- if they belong to that franchise.
 -- =====================================================
 
 -- ============================================
@@ -18,7 +23,8 @@ BEGIN
   -- Get customer name
   SELECT name INTO v_customer_name FROM customers WHERE id = NEW.customer_id;
   
-  -- Get all staff in the franchise
+  -- Get all staff in the SAME franchise only (franchise isolated)
+  -- This includes super_admin if they belong to this franchise
   SELECT ARRAY_AGG(id) INTO v_staff_ids
   FROM users
   WHERE franchise_id = NEW.franchise_id

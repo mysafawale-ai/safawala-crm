@@ -1,6 +1,11 @@
 -- =====================================================
 -- COMPREHENSIVE NOTIFICATION SYSTEM
 -- Real-time notifications for all CRM activities
+-- 
+-- FRANCHISE ISOLATION: All notifications are strictly 
+-- isolated by franchise_id. Users can only see notifications
+-- for their own franchise, including super_admin users.
+-- Each franchise operates independently.
 -- =====================================================
 
 -- 1. Create notifications table
@@ -121,17 +126,29 @@ ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- 7. RLS Policies for notifications
--- Users can only see their own notifications
-CREATE POLICY "Users can view own notifications"
+-- Users can only see notifications for their franchise
+CREATE POLICY "Users can view franchise notifications"
   ON notifications FOR SELECT
-  USING (user_id = auth.uid());
+  USING (
+    user_id = auth.uid()
+    AND
+    franchise_id IN (
+      SELECT franchise_id FROM users WHERE id = auth.uid()
+    )
+  );
 
 -- Users can update their own notifications (mark as read)
-CREATE POLICY "Users can update own notifications"
+CREATE POLICY "Users can update own franchise notifications"
   ON notifications FOR UPDATE
-  USING (user_id = auth.uid());
+  USING (
+    user_id = auth.uid()
+    AND
+    franchise_id IN (
+      SELECT franchise_id FROM users WHERE id = auth.uid()
+    )
+  );
 
--- System can insert notifications
+-- System can insert notifications (for any franchise)
 CREATE POLICY "System can insert notifications"
   ON notifications FOR INSERT
   WITH CHECK (true);
@@ -139,26 +156,28 @@ CREATE POLICY "System can insert notifications"
 -- 8. RLS Policies for notification preferences
 CREATE POLICY "Users can view own preferences"
   ON notification_preferences FOR SELECT
-  USING (user_id = auth.uid());
+  USING (
+    user_id = auth.uid()
+  );
 
 CREATE POLICY "Users can update own preferences"
   ON notification_preferences FOR UPDATE
-  USING (user_id = auth.uid());
+  USING (
+    user_id = auth.uid()
+  );
 
 CREATE POLICY "Users can insert own preferences"
   ON notification_preferences FOR INSERT
-  WITH CHECK (user_id = auth.uid());
+  WITH CHECK (
+    user_id = auth.uid()
+  );
 
--- 9. RLS Policies for activity logs (franchise isolated)
+-- 9. RLS Policies for activity logs (strict franchise isolated)
 CREATE POLICY "Users can view franchise activity logs"
   ON activity_logs FOR SELECT
   USING (
     franchise_id IN (
       SELECT franchise_id FROM users WHERE id = auth.uid()
-    )
-    OR
-    EXISTS (
-      SELECT 1 FROM users WHERE id = auth.uid() AND role = 'super_admin'
     )
   );
 
