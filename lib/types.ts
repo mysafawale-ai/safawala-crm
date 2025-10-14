@@ -356,9 +356,13 @@ export interface Quote {
   booking_type?: "product" | "package" // Added to differentiate product orders vs package bookings
   booking_subtype?: "rental" | "sale" // Added to show Rent/Sale for products
   event_type?: string
+  event_participant?: string // Groom, Bride, or Both
   event_date?: string
   delivery_date?: string
   return_date?: string
+  payment_type?: string // full, advance, partial
+  amount_paid?: number
+  pending_amount?: number
 
   // Customer details (for new customers who haven't been saved yet)
   customer_name?: string

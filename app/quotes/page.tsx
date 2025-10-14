@@ -951,12 +951,18 @@ function QuotesPageContent() {
                       <div>
                         <span className="font-medium">Event Type:</span> {selectedQuote.event_type || "N/A"}
                       </div>
+                      {selectedQuote.event_participant && (
+                        <div>
+                          <span className="font-medium">Event Participant:</span> {selectedQuote.event_participant}
+                        </div>
+                      )}
                       <div>
                         <span className="font-medium">Event Date:</span>{" "}
                         {selectedQuote.event_date ? new Date(selectedQuote.event_date).toLocaleDateString() : "N/A"}
                       </div>
                       <div>
-                        <span className="font-medium">Event For:</span> {selectedQuote.event_for || "N/A"}
+                        <span className="font-medium">Event Time:</span>{" "}
+                        {selectedQuote.event_date ? new Date(selectedQuote.event_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
                       </div>
                       {selectedQuote.groom_name && (
                         <div>
@@ -1004,12 +1010,6 @@ function QuotesPageContent() {
                         <span className="font-medium">Created:</span>{" "}
                         {new Date(selectedQuote.created_at).toLocaleDateString()}
                       </div>
-                      <div>
-                        <span className="font-medium">Valid Until:</span>{" "}
-                        {selectedQuote.valid_until
-                          ? new Date(selectedQuote.valid_until).toLocaleDateString()
-                          : "N/A"}
-                      </div>
                     </div>
                   </Card>
 
@@ -1024,8 +1024,16 @@ function QuotesPageContent() {
                         {selectedQuote.delivery_date ? new Date(selectedQuote.delivery_date).toLocaleDateString() : "N/A"}
                       </div>
                       <div>
+                        <span className="font-medium">Delivery Time:</span>{" "}
+                        {selectedQuote.delivery_date ? new Date(selectedQuote.delivery_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
+                      </div>
+                      <div>
                         <span className="font-medium">Return Date:</span>{" "}
                         {selectedQuote.return_date ? new Date(selectedQuote.return_date).toLocaleDateString() : "N/A"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Return Time:</span>{" "}
+                        {selectedQuote.return_date ? new Date(selectedQuote.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
                       </div>
                       {selectedQuote.special_instructions && (
                         <div>
