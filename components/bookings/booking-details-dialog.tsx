@@ -224,24 +224,74 @@ export function BookingDetailsDialog({
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <DollarSign className="h-5 w-5" />
-                <span>Pricing</span>
+                <span>Financial Breakdown</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span>Total Amount:</span>
-                <span className="font-bold text-lg">₹{(booking.total_amount || 0).toLocaleString()}</span>
+            <CardContent className="space-y-4">
+              {/* Subtotal & Calculations */}
+              <div className="space-y-2">
+                {booking.subtotal_amount !== undefined && booking.subtotal_amount !== booking.total_amount && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span>₹{(booking.subtotal_amount || 0).toLocaleString()}</span>
+                  </div>
+                )}
+                
+                {booking.tax_amount && booking.tax_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">GST (18%):</span>
+                    <span>₹{booking.tax_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                
+                {booking.security_deposit && booking.security_deposit > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Security Deposit:</span>
+                    <span>₹{booking.security_deposit.toLocaleString()}</span>
+                  </div>
+                )}
+                
+                {booking.discount_amount && booking.discount_amount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount:</span>
+                    <span>-₹{booking.discount_amount.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span>Paid Amount:</span>
-                <span className="text-green-600">₹{(booking.paid_amount || 0).toLocaleString()}</span>
+              
+              <Separator />
+              
+              {/* Total */}
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-base">Total Amount:</span>
+                <span className="font-bold text-xl">₹{(booking.total_amount || 0).toLocaleString()}</span>
               </div>
-              {booking.total_amount > booking.paid_amount && (
+              
+              <Separator />
+              
+              {/* Payment Status */}
+              <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span>Pending Amount:</span>
-                  <span className="text-red-600">₹{(booking.total_amount - booking.paid_amount).toLocaleString()}</span>
+                  <span className="text-muted-foreground">Amount Paid:</span>
+                  <span className="text-green-600 font-medium">₹{(booking.paid_amount || booking.amount_paid || 0).toLocaleString()}</span>
                 </div>
-              )}
+                
+                {booking.total_amount > (booking.paid_amount || booking.amount_paid || 0) && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Balance Due:</span>
+                    <span className="text-red-600 font-bold text-lg">
+                      ₹{(booking.total_amount - (booking.paid_amount || booking.amount_paid || 0)).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                
+                {booking.total_amount === (booking.paid_amount || booking.amount_paid || 0) && booking.total_amount > 0 && (
+                  <div className="flex items-center justify-center p-2 bg-green-50 rounded-md">
+                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                    <span className="text-green-600 font-medium text-sm">Fully Paid</span>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -418,13 +418,41 @@ export default function CreateProductOrderPage() {
 
       if (itemsErr) throw itemsErr
 
+      // Deduct inventory for each item (unless it's a quote)
+      if (!isQuote) {
+        for (const item of items) {
+          // Get current stock
+          const { data: product, error: fetchError } = await supabase
+            .from('inventory')
+            .select('stock_available')
+            .eq('id', item.product_id)
+            .single()
+            
+          if (fetchError) {
+            console.error('Failed to fetch product stock:', fetchError)
+            continue
+          }
+          
+          // Update stock
+          const newStock = (product.stock_available || 0) - item.quantity
+          const { error: updateError } = await supabase
+            .from('inventory')
+            .update({ stock_available: Math.max(0, newStock) })
+            .eq('id', item.product_id)
+            
+          if (updateError) {
+            console.error('Failed to update inventory:', updateError)
+          }
+        }
+      }
+
       const successMsg = isQuote 
         ? `Quote ${orderNumber} created successfully` 
         : `Order ${orderNumber} created successfully`
       toast.success(successMsg)
       
-      // Redirect to quotes page if quote, invoices page if order
-      router.push(isQuote ? "/quotes" : "/invoices")
+      // Redirect to quotes page if quote, bookings page if order
+      router.push(isQuote ? "/quotes" : "/bookings")
     } catch (e) {
       console.error(e)
       const errorMsg = isQuote ? "Failed to create quote" : "Failed to create order"

@@ -145,6 +145,8 @@ export interface Booking {
     | "cancelled"
   total_amount: number
   paid_amount: number
+  amount_paid?: number // Alias for paid_amount (some tables use this)
+  subtotal_amount?: number // Subtotal before taxes and fees
   payment_status: "pending" | "partial" | "paid" | "refunded"
   notes?: string
   created_at: string

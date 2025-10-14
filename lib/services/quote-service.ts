@@ -109,7 +109,7 @@ export class QuoteService {
           customer:customers(name, phone, email),
           product_order_items(
             *,
-            product:products(name)
+            product:inventory(name)
           )
         `)
         .eq("is_quote", true)
@@ -226,7 +226,10 @@ export class QuoteService {
         status: order.status,
         notes: order.notes,
         created_at: order.created_at,
-        quote_items: order.product_order_items,
+        quote_items: (order.product_order_items || []).map((item: any) => ({
+          ...item,
+          product_name: item.product?.name || item.product_name || 'Product'
+        })),
         booking_type: 'product',
         booking_subtype: order.booking_type || 'rental' // rental or sale
       }))
@@ -251,7 +254,10 @@ export class QuoteService {
         status: booking.status,
         notes: booking.notes,
         created_at: booking.created_at,
-        quote_items: booking.package_booking_items,
+        quote_items: (booking.package_booking_items || []).map((item: any) => ({
+          ...item,
+          product_name: item.package?.name || item.package_name || 'Package'
+        })),
         booking_type: 'package',
         booking_subtype: 'rental' // packages are always rental
       }))
