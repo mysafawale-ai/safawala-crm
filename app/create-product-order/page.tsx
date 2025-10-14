@@ -95,6 +95,7 @@ export default function CreateProductOrderPage() {
   const router = useRouter()
 
   // State
+  const [currentUser, setCurrentUser] = useState<any>(null)  // ✅ Store logged-in user
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<string[]>([])
@@ -143,6 +144,7 @@ export default function CreateProductOrderPage() {
         const userRes = await fetch('/api/auth/user')
         if (!userRes.ok) throw new Error('Failed to fetch user')
         const user = await userRes.json()
+        setCurrentUser(user)  // ✅ Store user in state for later use
 
         // Base queries
         let customersQuery = supabase.from("customers").select("*").order("name")
@@ -345,6 +347,11 @@ export default function CreateProductOrderPage() {
       toast.error("Add at least one product")
       return
     }
+    // ✅ BUG FIX #1: Validate user session loaded
+    if (!currentUser?.franchise_id) {
+      toast.error("Session error: Please refresh the page")
+      return
+    }
 
     setLoading(true)
     try {
@@ -366,7 +373,7 @@ export default function CreateProductOrderPage() {
         .insert({
           order_number: orderNumber,
           customer_id: selectedCustomer.id,
-          franchise_id: "00000000-0000-0000-0000-000000000001",
+          franchise_id: currentUser.franchise_id,  // ✅ BUG FIX #1: Dynamic franchise_id
           booking_type: formData.booking_type,
           event_type: formData.event_type,
           event_participant: formData.event_participant,
@@ -385,8 +392,8 @@ export default function CreateProductOrderPage() {
           tax_amount: totals.gst,
           subtotal_amount: totals.subtotal,
           total_amount: totals.grand,
-          amount_paid: 0,
-          pending_amount: totals.grand,
+          amount_paid: totals.payable,  // ✅ BUG FIX #2: Use calculated payment
+          pending_amount: totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
           status: isQuote ? "quote" : "pending_payment",
           is_quote: isQuote,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null

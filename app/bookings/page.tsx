@@ -36,6 +36,7 @@ import { BookingCalendar } from "@/components/bookings/booking-calendar"
 import { BookingDetailsDialog } from "@/components/bookings/booking-details-dialog"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
+import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 export default function BookingsPage() {
   const router = useRouter()
@@ -315,10 +316,7 @@ export default function BookingsPage() {
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={() => router.push("/dashboard")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
+            <AnimatedBackButton onClick={() => router.push("/dashboard")} />
             <div>
               <h2 className="text-3xl font-bold tracking-tight">Bookings</h2>
               <p className="text-muted-foreground">Manage your customer bookings and orders</p>
@@ -344,10 +342,7 @@ export default function BookingsPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => router.push("/dashboard")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+          <AnimatedBackButton onClick={() => router.push("/dashboard")} />
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Bookings</h2>
             <p className="text-muted-foreground">Manage your customer bookings and orders</p>

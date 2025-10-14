@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Save, CheckCircle2 } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import { toast } from "@/hooks/use-toast"
+import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 function useSupabaseClient() {
   return useMemo(() => {
@@ -143,9 +144,7 @@ export default function DeliveryReturnPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => router.push("/deliveries")}> 
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
+          <AnimatedBackButton onClick={() => router.push("/deliveries")} />
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Delivery #{delivery?.delivery_number || ""}</h2>
             <p className="text-muted-foreground">Process Return</p>

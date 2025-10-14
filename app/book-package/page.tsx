@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { computeDistanceAddonForVariant } from "@/lib/distance-pricing"
+import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface Customer { id: string; name: string; phone: string; email?: string; pincode?: string }
 interface PackageCategory { id: string; name: string; description?: string; security_deposit?: number }
@@ -42,6 +43,7 @@ export default function BookPackageWizard() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)  // ✅ Store logged-in user
   const [customers, setCustomers] = useState<Customer[]>([])
   const [categories, setCategories] = useState<PackageCategory[]>([])
   const [packages, setPackages] = useState<PackageSet[]>([])
@@ -103,6 +105,7 @@ export default function BookPackageWizard() {
       console.log("Fetching current user...")
       const userRes = await fetch("/api/auth/user")
       const userData = await userRes.json()
+      setCurrentUser(userData)  // ✅ Store user in state for later use
       console.log("Current user:", userData)
       
       // Fetch staff members - filter by franchise for non-super-admins
@@ -453,24 +456,13 @@ export default function BookPackageWizard() {
       const [hours, minutes] = formData.event_time.split(":")
       eventDate.setHours(parseInt(hours), parseInt(minutes))
 
-      // Resolve franchise_id
-      let franchiseId: string | null = null
-      // Prefer selected staff franchise
-      if (selectedStaff) {
-        const staff = staffMembers.find(s => s.id === selectedStaff)
-        franchiseId = staff?.franchise_id || null
+      // ✅ BUG FIX #1: Validate user session loaded and use dynamic franchise_id
+      if (!currentUser?.franchise_id) {
+        toast.error("Session error: Please refresh the page")
+        setLoading(false)
+        return
       }
-      // Try customer's franchise if not set
-      if (!franchiseId) {
-        const { data: custRow } = await supabase.from('customers').select('franchise_id').eq('id', selectedCustomer.id).single()
-        franchiseId = (custRow as any)?.franchise_id || null
-      }
-      // Fallback to first franchise
-      if (!franchiseId) {
-        const { data: fr } = await supabase.from('franchises').select('id').limit(1).single()
-        franchiseId = (fr as any)?.id || null
-      }
-      if (!franchiseId) throw new Error('Missing franchise reference')
+      const franchiseId = currentUser.franchise_id  // ✅ Use logged-in user's franchise directly
 
       // Generate number (quote vs booking)
       let numberStr = ''
@@ -519,8 +511,8 @@ export default function BookPackageWizard() {
         tax_amount: totals.gst,
         subtotal_amount: totals.subtotal,
         total_amount: totals.grand,
-        amount_paid: asQuote ? 0 : totals.payable,
-        pending_amount: asQuote ? totals.grand : totals.remaining,
+        amount_paid: asQuote ? 0 : totals.payable,  // ✅ BUG FIX #2: Use calculated payment
+        pending_amount: asQuote ? totals.grand : totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
         status: asQuote ? 'quote' : (totals.remaining > 0 ? 'pending_payment' : 'confirmed'),
         sales_closed_by_id: selectedStaff || null,
         use_custom_pricing: useCustomPricing || false,
@@ -601,7 +593,7 @@ export default function BookPackageWizard() {
   <CustomerFormDialog open={showNewCustomer} onOpenChange={setShowNewCustomer} onCustomerCreated={handleCustomerCreated} />
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <Button variant="ghost" onClick={() => router.back()} className="mb-4"><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>
+          <AnimatedBackButton variant="ghost" onClick={() => router.back()} className="mb-4" />
           <h1 className="text-3xl font-bold text-green-800">Create Package Booking</h1>
         </div>
 
@@ -1182,7 +1174,7 @@ export default function BookPackageWizard() {
             <div className="space-y-2">
               <div className="flex gap-2">
                 {currentStep > 1 && (
-                  <Button variant="outline" className="flex-1" onClick={handleBack} disabled={loading}><ArrowLeft className="h-4 w-4 mr-1" />Back</Button>
+                  <AnimatedBackButton variant="outline" className="flex-1" onClick={handleBack} disabled={loading} />
                 )}
                 {currentStep < 3 && (
                   <Button className="flex-1" onClick={handleNext} disabled={!canGoNext()}>
