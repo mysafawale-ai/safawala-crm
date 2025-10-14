@@ -37,6 +37,7 @@ import { BookingDetailsDialog } from "@/components/bookings/booking-details-dial
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { AnimatedBackButton } from "@/components/ui/animated-back-button"
+import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
 
 export default function BookingsPage() {
   const router = useRouter()
@@ -242,7 +243,7 @@ export default function BookingsPage() {
       return
     }
     if(format==='csv'){
-      const header = ['Booking#','Customer','Phone','Type','Status','Amount','Event Date','Venue']
+      const header = ['Booking#','Customer','Phone','Type','Status','Amount','Event Date','Venue Name','City']
       const lines = rows.map(b=>[
         b.booking_number,
         (b.customer?.name||'').replace(/,/g,' '),
@@ -250,8 +251,9 @@ export default function BookingsPage() {
         (b as any).type || '',
         b.status,
         b.total_amount||0,
-        new Date(b.event_date).toISOString().slice(0,10),
-        (b.venue_name||'').replace(/,/g,' ')
+        new Date(b.event_date).toLocaleDateString(),
+        getVenueNameForExport(b.venue_name).replace(/,/g,' '),
+        getCityForExport(b.venue_address)
       ])
       const csv = [header.join(','), ...lines.map(l=>l.join(','))].join('\n')
       const blob = new Blob([csv],{type:'text/csv'})
@@ -271,7 +273,7 @@ export default function BookingsPage() {
         b.status,
         (b.total_amount||0).toFixed(2),
         new Date(b.event_date).toISOString().slice(0,10),
-        (b.venue_name||'').slice(0,25)
+        formatVenueWithCity(b.venue_name, b.venue_address).slice(0,30)
       ]), styles:{fontSize:8}, headStyles:{fillColor:[34,197,94]}, didDrawPage:(d)=>{ const pageCount=(doc as any).internal.getNumberOfPages(); doc.setFontSize(8); doc.text(`Page ${d.pageNumber}/${pageCount}`, d.settings.margin.left, doc.internal.pageSize.height-5) } })
       doc.save(`bookings-${new Date().toISOString().slice(0,10)}.pdf`)
       toast({ title:'PDF exported', description:`${rows.length} bookings` })
@@ -517,6 +519,7 @@ export default function BookingsPage() {
                       <TableHead>Booking #</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Type</TableHead>
+                      <TableHead>Venue</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('amount')}>Amount {sort.field==='amount' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('date')}>Event Date {sort.field==='date' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
@@ -541,6 +544,11 @@ export default function BookingsPage() {
                             if (b.type === 'rental') return <Badge>Product • Rental</Badge>
                             return <Badge variant="outline">Unknown</Badge>
                           })()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {formatVenueWithCity(booking.venue_name, booking.venue_address)}
+                          </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(booking.status)}</TableCell>
                         <TableCell>₹{booking.total_amount?.toLocaleString() || 0}</TableCell>
