@@ -10,6 +10,12 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   Plus,
@@ -1571,10 +1577,6 @@ export default function QuotesPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={exportToCSV} disabled={quotes.length === 0}>
-            <Download className="h-3 w-3 mr-1" />
-            Export CSV
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -1589,14 +1591,24 @@ export default function QuotesPage() {
             <RefreshCw className="h-3 w-3 mr-1" />
             Refresh
           </Button>
-          <Button
-            onClick={() => {
-              setShowBookingTypeDialog(true)
-            }}
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            New Quote
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="h-3 w-3 mr-1" />
+                New Quote
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => router.push('/create-product-order')}>
+                <Package className="h-4 w-4 mr-2" />
+                Product Booking
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/book-package')}>
+                <FileText className="h-4 w-4 mr-2" />
+                Package Booking
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
