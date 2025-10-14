@@ -121,7 +121,7 @@ export class QuoteService {
           customer:customers!left(name, phone, email),
           product_order_items(
             *,
-            product:inventory!left(name)
+            product:products!left(name)
           )
         `)
         .eq("is_quote", true)
