@@ -1975,9 +1975,6 @@ export default function QuotesPage() {
                       <span className="font-medium">Event Date:</span>{" "}
                       {selectedQuote.event_date ? new Date(selectedQuote.event_date).toLocaleDateString() : "N/A"}
                     </div>
-                    <div>
-                      <span className="font-medium">Event For:</span> {selectedQuote.event_for || "N/A"}
-                    </div>
                     {selectedQuote.groom_name && (
                       <div>
                         <span className="font-medium">Groom Name:</span> {selectedQuote.groom_name}
@@ -1988,9 +1985,6 @@ export default function QuotesPage() {
                         <span className="font-medium">Bride Name:</span> {selectedQuote.bride_name}
                       </div>
                     )}
-                    <div>
-                      <span className="font-medium">Venue:</span> {selectedQuote.venue_name || "N/A"}
-                    </div>
                     <div>
                       <span className="font-medium">Venue Address:</span> {selectedQuote.venue_address || "N/A"}
                     </div>
@@ -2023,12 +2017,6 @@ export default function QuotesPage() {
                     <div>
                       <span className="font-medium">Created:</span>{" "}
                       {new Date(selectedQuote.created_at).toLocaleDateString()}
-                    </div>
-                    <div>
-                      <span className="font-medium">Valid Until:</span>{" "}
-                      {selectedQuote.valid_until
-                        ? new Date(selectedQuote.valid_until).toLocaleDateString()
-                        : "N/A"}
                     </div>
                   </div>
                 </Card>
