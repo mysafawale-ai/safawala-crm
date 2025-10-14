@@ -118,7 +118,7 @@ export class QuoteService {
         .from("product_orders")
         .select(`
           *,
-          customer:customers!left(name, phone, email),
+          customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
           product_order_items(
             *,
             product:products!left(name)
@@ -138,7 +138,7 @@ export class QuoteService {
         .from("package_bookings")
         .select(`
           *,
-          customer:customers!left(name, phone, email),
+          customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
           package_booking_items(
             *,
             package:package_sets!left(name)
@@ -237,6 +237,11 @@ export class QuoteService {
         customer_name: order.customer?.name || '',
         customer_phone: order.customer?.phone || '',
         customer_email: order.customer?.email || '',
+        customer_whatsapp: order.customer?.whatsapp || '',
+        customer_address: order.customer?.address || '',
+        customer_city: order.customer?.city || '',
+        customer_state: order.customer?.state || '',
+        customer_pincode: order.customer?.pincode || '',
         event_type: order.event_type,
         event_participant: order.event_participant,
         event_date: order.event_date,
@@ -273,6 +278,11 @@ export class QuoteService {
         customer_name: booking.customer?.name || '',
         customer_phone: booking.customer?.phone || '',
         customer_email: booking.customer?.email || '',
+        customer_whatsapp: booking.customer?.whatsapp || '',
+        customer_address: booking.customer?.address || '',
+        customer_city: booking.customer?.city || '',
+        customer_state: booking.customer?.state || '',
+        customer_pincode: booking.customer?.pincode || '',
         event_type: booking.event_type,
         event_participant: booking.event_participant,
         event_date: booking.event_date,
