@@ -51,8 +51,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_priority ON notifications(priority);
--- Partial index for unread notifications (created after table exists)
-CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read) WHERE (is_read = false);
 
 -- 3. Create notification preferences table
 CREATE TABLE IF NOT EXISTS notification_preferences (
@@ -344,21 +342,28 @@ CREATE TRIGGER update_notification_preferences_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- 16. Enable Realtime for notifications table
+-- 16. Create partial index for unread notifications (optimized query performance)
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread 
+ON notifications(user_id, is_read) 
+WHERE is_read = false;
+
+-- 17. Enable Realtime for notifications table
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 
 -- Success message
 DO $$
 BEGIN
   RAISE NOTICE '✅ Notification system tables created successfully!';
-  RAISE NOTICE '✅ Indexes created for performance';
-  RAISE NOTICE '✅ RLS policies enabled';
+  RAISE NOTICE '✅ Indexes created for performance (including partial index)';
+  RAISE NOTICE '✅ RLS policies enabled with franchise isolation';
   RAISE NOTICE '✅ Helper functions created';
   RAISE NOTICE '✅ Realtime enabled for notifications';
   RAISE NOTICE '';
   RAISE NOTICE '📝 Next steps:';
-  RAISE NOTICE '1. Run this migration in Supabase SQL Editor';
-  RAISE NOTICE '2. Install frontend notification components';
-  RAISE NOTICE '3. Set up realtime subscriptions';
-  RAISE NOTICE '4. Add notification triggers to existing tables';
+  RAISE NOTICE '1. ✅ Tables and functions created';
+  RAISE NOTICE '2. Run NOTIFICATION_TRIGGERS.sql to enable auto-notifications';
+  RAISE NOTICE '3. Enable Realtime replication in Supabase Dashboard';
+  RAISE NOTICE '4. Refresh your browser to see the notification system live';
+  RAISE NOTICE '';
+  RAISE NOTICE '🎉 Notification system is ready!';
 END $$;
