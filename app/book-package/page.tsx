@@ -580,7 +580,11 @@ export default function BookPackageWizard() {
       if (itemsError) throw itemsError
 
   toast.success(asQuote ? "Quote created!" : "Order created!")
-  router.push(asQuote ? "/quotes" : "/invoices")
+  
+  // Add timestamp to force page reload and refetch
+  const redirectPath = asQuote ? "/quotes" : "/invoices"
+  router.push(`${redirectPath}?refresh=${Date.now()}`)
+  router.refresh() // Force refresh to ensure data is reloaded
     } catch (err: any) {
       toast.error(err.message || "Error creating booking")
     } finally {

@@ -38,7 +38,7 @@ import { ConvertQuoteDialog } from "@/components/quotes/convert-quote-dialog"
 import { useToast } from "@/hooks/use-toast"
 import type { Quote, User as UserType } from "@/lib/types"
 import { downloadQuotePDF, type PDFDesignType } from "@/lib/pdf/generate-quote-pdf"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { BookingTypeDialog } from "@/components/quotes/booking-type-dialog"
 import { getCurrentUser } from "@/lib/auth"
 
@@ -126,6 +126,7 @@ const defaultQuoteTemplates: QuoteTemplate[] = [
 
 function QuotesPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<UserType | null>(null)
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [filteredQuotes, setFilteredQuotes] = useState<Quote[]>([])
@@ -186,6 +187,7 @@ function QuotesPageContent() {
 
   const { toast } = useToast()
 
+  // Initial load and auto-refresh
   useEffect(() => {
     loadQuotes()
     loadStats()
@@ -197,6 +199,16 @@ function QuotesPageContent() {
 
     return () => clearInterval(interval)
   }, [])
+
+  // Watch for URL changes (e.g., redirect from create page with refresh param)
+  useEffect(() => {
+    const refreshParam = searchParams?.get('refresh')
+    if (refreshParam) {
+      console.log('🔄 Refresh triggered from URL param')
+      loadQuotes()
+      loadStats()
+    }
+  }, [searchParams])
 
   useEffect(() => {
     filterQuotes()

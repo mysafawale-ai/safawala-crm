@@ -101,6 +101,18 @@ export class QuoteService {
     try {
       console.log("Fetching quotes with filters:", filters)
 
+      // Get current user for franchise filtering
+      const userStr = typeof window !== 'undefined' ? localStorage.getItem('safawala_user') : null
+      const currentUser = userStr ? JSON.parse(userStr) : null
+      const isSuperAdmin = currentUser?.role === 'super_admin'
+      const franchiseId = currentUser?.franchise_id
+
+      console.log("🔐 User context:", { 
+        role: currentUser?.role, 
+        franchiseId, 
+        isSuperAdmin 
+      })
+
       // Fetch from product_orders where is_quote=true
       let productQuery = supabase
         .from("product_orders")
@@ -113,7 +125,13 @@ export class QuoteService {
           )
         `)
         .eq("is_quote", true)
-        .order("created_at", { ascending: false })
+
+      // Apply franchise filter unless super admin
+      if (!isSuperAdmin && franchiseId) {
+        productQuery = productQuery.eq("franchise_id", franchiseId)
+      }
+
+      productQuery = productQuery.order("created_at", { ascending: false })
 
       // Fetch from package_bookings where is_quote=true
       let packageQuery = supabase
@@ -127,7 +145,13 @@ export class QuoteService {
           )
         `)
         .eq("is_quote", true)
-        .order("created_at", { ascending: false })
+
+      // Apply franchise filter unless super admin
+      if (!isSuperAdmin && franchiseId) {
+        packageQuery = packageQuery.eq("franchise_id", franchiseId)
+      }
+
+      packageQuery = packageQuery.order("created_at", { ascending: false })
 
       // Apply filters
       if (filters.status) {
@@ -336,10 +360,25 @@ export class QuoteService {
     try {
       console.log("Fetching quote stats")
 
+      // Get current user for franchise filtering
+      const userStr = typeof window !== 'undefined' ? localStorage.getItem('safawala_user') : null
+      const currentUser = userStr ? JSON.parse(userStr) : null
+      const isSuperAdmin = currentUser?.role === 'super_admin'
+      const franchiseId = currentUser?.franchise_id
+
       // Fetch from both product_orders and package_bookings where is_quote=true
+      let productQuery = supabase.from("product_orders").select("status").eq("is_quote", true)
+      let packageQuery = supabase.from("package_bookings").select("status").eq("is_quote", true)
+
+      // Apply franchise filter unless super admin
+      if (!isSuperAdmin && franchiseId) {
+        productQuery = productQuery.eq("franchise_id", franchiseId)
+        packageQuery = packageQuery.eq("franchise_id", franchiseId)
+      }
+
       const [productResult, packageResult] = await Promise.all([
-        supabase.from("product_orders").select("status").eq("is_quote", true),
-        supabase.from("package_bookings").select("status").eq("is_quote", true)
+        productQuery,
+        packageQuery
       ])
 
       console.log("📊 Stats query results:", {

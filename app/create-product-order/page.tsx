@@ -452,7 +452,10 @@ export default function CreateProductOrderPage() {
       toast.success(successMsg)
       
       // Redirect to quotes page if quote, bookings page if order
-      router.push(isQuote ? "/quotes" : "/bookings")
+      // Add timestamp to force page reload and refetch
+      const redirectPath = isQuote ? "/quotes" : "/bookings"
+      router.push(`${redirectPath}?refresh=${Date.now()}`)
+      router.refresh() // Force refresh to ensure data is reloaded
     } catch (e) {
       console.error(e)
       const errorMsg = isQuote ? "Failed to create quote" : "Failed to create order"
