@@ -183,6 +183,13 @@ export default function CreateProductOrderPage() {
     })()
   }, [])
 
+  // Auto-set payment type to "full" when booking type is "sale" (Direct Sale)
+  useEffect(() => {
+    if (formData.booking_type === "sale") {
+      setFormData(prev => ({ ...prev, payment_type: "full" }))
+    }
+  }, [formData.booking_type])
+
   // Filtered lists
   const filteredCustomers = useMemo(
     () =>
@@ -216,7 +223,7 @@ export default function CreateProductOrderPage() {
     }
 
     const unit =
-      formData.booking_type === "rental" ? p.rental_price : p.sale_price
+      formData.booking_type === "rental" ? (p.rental_price || 0) : (p.sale_price || 0)
 
     if (existing) {
       if (existing.quantity >= p.stock_available) {
@@ -238,7 +245,7 @@ export default function CreateProductOrderPage() {
         unit_price: unit,
         total_price: unit,
         security_deposit:
-          formData.booking_type === "rental" ? p.security_deposit : 0,
+          formData.booking_type === "rental" ? (p.security_deposit || 0) : 0,
         stock_available: p.stock_available,
       },
     ])
@@ -642,16 +649,26 @@ export default function CreateProductOrderPage() {
                     onValueChange={(v) =>
                       setFormData({ ...formData, payment_type: v as any })
                     }
+                    disabled={formData.booking_type === "sale"}
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="full">Full Payment</SelectItem>
-                      <SelectItem value="advance">Advance Payment</SelectItem>
-                      <SelectItem value="partial">Deposit Only</SelectItem>
+                      {formData.booking_type === "rental" && (
+                        <>
+                          <SelectItem value="advance">Advance Payment</SelectItem>
+                          <SelectItem value="partial">Deposit Only</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
+                  {formData.booking_type === "sale" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Direct sales always require full payment
+                    </p>
+                  )}
                   {formData.payment_type === "partial" && (
                     <Input
                       type="number"

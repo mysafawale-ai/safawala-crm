@@ -965,14 +965,38 @@ function QuotesPageContent() {
                         {selectedQuote.event_date ? new Date(selectedQuote.event_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
                       </div>
                       {selectedQuote.groom_name && (
-                        <div>
-                          <span className="font-medium">Groom Name:</span> {selectedQuote.groom_name}
-                        </div>
+                        <>
+                          <div>
+                            <span className="font-medium">Groom Name:</span> {selectedQuote.groom_name}
+                          </div>
+                          {selectedQuote.groom_whatsapp && (
+                            <div>
+                              <span className="font-medium">Groom WhatsApp:</span> {selectedQuote.groom_whatsapp}
+                            </div>
+                          )}
+                          {selectedQuote.groom_address && (
+                            <div>
+                              <span className="font-medium">Groom Address:</span> {selectedQuote.groom_address}
+                            </div>
+                          )}
+                        </>
                       )}
                       {selectedQuote.bride_name && (
-                        <div>
-                          <span className="font-medium">Bride Name:</span> {selectedQuote.bride_name}
-                        </div>
+                        <>
+                          <div>
+                            <span className="font-medium">Bride Name:</span> {selectedQuote.bride_name}
+                          </div>
+                          {selectedQuote.bride_whatsapp && (
+                            <div>
+                              <span className="font-medium">Bride WhatsApp:</span> {selectedQuote.bride_whatsapp}
+                            </div>
+                          )}
+                          {selectedQuote.bride_address && (
+                            <div>
+                              <span className="font-medium">Bride Address:</span> {selectedQuote.bride_address}
+                            </div>
+                          )}
+                        </>
                       )}
                       <div>
                         <span className="font-medium">Venue:</span> {selectedQuote.venue_name || "N/A"}
@@ -1010,6 +1034,27 @@ function QuotesPageContent() {
                         <span className="font-medium">Created:</span>{" "}
                         {new Date(selectedQuote.created_at).toLocaleDateString()}
                       </div>
+                      {selectedQuote.payment_type && (
+                        <div>
+                          <span className="font-medium">Payment Type:</span>{" "}
+                          <Badge variant="outline">
+                            {selectedQuote.payment_type === 'full' ? 'Full Payment' : 
+                             selectedQuote.payment_type === 'advance' ? 'Advance Payment' : 
+                             selectedQuote.payment_type === 'partial' ? 'Partial Payment' : 
+                             selectedQuote.payment_type}
+                          </Badge>
+                        </div>
+                      )}
+                      {selectedQuote.amount_paid !== undefined && selectedQuote.amount_paid > 0 && (
+                        <div>
+                          <span className="font-medium">Amount Paid:</span> ₹{selectedQuote.amount_paid.toLocaleString()}
+                        </div>
+                      )}
+                      {selectedQuote.pending_amount !== undefined && selectedQuote.pending_amount > 0 && (
+                        <div>
+                          <span className="font-medium">Pending Amount:</span> ₹{selectedQuote.pending_amount.toLocaleString()}
+                        </div>
+                      )}
                     </div>
                   </Card>
 
