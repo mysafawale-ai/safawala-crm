@@ -367,7 +367,7 @@ export class QuoteService {
 
       const stats = {
         total: data.length,
-        generated: data.filter((q: any) => q.status === "generated").length,
+        generated: data.filter((q: any) => q.status === "quote" || q.status === "generated").length,
         sent: data.filter((q: any) => q.status === "sent").length,
         accepted: data.filter((q: any) => q.status === "accepted").length,
         rejected: data.filter((q: any) => q.status === "rejected").length,
