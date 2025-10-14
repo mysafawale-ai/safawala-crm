@@ -23,6 +23,7 @@ import { Package } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface DistancePricing {
   id: string
@@ -772,14 +773,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   return (
     <div className="heritage-container p-6 space-y-6">
       <div className="flex items-center gap-4 mb-6">
-        <Button
+        <AnimatedBackButton
           variant="outline"
           onClick={() => router.back()}
           className="border-brown-300 text-brown-700 hover:bg-brown-50"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
+        />
         <div className="heritage-header flex-1">
           <div className="flex items-center gap-3">
             <Crown className="w-8 h-8 text-heritage-dark" />

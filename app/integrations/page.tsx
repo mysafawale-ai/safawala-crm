@@ -28,13 +28,14 @@ import {
   CheckCircle,
   XCircle,
   ExternalLink,
+  ArrowLeft,
   Key,
   Zap,
   FileText,
-  ArrowLeft,
   Mail,
   TestTube,
 } from "lucide-react"
+import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface Integration {
   id: string
@@ -414,15 +415,12 @@ export default function IntegrationsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
+          <AnimatedBackButton
             variant="ghost"
             size="sm"
             onClick={() => router.push("/dashboard")}
             className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
+          />
           <div>
             <h1 className="text-2xl font-bold">Integrations</h1>
             <p className="text-muted-foreground">Connect your CRM with third-party services</p>
