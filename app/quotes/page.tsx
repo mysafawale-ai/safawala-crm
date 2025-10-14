@@ -1662,7 +1662,7 @@ export default function QuotesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="generated">Generated</SelectItem>
+                  <SelectItem value="quote">Generated</SelectItem>
                   <SelectItem value="sent">Sent</SelectItem>
                   <SelectItem value="accepted">Accepted</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
