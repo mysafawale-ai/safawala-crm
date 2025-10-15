@@ -489,92 +489,80 @@ export default function InventoryPage() {
               <CardDescription>A list of all products in your inventory</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center space-x-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search products..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex items-center bg-transparent shrink-0">
-                        <Filter className="w-3.5 h-3.5 mr-1.5" />
-                        Filter
-                        {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
-                          <Badge variant="secondary" className="ml-1.5 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px]">
-                            {[stockFilter !== 'all', categoryFilter !== 'all', subcategoryFilter !== 'all'].filter(Boolean).length}
-                          </Badge>
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 max-h-[70vh] overflow-y-auto">
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Stock Status</div>
-                    <DropdownMenuItem onClick={() => { setStockFilter('all'); setCurrentPage(1) }}>
-                      {stockFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
-                      {stockFilter !== 'all' && <div className="mr-2 h-4 w-4" />}
-                      All Products
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setStockFilter('in_stock'); setCurrentPage(1) }}>
-                      {stockFilter === 'in_stock' && <CheckCircle className="mr-2 h-4 w-4" />}
-                      {stockFilter !== 'in_stock' && <div className="mr-2 h-4 w-4" />}
-                      In Stock Only
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setStockFilter('low_stock'); setCurrentPage(1) }}>
-                      {stockFilter === 'low_stock' && <CheckCircle className="mr-2 h-4 w-4" />}
-                      {stockFilter !== 'low_stock' && <div className="mr-2 h-4 w-4" />}
-                      Low Stock Only
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setStockFilter('out_of_stock'); setCurrentPage(1) }}>
-                      {stockFilter === 'out_of_stock' && <CheckCircle className="mr-2 h-4 w-4" />}
-                      {stockFilter !== 'out_of_stock' && <div className="mr-2 h-4 w-4" />}
-                      Out of Stock Only
-                    </DropdownMenuItem>
-                    
-                    <div className="border-t my-1"></div>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Category</div>
-                    <DropdownMenuItem onClick={() => { setCategoryFilter('all'); setSubcategoryFilter('all'); setCurrentPage(1) }}>
-                      {categoryFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
-                      {categoryFilter !== 'all' && <div className="mr-2 h-4 w-4" />}
-                      All Categories
-                    </DropdownMenuItem>
+              <div className="flex items-center gap-2 mb-4">
+                {/* Search Bar - Reduced width */}
+                <div className="relative w-80">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search products..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+
+                {/* Stock Status Filter */}
+                <Select value={stockFilter} onValueChange={(value: any) => { setStockFilter(value); setCurrentPage(1) }}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue placeholder="Stock Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Products</SelectItem>
+                    <SelectItem value="in_stock">In Stock Only</SelectItem>
+                    <SelectItem value="low_stock">Low Stock Only</SelectItem>
+                    <SelectItem value="out_of_stock">Out of Stock Only</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Category Filter */}
+                <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); setSubcategoryFilter('all'); setCurrentPage(1) }}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
                     {categories.map(cat => (
-                      <DropdownMenuItem key={cat.id} onClick={() => { setCategoryFilter(cat.id); setSubcategoryFilter('all'); setCurrentPage(1) }}>
-                        {categoryFilter === cat.id && <CheckCircle className="mr-2 h-4 w-4" />}
-                        {categoryFilter !== cat.id && <div className="mr-2 h-4 w-4" />}
-                        {cat.name}
-                      </DropdownMenuItem>
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                     ))}
-                    
-                    {categoryFilter !== 'all' && subcategories.filter(sc => sc.parent_id === categoryFilter).length > 0 && (
-                      <>
-                        <div className="border-t my-1"></div>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Subcategory</div>
-                        <DropdownMenuItem onClick={() => { setSubcategoryFilter('all'); setCurrentPage(1) }}>
-                          {subcategoryFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
-                          {subcategoryFilter !== 'all' && <div className="mr-2 h-4 w-4" />}
-                          All Subcategories
-                        </DropdownMenuItem>
-                        {subcategories.filter(sc => sc.parent_id === categoryFilter).map(subcat => (
-                          <DropdownMenuItem key={subcat.id} onClick={() => { setSubcategoryFilter(subcat.id); setCurrentPage(1) }}>
-                            {subcategoryFilter === subcat.id && <CheckCircle className="mr-2 h-4 w-4" />}
-                            {subcategoryFilter !== subcat.id && <div className="mr-2 h-4 w-4" />}
-                            {subcat.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </SelectContent>
+                </Select>
+
+                {/* Subcategory Filter - Only shown when category is selected */}
+                {categoryFilter !== 'all' && subcategories.filter(sc => sc.parent_id === categoryFilter).length > 0 && (
+                  <Select value={subcategoryFilter} onValueChange={(value) => { setSubcategoryFilter(value); setCurrentPage(1) }}>
+                    <SelectTrigger className="w-52">
+                      <SelectValue placeholder="All Subcategories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Subcategories</SelectItem>
+                      {subcategories.filter(sc => sc.parent_id === categoryFilter).map(subcat => (
+                        <SelectItem key={subcat.id} value={subcat.id}>{subcat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {/* Clear Filters Button - Only shown when filters are active */}
+                {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => { 
+                      setStockFilter('all'); 
+                      setCategoryFilter('all'); 
+                      setSubcategoryFilter('all'); 
+                      setCurrentPage(1);
+                    }}
+                    className="h-10 px-3"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
               </div>
 
               {/* Active Filters Display */}
               {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap mb-4">
                   <span className="text-xs text-muted-foreground">Active filters:</span>
                   {stockFilter !== 'all' && (
                     <Badge variant="secondary" className="text-xs">
@@ -624,7 +612,6 @@ export default function InventoryPage() {
                   </Button>
                 </div>
               )}
-            </div>
 
               <div className="rounded-md border">
                 <Table>
