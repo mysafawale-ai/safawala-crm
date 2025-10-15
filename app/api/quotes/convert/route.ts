@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       ...quote,
       id: undefined, // Remove ID to create new record
       is_quote: false, // This is a booking, not a quote
-      status: "pending_payment", // New booking status
+      status: "confirmed", // Customer already confirmed, skip pending_payment
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -121,11 +121,105 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Create invoice for the new booking
+    let invoiceId = null
+    let invoiceNumber = null
+    
+    try {
+      // Generate invoice number
+      invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
+
+      // Calculate due date (15 days from now)
+      const issueDate = new Date()
+      const dueDate = new Date()
+      dueDate.setDate(dueDate.getDate() + 15)
+
+      // Fetch customer details
+      const { data: customer } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("id", newBooking.customer_id)
+        .single()
+
+      // Create invoice
+      const { data: invoice, error: invoiceError } = await supabase
+        .from("invoices")
+        .insert({
+          invoice_number: invoiceNumber,
+          customer_id: newBooking.customer_id,
+          customer_name: customer?.name || newBooking.customer_name || quote.customer_name || "Unknown Customer",
+          customer_email: customer?.email || newBooking.customer_email || quote.customer_email || "",
+          customer_phone: customer?.phone || newBooking.customer_phone || quote.customer_phone || "",
+          customer_address: customer?.address || newBooking.customer_address || quote.customer_address || "",
+          franchise_id: newBooking.franchise_id,
+          issue_date: issueDate.toISOString().split("T")[0],
+          due_date: dueDate.toISOString().split("T")[0],
+          subtotal_amount: (newBooking.subtotal_amount || newBooking.total_amount) - (newBooking.tax_amount || 0),
+          tax_amount: newBooking.tax_amount || 0,
+          discount_amount: newBooking.discount_amount || 0,
+          total_amount: newBooking.total_amount,
+          paid_amount: newBooking.amount_paid || 0,
+          balance_amount: newBooking.pending_amount || newBooking.total_amount,
+          status: (newBooking.amount_paid || 0) >= newBooking.total_amount ? "paid" : "unpaid",
+          notes: `Auto-generated from quote ${quote.quote_number || quote.order_number || quote.package_number}`,
+          terms_conditions: "Payment due within 15 days.",
+        })
+        .select()
+        .single()
+
+      if (invoiceError) {
+        console.error("Error creating invoice:", invoiceError)
+      } else if (invoice) {
+        invoiceId = invoice.id
+
+        // Create invoice items from booking items
+        if (booking_type !== "package") {
+          // For product orders, get items
+          const { data: bookingItems } = await supabase
+            .from("product_order_items")
+            .select("*, product:products(name, product_code)")
+            .eq("order_id", newBooking.id)
+
+          if (bookingItems && bookingItems.length > 0) {
+            const invoiceItems = bookingItems.map((item: any) => ({
+              invoice_id: invoice.id,
+              item_name: item.product?.name || item.product_name || "Unknown Item",
+              description: `${item.product?.product_code || ""} - Quantity: ${item.quantity}`,
+              quantity: item.quantity,
+              unit_price: item.unit_price || item.price || 0,
+              line_total: item.total_price || (item.quantity * (item.unit_price || item.price || 0)),
+            }))
+
+            await supabase.from("invoice_items").insert(invoiceItems)
+          }
+        } else {
+          // For package bookings, create a single line item
+          await supabase.from("invoice_items").insert({
+            invoice_id: invoice.id,
+            item_name: `Package Booking: ${newBooking.package_number}`,
+            description: `Event: ${newBooking.event_type || "Wedding"} on ${newBooking.event_date || "TBD"}`,
+            quantity: 1,
+            unit_price: newBooking.total_amount,
+            line_total: newBooking.total_amount,
+          })
+        }
+
+        console.log("Invoice created successfully:", invoiceNumber)
+      }
+    } catch (invoiceCreationError) {
+      console.error("Error creating invoice (non-critical):", invoiceCreationError)
+      // Don't fail the conversion if invoice creation fails
+    }
+
     return NextResponse.json({
       success: true,
       booking_id: newBooking?.id,
       booking_number: tableName === "package_bookings" ? newBooking?.package_number : newBooking?.order_number,
-      message: "Quote successfully converted to booking"
+      invoice_id: invoiceId,
+      invoice_number: invoiceNumber,
+      message: invoiceNumber 
+        ? `Quote converted to booking and invoice ${invoiceNumber} created`
+        : "Quote successfully converted to booking"
     })
 
   } catch (error: any) {

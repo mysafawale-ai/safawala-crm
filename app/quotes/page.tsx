@@ -1620,7 +1620,9 @@ export default function QuotesPage() {
       
       toast({
         title: "Success!",
-        description: `Quote converted to booking ${result.booking_number}`,
+        description: result.invoice_number 
+          ? `Booking ${result.booking_number} created with invoice ${result.invoice_number}`
+          : `Quote converted to booking ${result.booking_number}`,
       })
 
       setShowConvertDialog(false)
