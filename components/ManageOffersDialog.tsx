@@ -15,7 +15,7 @@ interface Coupon {
   id: string;
   code: string;
   description: string;
-  discount_type: 'percentage' | 'flat' | 'free_shipping';
+  discount_type: 'percentage' | 'flat' | 'free_shipping' | 'buy_x_get_y';
   discount_value: number;
   min_order_value: number;
   max_discount: number | null;
@@ -30,7 +30,7 @@ interface Coupon {
 interface FormData {
   code: string;
   description: string;
-  discount_type: 'percentage' | 'flat' | 'free_shipping';
+  discount_type: 'percentage' | 'flat' | 'free_shipping' | 'buy_x_get_y';
   discount_value: number;
   min_order_value: number;
   max_discount: number | null;
@@ -203,6 +203,7 @@ export default function ManageOffersDialog() {
       case 'percentage': return <Percent className="h-4 w-4" />;
       case 'flat': return <DollarSign className="h-4 w-4" />;
       case 'free_shipping': return <Truck className="h-4 w-4" />;
+      case 'buy_x_get_y': return <Plus className="h-4 w-4" />;
       default: return <Tag className="h-4 w-4" />;
     }
   };
@@ -212,6 +213,8 @@ export default function ManageOffersDialog() {
       return `${coupon.discount_value}% off`;
     } else if (coupon.discount_type === 'flat') {
       return `₹${coupon.discount_value} off`;
+    } else if (coupon.discount_type === 'buy_x_get_y') {
+      return `Buy ${coupon.discount_value} Get ${coupon.max_discount || 1} Free`;
     } else {
       return 'Free Shipping';
     }
@@ -273,8 +276,9 @@ export default function ManageOffersDialog() {
                     <SelectValue placeholder="Select discount type" />
                   </SelectTrigger>
                   <SelectContent position="popper" sideOffset={5}>
-                    <SelectItem value="percentage">Percentage Discount</SelectItem>
-                    <SelectItem value="flat">Flat Amount Discount</SelectItem>
+                    <SelectItem value="percentage">Percentage Discount (e.g., 10% off)</SelectItem>
+                    <SelectItem value="flat">Flat Amount Discount (e.g., ₹500 off)</SelectItem>
+                    <SelectItem value="buy_x_get_y">Buy X Get Y Free (e.g., Buy 2 Get 1)</SelectItem>
                     <SelectItem value="free_shipping">Free Shipping</SelectItem>
                   </SelectContent>
                 </Select>
@@ -283,7 +287,8 @@ export default function ManageOffersDialog() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="discount_value">
-                    {formData.discount_type === 'percentage' ? 'Percentage (%)' : 'Amount (₹)'}
+                    {formData.discount_type === 'percentage' ? 'Percentage (%)' : 
+                     formData.discount_type === 'buy_x_get_y' ? 'Buy Quantity (X)' : 'Amount (₹)'}
                   </Label>
                   <Input
                     id="discount_value"
@@ -310,17 +315,19 @@ export default function ManageOffersDialog() {
                 </div>
               </div>
 
-              {formData.discount_type === 'percentage' && (
+              {(formData.discount_type === 'percentage' || formData.discount_type === 'buy_x_get_y') && (
                 <div>
-                  <Label htmlFor="max_discount">Max Discount Cap (₹)</Label>
+                  <Label htmlFor="max_discount">
+                    {formData.discount_type === 'percentage' ? 'Max Discount Cap (₹)' : 'Get Quantity (Y) Free'}
+                  </Label>
                   <Input
                     id="max_discount"
                     type="number"
                     value={formData.max_discount || ''}
                     onChange={(e) => setFormData({ ...formData, max_discount: e.target.value ? parseFloat(e.target.value) : null })}
                     min={0}
-                    step="0.01"
-                    placeholder="No limit"
+                    step={formData.discount_type === 'percentage' ? '0.01' : '1'}
+                    placeholder={formData.discount_type === 'percentage' ? 'No limit' : 'Get 1 free'}
                   />
                 </div>
               )}

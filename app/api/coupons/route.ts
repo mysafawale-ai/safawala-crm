@@ -26,7 +26,19 @@ async function getUserFromSession(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request);
+    
+    let franchiseId: string | null = null;
+    let isSuperAdmin = false;
+    
+    // Try to get user from session, but don't fail if not authenticated
+    try {
+      const authData = await getUserFromSession(request);
+      franchiseId = authData.franchiseId;
+      isSuperAdmin = authData.isSuperAdmin;
+    } catch (authError) {
+      console.log('No valid session, returning empty coupons list');
+      return NextResponse.json({ coupons: [] });
+    }
 
     // Build query with franchise isolation
     let query = supabase

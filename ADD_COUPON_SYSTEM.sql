@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS coupons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
-    discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('percentage', 'flat', 'free_shipping')),
+    discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('percentage', 'flat', 'free_shipping', 'buy_x_get_y')),
     discount_value DECIMAL(10, 2) NOT NULL CHECK (discount_value >= 0),
     min_order_value DECIMAL(10, 2) DEFAULT 0,
-    max_discount DECIMAL(10, 2), -- For percentage discounts, cap the max discount amount
+    max_discount DECIMAL(10, 2), -- For percentage discounts, cap the max discount amount OR for buy_x_get_y, the Y (get) quantity
     usage_limit INTEGER, -- NULL means unlimited
     usage_count INTEGER DEFAULT 0 NOT NULL,
     per_user_limit INTEGER, -- How many times a single customer can use this coupon
