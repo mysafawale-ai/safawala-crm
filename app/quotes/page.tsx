@@ -1510,6 +1510,38 @@ export default function QuotesPage() {
     }
   }
 
+  // Reject quote
+  const handleRejectQuote = async (quote: Quote) => {
+    try {
+      // Determine which table to update
+      const table = quote.booking_type === 'package' ? 'package_bookings' : 'product_orders'
+      
+      const { error } = await supabase
+        .from(table)
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', quote.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Quote Rejected",
+        description: `Quote ${quote.quote_number} has been marked as rejected`,
+      })
+
+      await loadQuotes() // Refresh quotes list
+    } catch (error) {
+      console.error("Error rejecting quote:", error)
+      toast({
+        title: "Error",
+        description: "Failed to reject quote. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Open edit dialog and populate form
   const handleEditQuote = (quote: Quote) => {
     setSelectedQuote(quote)
@@ -2043,6 +2075,16 @@ const getStatusBadge = (status: string) => {
                             </Button>
                           }
                         />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRejectQuote(quote)}
+                          title="Reject Quote"
+                          disabled={quote.status === "rejected"}
+                          className={quote.status === "rejected" ? "opacity-50 cursor-not-allowed" : "hover:text-red-600"}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
