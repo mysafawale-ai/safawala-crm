@@ -512,7 +512,7 @@ export default function InventoryPage() {
                         )}
                       </Button>
                     </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuContent align="end" className="w-52 max-h-[70vh] overflow-y-auto">
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Stock Status</div>
                     <DropdownMenuItem onClick={() => { setStockFilter('all'); setCurrentPage(1) }}>
                       {stockFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
