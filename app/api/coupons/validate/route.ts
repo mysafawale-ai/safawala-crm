@@ -1,7 +1,26 @@
 import { createClient } from '@/lib/supabase/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
+
+async function getUserFromSession(request: NextRequest) {
+  try {
+    const cookieHeader = request.cookies.get("safawala_session")
+    if (!cookieHeader?.value) throw new Error("No session")
+    const sessionData = JSON.parse(cookieHeader.value)
+    const supabase = createClient()
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, franchise_id, role')
+      .eq('id', sessionData.id)
+      .eq('is_active', true)
+      .single()
+    if (error || !user) throw new Error('Auth failed')
+    return { userId: user.id, franchiseId: user.franchise_id, isSuperAdmin: user.role === 'super_admin' }
+  } catch {
+    throw new Error('Authentication required')
+  }
+}
 
 interface ValidateCouponRequest {
   code: string;
@@ -9,9 +28,10 @@ interface ValidateCouponRequest {
   customerId?: string;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
+    const { franchiseId } = await getUserFromSession(request);
     const body: ValidateCouponRequest = await request.json();
     
     const { code, orderValue, customerId } = body;
@@ -23,18 +43,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get current user for franchise isolation
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Fetch coupon from database
+    // Fetch coupon from database with franchise isolation
     const { data: coupon, error: couponError } = await supabase
       .from('coupons')
       .select('*')
       .eq('code', code.trim().toUpperCase())
       .eq('is_active', true)
+      .eq('franchise_id', franchiseId)
       .single();
 
     if (couponError || !coupon) {
@@ -43,18 +58,6 @@ export async function POST(request: Request) {
           valid: false, 
           error: 'Invalid coupon code',
           message: 'This coupon code does not exist or is no longer active'
-        },
-        { status: 200 }
-      );
-    }
-
-    // Check franchise isolation
-    if (coupon.franchise_id && coupon.franchise_id !== user.id) {
-      return NextResponse.json(
-        { 
-          valid: false, 
-          error: 'Invalid coupon',
-          message: 'This coupon is not valid for your franchise'
         },
         { status: 200 }
       );

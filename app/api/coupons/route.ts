@@ -1,25 +1,45 @@
 import { createClient } from '@/lib/supabase/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+async function getUserFromSession(request: NextRequest) {
+  try {
+    const cookieHeader = request.cookies.get("safawala_session")
+    if (!cookieHeader?.value) throw new Error("No session")
+    const sessionData = JSON.parse(cookieHeader.value)
+    const supabase = createClient()
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, franchise_id, role')
+      .eq('id', sessionData.id)
+      .eq('is_active', true)
+      .single()
+    if (error || !user) throw new Error('Auth failed')
+    return { userId: user.id, franchiseId: user.franchise_id, isSuperAdmin: user.role === 'super_admin' }
+  } catch {
+    throw new Error('Authentication required')
+  }
+}
+
 // GET: List all coupons
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { franchiseId, isSuperAdmin } = await getUserFromSession(request);
 
-    // Fetch coupons for this franchise
-    const { data: coupons, error } = await supabase
+    // Build query with franchise isolation
+    let query = supabase
       .from('coupons')
       .select('*')
-      .or(`franchise_id.is.null,franchise_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
+
+    // Super admins see all coupons, others only their franchise
+    if (!isSuperAdmin && franchiseId) {
+      query = query.eq('franchise_id', franchiseId);
+    }
+
+    const { data: coupons, error } = await query;
 
     if (error) {
       console.error('Error fetching coupons:', error);
@@ -41,15 +61,10 @@ export async function GET(request: Request) {
 }
 
 // POST: Create new coupon
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { userId, franchiseId } = await getUserFromSession(request);
 
     const body = await request.json();
     const {
@@ -97,8 +112,8 @@ export async function POST(request: Request) {
         valid_from: valid_from || new Date().toISOString(),
         valid_until,
         is_active: is_active !== undefined ? is_active : true,
-        franchise_id: user.id,
-        created_by: user.id,
+        franchise_id: franchiseId,
+        created_by: userId,
       })
       .select()
       .single();
@@ -132,15 +147,10 @@ export async function POST(request: Request) {
 }
 
 // PUT: Update existing coupon
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
     const supabase = createClient();
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { franchiseId } = await getUserFromSession(request);
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -165,11 +175,12 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Update coupon (RLS will ensure user can only update their own)
+    // Update coupon (only franchise coupons)
     const { data: coupon, error } = await supabase
       .from('coupons')
       .update(updates)
       .eq('id', id)
+      .eq('franchise_id', franchiseId)
       .select()
       .single();
 
@@ -209,15 +220,10 @@ export async function PUT(request: Request) {
 }
 
 // DELETE: Delete coupon
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
     const supabase = createClient();
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { franchiseId } = await getUserFromSession(request);
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -229,11 +235,12 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Delete coupon (RLS will ensure user can only delete their own)
+    // Delete coupon (only franchise coupons)
     const { error } = await supabase
       .from('coupons')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('franchise_id', franchiseId);
 
     if (error) {
       console.error('Error deleting coupon:', error);
