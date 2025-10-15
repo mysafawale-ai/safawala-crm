@@ -115,6 +115,28 @@ export default function BookPackageWizard() {
       setCurrentUser(userData)  // ✅ Store user in state for later use
       console.log("Current user:", userData)
       
+      // Fetch company settings to get base pincode
+      if (userData.franchise_id) {
+        try {
+          console.log("Fetching company settings for franchise:", userData.franchise_id)
+          const settingsRes = await fetch(`/api/settings/company?franchise_id=${userData.franchise_id}`)
+          if (settingsRes.ok) {
+            const settingsData = await settingsRes.json()
+            const pincode = settingsData.data?.pincode
+            if (pincode) {
+              setBasePincode(pincode)
+              console.log('✅ Base pincode loaded from company settings:', pincode)
+            } else {
+              console.log('⚠️ No pincode in company settings, using default')
+            }
+          } else {
+            console.warn('Failed to fetch company settings, using default pincode')
+          }
+        } catch (err) {
+          console.warn('Error loading company settings, using default pincode:', err)
+        }
+      }
+      
       // Fetch staff members - filter by franchise for non-super-admins
       console.log("Fetching staff members...")
       let staffQuery = supabase
