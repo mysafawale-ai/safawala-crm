@@ -266,10 +266,10 @@ export default function ManageOffersDialog() {
                   value={formData.discount_type} 
                   onValueChange={(v: any) => setFormData({ ...formData, discount_type: v })}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger id="discount_type">
+                    <SelectValue placeholder="Select discount type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" sideOffset={5}>
                     <SelectItem value="percentage">Percentage Discount</SelectItem>
                     <SelectItem value="flat">Flat Amount Discount</SelectItem>
                     <SelectItem value="free_shipping">Free Shipping</SelectItem>
