@@ -1274,6 +1274,7 @@ export default function QuotesPage() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null)
   const [showViewDialog, setShowViewDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
   const [showBookingTypeDialog, setShowBookingTypeDialog] = useState(false)
   const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
   const [stats, setStats] = useState({
