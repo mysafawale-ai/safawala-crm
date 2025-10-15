@@ -230,7 +230,7 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
       return
     }
 
-    const basePincode = 380001 // Assuming base location pincode
+    const basePincode = 390007 // Base location pincode (center point for radius calculation)
     const distance = Math.abs(Number.parseInt(customerPincode) - basePincode) / 1000 // Mock distance calculation
 
     const applicablePricing = distancePricing.find(

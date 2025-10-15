@@ -397,7 +397,7 @@ export default function BookPackageWizard() {
     const resolveKm = async () => {
       const pin = selectedCustomer?.pincode?.trim()
       if (!pin) { setDistanceKm(0); return }
-      const basePincode = '390001'
+      const basePincode = '390007'
       
       // Same pincode = 0 km
       if (pin === basePincode) { setDistanceKm(0); return }
