@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS coupons (
     valid_from TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     valid_until TIMESTAMP WITH TIME ZONE,
     is_active BOOLEAN DEFAULT true NOT NULL,
-    franchise_id UUID REFERENCES users(id),
+    franchise_id UUID REFERENCES franchises(id) ON DELETE CASCADE,
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS coupon_usage (
     order_type VARCHAR(20) CHECK (order_type IN ('product_order', 'package_booking')),
     discount_applied DECIMAL(10, 2) NOT NULL,
     used_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    franchise_id UUID REFERENCES users(id),
+    franchise_id UUID REFERENCES franchises(id) ON DELETE CASCADE,
     
     -- Indexes for fast lookups
     CONSTRAINT fk_order_type CHECK (
