@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +47,8 @@ export default function ManageOffersDialog() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     code: '',
     description: '',
@@ -154,14 +157,17 @@ export default function ManageOffersDialog() {
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this coupon?')) {
-      return;
-    }
+  const handleDeleteClick = (id: string) => {
+    setCouponToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!couponToDelete) return;
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/coupons?id=${id}`, {
+      const response = await fetch(`/api/coupons?id=${couponToDelete}`, {
         method: 'DELETE',
       });
 
@@ -178,6 +184,8 @@ export default function ManageOffersDialog() {
       toast.error('Failed to delete coupon');
     } finally {
       setLoading(false);
+      setDeleteDialogOpen(false);
+      setCouponToDelete(null);
     }
   };
 
@@ -460,7 +468,7 @@ export default function ManageOffersDialog() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleDelete(coupon.id)}
+                          onClick={() => handleDeleteClick(coupon.id)}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -474,6 +482,31 @@ export default function ManageOffersDialog() {
           </div>
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-semibold flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              Delete Coupon?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base pt-2">
+              Are you sure you want to delete this coupon? This action cannot be undone.
+              All usage history for this coupon will also be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex gap-2 sm:gap-2">
+            <AlertDialogCancel className="flex-1">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm}
+              className="flex-1 bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete Coupon
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
