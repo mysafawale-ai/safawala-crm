@@ -46,8 +46,10 @@ import {
   X,
   ShoppingCart,
   Loader2,
+  Package,
 } from "lucide-react"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
+import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 
 interface Customer {
   id: string
@@ -64,6 +66,8 @@ interface Product {
   id: string
   name: string
   category: string
+  category_id?: string
+  subcategory_id?: string
   rental_price: number
   sale_price: number
   security_deposit: number
@@ -98,8 +102,10 @@ export default function CreateProductOrderPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)  // ✅ Store logged-in user
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
+  const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [selectedStaff, setSelectedStaff] = useState<string>("none")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -178,9 +184,14 @@ export default function CreateProductOrderPage() {
 
         setCustomers(cust.data || [])
         setProducts(prod.data || [])
-        // Extract unique categories
-        const uniqueCategories = Array.from(new Set((prod.data || []).map((p: Product) => p.category).filter(Boolean))) as string[]
-        setCategories(uniqueCategories.sort())
+        
+        // Fetch categories and subcategories from database
+        const { data: cats } = await supabase.from('product_categories').select('*').order('name')
+        const mainCats = cats?.filter(c => !c.parent_id) || []
+        const subCats = cats?.filter(c => c.parent_id) || []
+        setCategories(mainCats)
+        setSubcategories(subCats)
+        
         setStaffMembers(staff.data || [])
       } catch (e) {
         console.error(e)
@@ -211,10 +222,11 @@ export default function CreateProductOrderPage() {
     () =>
       products.filter((p) => {
         const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase())
-        const matchesCategory = !selectedCategory || p.category === selectedCategory
-        return matchesSearch && matchesCategory
+        const matchesCategory = !selectedCategory || p.category_id === selectedCategory
+        const matchesSubcategory = !selectedSubcategory || p.subcategory_id === selectedSubcategory
+        return matchesSearch && matchesCategory && matchesSubcategory
       }),
-    [products, productSearch, selectedCategory]
+    [products, productSearch, selectedCategory, selectedSubcategory]
   )
 
   // Product management
@@ -1072,24 +1084,58 @@ export default function CreateProductOrderPage() {
                     <Button
                       size="sm"
                       variant={selectedCategory === null ? "default" : "outline"}
-                      onClick={() => setSelectedCategory(null)}
+                      onClick={() => {
+                        setSelectedCategory(null)
+                        setSelectedSubcategory(null)
+                      }}
                       className="h-7 px-3 text-xs font-normal"
                     >
                       All
                     </Button>
                     {categories.map((cat) => (
                       <Button
-                        key={cat}
+                        key={cat.id}
                         size="sm"
-                        variant={selectedCategory === cat ? "default" : "outline"}
-                        onClick={() => setSelectedCategory(cat)}
+                        variant={selectedCategory === cat.id ? "default" : "outline"}
+                        onClick={() => {
+                          setSelectedCategory(cat.id)
+                          setSelectedSubcategory(null)
+                        }}
                         className="h-7 px-3 text-xs font-normal"
                       >
-                        {cat}
+                        {cat.name}
                       </Button>
                     ))}
                   </div>
                 )}
+
+                {/* Subcategory Filter Buttons - Show only when category is selected */}
+                {selectedCategory && subcategories.filter(sc => sc.parent_id === selectedCategory).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    <Button
+                      size="sm"
+                      variant={selectedSubcategory === null ? "default" : "outline"}
+                      onClick={() => setSelectedSubcategory(null)}
+                      className="h-7 px-3 text-xs font-normal"
+                    >
+                      All Subcategories
+                    </Button>
+                    {subcategories
+                      .filter(sc => sc.parent_id === selectedCategory)
+                      .map((subcat) => (
+                        <Button
+                          key={subcat.id}
+                          size="sm"
+                          variant={selectedSubcategory === subcat.id ? "default" : "outline"}
+                          onClick={() => setSelectedSubcategory(subcat.id)}
+                          className="h-7 px-3 text-xs font-normal"
+                        >
+                          {subcat.name}
+                        </Button>
+                      ))}
+                  </div>
+                )}
+
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
@@ -1099,6 +1145,22 @@ export default function CreateProductOrderPage() {
                     className="pl-10"
                   />
                 </div>
+
+                {/* Check Availability Button */}
+                {formData.event_date && (
+                  <div className="flex justify-center">
+                    <InventoryAvailabilityPopup
+                      eventDate={formData.event_date ? new Date(formData.event_date) : undefined}
+                      deliveryDate={formData.delivery_date ? new Date(formData.delivery_date) : undefined}
+                      returnDate={formData.return_date ? new Date(formData.return_date) : undefined}
+                    >
+                      <Button variant="outline" type="button" className="flex items-center gap-2 bg-transparent">
+                        <Package className="h-4 w-4" />
+                        Check Product Availability
+                      </Button>
+                    </InventoryAvailabilityPopup>
+                  </div>
+                )}
 
                 <div className="max-h-[500px] overflow-y-auto border rounded-lg p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
