@@ -1537,7 +1537,7 @@ export default function QuotesPage() {
       bride_name: quote.bride_name || "",
       bride_whatsapp: quote.bride_whatsapp || "",
       bride_address: quote.bride_address || "",
-      notes: quote.special_instructions || "",
+      notes: quote.notes || quote.special_instructions || "",
     })
     
     setShowEditDialog(true)
@@ -2314,6 +2314,42 @@ const getStatusBadge = (status: string) => {
 
           {selectedQuote && (
             <div className="space-y-6">
+              {/* Customer Information (Read-only) */}
+              <Card className="bg-gray-50">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Customer Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Customer Name</Label>
+                      <p className="text-sm font-medium mt-1">{selectedQuote.customer_name || "N/A"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Phone Number</Label>
+                      <p className="text-sm font-medium mt-1">{selectedQuote.customer_phone || "N/A"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">WhatsApp</Label>
+                      <p className="text-sm font-medium mt-1">{selectedQuote.customer_whatsapp || selectedQuote.customer_phone || "N/A"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Email</Label>
+                      <p className="text-sm font-medium mt-1">{selectedQuote.customer_email || "N/A"}</p>
+                    </div>
+                    {selectedQuote.customer_address && (
+                      <div className="md:col-span-2">
+                        <Label className="text-xs text-muted-foreground">Address</Label>
+                        <p className="text-sm font-medium mt-1">{selectedQuote.customer_address}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Event & Wedding Details */}
               <Card>
                 <CardHeader>
