@@ -173,6 +173,8 @@ function QuotesPageContent() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
   
+  
+  
   // Edit quote form state
   const [editFormData, setEditFormData] = useState({
     event_type: "",
@@ -325,6 +327,10 @@ function QuotesPageContent() {
 
     setFilteredQuotes(filtered)
   }
+
+
+
+
 
   const handleStatusUpdate = async (quoteId: string, newStatus: string) => {
     try {
@@ -1291,6 +1297,10 @@ export default function QuotesPage() {
   const [previewTemplate, setPreviewTemplate] = useState<QuoteTemplate | null>(null)
   const [showTemplatePreview, setShowTemplatePreview] = useState(false)
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 25
+  
   // Edit quote form state
   const [editFormData, setEditFormData] = useState({
     event_type: "",
@@ -1410,6 +1420,17 @@ export default function QuotesPage() {
 
     setFilteredQuotes(filtered)
   }
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredQuotes.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedQuotes = filteredQuotes.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, dateFilter])
 
   const handleStatusUpdate = async (quoteId: string, newStatus: string) => {
     try {
@@ -2038,7 +2059,7 @@ const getStatusBadge = (status: string) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredQuotes.map((quote) => (
+                {paginatedQuotes.map((quote) => (
                   <TableRow key={quote.id} className="h-12">
                     <TableCell className="font-medium text-xs">{quote.quote_number}</TableCell>
                     <TableCell>
@@ -2128,6 +2149,35 @@ const getStatusBadge = (status: string) => {
             </Table>
           </div>
         </CardContent>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <CardContent className="p-3 pt-0">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
