@@ -27,6 +27,7 @@ import {
   Info,
   Layers,
   FileCheck,
+  Archive,
 } from "lucide-react"
 
 import {
@@ -91,6 +92,13 @@ const navigationItems = {
       icon: Package,
       roles: ["super_admin", "franchise_admin"],
       description: "Track wedding accessories, manage stock levels, and monitor product availability",
+    },
+    {
+      title: "Product Archive",
+      url: "/product-archive",
+      icon: Archive,
+      roles: ["super_admin", "franchise_admin", "staff"],
+      description: "Manage lost, damaged, stolen, or discontinued products with detailed records",
     },
     {
       title: "Packages",

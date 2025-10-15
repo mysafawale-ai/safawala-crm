@@ -217,12 +217,6 @@ export default function DashboardPage() {
                   Manage Inventory
                 </Button>
               </Link>
-              <Link href="/quotes">
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Generate Quote
-                </Button>
-              </Link>
             </CardContent>
           </Card>
 
