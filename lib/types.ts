@@ -391,6 +391,9 @@ export interface Quote {
   security_deposit?: number
   tax_amount?: number
   discount_amount?: number
+  payment_method?: string
+  coupon_code?: string
+  coupon_discount?: number
 
   // Quote status and tracking
   status: "generated" | "sent" | "viewed" | "accepted" | "rejected" | "quote" | "converted"

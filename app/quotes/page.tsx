@@ -1179,6 +1179,18 @@ function QuotesPageContent() {
                         <span>Subtotal:</span>
                         <span className="font-medium">{formatCurrency(selectedQuote.subtotal_amount || selectedQuote.total_amount)}</span>
                       </div>
+                      {selectedQuote.payment_method && (
+                        <div className="flex justify-between text-sm">
+                          <span>Payment Method:</span>
+                          <span className="font-medium">{selectedQuote.payment_method}</span>
+                        </div>
+                      )}
+                      {selectedQuote.coupon_code && (
+                        <div className="flex justify-between text-sm text-orange-600">
+                          <span>Coupon Applied ({selectedQuote.coupon_code}):</span>
+                          <span className="font-medium">- {formatCurrency(selectedQuote.coupon_discount || 0)}</span>
+                        </div>
+                      )}
                       {selectedQuote.discount_amount && selectedQuote.discount_amount > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
                           <span>Discount:</span>
