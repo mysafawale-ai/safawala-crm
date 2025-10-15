@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +41,9 @@ import {
   Share2,
   Eye,
   Pencil,
+  CalendarIcon,
+  Save,
+  Loader2,
 } from "lucide-react"
 import { QuoteService } from "@/lib/services/quote-service"
 import { BookingService } from "@/lib/services/booking-service"
@@ -47,6 +54,8 @@ import { downloadQuotePDF, type PDFDesignType } from "@/lib/pdf/generate-quote-p
 import { useRouter, useSearchParams } from "next/navigation"
 import { BookingTypeDialog } from "@/components/quotes/booking-type-dialog"
 import { getCurrentUser } from "@/lib/auth"
+import { format } from "date-fns"
+import { supabase } from "@/lib/supabase"
 
 interface QuoteStats {
   total: number
@@ -161,7 +170,30 @@ function QuotesPageContent() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showBookingTypeDialog, setShowBookingTypeDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
   const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
+  
+  // Edit quote form state
+  const [editFormData, setEditFormData] = useState({
+    event_type: "",
+    event_participant: "",
+    payment_type: "",
+    event_date: "",
+    event_time: "",
+    delivery_date: "",
+    delivery_time: "",
+    return_date: "",
+    return_time: "",
+    venue_address: "",
+    groom_name: "",
+    groom_whatsapp: "",
+    groom_address: "",
+    bride_name: "",
+    bride_whatsapp: "",
+    bride_address: "",
+    notes: "",
+  })
+  const [isSaving, setIsSaving] = useState(false)
 
   const demoQuoteData = {
     id: "QT001",
@@ -1258,6 +1290,28 @@ export default function QuotesPage() {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [previewTemplate, setPreviewTemplate] = useState<QuoteTemplate | null>(null)
   const [showTemplatePreview, setShowTemplatePreview] = useState(false)
+  
+  // Edit quote form state
+  const [editFormData, setEditFormData] = useState({
+    event_type: "",
+    event_participant: "",
+    payment_type: "",
+    event_date: "",
+    event_time: "",
+    delivery_date: "",
+    delivery_time: "",
+    return_date: "",
+    return_time: "",
+    venue_address: "",
+    groom_name: "",
+    groom_whatsapp: "",
+    groom_address: "",
+    bride_name: "",
+    bride_whatsapp: "",
+    bride_address: "",
+    notes: "",
+  })
+  const [isSaving, setIsSaving] = useState(false)
 
   const { toast } = useToast()
 
@@ -1456,7 +1510,108 @@ export default function QuotesPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  // Open edit dialog and populate form
+  const handleEditQuote = (quote: Quote) => {
+    setSelectedQuote(quote)
+    
+    // Parse date and time from ISO strings
+    const eventDateTime = quote.event_date ? new Date(quote.event_date) : null
+    const deliveryDateTime = quote.delivery_date ? new Date(quote.delivery_date) : null
+    const returnDateTime = quote.return_date ? new Date(quote.return_date) : null
+    
+    setEditFormData({
+      event_type: quote.event_type || "Wedding",
+      event_participant: quote.event_participant || "Both",
+      payment_type: quote.payment_type || "full",
+      event_date: eventDateTime ? eventDateTime.toISOString().split('T')[0] : "",
+      event_time: eventDateTime ? format(eventDateTime, "HH:mm") : "10:00",
+      delivery_date: deliveryDateTime ? deliveryDateTime.toISOString().split('T')[0] : "",
+      delivery_time: deliveryDateTime ? format(deliveryDateTime, "HH:mm") : "09:00",
+      return_date: returnDateTime ? returnDateTime.toISOString().split('T')[0] : "",
+      return_time: returnDateTime ? format(returnDateTime, "HH:mm") : "18:00",
+      venue_address: quote.venue_address || "",
+      groom_name: quote.groom_name || "",
+      groom_whatsapp: quote.groom_whatsapp || "",
+      groom_address: quote.groom_address || "",
+      bride_name: quote.bride_name || "",
+      bride_whatsapp: quote.bride_whatsapp || "",
+      bride_address: quote.bride_address || "",
+      notes: quote.special_instructions || "",
+    })
+    
+    setShowEditDialog(true)
+  }
+
+  // Save edited quote
+  const handleSaveQuote = async () => {
+    if (!selectedQuote) return
+
+    try {
+      setIsSaving(true)
+      
+      // Combine date and time into ISO strings
+      const eventDate = editFormData.event_date && editFormData.event_time
+        ? new Date(`${editFormData.event_date}T${editFormData.event_time}`).toISOString()
+        : null
+      
+      const deliveryDate = editFormData.delivery_date && editFormData.delivery_time
+        ? new Date(`${editFormData.delivery_date}T${editFormData.delivery_time}`).toISOString()
+        : null
+      
+      const returnDate = editFormData.return_date && editFormData.return_time
+        ? new Date(`${editFormData.return_date}T${editFormData.return_time}`).toISOString()
+        : null
+
+      // Determine which table to update
+      const table = selectedQuote.booking_type === 'package' ? 'package_bookings' : 'product_orders'
+      
+      // Prepare update data
+      const updateData: any = {
+        event_type: editFormData.event_type,
+        event_participant: editFormData.event_participant,
+        payment_type: editFormData.payment_type,
+        event_date: eventDate,
+        delivery_date: deliveryDate,
+        return_date: returnDate,
+        venue_address: editFormData.venue_address,
+        groom_name: editFormData.groom_name,
+        groom_whatsapp: editFormData.groom_whatsapp,
+        groom_address: editFormData.groom_address,
+        bride_name: editFormData.bride_name,
+        bride_whatsapp: editFormData.bride_whatsapp,
+        bride_address: editFormData.bride_address,
+        special_instructions: editFormData.notes,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Update the database
+      const { error } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq('id', selectedQuote.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Quote updated successfully",
+      })
+
+      setShowEditDialog(false)
+      await loadQuotes() // Refresh quotes list
+    } catch (error) {
+      console.error("Error updating quote:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update quote. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+const getStatusBadge = (status: string) => {
     const statusConfig = {
       generated: { label: "Generated", variant: "secondary" as const, icon: FileText },
       sent: { label: "Sent", variant: "default" as const, icon: Send },
@@ -1855,13 +2010,7 @@ export default function QuotesPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            // Redirect to edit page based on booking_type
-                            const editPath = quote.booking_type === 'package' 
-                              ? `/book-package?edit=${quote.id}` 
-                              : `/create-product-order?edit=${quote.id}`
-                            router.push(editPath)
-                          }}
+                          onClick={() => handleEditQuote(quote)}
                           title="Edit Quote"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -2148,6 +2297,325 @@ export default function QuotesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Quote Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              Edit Quote - {selectedQuote?.quote_number}
+            </DialogTitle>
+            <DialogDescription>
+              Update event and wedding details for this quote
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedQuote && (
+            <div className="space-y-6">
+              {/* Event & Wedding Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Event & Wedding Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Row 1: Event Type, Event Participant, Payment Type */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-xs">Event Type</Label>
+                      <Select
+                        value={editFormData.event_type}
+                        onValueChange={(v) =>
+                          setEditFormData({ ...editFormData, event_type: v })
+                        }
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Wedding">Wedding</SelectItem>
+                          <SelectItem value="Engagement">Engagement</SelectItem>
+                          <SelectItem value="Reception">Reception</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Event Participant</Label>
+                      <Select
+                        value={editFormData.event_participant}
+                        onValueChange={(v) =>
+                          setEditFormData({ ...editFormData, event_participant: v })
+                        }
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Groom">Groom Only</SelectItem>
+                          <SelectItem value="Bride">Bride Only</SelectItem>
+                          <SelectItem value="Both">Both</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Payment Type</Label>
+                      <Select
+                        value={editFormData.payment_type}
+                        onValueChange={(v) =>
+                          setEditFormData({ ...editFormData, payment_type: v })
+                        }
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="full">Full Payment</SelectItem>
+                          <SelectItem value="advance">Advance Payment</SelectItem>
+                          <SelectItem value="partial">Partial Payment</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Event Date & Time */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs">Event Date *</Label>
+                      <Input
+                        type="date"
+                        value={editFormData.event_date}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, event_date: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Event Time</Label>
+                      <Input
+                        type="time"
+                        value={editFormData.event_time}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, event_time: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 3: Delivery Date & Time */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs">Delivery Date</Label>
+                      <Input
+                        type="date"
+                        value={editFormData.delivery_date}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, delivery_date: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Delivery Time</Label>
+                      <Input
+                        type="time"
+                        value={editFormData.delivery_time}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, delivery_time: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 4: Return Date & Time */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs">Return Date</Label>
+                      <Input
+                        type="date"
+                        value={editFormData.return_date}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, return_date: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Return Time</Label>
+                      <Input
+                        type="time"
+                        value={editFormData.return_time}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, return_time: e.target.value })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Venue Address */}
+                  <div>
+                    <Label className="text-xs">Venue Address</Label>
+                    <Textarea
+                      rows={2}
+                      value={editFormData.venue_address}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, venue_address: e.target.value })
+                      }
+                      className="mt-1"
+                      placeholder="Enter venue address"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Groom Information - Show only if Groom or Both */}
+              {(editFormData.event_participant === "Groom" || editFormData.event_participant === "Both") && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Groom Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs">Groom Name</Label>
+                        <Input
+                          value={editFormData.groom_name}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, groom_name: e.target.value })
+                          }
+                          className="mt-1"
+                          placeholder="Enter groom's full name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Additional WhatsApp Number</Label>
+                        <Input
+                          value={editFormData.groom_whatsapp}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, groom_whatsapp: e.target.value })
+                          }
+                          className="mt-1"
+                          placeholder="WhatsApp number"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Home Address</Label>
+                      <Textarea
+                        rows={2}
+                        value={editFormData.groom_address}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, groom_address: e.target.value })
+                        }
+                        className="mt-1"
+                        placeholder="Full address with locality and pin code"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Bride Information - Show only if Bride or Both */}
+              {(editFormData.event_participant === "Bride" || editFormData.event_participant === "Both") && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Bride Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs">Bride Name</Label>
+                        <Input
+                          value={editFormData.bride_name}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, bride_name: e.target.value })
+                          }
+                          className="mt-1"
+                          placeholder="Enter bride's full name"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Additional WhatsApp Number</Label>
+                        <Input
+                          value={editFormData.bride_whatsapp}
+                          onChange={(e) =>
+                            setEditFormData({ ...editFormData, bride_whatsapp: e.target.value })
+                          }
+                          className="mt-1"
+                          placeholder="WhatsApp number"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Home Address</Label>
+                      <Textarea
+                        rows={2}
+                        value={editFormData.bride_address}
+                        onChange={(e) =>
+                          setEditFormData({ ...editFormData, bride_address: e.target.value })
+                        }
+                        className="mt-1"
+                        placeholder="Full address with locality and pin code"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Notes */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    rows={3}
+                    value={editFormData.notes}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, notes: e.target.value })
+                    }
+                    placeholder="Any special instructions or requirements"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditDialog(false)}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveQuote}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       </div>
     </div>
   )
