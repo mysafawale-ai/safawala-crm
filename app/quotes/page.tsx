@@ -1581,7 +1581,7 @@ export default function QuotesPage() {
         bride_name: editFormData.bride_name,
         bride_whatsapp: editFormData.bride_whatsapp,
         bride_address: editFormData.bride_address,
-        special_instructions: editFormData.notes,
+        notes: editFormData.notes,
         updated_at: new Date().toISOString(),
       }
 
