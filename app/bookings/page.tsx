@@ -38,6 +38,7 @@ import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
+import ManageOffersDialog from "@/components/ManageOffersDialog"
 
 export default function BookingsPage() {
   const router = useRouter()
@@ -351,6 +352,7 @@ export default function BookingsPage() {
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <ManageOffersDialog />
           <Button variant="outline" onClick={refresh} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh

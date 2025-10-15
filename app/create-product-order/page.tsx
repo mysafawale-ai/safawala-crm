@@ -108,6 +108,8 @@ export default function CreateProductOrderPage() {
   const [productSearch, setProductSearch] = useState("")
   const [loading, setLoading] = useState(false)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
+  const [couponValidating, setCouponValidating] = useState(false)
+  const [couponError, setCouponError] = useState("")
   
   // Calendar popover states for auto-close
   const [eventDateOpen, setEventDateOpen] = useState(false)
@@ -122,6 +124,8 @@ export default function CreateProductOrderPage() {
     payment_method: "Cash / Offline Payment",
     custom_amount: 0,
     discount_amount: 0,
+    coupon_code: "",
+    coupon_discount: 0,
     event_date: "",
     event_time: "10:00",
     delivery_date: "",
@@ -310,7 +314,9 @@ export default function CreateProductOrderPage() {
     const subtotal = items.reduce((s, i) => s + i.total_price, 0)
     const deposit = items.reduce((s, i) => s + i.security_deposit, 0)
     const discount = formData.discount_amount || 0
-    const subtotalAfterDiscount = Math.max(0, subtotal - discount)
+    const couponDiscount = formData.coupon_discount || 0
+    const totalDiscount = discount + couponDiscount
+    const subtotalAfterDiscount = Math.max(0, subtotal - totalDiscount)
     const gst = subtotalAfterDiscount * 0.05
     const grand = subtotalAfterDiscount + gst
 
@@ -322,6 +328,8 @@ export default function CreateProductOrderPage() {
     return {
       subtotal,
       discount,
+      couponDiscount,
+      totalDiscount,
       subtotalAfterDiscount,
       deposit,
       gst,
@@ -335,6 +343,59 @@ export default function CreateProductOrderPage() {
   const handleCustomerCreated = (newCustomer: Customer) => {
     setCustomers((c) => [...c, newCustomer])
     setSelectedCustomer(newCustomer)
+  }
+
+  // Validate and apply coupon
+  const handleApplyCoupon = async () => {
+    if (!formData.coupon_code.trim()) {
+      setCouponError("Please enter a coupon code")
+      return
+    }
+
+    setCouponValidating(true)
+    setCouponError("")
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: formData.coupon_code,
+          orderValue: totals.subtotalAfterDiscount, // Apply coupon after manual discount
+          customerId: selectedCustomer?.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.valid) {
+        setFormData({
+          ...formData,
+          coupon_discount: data.discount,
+        })
+        toast.success(data.message || 'Coupon applied successfully!')
+        setCouponError("")
+      } else {
+        setCouponError(data.message || data.error || 'Invalid coupon')
+        setFormData({ ...formData, coupon_discount: 0 })
+      }
+    } catch (error) {
+      console.error('Error validating coupon:', error)
+      setCouponError('Failed to validate coupon')
+      setFormData({ ...formData, coupon_discount: 0 })
+    } finally {
+      setCouponValidating(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setFormData({
+      ...formData,
+      coupon_code: "",
+      coupon_discount: 0,
+    })
+    setCouponError("")
+    toast.success('Coupon removed')
   }
 
   // Combine date and time into ISO string
@@ -404,6 +465,8 @@ export default function CreateProductOrderPage() {
           notes: formData.notes,
           payment_method: formData.payment_method,
           discount_amount: formData.discount_amount,
+          coupon_code: formData.coupon_code || null,
+          coupon_discount: formData.coupon_discount || 0,
           tax_amount: totals.gst,
           subtotal_amount: totals.subtotalAfterDiscount,
           total_amount: totals.grand,
@@ -432,6 +495,46 @@ export default function CreateProductOrderPage() {
         .insert(rows)
 
       if (itemsErr) throw itemsErr
+
+      // Track coupon usage if coupon was applied
+      if (formData.coupon_code && formData.coupon_discount > 0 && !isQuote) {
+        try {
+          // First, get the coupon ID
+          const { data: coupon } = await supabase
+            .from('coupons')
+            .select('id')
+            .eq('code', formData.coupon_code)
+            .single()
+
+          if (coupon) {
+            // Insert usage record
+            await supabase.from('coupon_usage').insert({
+              coupon_id: coupon.id,
+              customer_id: selectedCustomer.id,
+              order_id: order.id,
+              order_type: 'product_order',
+              discount_applied: formData.coupon_discount,
+              franchise_id: currentUser.franchise_id,
+            })
+
+            // Increment usage count
+            await supabase.rpc('increment', {
+              table_name: 'coupons',
+              row_id: coupon.id,
+              column_name: 'usage_count'
+            }).catch(() => {
+              // Fallback: manual increment if RPC doesn't exist
+              supabase
+                .from('coupons')
+                .update({ usage_count: supabase.rpc('increment', { amount: 1 }) })
+                .eq('id', coupon.id)
+            })
+          }
+        } catch (couponError) {
+          console.error('Failed to track coupon usage:', couponError)
+          // Don't fail the entire order if coupon tracking fails
+        }
+      }
 
       // Deduct inventory for each item (unless it's a quote)
       if (!isQuote) {
@@ -735,6 +838,54 @@ export default function CreateProductOrderPage() {
                   {formData.discount_amount > 0 && (
                     <p className="text-xs text-green-600 mt-1">
                       Discount: ₹{formData.discount_amount.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Row 2.7: Coupon Code */}
+                <div>
+                  <Label className="text-xs">Coupon Code (Optional)</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      type="text"
+                      value={formData.coupon_code}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          coupon_code: e.target.value.toUpperCase(),
+                        })
+                        setCouponError("")
+                      }}
+                      placeholder="Enter coupon code"
+                      maxLength={50}
+                      disabled={formData.coupon_discount > 0}
+                    />
+                    {formData.coupon_discount > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleRemoveCoupon}
+                        className="whitespace-nowrap"
+                      >
+                        Remove
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={couponValidating || !formData.coupon_code.trim()}
+                        className="whitespace-nowrap"
+                      >
+                        {couponValidating ? "Validating..." : "Apply"}
+                      </Button>
+                    )}
+                  </div>
+                  {couponError && (
+                    <p className="text-xs text-red-600 mt-1">{couponError}</p>
+                  )}
+                  {formData.coupon_discount > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Coupon Applied: -₹{formData.coupon_discount.toFixed(2)}
                     </p>
                   )}
                 </div>
@@ -1193,6 +1344,18 @@ export default function CreateProductOrderPage() {
                   <div className="flex justify-between text-green-600">
                     <span>Discount</span>
                     <span>-₹{totals.discount.toFixed(2)}</span>
+                  </div>
+                )}
+                {totals.couponDiscount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Coupon ({formData.coupon_code})</span>
+                    <span>-₹{totals.couponDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+                {totals.totalDiscount > 0 && (
+                  <div className="flex justify-between font-medium text-green-700 border-t pt-1">
+                    <span>Total Savings</span>
+                    <span>-₹{totals.totalDiscount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
