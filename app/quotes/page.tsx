@@ -428,8 +428,7 @@ function QuotesPageContent() {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       generated: { label: "Generated", variant: "secondary" as const, icon: FileText },
-      sent: { label: "Sent", variant: "default" as const, icon: Send },
-      accepted: { label: "Accepted", variant: "default" as const, icon: CheckCircle },
+      quote: { label: "Generated", variant: "secondary" as const, icon: FileText },
       rejected: { label: "Rejected", variant: "destructive" as const, icon: XCircle },
       converted: { label: "Converted", variant: "default" as const, icon: CheckCircle },
     }
@@ -1615,8 +1614,7 @@ export default function QuotesPage() {
 const getStatusBadge = (status: string) => {
     const statusConfig = {
       generated: { label: "Generated", variant: "secondary" as const, icon: FileText },
-      sent: { label: "Sent", variant: "default" as const, icon: Send },
-      accepted: { label: "Accepted", variant: "default" as const, icon: CheckCircle },
+      quote: { label: "Generated", variant: "secondary" as const, icon: FileText },
       rejected: { label: "Rejected", variant: "destructive" as const, icon: XCircle },
       converted: { label: "Converted", variant: "default" as const, icon: CheckCircle },
     }
@@ -1884,8 +1882,7 @@ const getStatusBadge = (status: string) => {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="quote">Generated</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="accepted">Accepted</SelectItem>
+                  <SelectItem value="converted">Converted</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
