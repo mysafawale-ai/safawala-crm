@@ -85,6 +85,10 @@ export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock'>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all')
+  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])  
+  const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
   const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null)
@@ -105,6 +109,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchProductsForUser()
+    fetchCategories()
   }, [])
 
   const fetchProductsForUser = async () => {
@@ -131,6 +136,27 @@ export default function InventoryPage() {
       toast.error("Failed to load products")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const { data: cats, error: catError } = await supabase
+        .from('product_categories')
+        .select('id, name, parent_id')
+        .eq('is_active', true)
+        .order('name')
+      
+      if (catError) throw catError
+      
+      // Separate main categories and subcategories
+      const mainCats = cats?.filter(c => !c.parent_id) || []
+      const subCats = cats?.filter(c => c.parent_id) || []
+      
+      setCategories(mainCats)
+      setSubcategories(subCats)
+    } catch (error) {
+      console.error('Error fetching categories:', error)
     }
   }
 
@@ -223,9 +249,19 @@ export default function InventoryPage() {
         if (stockFilter === 'out_of_stock' && product.stock_available > 0) return false
       }
 
+      // Category filter
+      if (categoryFilter !== 'all' && product.category_id !== categoryFilter) {
+        return false
+      }
+
+      // Subcategory filter
+      if (subcategoryFilter !== 'all' && product.subcategory_id !== subcategoryFilter) {
+        return false
+      }
+
       return true
     })
-  }, [products, debouncedSearchTerm, stockFilter])
+  }, [products, debouncedSearchTerm, stockFilter, categoryFilter, subcategoryFilter])
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -438,12 +474,15 @@ export default function InventoryPage() {
                     <Button variant="outline" size="sm" className="flex items-center bg-transparent">
                       <Filter className="w-4 h-4 mr-2" />
                       Filter
-                      {stockFilter !== 'all' && (
-                        <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">1</Badge>
+                      {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
+                        <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                          {[stockFilter !== 'all', categoryFilter !== 'all', subcategoryFilter !== 'all'].filter(Boolean).length}
+                        </Badge>
                       )}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Stock Status</div>
                     <DropdownMenuItem onClick={() => { setStockFilter('all'); setCurrentPage(1) }}>
                       {stockFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
                       {stockFilter !== 'all' && <div className="mr-2 h-4 w-4" />}
@@ -464,6 +503,40 @@ export default function InventoryPage() {
                       {stockFilter !== 'out_of_stock' && <div className="mr-2 h-4 w-4" />}
                       Out of Stock Only
                     </DropdownMenuItem>
+                    
+                    <div className="border-t my-1"></div>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Category</div>
+                    <DropdownMenuItem onClick={() => { setCategoryFilter('all'); setSubcategoryFilter('all'); setCurrentPage(1) }}>
+                      {categoryFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
+                      {categoryFilter !== 'all' && <div className="mr-2 h-4 w-4" />}
+                      All Categories
+                    </DropdownMenuItem>
+                    {categories.map(cat => (
+                      <DropdownMenuItem key={cat.id} onClick={() => { setCategoryFilter(cat.id); setSubcategoryFilter('all'); setCurrentPage(1) }}>
+                        {categoryFilter === cat.id && <CheckCircle className="mr-2 h-4 w-4" />}
+                        {categoryFilter !== cat.id && <div className="mr-2 h-4 w-4" />}
+                        {cat.name}
+                      </DropdownMenuItem>
+                    ))}
+                    
+                    {categoryFilter !== 'all' && subcategories.filter(sc => sc.parent_id === categoryFilter).length > 0 && (
+                      <>
+                        <div className="border-t my-1"></div>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Subcategory</div>
+                        <DropdownMenuItem onClick={() => { setSubcategoryFilter('all'); setCurrentPage(1) }}>
+                          {subcategoryFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
+                          {subcategoryFilter !== 'all' && <div className="mr-2 h-4 w-4" />}
+                          All Subcategories
+                        </DropdownMenuItem>
+                        {subcategories.filter(sc => sc.parent_id === categoryFilter).map(subcat => (
+                          <DropdownMenuItem key={subcat.id} onClick={() => { setSubcategoryFilter(subcat.id); setCurrentPage(1) }}>
+                            {subcategoryFilter === subcat.id && <CheckCircle className="mr-2 h-4 w-4" />}
+                            {subcategoryFilter !== subcat.id && <div className="mr-2 h-4 w-4" />}
+                            {subcat.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
