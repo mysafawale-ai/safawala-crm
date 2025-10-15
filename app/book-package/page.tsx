@@ -1119,7 +1119,7 @@ export default function BookPackageWizard() {
                   {/* Subtle context: resolved distance in km, for internal clarity */}
                   {selectedCustomer?.pincode ? (
                     <div className="flex justify-between text-xs text-gray-500">
-                      <span>Distance (from pincode 390001)</span>
+                      <span>Distance (from pincode {basePincode})</span>
                       <span>{Number(distanceKm) || 0} km</span>
                     </div>
                   ) : null}
