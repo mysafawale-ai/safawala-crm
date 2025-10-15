@@ -2039,7 +2039,8 @@ const getStatusBadge = (status: string) => {
                               size="sm"
                               variant="ghost"
                               title="Convert to Booking"
-                              disabled={quote.status !== "accepted" && quote.status !== "sent"}
+                              disabled={quote.status === "converted" || quote.status === "rejected"}
+                              className={quote.status === "converted" || quote.status === "rejected" ? "opacity-50 cursor-not-allowed" : "hover:text-green-600"}
                             >
                               <CheckCircle className="h-3.5 w-3.5" />
                             </Button>
