@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -80,8 +81,10 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(20)
+  const [itemsPerPage, setItemsPerPage] = useState(25)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false)
+  const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock'>('all')
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
   const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null)
@@ -203,14 +206,26 @@ export default function InventoryPage() {
   }
 
   const filteredProducts = useMemo(() => {
-    return products.filter(
-      (product) =>
+    return products.filter((product) => {
+      // Search filter
+      const matchesSearch =
         product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         product.product_code.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         product.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()),
-    )
-  }, [products, debouncedSearchTerm])
+        product.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+
+      if (!matchesSearch) return false
+
+      // Stock status filter
+      if (stockFilter !== 'all') {
+        if (stockFilter === 'in_stock' && product.stock_available <= product.reorder_level) return false
+        if (stockFilter === 'low_stock' && (product.stock_available > product.reorder_level || product.stock_available === 0)) return false
+        if (stockFilter === 'out_of_stock' && product.stock_available > 0) return false
+      }
+
+      return true
+    })
+  }, [products, debouncedSearchTerm, stockFilter])
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -418,10 +433,39 @@ export default function InventoryPage() {
                     className="pl-8"
                   />
                 </div>
-                <Button variant="outline" size="sm" className="flex items-center bg-transparent">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filter
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex items-center bg-transparent">
+                      <Filter className="w-4 h-4 mr-2" />
+                      Filter
+                      {stockFilter !== 'all' && (
+                        <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">1</Badge>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => { setStockFilter('all'); setCurrentPage(1) }}>
+                      {stockFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
+                      {stockFilter !== 'all' && <div className="mr-2 h-4 w-4" />}
+                      All Products
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setStockFilter('in_stock'); setCurrentPage(1) }}>
+                      {stockFilter === 'in_stock' && <CheckCircle className="mr-2 h-4 w-4" />}
+                      {stockFilter !== 'in_stock' && <div className="mr-2 h-4 w-4" />}
+                      In Stock Only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setStockFilter('low_stock'); setCurrentPage(1) }}>
+                      {stockFilter === 'low_stock' && <CheckCircle className="mr-2 h-4 w-4" />}
+                      {stockFilter !== 'low_stock' && <div className="mr-2 h-4 w-4" />}
+                      Low Stock Only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setStockFilter('out_of_stock'); setCurrentPage(1) }}>
+                      {stockFilter === 'out_of_stock' && <CheckCircle className="mr-2 h-4 w-4" />}
+                      {stockFilter !== 'out_of_stock' && <div className="mr-2 h-4 w-4" />}
+                      Out of Stock Only
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <div className="rounded-md border">
@@ -576,34 +620,55 @@ export default function InventoryPage() {
           </Card>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t">
-              <div className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+          {filteredProducts.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                    {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Select
+                      value={itemsPerPage.toString()}
+                      onValueChange={(value) => {
+                        setItemsPerPage(Number(value))
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <SelectTrigger className="w-[130px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10 / page</SelectItem>
+                        <SelectItem value="25">25 / page</SelectItem>
+                        <SelectItem value="50">50 / page</SelectItem>
+                        <SelectItem value="100">100 / page</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Product View Dialog */}
