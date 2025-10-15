@@ -1542,6 +1542,49 @@ export default function QuotesPage() {
     }
   }
 
+  // Convert quote to booking
+  const handleConvertQuote = async (quote: Quote) => {
+    // Show confirmation dialog
+    if (!confirm(`Are you sure you want to convert Quote ${quote.quote_number} to a booking?`)) {
+      return
+    }
+
+    try {
+      // Call convert API
+      const response = await fetch("/api/quotes/convert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          quote_id: quote.id,
+          booking_type: quote.booking_type || "product"
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || "Failed to convert quote")
+      }
+
+      const result = await response.json()
+      
+      toast({
+        title: "Success!",
+        description: `Quote converted to booking ${result.booking_number}`,
+      })
+
+      await loadQuotes() // Refresh quotes list
+    } catch (error) {
+      console.error("Error converting quote:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to convert quote",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Open edit dialog and populate form
   const handleEditQuote = (quote: Quote) => {
     setSelectedQuote(quote)
@@ -2053,32 +2096,24 @@ const getStatusBadge = (status: string) => {
                         >
                           <Download className="h-3.5 w-3.5" />
                         </Button>
-                        <ConvertQuoteDialog 
-                          quote={quote}
-                          onSuccess={(bookingId) => {
-                            // Refresh quotes and optionally redirect to booking
-                            loadQuotes()
-                            toast({
-                              title: "Success",
-                              description: "Quote converted to booking successfully",
-                            })
-                          }}
-                          trigger={
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Convert to Booking"
-                              disabled={quote.status === "converted" || quote.status === "rejected"}
-                              className={quote.status === "converted" || quote.status === "rejected" ? "opacity-50 cursor-not-allowed" : "hover:text-green-600"}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                            </Button>
-                          }
-                        />
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleRejectQuote(quote)}
+                          onClick={() => handleConvertQuote(quote)}
+                          title="Convert to Booking"
+                          disabled={quote.status === "converted" || quote.status === "rejected"}
+                          className={quote.status === "converted" || quote.status === "rejected" ? "opacity-50 cursor-not-allowed" : "hover:text-green-600"}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to reject Quote ${quote.quote_number}?`)) {
+                              handleRejectQuote(quote)
+                            }
+                          }}
                           title="Reject Quote"
                           disabled={quote.status === "rejected"}
                           className={quote.status === "rejected" ? "opacity-50 cursor-not-allowed" : "hover:text-red-600"}
