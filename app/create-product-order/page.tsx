@@ -1068,13 +1068,14 @@ export default function CreateProductOrderPage() {
               <CardContent className="space-y-4">
                 {/* Category Filter Buttons */}
                 {categories.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
                     <Button
                       size="sm"
                       variant={selectedCategory === null ? "default" : "outline"}
                       onClick={() => setSelectedCategory(null)}
+                      className="h-7 px-3 text-xs font-normal"
                     >
-                      All Categories
+                      All
                     </Button>
                     {categories.map((cat) => (
                       <Button
@@ -1082,6 +1083,7 @@ export default function CreateProductOrderPage() {
                         size="sm"
                         variant={selectedCategory === cat ? "default" : "outline"}
                         onClick={() => setSelectedCategory(cat)}
+                        className="h-7 px-3 text-xs font-normal"
                       >
                         {cat}
                       </Button>
