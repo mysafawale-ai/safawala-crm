@@ -272,10 +272,10 @@ export default function ManageOffersDialog() {
                   value={formData.discount_type} 
                   onValueChange={(v: any) => setFormData({ ...formData, discount_type: v })}
                 >
-                  <SelectTrigger id="discount_type">
+                  <SelectTrigger id="discount_type" className="w-full">
                     <SelectValue placeholder="Select discount type" />
                   </SelectTrigger>
-                  <SelectContent position="popper" sideOffset={5}>
+                  <SelectContent position="popper" className="z-[100]">
                     <SelectItem value="percentage">Percentage Discount (e.g., 10% off)</SelectItem>
                     <SelectItem value="flat">Flat Amount Discount (e.g., ₹500 off)</SelectItem>
                     <SelectItem value="buy_x_get_y">Buy X Get Y Free (e.g., Buy 2 Get 1)</SelectItem>
