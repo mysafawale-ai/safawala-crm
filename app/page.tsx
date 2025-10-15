@@ -56,19 +56,26 @@ export default function LoginPage() {
     try {
       console.log("[v0] Attempting login with:", email)
       await signIn(email, password)
+      
+      // Wait a bit for session to be properly set
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
       toast.success("Logged in successfully")
       console.log("[v0] Login successful, redirecting to dashboard")
+      
       const urlParams = new URLSearchParams(window.location.search)
       const redirectTo = urlParams.get("redirect") || "/dashboard"
-      router.push(redirectTo)
+      
+      // Use window.location for full page reload to ensure session is loaded
+      window.location.href = redirectTo
     } catch (error: any) {
       console.error("[v0] Login error:", error)
       const errorMessage = error.message || "Login failed. Please check your credentials."
       setError(errorMessage)
       toast.error(errorMessage)
-    } finally {
-      setIsLoading(false)
+      setIsLoading(false) // Only reset loading on error
     }
+    // Don't set isLoading to false on success - let the redirect happen
   }
 
   if (isCheckingAuth) {

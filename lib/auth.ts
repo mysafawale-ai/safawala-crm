@@ -28,8 +28,18 @@ export async function signIn(email: string, password: string) {
     const data = await response.json()
     const { user } = data
 
-    // Store user data securely
-    localStorage.setItem("safawala_user", JSON.stringify(user))
+    // Store user data securely and wait for it to complete
+    try {
+      localStorage.setItem("safawala_user", JSON.stringify(user))
+      // Verify it was stored
+      const stored = localStorage.getItem("safawala_user")
+      if (!stored) {
+        throw new Error("Failed to store session")
+      }
+    } catch (storageError) {
+      console.error("[v0] localStorage error:", storageError)
+      throw new Error("Failed to save session. Please try again.")
+    }
 
     return { user, userData: user }
   } catch (error) {
