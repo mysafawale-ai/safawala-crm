@@ -6,6 +6,8 @@ export async function POST(request: NextRequest) {
     const supabase = createClient()
     const { quote_id, booking_type } = await request.json()
 
+    console.log("[Convert Quote] Starting conversion:", { quote_id, booking_type })
+
     if (!quote_id) {
       return NextResponse.json(
         { error: "Quote ID is required" },
@@ -57,14 +59,40 @@ export async function POST(request: NextRequest) {
       throw new Error("Failed to update quote status")
     }
 
-    // Second, create a NEW booking entry (duplicate of the quote)
-    const bookingData = {
-      ...quote,
+    // Second, create a NEW booking entry (duplicate ALL data from quote)
+    // Generate new unique order/package number
+    const timestamp = Date.now()
+    const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+    const newBookingNumber = tableName === "package_bookings" 
+      ? `PKG-${timestamp}${randomSuffix}`
+      : `BO-${timestamp}${randomSuffix}`
+    
+    // Copy ALL fields from quote except id, created_at, updated_at, and number fields
+    const bookingData: any = {
+      ...quote, // Copy ALL quote data
       id: undefined, // Remove ID to create new record
       is_quote: false, // This is a booking, not a quote
       status: "confirmed", // Customer already confirmed, skip pending_payment
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
+    }
+    
+    // Set the appropriate number field based on table type
+    if (tableName === "package_bookings") {
+      bookingData.package_number = newBookingNumber
+    } else {
+      bookingData.order_number = newBookingNumber
+    }
+
+    // Add package-specific fields if it's a package booking
+    if (booking_type === "package") {
+      bookingData.package_id = quote.package_id
+      bookingData.variant_id = quote.variant_id
+    }
+
+    // Add sales staff if present
+    if (quote.sales_closed_by_id) {
+      bookingData.sales_closed_by_id = quote.sales_closed_by_id
     }
 
     const { data: newBooking, error: createError } = await supabase
@@ -75,7 +103,8 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.error("Error creating booking:", createError)
-      throw new Error("Failed to create booking from quote")
+      console.error("Booking data:", bookingData)
+      throw new Error(`Failed to create booking from quote: ${createError.message}`)
     }
 
     // If product order, duplicate the order items for the new booking
@@ -223,9 +252,13 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Error in convert API:", error)
+    console.error("[Convert Quote] Error in convert API:", error)
+    console.error("[Convert Quote] Error stack:", error.stack)
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { 
+        error: error.message || "Internal server error",
+        details: error.toString()
+      },
       { status: 500 }
     )
   }
