@@ -119,7 +119,9 @@ export default function CreateProductOrderPage() {
     event_type: "Wedding",
     event_participant: "Both",
     payment_type: "full" as "full" | "advance" | "partial",
+    payment_method: "Cash / Offline Payment",
     custom_amount: 0,
+    discount_amount: 0,
     event_date: "",
     event_time: "10:00",
     delivery_date: "",
@@ -307,8 +309,10 @@ export default function CreateProductOrderPage() {
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + i.total_price, 0)
     const deposit = items.reduce((s, i) => s + i.security_deposit, 0)
-    const gst = subtotal * 0.05
-    const grand = subtotal + gst
+    const discount = formData.discount_amount || 0
+    const subtotalAfterDiscount = Math.max(0, subtotal - discount)
+    const gst = subtotalAfterDiscount * 0.05
+    const grand = subtotalAfterDiscount + gst
 
     let payable = grand
     if (formData.payment_type === "advance") payable = grand * 0.5
@@ -317,6 +321,8 @@ export default function CreateProductOrderPage() {
 
     return {
       subtotal,
+      discount,
+      subtotalAfterDiscount,
       deposit,
       gst,
       grand,
@@ -396,8 +402,10 @@ export default function CreateProductOrderPage() {
           bride_whatsapp: formData.bride_whatsapp,
           bride_address: formData.bride_address,
           notes: formData.notes,
+          payment_method: formData.payment_method,
+          discount_amount: formData.discount_amount,
           tax_amount: totals.gst,
-          subtotal_amount: totals.subtotal,
+          subtotal_amount: totals.subtotalAfterDiscount,
           total_amount: totals.grand,
           amount_paid: totals.payable,  // ✅ BUG FIX #2: Use calculated payment
           pending_amount: totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
@@ -683,6 +691,51 @@ export default function CreateProductOrderPage() {
                       className="mt-2"
                       placeholder="Custom amount"
                     />
+                  )}
+                </div>
+
+                {/* Row 2.5: Payment Method */}
+                <div>
+                  <Label className="text-xs">Payment Method</Label>
+                  <Select
+                    value={formData.payment_method}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, payment_method: v })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
+                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
+                      <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
+                      <SelectItem value="International Payment Method">International Payment Method</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Row 2.6: Discount */}
+                <div>
+                  <Label className="text-xs">Discount Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={formData.discount_amount}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        discount_amount: Number(e.target.value || 0),
+                      })
+                    }
+                    className="mt-1"
+                    placeholder="Enter discount amount"
+                  />
+                  {formData.discount_amount > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Discount: ₹{formData.discount_amount.toFixed(2)}
+                    </p>
                   )}
                 </div>
 
@@ -1136,6 +1189,12 @@ export default function CreateProductOrderPage() {
                   <span>Subtotal</span>
                   <span>₹{totals.subtotal.toFixed(2)}</span>
                 </div>
+                {totals.discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount</span>
+                    <span>-₹{totals.discount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>GST (5%)</span>
                   <span>₹{totals.gst.toFixed(2)}</span>
