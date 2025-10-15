@@ -94,13 +94,6 @@ const navigationItems = {
       description: "Track wedding accessories, manage stock levels, and monitor product availability",
     },
     {
-      title: "Product Archive",
-      url: "/product-archive",
-      icon: Archive,
-      roles: ["super_admin", "franchise_admin", "staff"],
-      description: "Manage lost, damaged, stolen, or discontinued products with detailed records",
-    },
-    {
       title: "Packages",
       url: "/sets",
       icon: Layers,
@@ -151,6 +144,13 @@ const navigationItems = {
       icon: Truck,
       roles: ["super_admin", "franchise_admin", "staff"],
       description: "Manage delivery schedules, track shipments, coordinate logistics, and handle product returns",
+    },
+    {
+      title: "Product Archive",
+      url: "/product-archive",
+      icon: Archive,
+      roles: ["super_admin", "franchise_admin", "staff"],
+      description: "Manage lost, damaged, stolen, or discontinued products with detailed records",
     },
     {
       title: "Payroll",
