@@ -138,11 +138,11 @@ const navigationItems = {
       description: "Record business expenses, categorize costs, and track spending patterns",
     },
     {
-      title: "Deliveries",
+      title: "Deliveries & Returns",
       url: "/deliveries",
       icon: Truck,
       roles: ["super_admin", "franchise_admin", "staff"],
-      description: "Manage delivery schedules, track shipments, and coordinate logistics",
+      description: "Manage delivery schedules, track shipments, coordinate logistics, and handle product returns",
     },
     {
       title: "Payroll",
