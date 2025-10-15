@@ -39,30 +39,72 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Convert the quote to a booking by updating its fields
-    const { data: updatedBooking, error: updateError } = await supabase
+    // Convert the quote to a booking by:
+    // 1. Creating a NEW booking entry (duplicate of quote)
+    // 2. Marking the original quote as 'converted' (keeps it visible in quotes)
+    
+    // First, update the quote status to 'converted'
+    const { error: quoteUpdateError } = await supabase
       .from(tableName)
       .update({
-        is_quote: false,
-        status: "pending_payment",
+        status: "converted",
         updated_at: new Date().toISOString()
       })
       .eq("id", quote_id)
+
+    if (quoteUpdateError) {
+      console.error("Error updating quote status:", quoteUpdateError)
+      throw new Error("Failed to update quote status")
+    }
+
+    // Second, create a NEW booking entry (duplicate of the quote)
+    const bookingData = {
+      ...quote,
+      id: undefined, // Remove ID to create new record
+      is_quote: false, // This is a booking, not a quote
+      status: "pending_payment", // New booking status
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    const { data: newBooking, error: createError } = await supabase
+      .from(tableName)
+      .insert(bookingData)
       .select()
       .single()
 
-    if (updateError) {
-      console.error("Error converting quote:", updateError)
-      throw new Error("Failed to convert quote to booking")
+    if (createError) {
+      console.error("Error creating booking:", createError)
+      throw new Error("Failed to create booking from quote")
+    }
+
+    // If product order, duplicate the order items for the new booking
+    if (booking_type !== "package" && newBooking) {
+      const { data: quoteItems, error: itemsFetchError } = await supabase
+        .from("product_order_items")
+        .select("*")
+        .eq("order_id", quote_id)
+
+      if (!itemsFetchError && quoteItems && quoteItems.length > 0) {
+        const newItems = quoteItems.map(item => ({
+          ...item,
+          id: undefined, // Remove ID to create new records
+          order_id: newBooking.id // Link to new booking
+        }))
+
+        await supabase
+          .from("product_order_items")
+          .insert(newItems)
+      }
     }
 
     // For product orders, update inventory (reduce stock)
-    if (booking_type !== "package") {
-      // Fetch the product order items
+    if (booking_type !== "package" && newBooking) {
+      // Fetch the NEW booking's product order items
       const { data: items, error: itemsError } = await supabase
         .from("product_order_items")
         .select("*, product:products(id, name, total_quantity)")
-        .eq("order_id", quote_id)
+        .eq("order_id", newBooking.id)
 
       if (!itemsError && items && items.length > 0) {
         for (const item of items) {
@@ -81,8 +123,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      booking_id: updatedBooking.id,
-      booking_number: tableName === "package_bookings" ? updatedBooking.package_number : updatedBooking.order_number,
+      booking_id: newBooking?.id,
+      booking_number: tableName === "package_bookings" ? newBooking?.package_number : newBooking?.order_number,
       message: "Quote successfully converted to booking"
     })
 

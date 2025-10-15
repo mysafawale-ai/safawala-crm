@@ -2162,11 +2162,7 @@ const getStatusBadge = (status: string) => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to reject Quote ${quote.quote_number}?`)) {
-                              handleRejectQuote(quote)
-                            }
-                          }}
+                          onClick={() => handleRejectQuote(quote)}
                           title="Reject Quote"
                           disabled={quote.status === "rejected"}
                           className={quote.status === "rejected" ? "opacity-50 cursor-not-allowed" : "hover:text-red-600"}
