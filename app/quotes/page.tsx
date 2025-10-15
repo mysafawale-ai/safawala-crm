@@ -1193,7 +1193,7 @@ function QuotesPageContent() {
                       )}
                       {selectedQuote.discount_amount && selectedQuote.discount_amount > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
-                          <span>Discount:</span>
+                          <span>Manual Discount:</span>
                           <span className="font-medium">- {formatCurrency(selectedQuote.discount_amount)}</span>
                         </div>
                       )}
@@ -1203,16 +1203,96 @@ function QuotesPageContent() {
                           <span className="font-medium">{formatCurrency(selectedQuote.tax_amount)}</span>
                         </div>
                       )}
-                      {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span>Security Deposit:</span>
-                          <span className="font-medium">{formatCurrency(selectedQuote.security_deposit)}</span>
-                        </div>
-                      )}
+                      
+                      {/* Total Amount */}
                       <div className="flex justify-between text-base font-bold pt-2 border-t">
                         <span>Total Amount:</span>
                         <span className="text-green-600 text-lg">{formatCurrency(selectedQuote.total_amount)}</span>
                       </div>
+
+                      {/* Security Deposit - Refundable */}
+                      {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                        <div className="flex justify-between text-sm bg-blue-50 p-2 rounded">
+                          <span className="flex items-center gap-1">
+                            <span>🔒 Refundable Security Deposit</span>
+                          </span>
+                          <span className="font-medium text-blue-700">{formatCurrency(selectedQuote.security_deposit)}</span>
+                        </div>
+                      )}
+
+                      {/* Grand Total with Security Deposit */}
+                      {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                        <div className="flex justify-between text-base font-bold bg-purple-50 p-2 rounded">
+                          <span>💎 Grand Total (Including Security):</span>
+                          <span className="text-purple-700 text-lg">
+                            {formatCurrency(selectedQuote.total_amount + selectedQuote.security_deposit)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Payment Breakdown Section */}
+                      {(selectedQuote.amount_paid !== undefined && selectedQuote.amount_paid > 0) || 
+                       (selectedQuote.pending_amount !== undefined && selectedQuote.pending_amount > 0) || 
+                       selectedQuote.payment_type ? (
+                        <div className="pt-3 mt-3 border-t space-y-2">
+                          <h4 className="font-semibold text-sm text-gray-700 mb-2">💰 Payment Breakdown</h4>
+                          
+                          {/* Amount Paid */}
+                          {selectedQuote.amount_paid !== undefined && selectedQuote.amount_paid > 0 && (
+                            <div className="flex justify-between text-sm bg-green-50 p-2 rounded">
+                              <span>✅ Amount Paid:</span>
+                              <span className="font-medium text-green-700">{formatCurrency(selectedQuote.amount_paid)}</span>
+                            </div>
+                          )}
+
+                          {/* Balance Due */}
+                          {(() => {
+                            const balanceDue = selectedQuote.total_amount - (selectedQuote.amount_paid || 0)
+                            return balanceDue > 0 ? (
+                              <div className="flex justify-between text-sm bg-yellow-50 p-2 rounded">
+                                <span>⏳ Balance Due:</span>
+                                <span className="font-medium text-yellow-700">{formatCurrency(balanceDue)}</span>
+                              </div>
+                            ) : null
+                          })()}
+
+                          {/* Amount Payable Now - For Advance/Partial */}
+                          {selectedQuote.payment_type && ['advance', 'partial'].includes(selectedQuote.payment_type) && 
+                           (!selectedQuote.amount_paid || selectedQuote.amount_paid === 0) && (
+                            <div className="flex justify-between text-sm bg-orange-50 p-2 rounded border border-orange-200">
+                              <span className="font-semibold">💳 Amount Payable Now:</span>
+                              <span className="font-bold text-orange-700">
+                                {formatCurrency(
+                                  selectedQuote.payment_type === 'advance' 
+                                    ? Math.round(selectedQuote.total_amount * 0.3) // 30% advance
+                                    : Math.round(selectedQuote.total_amount * 0.5) // 50% partial
+                                )}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Amount to be Paid on Delivery */}
+                          {selectedQuote.payment_type === 'partial' && selectedQuote.amount_paid && selectedQuote.amount_paid > 0 && (
+                            <div className="flex justify-between text-sm bg-blue-50 p-2 rounded">
+                              <span>🚚 Amount to be Paid on Delivery:</span>
+                              <span className="font-medium text-blue-700">
+                                {formatCurrency(selectedQuote.total_amount - selectedQuote.amount_paid)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Final Settlement Amount (after return) */}
+                          {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && 
+                           selectedQuote.amount_paid && selectedQuote.amount_paid >= selectedQuote.total_amount && (
+                            <div className="flex justify-between text-sm bg-emerald-50 p-2 rounded border border-emerald-200">
+                              <span className="font-semibold">🎉 Security Deposit Refund (After Return):</span>
+                              <span className="font-bold text-emerald-700">
+                                {formatCurrency(selectedQuote.security_deposit)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   </Card>
                 )}

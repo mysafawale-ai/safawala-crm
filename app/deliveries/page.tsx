@@ -18,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase"
-import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 const supabase = createClient()
@@ -78,6 +79,7 @@ interface Staff {
 
 export default function DeliveriesPage() {
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState("deliveries")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
@@ -376,8 +378,8 @@ export default function DeliveriesPage() {
             <span>Back</span>
           </Button>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Wedding Turban Order Fulfillment</h2>
-            <p className="text-muted-foreground">Manage delivery schedules and track order fulfillment</p>
+            <h2 className="text-3xl font-bold tracking-tight">📦 Deliveries & Returns Management</h2>
+            <p className="text-muted-foreground">Schedule deliveries, track fulfillment, and manage product returns</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -802,38 +804,53 @@ export default function DeliveriesPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search deliveries..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="in_transit">In Transit</SelectItem>
-            <SelectItem value="delivered">Delivered</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Tabs: Deliveries & Returns */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+          <TabsTrigger value="deliveries" className="flex items-center gap-2">
+            <Truck className="h-4 w-4" />
+            Deliveries
+          </TabsTrigger>
+          <TabsTrigger value="returns" className="flex items-center gap-2">
+            <RotateCcw className="h-4 w-4" />
+            Returns
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Deliveries Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Delivery Orders</CardTitle>
-          <CardDescription>Manage and track all delivery orders</CardDescription>
-        </CardHeader>
-        <CardContent>
+        {/* DELIVERIES TAB */}
+        <TabsContent value="deliveries" className="space-y-4">
+          {/* Filters */}
+          <div className="flex items-center space-x-2">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search deliveries..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in_transit">In Transit</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Deliveries Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>📦 Delivery Orders</CardTitle>
+              <CardDescription>Manage and track all delivery orders</CardDescription>
+            </CardHeader>
+            <CardContent>
           <div className="space-y-4">
             {tableNotFound ? (
               <div className="text-center py-12 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -1107,6 +1124,136 @@ export default function DeliveriesPage() {
           </CardContent>
         )}
       </Card>
+        </TabsContent>
+
+        {/* RETURNS TAB */}
+        <TabsContent value="returns" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>🔄 Returns Management</CardTitle>
+              <CardDescription>Track and schedule product returns from completed deliveries</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(() => {
+                  // Filter deliveries that have been delivered and have linked bookings (potential returns)
+                  const returnsData = deliveries
+                    .filter(d => d.booking_id && d.status === 'delivered')
+                    .map(delivery => {
+                      const booking = bookingsById.get(delivery.booking_id!)
+                      const returnDate = getCurrentReturnISO(delivery)
+                      const returnDateObj = returnDate ? new Date(returnDate) : null
+                      const isOverdue = returnDateObj && returnDateObj < new Date()
+                      
+                      return {
+                        delivery,
+                        booking,
+                        returnDate,
+                        returnDateObj,
+                        isOverdue,
+                        canReschedule: true
+                      }
+                    })
+                    .sort((a, b) => {
+                      // Sort by return date (overdue first, then by date)
+                      if (a.isOverdue && !b.isOverdue) return -1
+                      if (!a.isOverdue && b.isOverdue) return 1
+                      if (!a.returnDateObj) return 1
+                      if (!b.returnDateObj) return -1
+                      return a.returnDateObj.getTime() - b.returnDateObj.getTime()
+                    })
+
+                  if (returnsData.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <PackageCheck className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Returns Pending</h3>
+                        <p className="text-sm text-gray-600 max-w-md mx-auto">
+                          Returns will appear here after deliveries are completed. Link bookings to deliveries to track returns.
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  return returnsData.map(({ delivery, booking, returnDate, returnDateObj, isOverdue }) => (
+                    <div 
+                      key={delivery.id} 
+                      className={`flex items-center justify-between p-4 border rounded-lg ${
+                        isOverdue ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className={`p-2 rounded-full ${isOverdue ? 'bg-red-100' : 'bg-blue-100'}`}>
+                          {isOverdue ? (
+                            <XCircle className="h-5 w-5 text-red-600" />
+                          ) : (
+                            <RotateCcw className="h-5 w-5 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium">{delivery.customer_name}</p>
+                            {isOverdue && (
+                              <Badge variant="destructive" className="text-xs">⚠️ Overdue</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Delivery: {delivery.delivery_number}
+                            {booking && ` • Booking: ${booking.booking_number}`}
+                          </p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <p className="text-xs text-muted-foreground">
+                              📍 {delivery.delivery_address}
+                            </p>
+                            {returnDateObj && (
+                              <p className={`text-xs font-medium ${isOverdue ? 'text-red-700' : 'text-gray-700'}`}>
+                                🔄 Return: {returnDateObj.toLocaleDateString()} at {returnDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDelivery(delivery)
+                            if (returnDateObj) {
+                              const dateStr = returnDateObj.toISOString().split('T')[0]
+                              const timeStr = returnDateObj.toTimeString().slice(0, 5)
+                              setRescheduleForm({ date: dateStr, time: timeStr })
+                            } else {
+                              setRescheduleForm({ date: '', time: '18:00' })
+                            }
+                            setShowRescheduleDialog(true)
+                          }}
+                          className="flex items-center gap-1"
+                        >
+                          <CalendarClock className="h-4 w-4" />
+                          Reschedule
+                        </Button>
+                        <Button
+                          variant={isOverdue ? "destructive" : "default"}
+                          size="sm"
+                          onClick={() => {
+                            // Open view dialog to see full details
+                            setSelectedDelivery(delivery)
+                            setShowViewDialog(true)
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* View Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
