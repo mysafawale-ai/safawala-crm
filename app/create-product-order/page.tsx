@@ -117,6 +117,9 @@ export default function CreateProductOrderPage() {
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [couponValidating, setCouponValidating] = useState(false)
   const [couponError, setCouponError] = useState("")
+  const [availabilityModalFor, setAvailabilityModalFor] = useState<{ id: string; name: string } | null>(null)
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  const [availabilityRows, setAvailabilityRows] = useState<{ date: string; kind: 'order' | 'package'; ref?: string; qty: number }[]>([])
   
   // Calendar popover states for auto-close
   const [eventDateOpen, setEventDateOpen] = useState(false)
@@ -435,6 +438,48 @@ export default function CreateProductOrderPage() {
     const [hours, minutes] = timeStr.split(":")
     date.setHours(parseInt(hours), parseInt(minutes), 0, 0)
     return date.toISOString()
+  }
+
+  // On-demand availability fetch for a single product around event date (5-day window)
+  const checkAvailability = async (productId: string, productName: string) => {
+    setAvailabilityModalFor({ id: productId, name: productName })
+    setAvailabilityLoading(true)
+    setAvailabilityRows([])
+    try {
+      const base = formData.event_date ? new Date(formData.event_date) : new Date()
+      const start = new Date(base); start.setDate(start.getDate() - 2)
+      const end = new Date(base); end.setDate(end.getDate() + 2)
+      const startISO = start.toISOString(); const endISO = end.toISOString()
+
+      const { data: orderItems } = await supabase
+        .from('product_order_items')
+        .select('product_id, quantity, order:product_orders(event_date, delivery_date, return_date, order_number, status)')
+        .eq('product_id', productId)
+
+      const rows: { date: string; kind: 'order' | 'package'; ref?: string; qty: number }[] = []
+      const within = (iso?: string | null) => iso ? (new Date(iso) >= new Date(startISO) && new Date(iso) <= new Date(endISO)) : false
+      const overlap = (a?: string | null, b?: string | null) => {
+        const s = a ? new Date(a) : null; const e = b ? new Date(b) : null
+        const S = new Date(startISO); const E = new Date(endISO)
+        if (!s && !e) return false
+        const from = s ?? e!; const to = e ?? s!
+        return from <= E && to >= S
+      }
+      for (const r of (orderItems || []) as any[]) {
+        const st = r.order?.status
+        if (!st || ['cancelled'].includes(st)) continue
+        const d = r.order?.event_date
+        const hit = d ? within(d) : overlap(r.order?.delivery_date, r.order?.return_date)
+        if (!hit) continue
+        rows.push({ date: d || r.order?.delivery_date || r.order?.return_date, kind: 'order', ref: r.order?.order_number, qty: Number(r.quantity)||0 })
+      }
+      rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      setAvailabilityRows(rows)
+    } catch (e) {
+      setAvailabilityRows([])
+    } finally {
+      setAvailabilityLoading(false)
+    }
   }
 
   // Submit order or quote
@@ -1164,6 +1209,13 @@ export default function CreateProductOrderPage() {
                   />
                 </div>
 
+                {/* Event date hint */}
+                {!formData.event_date && (
+                  <div className="text-xs text-orange-600 text-center py-2 bg-orange-50 rounded border border-orange-200">
+                    💡 Set event date above to check product availability for specific dates
+                  </div>
+                )}
+
                 {/* Check Availability Button */}
                 {formData.event_date && (
                   <div className="flex justify-center">
@@ -1226,6 +1278,16 @@ export default function CreateProductOrderPage() {
                             )}
                           </div>
                         </div>
+                        {formData.event_date && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => checkAvailability(p.id, p.name)}
+                            className="mb-2 h-7 text-[10px]"
+                          >
+                            Check availability
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           onClick={() => addProduct(p)}
@@ -1542,6 +1604,44 @@ export default function CreateProductOrderPage() {
         onOpenChange={setShowNewCustomer}
         onCustomerCreated={handleCustomerCreated}
       />
+
+      {/* Availability Modal */}
+      {availabilityModalFor && (
+        <Dialog open={true} onOpenChange={() => setAvailabilityModalFor(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Availability for {availabilityModalFor.name}</DialogTitle>
+            </DialogHeader>
+            <div className="text-sm space-y-2">
+              <div className="text-xs text-gray-600">
+                Checking 5-day window around event date.
+                {formData.event_date && (
+                  <span className="block mt-1">
+                    {new Date(new Date(formData.event_date).setDate(new Date(formData.event_date).getDate()-2)).toLocaleDateString()} → {new Date(new Date(formData.event_date).setDate(new Date(formData.event_date).getDate()+2)).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+              {availabilityLoading ? (
+                <div className="text-sm">Loading...</div>
+              ) : availabilityRows.length === 0 ? (
+                <div className="text-sm text-green-700">Great choice! No bookings in the last/next 2 days. You can select this product.</div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-auto">
+                  {availabilityRows.map((r, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-[12px]">
+                      <span>{new Date(r.date).toLocaleDateString()} • {r.kind === 'order' ? 'Order' : 'Package'} {r.ref || ''}</span>
+                      <span className="font-medium">×{r.qty}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setAvailabilityModalFor(null)}>Close</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
