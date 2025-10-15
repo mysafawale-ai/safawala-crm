@@ -81,10 +81,16 @@ export default function BookPackageWizard() {
     bride_whatsapp: "",
     notes: "",
     payment_type: "full" as "full" | "advance" | "partial",
-    custom_amount: 0
+    custom_amount: 0,
+    discount_type: "flat" as "flat" | "percentage",
+    discount_amount: 0,
+    coupon_code: "",
+    coupon_discount: 0
   })
   const [variantDialogOpen, setVariantDialogOpen] = useState(false)
   const [selectedPackageForVariants, setSelectedPackageForVariants] = useState<PackageSet | null>(null)
+  const [couponValidating, setCouponValidating] = useState(false)
+  const [couponError, setCouponError] = useState("")
 
   // Deposit policy: where to collect refundable security deposit
   // booking: collect now; delivery: collect later; none: do not collect
@@ -222,6 +228,8 @@ export default function BookPackageWizard() {
         subtotal: packagePrice,
         baseSubtotal: packagePrice,
         distanceSurcharge: 0,
+        manualDiscount: 0,
+        couponDiscount: 0,
         gst,
         grand,
         payable, // package portion due now
@@ -240,22 +248,45 @@ export default function BookPackageWizard() {
     const subtotal = bookingItems.reduce((s, i) => s + i.total_price, 0)
     const distanceSurcharge = bookingItems.reduce((s, i) => s + (i.distance_addon || 0) * i.quantity, 0)
     const baseSubtotal = Math.max(0, subtotal - distanceSurcharge)
-    const gst = subtotal * 0.05
-    const grand = subtotal + gst
+    
+    // Apply manual discount
+    let manualDiscount = 0
+    if (formData.discount_type === "flat") {
+      manualDiscount = Math.min(subtotal, formData.discount_amount || 0)
+    } else if (formData.discount_type === "percentage") {
+      const percentage = Math.min(100, Math.max(0, formData.discount_amount || 0))
+      manualDiscount = subtotal * (percentage / 100)
+    }
+    
+    const subtotalAfterDiscount = Math.max(0, subtotal - manualDiscount)
+    
+    // Apply coupon discount (on subtotal after manual discount)
+    const couponDiscount = Math.min(subtotalAfterDiscount, formData.coupon_discount || 0)
+    const subtotalAfterCoupon = Math.max(0, subtotalAfterDiscount - couponDiscount)
+    
+    const gst = subtotalAfterCoupon * 0.05
+    const grand = subtotalAfterCoupon + gst
+    
     let payable = grand // package portion due now
     const advanceDue = formData.payment_type === "advance" ? grand * 0.5 : 0
     if (formData.payment_type === "advance") payable = advanceDue
     else if (formData.payment_type === "partial") payable = Math.min(grand, Math.max(0, formData.custom_amount))
+    
     const securityDeposit = bookingItems.reduce((s, i) => s + (i.security_deposit || 0) * i.quantity, 0)
     const depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
     const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
     const payableNowTotal = payable + depositDueNow
     const remainingPackage = grand - payable
     const remainingTotal = remainingPackage + depositDueLater
+    
     return {
       subtotal,
       baseSubtotal,
       distanceSurcharge,
+      manualDiscount,
+      subtotalAfterDiscount,
+      couponDiscount,
+      subtotalAfterCoupon,
       gst,
       grand,
       payable, // package portion due now
@@ -444,6 +475,59 @@ export default function BookPackageWizard() {
     resolveKm()
   }, [selectedCustomer?.pincode])
 
+  // Validate and apply coupon
+  const handleApplyCoupon = async () => {
+    if (!formData.coupon_code.trim()) {
+      setCouponError("Please enter a coupon code")
+      return
+    }
+
+    setCouponValidating(true)
+    setCouponError("")
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: formData.coupon_code,
+          orderValue: totals.subtotalAfterDiscount || totals.subtotal, // Apply coupon after manual discount
+          customerId: selectedCustomer?.id,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.valid) {
+        setFormData({
+          ...formData,
+          coupon_discount: data.discount,
+        })
+        toast.success(data.message || 'Coupon applied successfully!')
+        setCouponError("")
+      } else {
+        setCouponError(data.message || data.error || 'Invalid coupon')
+        setFormData({ ...formData, coupon_discount: 0 })
+      }
+    } catch (error) {
+      console.error('Error validating coupon:', error)
+      setCouponError('Failed to validate coupon')
+      setFormData({ ...formData, coupon_discount: 0 })
+    } finally {
+      setCouponValidating(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setFormData({
+      ...formData,
+      coupon_code: "",
+      coupon_discount: 0,
+    })
+    setCouponError("")
+    toast.success('Coupon removed')
+  }
+
   const handleSubmit = async (asQuote: boolean = false) => {
     if (!selectedCustomer || bookingItems.length === 0 || !formData.event_date) {
       toast.error("Missing required information")
@@ -518,6 +602,9 @@ export default function BookPackageWizard() {
         use_custom_pricing: useCustomPricing || false,
         custom_package_price: useCustomPricing ? customPricing.package_price : null,
         custom_deposit: useCustomPricing ? customPricing.deposit : null,
+        coupon_code: formData.coupon_code || null,
+        coupon_discount: formData.coupon_discount || 0,
+        discount_amount: formData.discount_amount || 0,
       }
 
       // Resilient insert: handle unknown columns and duplicate package_number conflicts
@@ -578,6 +665,38 @@ export default function BookPackageWizard() {
 
       const { error: itemsError } = await supabase.from("package_booking_items").insert(itemsData)
       if (itemsError) throw itemsError
+
+      // Track coupon usage if coupon was applied
+      if (formData.coupon_code && formData.coupon_discount > 0 && !asQuote) {
+        try {
+          // Increment usage count
+          const { data: couponData } = await supabase
+            .from('coupons')
+            .select('id, usage_count')
+            .eq('code', formData.coupon_code)
+            .single()
+          
+          if (couponData) {
+            await supabase
+              .from('coupons')
+              .update({ usage_count: (couponData.usage_count || 0) + 1 })
+              .eq('id', couponData.id)
+            
+            // Log usage
+            await supabase.from('coupon_usage').insert({
+              coupon_id: couponData.id,
+              customer_id: selectedCustomer.id,
+              booking_id: booking.id,
+              discount_applied: formData.coupon_discount
+            }).catch((err) => {
+              console.warn('Failed to log coupon usage:', err)
+            })
+          }
+        } catch (couponError) {
+          console.error('Error tracking coupon usage:', couponError)
+          // Don't fail the whole operation if coupon tracking fails
+        }
+      }
 
   toast.success(asQuote ? "Quote created!" : "Order created!")
   
@@ -1011,20 +1130,61 @@ export default function BookPackageWizard() {
                     </div>
                   )}
                   <div className="flex justify-between"><span>Items Subtotal</span><span>{formatCurrency(totals.subtotal)}</span></div>
-                  <div className="flex justify-between"><span>GST (5%)</span><span>{formatCurrency(totals.gst)}</span></div>
-                  {!useCustomPricing && formData.payment_type === 'advance' && (
-                    <div className="flex justify-between"><span>Advance (50%)</span><span>{formatCurrency(totals.advanceDue)}</span></div>
+                  
+                  {!useCustomPricing && totals.manualDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount ({formData.discount_type === 'percentage' ? `${formData.discount_amount}%` : 'Flat'})</span>
+                      <span>-{formatCurrency(totals.manualDiscount)}</span>
+                    </div>
                   )}
-                  {totals.securityDeposit > 0 && (
+                  
+                  {!useCustomPricing && totals.couponDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Coupon ({formData.coupon_code})</span>
+                      <span>-{formatCurrency(totals.couponDiscount)}</span>
+                    </div>
+                  )}
+                  
+                  {!useCustomPricing && (totals.manualDiscount > 0 || totals.couponDiscount > 0) && (
+                    <div className="flex justify-between border-t pt-1 mt-1">
+                      <span className="font-medium">After Discounts</span>
+                      <span className="font-medium">{formatCurrency(totals.subtotalAfterCoupon || totals.subtotal)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between"><span>GST (5%)</span><span>{formatCurrency(totals.gst)}</span></div>
+                  
+                  <div className="flex justify-between font-bold text-base border-t pt-2 mt-1">
+                    <span>Grand Total</span>
+                    <span>{formatCurrency(totals.grand)}</span>
+                  </div>
+                  
+                  {!useCustomPricing && totals.securityDeposit > 0 && (
                     <>
+                      <div className="h-px bg-gray-200 my-2" />
                       {DEPOSIT_POLICY.collectAt === 'booking' ? (
-                        <div className="flex justify-between"><span>{DEPOSIT_POLICY.label}</span><span>{formatCurrency(totals.depositDueNow)}</span></div>
+                        <div className="flex justify-between text-amber-700">
+                          <span>{DEPOSIT_POLICY.label}</span>
+                          <span>{formatCurrency(totals.depositDueNow)}</span>
+                        </div>
                       ) : DEPOSIT_POLICY.collectAt === 'delivery' ? (
-                        <div className="flex justify-between text-amber-700"><span>{DEPOSIT_POLICY.label} (at delivery)</span><span>{formatCurrency(totals.depositDueLater)}</span></div>
+                        <div className="flex justify-between text-amber-700">
+                          <span>{DEPOSIT_POLICY.label} (at delivery)</span>
+                          <span>{formatCurrency(totals.depositDueLater)}</span>
+                        </div>
                       ) : null}
                     </>
                   )}
-                  <div className="flex justify-between font-semibold"><span>Grand</span><span>{formatCurrency(totals.grand)}</span></div>
+                  
+                  {!useCustomPricing && formData.payment_type === 'advance' && (
+                    <>
+                      <div className="h-px bg-gray-200 my-2" />
+                      <div className="flex justify-between text-blue-600">
+                        <span>Advance (50%)</span>
+                        <span>{formatCurrency(totals.advanceDue)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 {/* Custom Pricing Override */}
@@ -1101,8 +1261,90 @@ export default function BookPackageWizard() {
                   )}
                 </div>
                 
+                {/* Discount & Coupon Section */}
                 {!useCustomPricing && (
-                  <div className="space-y-2">
+                  <div className="space-y-4 pt-3 border-t">
+                    {/* Manual Discount */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Discount (Optional)</Label>
+                      <div className="flex gap-2">
+                        <Select 
+                          value={formData.discount_type} 
+                          onValueChange={(v: "flat" | "percentage") => setFormData(f => ({ ...f, discount_type: v }))}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="flat">₹ Flat</SelectItem>
+                            <SelectItem value="percentage">% Percent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          value={formData.discount_amount || ""}
+                          onChange={(e) => setFormData(f => ({ ...f, discount_amount: Number(e.target.value) || 0 }))}
+                          placeholder={formData.discount_type === "flat" ? "Enter amount" : "Enter percentage"}
+                          min={0}
+                          max={formData.discount_type === "percentage" ? 100 : undefined}
+                        />
+                      </div>
+                      {formData.discount_amount > 0 && (
+                        <p className="text-xs text-green-600">
+                          Discount: -{formatCurrency(totals.manualDiscount || 0)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Coupon Code */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Coupon Code (Optional)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="text"
+                          value={formData.coupon_code}
+                          onChange={(e) => {
+                            setFormData(f => ({ ...f, coupon_code: e.target.value.toUpperCase() }))
+                            setCouponError("")
+                          }}
+                          placeholder="Enter coupon code"
+                          maxLength={50}
+                          disabled={formData.coupon_discount > 0}
+                        />
+                        {formData.coupon_discount > 0 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleRemoveCoupon}
+                            className="whitespace-nowrap"
+                          >
+                            Remove
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={couponValidating || !formData.coupon_code.trim()}
+                            className="whitespace-nowrap"
+                          >
+                            {couponValidating ? "Validating..." : "Apply"}
+                          </Button>
+                        )}
+                      </div>
+                      {couponError && (
+                        <p className="text-xs text-red-600">{couponError}</p>
+                      )}
+                      {formData.coupon_discount > 0 && (
+                        <p className="text-xs text-green-600">
+                          Coupon Applied: -{formatCurrency(formData.coupon_discount)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {!useCustomPricing && (
+                  <div className="space-y-2 pt-3 border-t">
                     <Label className="text-xs">Payment Type</Label>
                   <div className="flex gap-2 flex-wrap">
                     {(["full","advance","partial"] as const).map(pt => (
