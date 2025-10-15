@@ -2037,7 +2037,9 @@ const getStatusBadge = (status: string) => {
       <Card className="p-3">
         <CardHeader className="p-0 pb-2">
           <div className="flex items-center space-x-2">
-            <CardTitle className="text-sm">Quotes ({filteredQuotes.length})</CardTitle>
+            <CardTitle className="text-sm">
+              Quotes (Showing {startIndex + 1}-{Math.min(endIndex, filteredQuotes.length)} of {filteredQuotes.length})
+            </CardTitle>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Info className="w-4 h-4 text-muted-foreground" />
