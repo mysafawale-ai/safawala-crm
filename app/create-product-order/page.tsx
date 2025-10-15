@@ -100,6 +100,7 @@ export default function CreateProductOrderPage() {
 
   // State
   const [currentUser, setCurrentUser] = useState<any>(null)  // ✅ Store logged-in user
+  const [basePincode, setBasePincode] = useState<string>('390007') // Default fallback
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
@@ -157,6 +158,23 @@ export default function CreateProductOrderPage() {
         if (!userRes.ok) throw new Error('Failed to fetch user')
         const user = await userRes.json()
         setCurrentUser(user)  // ✅ Store user in state for later use
+
+        // Fetch company settings to get base pincode
+        if (user.franchise_id) {
+          try {
+            const settingsRes = await fetch(`/api/settings/company?franchise_id=${user.franchise_id}`)
+            if (settingsRes.ok) {
+              const settingsData = await settingsRes.json()
+              const pincode = settingsData.data?.pincode
+              if (pincode) {
+                setBasePincode(pincode)
+                console.log('✅ Base pincode loaded from company settings:', pincode)
+              }
+            }
+          } catch (err) {
+            console.warn('Could not load company settings, using default pincode')
+          }
+        }
 
         // Base queries
         let customersQuery = supabase.from("customers").select("*").order("name")

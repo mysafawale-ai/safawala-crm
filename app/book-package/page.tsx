@@ -44,6 +44,7 @@ export default function BookPackageWizard() {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)  // ✅ Store logged-in user
+  const [basePincode, setBasePincode] = useState<string>('390007') // Default fallback
   const [customers, setCustomers] = useState<Customer[]>([])
   const [categories, setCategories] = useState<PackageCategory[]>([])
   const [packages, setPackages] = useState<PackageSet[]>([])
@@ -397,17 +398,18 @@ export default function BookPackageWizard() {
     const resolveKm = async () => {
       const pin = selectedCustomer?.pincode?.trim()
       if (!pin) { setDistanceKm(0); return }
-      const basePincode = '390007'
+      // Use dynamic base pincode from company settings
+      const basePin = basePincode
       
       // Same pincode = 0 km
-      if (pin === basePincode) { setDistanceKm(0); return }
+      if (pin === basePin) { setDistanceKm(0); return }
       
       // 1) Check exact distance table first (highest priority - cached distances)
       try {
         const { data: exactData, error: exactError } = await supabase
           .from('pincode_distances_exact')
           .select('distance_km, method')
-          .eq('from_pincode', basePincode)
+          .eq('from_pincode', basePin)
           .eq('to_pincode', pin)
           .limit(1)
         
@@ -423,7 +425,7 @@ export default function BookPackageWizard() {
       // 2) Distance not in cache - fetch from API and cache it
       try {
         console.log(`Fetching distance for ${pin} from API...`)
-        const response = await fetch(`/api/calculate-distance?from=${basePincode}&to=${pin}`)
+        const response = await fetch(`/api/calculate-distance?from=${basePin}&to=${pin}`)
         if (response.ok) {
           const data = await response.json()
           if (data.success && data.distanceKm) {
@@ -432,14 +434,14 @@ export default function BookPackageWizard() {
             
             // Cache the result in database for future use
             await supabase.from('pincode_distances_exact').insert({
-              from_pincode: basePincode,
+              from_pincode: basePin,
               to_pincode: pin,
               distance_km: data.distanceKm,
               method: data.method || 'api',
               source: data.method === 'geolocation' ? 'OpenStreetMap API' : 'Estimation',
               verified: data.method === 'geolocation'
             }).then(() => {
-              console.log(`Cached distance ${basePincode} → ${pin}: ${data.distanceKm} km`)
+              console.log(`Cached distance ${basePin} → ${pin}: ${data.distanceKm} km`)
             }).catch((err: any) => {
               console.warn('Failed to cache distance:', err)
             })
@@ -473,7 +475,7 @@ export default function BookPackageWizard() {
       }
     }
     resolveKm()
-  }, [selectedCustomer?.pincode])
+  }, [selectedCustomer?.pincode, basePincode])
 
   // Validate and apply coupon
   const handleApplyCoupon = async () => {
@@ -701,7 +703,7 @@ export default function BookPackageWizard() {
   toast.success(asQuote ? "Quote created!" : "Order created!")
   
   // Add timestamp to force page reload and refetch
-  const redirectPath = asQuote ? "/quotes" : "/invoices"
+  const redirectPath = asQuote ? "/quotes" : "/bookings"
   router.push(`${redirectPath}?refresh=${Date.now()}`)
   router.refresh() // Force refresh to ensure data is reloaded
     } catch (err: any) {
