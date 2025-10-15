@@ -110,6 +110,12 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "partial" | "paid">("pending")
   const [advanceAmount, setAdvanceAmount] = useState<number>(0)
   const [distancePricingAmount, setDistancePricingAmount] = useState<number>(0)
+  const [paymentMethod, setPaymentMethod] = useState<string>("Cash / Offline Payment")
+  const [discountAmount, setDiscountAmount] = useState<number>(0)
+  const [couponCode, setCouponCode] = useState<string>("")
+  const [couponDiscount, setCouponDiscount] = useState<number>(0)
+  const [couponValidating, setCouponValidating] = useState(false)
+  const [couponError, setCouponError] = useState("")
 
   const supabase = createClient()
 
@@ -253,7 +259,64 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
 
     total += distancePricingAmount
 
+    // Apply discount and coupon
+    const totalDiscount = discountAmount + couponDiscount
+    total = Math.max(0, total - totalDiscount)
+
     return total
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code")
+      return
+    }
+
+    setCouponValidating(true)
+    setCouponError("")
+
+    try {
+      const baseTotal = (selectedPackageData?.base_price || 0) + 
+                        (selectedVariantData?.base_price || 0) + 
+                        distancePricingAmount
+
+      const response = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          couponCode: couponCode.trim().toUpperCase(),
+          orderTotal: baseTotal,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setCouponError(data.error || "Invalid coupon code")
+        return
+      }
+
+      setCouponDiscount(data.discount)
+      toast({
+        title: "Coupon Applied!",
+        description: `You saved ₹${data.discount.toFixed(2)}`,
+      })
+    } catch (error) {
+      console.error("Error validating coupon:", error)
+      setCouponError("Failed to validate coupon. Please try again.")
+    } finally {
+      setCouponValidating(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setCouponCode("")
+    setCouponDiscount(0)
+    setCouponError("")
+    toast({
+      title: "Coupon Removed",
+      description: "Coupon discount has been removed",
+    })
   }
 
   const validateForm = () => {
@@ -330,6 +393,10 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
       totalAmount: calculateTotal(),
       distancePricingAmount,
       bookingStatus: skipProductSelection ? "selection_pending" : "payment_pending",
+      paymentMethod,
+      discountAmount,
+      couponCode: couponCode.trim(),
+      couponDiscount,
     }
 
     onSubmit(bookingData)
@@ -810,10 +877,107 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
               placeholder="Any special instructions or notes..."
             />
           </div>
+        </CardContent>
+      </Card>
 
+      {/* Payment Method & Discounts */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Method & Discounts</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Payment Method */}
+          <div>
+            <Label htmlFor="paymentMethod">Payment Method</Label>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
+                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
+                <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
+                <SelectItem value="International Payment Method">International Payment Method</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Discount */}
+          <div>
+            <Label htmlFor="discount">Discount Amount (₹)</Label>
+            <Input
+              id="discount"
+              type="number"
+              min={0}
+              value={discountAmount}
+              onChange={(e) => setDiscountAmount(Number(e.target.value || 0))}
+              placeholder="Enter discount amount"
+            />
+            {discountAmount > 0 && (
+              <p className="text-xs text-green-600 mt-1">
+                Discount: ₹{discountAmount.toFixed(2)}
+              </p>
+            )}
+          </div>
+
+          {/* Coupon Code */}
+          <div>
+            <Label htmlFor="coupon">Coupon Code (Optional)</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                id="coupon"
+                type="text"
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value.toUpperCase())
+                  setCouponError("")
+                }}
+                placeholder="Enter coupon code"
+                maxLength={50}
+                disabled={couponDiscount > 0}
+              />
+              {couponDiscount > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRemoveCoupon}
+                  className="whitespace-nowrap"
+                >
+                  Remove
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponValidating || !couponCode.trim()}
+                  className="whitespace-nowrap"
+                >
+                  {couponValidating ? "Validating..." : "Apply"}
+                </Button>
+              )}
+            </div>
+            {couponError && (
+              <p className="text-xs text-red-600 mt-1">{couponError}</p>
+            )}
+            {couponDiscount > 0 && (
+              <p className="text-xs text-green-600 mt-1">
+                Coupon Applied: -₹{couponDiscount.toFixed(2)}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Totals Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Booking Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-              <div className="space-y-1">
+              <div className="space-y-1 w-full">
                 {selectedPackageData && (
                   <div className="flex justify-between text-sm">
                     <span>Package ({selectedPackageData.name}):</span>
@@ -830,6 +994,18 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
                   <div className="flex justify-between text-sm">
                     <span>Distance Charges:</span>
                     <span>+₹{distancePricingAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount:</span>
+                    <span>-₹{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Coupon ({couponCode}):</span>
+                    <span>-₹{couponDiscount.toLocaleString()}</span>
                   </div>
                 )}
               </div>

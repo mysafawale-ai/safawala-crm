@@ -797,99 +797,6 @@ export default function CreateProductOrderPage() {
                   )}
                 </div>
 
-                {/* Row 2.5: Payment Method */}
-                <div>
-                  <Label className="text-xs">Payment Method</Label>
-                  <Select
-                    value={formData.payment_method}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, payment_method: v })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
-                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
-                      <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
-                      <SelectItem value="International Payment Method">International Payment Method</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Row 2.6: Discount */}
-                <div>
-                  <Label className="text-xs">Discount Amount (₹)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={formData.discount_amount}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        discount_amount: Number(e.target.value || 0),
-                      })
-                    }
-                    className="mt-1"
-                    placeholder="Enter discount amount"
-                  />
-                  {formData.discount_amount > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Discount: ₹{formData.discount_amount.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Row 2.7: Coupon Code */}
-                <div>
-                  <Label className="text-xs">Coupon Code (Optional)</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      type="text"
-                      value={formData.coupon_code}
-                      onChange={(e) => {
-                        setFormData({
-                          ...formData,
-                          coupon_code: e.target.value.toUpperCase(),
-                        })
-                        setCouponError("")
-                      }}
-                      placeholder="Enter coupon code"
-                      maxLength={50}
-                      disabled={formData.coupon_discount > 0}
-                    />
-                    {formData.coupon_discount > 0 ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleRemoveCoupon}
-                        className="whitespace-nowrap"
-                      >
-                        Remove
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        onClick={handleApplyCoupon}
-                        disabled={couponValidating || !formData.coupon_code.trim()}
-                        className="whitespace-nowrap"
-                      >
-                        {couponValidating ? "Validating..." : "Apply"}
-                      </Button>
-                    )}
-                  </div>
-                  {couponError && (
-                    <p className="text-xs text-red-600 mt-1">{couponError}</p>
-                  )}
-                  {formData.coupon_discount > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Coupon Applied: -₹{formData.coupon_discount.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
                 {/* Row 3: Dates & Times */}
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
@@ -1327,6 +1234,107 @@ export default function CreateProductOrderPage() {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Payment & Discounts */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Method & Discounts</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Payment Method */}
+                <div>
+                  <Label className="text-sm">Payment Method</Label>
+                  <Select
+                    value={formData.payment_method}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, payment_method: v })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
+                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
+                      <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
+                      <SelectItem value="International Payment Method">International Payment Method</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Discount */}
+                <div>
+                  <Label className="text-sm">Discount Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={formData.discount_amount}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        discount_amount: Number(e.target.value || 0),
+                      })
+                    }
+                    className="mt-1"
+                    placeholder="Enter discount amount"
+                  />
+                  {formData.discount_amount > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Discount: ₹{formData.discount_amount.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Coupon Code */}
+                <div>
+                  <Label className="text-sm">Coupon Code (Optional)</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      type="text"
+                      value={formData.coupon_code}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          coupon_code: e.target.value.toUpperCase(),
+                        })
+                        setCouponError("")
+                      }}
+                      placeholder="Enter coupon code"
+                      maxLength={50}
+                      disabled={formData.coupon_discount > 0}
+                    />
+                    {formData.coupon_discount > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleRemoveCoupon}
+                        className="whitespace-nowrap"
+                      >
+                        Remove
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={couponValidating || !formData.coupon_code.trim()}
+                        className="whitespace-nowrap"
+                      >
+                        {couponValidating ? "Validating..." : "Apply"}
+                      </Button>
+                    )}
+                  </div>
+                  {couponError && (
+                    <p className="text-xs text-red-600 mt-1">{couponError}</p>
+                  )}
+                  {formData.coupon_discount > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Coupon Applied: -₹{formData.coupon_discount.toFixed(2)}
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 

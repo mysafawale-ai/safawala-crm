@@ -62,6 +62,10 @@ export default function PackageBookingPage() {
         package_id: bookingData.selectedPackage?.id,
         variant_id: bookingData.selectedVariant?.id,
         skip_product_selection: bookingData.skipProductSelection,
+        payment_method: bookingData.paymentMethod || "Cash / Offline Payment",
+        discount_amount: bookingData.discountAmount || 0,
+        coupon_code: bookingData.couponCode || null,
+        coupon_discount: bookingData.couponDiscount || 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
