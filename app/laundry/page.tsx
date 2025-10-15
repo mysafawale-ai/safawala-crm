@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -190,6 +190,8 @@ export default function LaundryPage() {
   const [usingMockData, setUsingMockData] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(25)
   const [selectedBatch, setSelectedBatch] = useState<LaundryBatch | null>(null)
   const [batchItems, setBatchItems] = useState<BatchItem[]>([])
   const [showCreateBatch, setShowCreateBatch] = useState(false)
@@ -623,6 +625,18 @@ export default function LaundryPage() {
     return matchesSearch && matchesStatus
   })
 
+  const paginatedBatches = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filteredBatches.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredBatches, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredBatches.length / itemsPerPage)
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -1000,7 +1014,7 @@ export default function LaundryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBatches.map((batch) => (
+                {paginatedBatches.map((batch) => (
                   <TableRow key={batch.id}>
                     <TableCell className="font-medium">{batch.batch_number}</TableCell>
                     <TableCell>{batch.vendor_name}</TableCell>
@@ -1067,6 +1081,62 @@ export default function LaundryPage() {
             </Table>
           </div>
         </CardContent>
+        
+        {/* Pagination Controls */}
+        {filteredBatches.length > 0 && (
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to{" "}
+                  {Math.min(currentPage * itemsPerPage, filteredBatches.length)} of{" "}
+                  {filteredBatches.length} batches
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Items per page:</span>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => {
+                      setItemsPerPage(Number(value))
+                      setCurrentPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="w-[70px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm font-medium">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Batch Details Dialog */}

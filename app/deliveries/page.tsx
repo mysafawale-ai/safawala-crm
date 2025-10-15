@@ -80,6 +80,8 @@ export default function DeliveriesPage() {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(25)
   const [showScheduleDialog, setShowScheduleDialog] = useState(false)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -287,6 +289,18 @@ export default function DeliveriesPage() {
 
     return matchesSearch && matchesStatus
   })
+
+  const paginatedDeliveries = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filteredDeliveries.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredDeliveries, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredDeliveries.length / itemsPerPage)
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter])
 
   // Mock drivers data (since we don't have a drivers table)
   const mockDrivers = [
@@ -845,7 +859,7 @@ export default function DeliveriesPage() {
                 <p className="mt-1 text-sm text-gray-500">Get started by scheduling a new delivery.</p>
               </div>
             ) : (
-              filteredDeliveries.map((delivery) => (
+              paginatedDeliveries.map((delivery) => (
                 <div key={delivery.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center space-x-4">
                     {getStatusIcon(delivery.status)}
@@ -1036,6 +1050,62 @@ export default function DeliveriesPage() {
             )}
           </div>
         </CardContent>
+        
+        {/* Pagination Controls */}
+        {filteredDeliveries.length > 0 && (
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to{" "}
+                  {Math.min(currentPage * itemsPerPage, filteredDeliveries.length)} of{" "}
+                  {filteredDeliveries.length} deliveries
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Items per page:</span>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => {
+                      setItemsPerPage(Number(value))
+                      setCurrentPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="w-[70px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm font-medium">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* View Dialog */}

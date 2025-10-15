@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { format } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -74,6 +74,8 @@ export default function ExpensesPage() {
   const [categories, setCategories] = useState<ExpenseCategory[]>(defaultCategories)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(25)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [billPhoto, setBillPhoto] = useState<File | null>(null) // legacy single
   const [billFiles, setBillFiles] = useState<File[]>([])
@@ -507,6 +509,18 @@ export default function ExpensesPage() {
   const toggleSort = (field:'date'|'amount') => {
     setSort(prev => prev.field===field ? { field, dir: prev.dir==='asc'?'desc':'asc'} : { field, dir:'asc'})
   }
+
+  const paginatedExpenses = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return sortedExpenses.slice(startIndex, startIndex + itemsPerPage)
+  }, [sortedExpenses, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(sortedExpenses.length / itemsPerPage)
+
+  // Reset to page 1 when search or filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filters.category, filters.dateFrom, filters.dateTo, filters.vendor])
 
   if (loading) {
     return (
@@ -1079,7 +1093,7 @@ export default function ExpensesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedExpenses.map(expense => (
+                  {paginatedExpenses.map(expense => (
                     <TableRow key={expense.id}>
                       <TableCell>{expense.expense_date}</TableCell>
                       <TableCell className="max-w-xs truncate" title={expense.description}>{expense.description}</TableCell>
@@ -1111,6 +1125,62 @@ export default function ExpensesPage() {
               </Table>
             </div>
           </CardContent>
+          
+          {/* Pagination Controls */}
+          {sortedExpenses.length > 0 && (
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to{" "}
+                    {Math.min(currentPage * itemsPerPage, sortedExpenses.length)} of{" "}
+                    {sortedExpenses.length} expenses
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Items per page:</span>
+                    <Select
+                      value={itemsPerPage.toString()}
+                      onValueChange={(value) => {
+                        setItemsPerPage(Number(value))
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <SelectTrigger className="w-[70px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="text-sm font-medium">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
       </div>
     </DashboardLayout>
