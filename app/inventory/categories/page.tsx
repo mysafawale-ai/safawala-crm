@@ -247,8 +247,10 @@ export default function CategoriesPage() {
   const totalCategories = categories.length
   const totalSubCategories = subCategories.length
   const activeCategories = categories.filter(c => c.is_active).length
-  const totalProducts = categories.reduce((sum, c) => sum + c.product_count, 0) + 
-                       subCategories.reduce((sum, c) => sum + c.product_count, 0)
+  // Fix: Don't double-count! Products belong to ONE category_id (could be main or sub)
+  // Count all unique products across all categories (main + sub)
+  const allCategories = [...categories, ...subCategories]
+  const totalProducts = allCategories.reduce((sum, c) => sum + c.product_count, 0)
 
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog()
 

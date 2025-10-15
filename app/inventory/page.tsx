@@ -82,6 +82,7 @@ export default function InventoryPage() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock'>('all')
@@ -89,6 +90,8 @@ export default function InventoryPage() {
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all')
   const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])  
   const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
+  const [sortField, setSortField] = useState<'name' | 'stock' | 'price' | 'rental'>('name')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
   const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null)
@@ -232,7 +235,7 @@ export default function InventoryPage() {
   }
 
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    let filtered = products.filter((product) => {
       // Search filter
       const matchesSearch =
         product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
@@ -261,7 +264,34 @@ export default function InventoryPage() {
 
       return true
     })
-  }, [products, debouncedSearchTerm, stockFilter, categoryFilter, subcategoryFilter])
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aVal, bVal
+      switch (sortField) {
+        case 'name':
+          aVal = a.name.toLowerCase()
+          bVal = b.name.toLowerCase()
+          return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+        case 'stock':
+          aVal = a.stock_available
+          bVal = b.stock_available
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+        case 'price':
+          aVal = a.price
+          bVal = b.price
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+        case 'rental':
+          aVal = a.rental_price
+          bVal = b.rental_price
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+        default:
+          return 0
+      }
+    })
+
+    return filtered
+  }, [products, debouncedSearchTerm, stockFilter, categoryFilter, subcategoryFilter, sortField, sortDirection])
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -459,29 +489,30 @@ export default function InventoryPage() {
               <CardDescription>A list of all products in your inventory</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search products..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center bg-transparent">
-                      <Filter className="w-4 h-4 mr-2" />
-                      Filter
-                      {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
-                        <Badge variant="secondary" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                          {[stockFilter !== 'all', categoryFilter !== 'all', subcategoryFilter !== 'all'].filter(Boolean).length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search products..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center bg-transparent shrink-0">
+                        <Filter className="w-3.5 h-3.5 mr-1.5" />
+                        Filter
+                        {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
+                          <Badge variant="secondary" className="ml-1.5 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px]">
+                            {[stockFilter !== 'all', categoryFilter !== 'all', subcategoryFilter !== 'all'].filter(Boolean).length}
+                          </Badge>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Stock Status</div>
                     <DropdownMenuItem onClick={() => { setStockFilter('all'); setCurrentPage(1) }}>
                       {stockFilter === 'all' && <CheckCircle className="mr-2 h-4 w-4" />}
@@ -541,12 +572,83 @@ export default function InventoryPage() {
                 </DropdownMenu>
               </div>
 
+              {/* Active Filters Display */}
+              {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground">Active filters:</span>
+                  {stockFilter !== 'all' && (
+                    <Badge variant="secondary" className="text-xs">
+                      {stockFilter === 'in_stock' ? 'In Stock' : stockFilter === 'low_stock' ? 'Low Stock' : 'Out of Stock'}
+                      <button
+                        onClick={() => setStockFilter('all')}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  )}
+                  {categoryFilter !== 'all' && (
+                    <Badge variant="secondary" className="text-xs">
+                      {categories.find(c => c.id === categoryFilter)?.name}
+                      <button
+                        onClick={() => {setCategoryFilter('all'); setSubcategoryFilter('all')}}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  )}
+                  {subcategoryFilter !== 'all' && (
+                    <Badge variant="secondary" className="text-xs">
+                      {subcategories.find(s => s.id === subcategoryFilter)?.name}
+                      <button
+                        onClick={() => setSubcategoryFilter('all')}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => {
+                      setStockFilter('all')
+                      setCategoryFilter('all')
+                      setSubcategoryFilter('all')
+                      setCurrentPage(1)
+                    }}
+                  >
+                    Clear all
+                  </Button>
+                </div>
+              )}
+            </div>
+
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Image</TableHead>
-                      <TableHead>Product</TableHead>
+                      <TableHead 
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => {
+                          if (sortField === 'name') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                          } else {
+                            setSortField('name')
+                            setSortDirection('asc')
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Product
+                          {sortField === 'name' && (
+                            <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </TableHead>
                       <TableHead>Code</TableHead>
                       <TableHead>
                         <div className="flex items-center space-x-1">
@@ -564,40 +666,126 @@ export default function InventoryPage() {
                           </Tooltip>
                         </div>
                       </TableHead>
-                      <TableHead>
-                        <div className="flex items-center space-x-1">
+                      <TableHead
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => {
+                          if (sortField === 'stock') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                          } else {
+                            setSortField('stock')
+                            setSortDirection('desc')
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
                           <span>Available</span>
+                          {sortField === 'stock' && (
+                            <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Info className="w-3 h-3 text-muted-foreground" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Available stock / Total stock (excludes booked, damaged, and in-laundry items)</p>
+                              <p>Click to sort by stock quantity. Number of items currently available for booking or sale</p>
                             </TooltipContent>
                           </Tooltip>
                         </div>
                       </TableHead>
-                      <TableHead>Rental Price</TableHead>
-                      <TableHead>Sale Price</TableHead>
+                      <TableHead
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => {
+                          if (sortField === 'rental') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                          } else {
+                            setSortField('rental')
+                            setSortDirection('asc')
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Rental Price
+                          {sortField === 'rental' && (
+                            <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer select-none hover:bg-muted/50"
+                        onClick={() => {
+                          if (sortField === 'price') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                          } else {
+                            setSortField('price')
+                            setSortDirection('asc')
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Sale Price
+                          {sortField === 'price' && (
+                            <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedProducts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8">
-                          <div className="flex flex-col items-center space-y-2">
-                            <Package className="h-8 w-8 text-muted-foreground" />
-                            <p className="text-muted-foreground">
-                              {debouncedSearchTerm ? "No products found matching your search." : "No products found."}
-                            </p>
-                            {!debouncedSearchTerm && (
-                              <Link href="/inventory/add">
-                                <Button size="sm">
-                                  <Plus className="w-4 h-4 mr-2" />
-                                  Add Your First Product
-                                </Button>
-                              </Link>
+                        <TableCell colSpan={8} className="text-center py-12">
+                          <div className="flex flex-col items-center space-y-3">
+                            {debouncedSearchTerm || stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all' ? (
+                              <>
+                                <Search className="h-12 w-12 text-muted-foreground/50" />
+                                <div className="space-y-1">
+                                  <p className="text-base font-medium">No products found</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {debouncedSearchTerm ? `No results for "${debouncedSearchTerm}"` : 'No products match your current filters'}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2">
+                                  {debouncedSearchTerm && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setSearchTerm('')}
+                                    >
+                                      Clear search
+                                    </Button>
+                                  )}
+                                  {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setStockFilter('all')
+                                        setCategoryFilter('all')
+                                        setSubcategoryFilter('all')
+                                      }}
+                                    >
+                                      Clear filters
+                                    </Button>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <Package className="h-12 w-12 text-muted-foreground/50" />
+                                <div className="space-y-1">
+                                  <p className="text-base font-medium">No products yet</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Get started by adding your first product to inventory
+                                  </p>
+                                </div>
+                                <Link href="/inventory/add">
+                                  <Button size="sm">
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Product
+                                  </Button>
+                                </Link>
+                              </>
                             )}
                           </div>
                         </TableCell>
