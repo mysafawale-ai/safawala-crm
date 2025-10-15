@@ -9,6 +9,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -1323,6 +1333,11 @@ export default function QuotesPage() {
   })
   const [isSaving, setIsSaving] = useState(false)
 
+  // Confirmation dialogs state
+  const [showConvertDialog, setShowConvertDialog] = useState(false)
+  const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [selectedQuoteForAction, setSelectedQuoteForAction] = useState<Quote | null>(null)
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -1531,11 +1546,19 @@ export default function QuotesPage() {
     }
   }
 
-  // Reject quote
-  const handleRejectQuote = async (quote: Quote) => {
+  // Reject quote - open confirmation dialog
+  const handleRejectQuote = (quote: Quote) => {
+    setSelectedQuoteForAction(quote)
+    setShowRejectDialog(true)
+  }
+
+  // Confirm reject quote
+  const confirmRejectQuote = async () => {
+    if (!selectedQuoteForAction) return
+
     try {
       // Determine which table to update
-      const table = quote.booking_type === 'package' ? 'package_bookings' : 'product_orders'
+      const table = selectedQuoteForAction.booking_type === 'package' ? 'package_bookings' : 'product_orders'
       
       const { error } = await supabase
         .from(table)
@@ -1543,15 +1566,17 @@ export default function QuotesPage() {
           status: 'rejected',
           updated_at: new Date().toISOString()
         })
-        .eq('id', quote.id)
+        .eq('id', selectedQuoteForAction.id)
 
       if (error) throw error
 
       toast({
         title: "Quote Rejected",
-        description: `Quote ${quote.quote_number} has been marked as rejected`,
+        description: `Quote ${selectedQuoteForAction.quote_number} has been marked as rejected`,
       })
 
+      setShowRejectDialog(false)
+      setSelectedQuoteForAction(null)
       await loadQuotes() // Refresh quotes list
     } catch (error) {
       console.error("Error rejecting quote:", error)
@@ -1563,12 +1588,15 @@ export default function QuotesPage() {
     }
   }
 
-  // Convert quote to booking
-  const handleConvertQuote = async (quote: Quote) => {
-    // Show confirmation dialog
-    if (!confirm(`Are you sure you want to convert Quote ${quote.quote_number} to a booking?`)) {
-      return
-    }
+  // Convert quote to booking - open confirmation dialog
+  const handleConvertQuote = (quote: Quote) => {
+    setSelectedQuoteForAction(quote)
+    setShowConvertDialog(true)
+  }
+
+  // Confirm convert quote to booking
+  const confirmConvertQuote = async () => {
+    if (!selectedQuoteForAction) return
 
     try {
       // Call convert API
@@ -1578,8 +1606,8 @@ export default function QuotesPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          quote_id: quote.id,
-          booking_type: quote.booking_type || "product"
+          quote_id: selectedQuoteForAction.id,
+          booking_type: selectedQuoteForAction.booking_type || "product"
         })
       })
 
@@ -1595,6 +1623,8 @@ export default function QuotesPage() {
         description: `Quote converted to booking ${result.booking_number}`,
       })
 
+      setShowConvertDialog(false)
+      setSelectedQuoteForAction(null)
       await loadQuotes() // Refresh quotes list
     } catch (error) {
       console.error("Error converting quote:", error)
@@ -2777,6 +2807,64 @@ const getStatusBadge = (status: string) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Convert to Booking Confirmation Dialog */}
+      <AlertDialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convert Quote to Booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to convert Quote{" "}
+              <strong>{selectedQuoteForAction?.quote_number}</strong> to a booking?
+              <br /><br />
+              This will create a new booking and update the quote status to converted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowConvertDialog(false)
+              setSelectedQuoteForAction(null)
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmConvertQuote}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Convert to Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reject Quote Confirmation Dialog */}
+      <AlertDialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Quote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reject Quote{" "}
+              <strong>{selectedQuoteForAction?.quote_number}</strong>?
+              <br /><br />
+              This will mark the quote as rejected. You can still edit it later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowRejectDialog(false)
+              setSelectedQuoteForAction(null)
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRejectQuote}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Reject Quote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       </div>
     </div>
