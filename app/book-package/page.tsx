@@ -140,8 +140,22 @@ export default function BookPackageWizard() {
         count: staffRes.data?.length
       })
       
+      // Prepare customer query with franchise filter
+      let customersQuery = supabase
+        .from("customers")
+        .select("id,name,phone,email,pincode")
+        .order("name")
+      
+      // Apply franchise filter for non-super-admins
+      if (userData.role !== "super_admin" && userData.franchise_id) {
+        console.log("Filtering customers by franchise_id:", userData.franchise_id)
+        customersQuery = customersQuery.eq("franchise_id", userData.franchise_id)
+      } else {
+        console.log("Super admin - showing all customers")
+      }
+      
       const [custRes, catRes, pkgRes, variantRes] = await Promise.all([
-        supabase.from("customers").select("id,name,phone,email,pincode").order("name"),
+        customersQuery,
         supabase.from("packages_categories").select("*").eq("is_active", true).order("display_order"),
         supabase.from("package_sets").select("*").eq("is_active", true).order("name"),
         supabase.from("package_variants").select("*").eq("is_active", true),
