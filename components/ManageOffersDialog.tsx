@@ -485,7 +485,7 @@ export default function ManageOffersDialog() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogContent className="sm:max-w-md z-[9999]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-semibold flex items-center gap-2">
               <Trash2 className="h-5 w-5 text-red-600" />

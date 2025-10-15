@@ -13,7 +13,7 @@ BEGIN
   -- Get your user details (CHANGE THIS EMAIL!)
   SELECT id, franchise_id INTO v_user_id, v_franchise_id
   FROM users
-  WHERE email = 'your-email@example.com'  -- ⚠️ CHANGE THIS!
+  WHERE email = 'mysafawale@gmail.com'  -- ⚠️ CHANGE THIS!
   LIMIT 1;
   
   IF v_user_id IS NULL THEN
