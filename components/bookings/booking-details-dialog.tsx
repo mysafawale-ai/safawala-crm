@@ -43,7 +43,6 @@ export function BookingDetailsDialog({
 
   const getStatusColor = (status: string) => {
     const colors = {
-      pending_payment: "bg-yellow-500",
       pending_selection: "bg-blue-500",
       confirmed: "bg-green-500",
       delivered: "bg-purple-500",
@@ -56,7 +55,6 @@ export function BookingDetailsDialog({
 
   const getStatusLabel = (status: string) => {
     const labels = {
-      pending_payment: "Payment Pending",
       pending_selection: "Selection Pending", 
       confirmed: "Confirmed",
       delivered: "Delivered",
@@ -69,7 +67,6 @@ export function BookingDetailsDialog({
 
   const getNextStatus = (currentStatus: string) => {
     const flow = {
-      pending_payment: "confirmed",
       pending_selection: "confirmed", 
       confirmed: "delivered",
       delivered: "returned",
@@ -80,7 +77,6 @@ export function BookingDetailsDialog({
 
   const getStatusAction = (status: string) => {
     const actions = {
-      pending_payment: "Confirm Payment",
       pending_selection: "Confirm Selection",
       confirmed: "Mark as Delivered", 
       delivered: "Mark as Returned",

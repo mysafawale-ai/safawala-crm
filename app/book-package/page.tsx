@@ -513,7 +513,7 @@ export default function BookPackageWizard() {
         total_amount: totals.grand,
         amount_paid: asQuote ? 0 : totals.payable,  // ✅ BUG FIX #2: Use calculated payment
         pending_amount: asQuote ? totals.grand : totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
-        status: asQuote ? 'quote' : (totals.remaining > 0 ? 'pending_payment' : 'confirmed'),
+        status: asQuote ? 'quote' : 'confirmed',
         sales_closed_by_id: selectedStaff || null,
         use_custom_pricing: useCustomPricing || false,
         custom_package_price: useCustomPricing ? customPricing.package_price : null,

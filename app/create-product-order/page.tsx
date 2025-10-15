@@ -472,7 +472,7 @@ export default function CreateProductOrderPage() {
           total_amount: totals.grand,
           amount_paid: totals.payable,  // ✅ BUG FIX #2: Use calculated payment
           pending_amount: totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
-          status: isQuote ? "quote" : "pending_payment",
+          status: isQuote ? "quote" : "confirmed",
           is_quote: isQuote,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
         })

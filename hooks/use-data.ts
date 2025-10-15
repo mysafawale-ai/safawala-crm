@@ -36,7 +36,6 @@ export function useData<T>(key: string) {
             const bookings = (await dataService.getBookings(forceRefresh)) as unknown as Booking[]
             const stats = {
               totalBookings: bookings.length,
-              paymentPendingBookings: bookings.filter((b) => b.status === "pending_payment").length,
               confirmedBookings: bookings.filter((b) => b.status === "confirmed" || b.status === "pending_selection").length,
               deliveredBookings: bookings.filter((b) => b.status === "delivered").length,
               completedBookings: bookings.filter((b) => b.status === "order_complete" || b.status === "returned").length,

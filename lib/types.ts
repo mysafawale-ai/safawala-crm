@@ -136,7 +136,6 @@ export interface Booking {
   delivery_date: string
   event_date: string
   status:
-    | "pending_payment"
     | "pending_selection"
     | "confirmed"
     | "delivered"

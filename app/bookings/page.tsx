@@ -79,7 +79,6 @@ export default function BookingsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending_payment: { label: "Pending Payment", variant: "warning" as const },
       pending_selection: { label: "Pending Selection", variant: "info" as const },
       confirmed: { label: "Confirmed", variant: "default" as const },
       delivered: { label: "Delivered", variant: "success" as const },
@@ -87,7 +86,7 @@ export default function BookingsPage() {
       order_complete: { label: "Order Complete", variant: "success" as const },
       cancelled: { label: "Cancelled", variant: "destructive" as const },
     }
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending_payment
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.confirmed
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
@@ -387,16 +386,6 @@ export default function BookingsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payment</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.paymentPendingBookings || 0}</div>
-            <p className="text-xs text-muted-foreground">Awaiting payment</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -466,7 +455,6 @@ export default function BookingsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending_payment">Pending Payment</SelectItem>
                 <SelectItem value="pending_selection">Pending Selection</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
