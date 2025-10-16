@@ -222,6 +222,7 @@ export class BookingService {
         priority: 1,
         invoice_generated: false,
         whatsapp_sent: false,
+        sales_closed_by_id: (quote as any).sales_closed_by_id || (quote as any).sales_closed_by || null,
       }
 
       // Insert booking
