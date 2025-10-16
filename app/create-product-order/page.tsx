@@ -1544,9 +1544,14 @@ export default function CreateProductOrderPage() {
                   <div className="pt-2 mt-2 border-t space-y-2">
                     <h4 className="font-semibold text-xs text-gray-600">Payment Breakdown</h4>
                     <div className="flex justify-between text-sm bg-orange-50 p-2 rounded">
-                      <span>💳 Payable Now:</span>
-                      <span className="font-bold text-orange-700">₹{totals.payable.toFixed(2)}</span>
+                      <span>💳 Payable Now{formData.booking_type === "rental" ? " (incl. deposit)" : ""}:</span>
+                      <span className="font-bold text-orange-700">₹{(totals.payable + (formData.booking_type === "rental" ? totals.deposit : 0)).toFixed(2)}</span>
                     </div>
+                    {formData.booking_type === "rental" && totals.deposit > 0 && (
+                      <div className="text-[11px] text-gray-600 -mt-1">
+                        Includes refundable deposit of ₹{totals.deposit.toFixed(2)} collected now
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm bg-yellow-50 p-2 rounded">
                       <span>⏳ Remaining:</span>
                       <span className="font-medium text-yellow-700">₹{totals.remaining.toFixed(2)}</span>
