@@ -1,11 +1,11 @@
--- FIX DELIVERY TRIGGER - Handle Missing delivery_address Column + RLS Issue
--- The trigger tries to access NEW.delivery_address but should fallback to venue_address
--- Added SECURITY DEFINER to bypass RLS policies on deliveries table
+-- FIX RLS ISSUE - Make Delivery Trigger Bypass Row-Level Security
+-- Error: new row violates row-level security policy for table "deliveries"
+-- Solution: Add SECURITY DEFINER to function so it runs with owner permissions
 
 CREATE OR REPLACE FUNCTION auto_create_delivery()
 RETURNS TRIGGER 
-SECURITY DEFINER  -- ✅ Bypasses RLS - runs with function owner's permissions
-SET search_path = public  -- ✅ Security best practice
+SECURITY DEFINER  -- ✅ THIS IS THE FIX - Runs with function owner's permissions, bypassing RLS
+SET search_path = public  -- ✅ Security best practice when using SECURITY DEFINER
 AS $$
 DECLARE
   new_delivery_number TEXT;
@@ -37,7 +37,7 @@ BEGIN
     delivery_date := COALESCE(NEW.delivery_date::date, NEW.event_date::date, CURRENT_DATE + INTERVAL '1 day');
   END IF;
   
-  -- Insert delivery record
+  -- Insert delivery record (now bypasses RLS due to SECURITY DEFINER)
   INSERT INTO deliveries (
     delivery_number,
     customer_id,
