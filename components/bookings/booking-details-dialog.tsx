@@ -220,47 +220,80 @@ export function BookingDetailsDialog({
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <DollarSign className="h-5 w-5" />
-                <span>Financial Breakdown</span>
+                <span>💰 Price Breakdown</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Subtotal & Calculations */}
+              {/* Price Breakdown */}
               <div className="space-y-2">
-                {booking.subtotal_amount !== undefined && booking.subtotal_amount !== booking.total_amount && (
+                {/* Items Subtotal */}
+                {booking.subtotal_amount !== undefined && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span>₹{(booking.subtotal_amount || 0).toLocaleString()}</span>
+                    <span>Items Subtotal</span>
+                    <span className="font-medium">₹{(booking.subtotal_amount || 0).toLocaleString()}</span>
                   </div>
                 )}
                 
-                {booking.tax_amount && booking.tax_amount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">GST (18%):</span>
-                    <span>₹{booking.tax_amount.toLocaleString()}</span>
-                  </div>
-                )}
-                
-                {booking.security_deposit && booking.security_deposit > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Security Deposit:</span>
-                    <span>₹{booking.security_deposit.toLocaleString()}</span>
-                  </div>
-                )}
-                
+                {/* Manual Discount */}
                 {booking.discount_amount && booking.discount_amount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
-                    <span>Discount:</span>
-                    <span>-₹{booking.discount_amount.toLocaleString()}</span>
+                    <span>Discount (40%)</span>
+                    <span className="font-medium">-₹{booking.discount_amount.toLocaleString()}</span>
                   </div>
                 )}
-              </div>
-              
-              <Separator />
-              
-              {/* Total */}
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-base">Total Amount:</span>
-                <span className="font-bold text-xl">₹{(booking.total_amount || 0).toLocaleString()}</span>
+
+                {/* Coupon Discount */}
+                {booking.coupon_code && booking.coupon_discount && booking.coupon_discount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Coupon ({booking.coupon_code})</span>
+                    <span className="font-medium">-₹{booking.coupon_discount.toLocaleString()}</span>
+                  </div>
+                )}
+
+                {/* After Discounts */}
+                {((booking.discount_amount && booking.discount_amount > 0) || 
+                  (booking.coupon_discount && booking.coupon_discount > 0)) && (
+                  <div className="flex justify-between text-sm font-medium border-t pt-2">
+                    <span>After Discounts</span>
+                    <span>₹{(
+                      (booking.subtotal_amount || 0) - 
+                      (booking.discount_amount || 0) - 
+                      (booking.coupon_discount || 0)
+                    ).toLocaleString()}</span>
+                  </div>
+                )}
+                
+                {/* GST */}
+                {booking.tax_amount && booking.tax_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>GST (5%)</span>
+                    <span className="font-medium">₹{booking.tax_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                
+                {/* Grand Total */}
+                <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
+                  <span>Grand Total</span>
+                  <span className="text-green-700 text-lg">₹{(booking.total_amount || 0).toLocaleString()}</span>
+                </div>
+
+                {/* Payment Method */}
+                {booking.payment_method && (
+                  <div className="flex justify-between text-sm bg-blue-50 p-2 rounded">
+                    <span>💳 Payment Method:</span>
+                    <span className="font-medium text-blue-700">{booking.payment_method}</span>
+                  </div>
+                )}
+
+                {/* Security Deposit */}
+                {booking.security_deposit && booking.security_deposit > 0 && (
+                  <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200">
+                    <span className="flex items-center gap-1">
+                      <span>🔒 Refundable Security Deposit</span>
+                    </span>
+                    <span className="font-medium text-blue-700">₹{booking.security_deposit.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
               
               <Separator />

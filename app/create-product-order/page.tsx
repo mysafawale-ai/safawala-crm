@@ -1485,56 +1485,74 @@ export default function CreateProductOrderPage() {
             {/* Totals */}
             <Card>
               <CardHeader>
-                <CardTitle>Totals</CardTitle>
+                <CardTitle>💰 Price Breakdown</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
+                {/* Items Subtotal */}
                 <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>₹{totals.subtotal.toFixed(2)}</span>
+                  <span>Items Subtotal</span>
+                  <span className="font-medium">₹{totals.subtotal.toFixed(2)}</span>
                 </div>
+
+                {/* Manual Discount */}
                 {totals.discount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Discount</span>
-                    <span>-₹{totals.discount.toFixed(2)}</span>
+                    <span>Discount (40%)</span>
+                    <span className="font-medium">-₹{totals.discount.toFixed(2)}</span>
                   </div>
                 )}
+
+                {/* Coupon Discount */}
                 {totals.couponDiscount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Coupon ({formData.coupon_code})</span>
-                    <span>-₹{totals.couponDiscount.toFixed(2)}</span>
+                    <span className="font-medium">-₹{totals.couponDiscount.toFixed(2)}</span>
                   </div>
                 )}
+
+                {/* After Discounts */}
                 {totals.totalDiscount > 0 && (
-                  <div className="flex justify-between font-medium text-green-700 border-t pt-1">
-                    <span>Total Savings</span>
-                    <span>-₹{totals.totalDiscount.toFixed(2)}</span>
+                  <div className="flex justify-between font-medium border-t pt-2">
+                    <span>After Discounts</span>
+                    <span>₹{totals.subtotalAfterDiscount.toFixed(2)}</span>
                   </div>
                 )}
+
+                {/* GST */}
                 <div className="flex justify-between">
                   <span>GST (5%)</span>
-                  <span>₹{totals.gst.toFixed(2)}</span>
+                  <span className="font-medium">₹{totals.gst.toFixed(2)}</span>
                 </div>
-                {formData.booking_type === "rental" && (
-                  <div className="flex justify-between">
-                    <span>Security Deposit</span>
-                    <span>₹{totals.deposit.toFixed(2)}</span>
+
+                {/* Grand Total */}
+                <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
+                  <span>Grand Total</span>
+                  <span className="text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
+                </div>
+
+                {/* Security Deposit for Rentals */}
+                {formData.booking_type === "rental" && totals.deposit > 0 && (
+                  <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200">
+                    <span className="flex items-center gap-1">
+                      <span>🔒 Refundable Security Deposit</span>
+                    </span>
+                    <span className="font-medium text-blue-700">₹{totals.deposit.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-semibold pt-1 border-t">
-                  <span>Total</span>
-                  <span>₹{totals.grand.toFixed(2)}</span>
-                </div>
+
+                {/* Payment Breakdown */}
                 {formData.payment_type !== "full" && (
-                  <>
-                    <div className="flex justify-between text-xs">
-                      <span>Payable Now</span>
-                      <span>₹{totals.payable.toFixed(2)}</span>
+                  <div className="pt-2 mt-2 border-t space-y-2">
+                    <h4 className="font-semibold text-xs text-gray-600">Payment Breakdown</h4>
+                    <div className="flex justify-between text-sm bg-orange-50 p-2 rounded">
+                      <span>💳 Payable Now:</span>
+                      <span className="font-bold text-orange-700">₹{totals.payable.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-xs">
-                      <span>Remaining</span>
-                      <span>₹{totals.remaining.toFixed(2)}</span>
+                    <div className="flex justify-between text-sm bg-yellow-50 p-2 rounded">
+                      <span>⏳ Remaining:</span>
+                      <span className="font-medium text-yellow-700">₹{totals.remaining.toFixed(2)}</span>
                     </div>
-                  </>
+                  </div>
                 )}
               </CardContent>
             </Card>

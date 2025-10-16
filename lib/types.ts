@@ -147,6 +147,7 @@ export interface Booking {
   amount_paid?: number // Alias for paid_amount (some tables use this)
   subtotal_amount?: number // Subtotal before taxes and fees
   payment_status: "pending" | "partial" | "paid" | "refunded"
+  payment_method?: string // Payment method used
   notes?: string
   created_at: string
   updated_at: string
@@ -156,6 +157,8 @@ export interface Booking {
   event_type?: string
   event_for?: "groom" | "bride" | "both"
   discount_amount?: number
+  coupon_code?: string // Coupon code applied
+  coupon_discount?: number // Discount amount from coupon
   tax_amount?: number
   security_deposit?: number
   priority?: string
