@@ -1273,16 +1273,6 @@ export default function CreateProductOrderPage() {
                             )}
                           </div>
                         </div>
-                        {formData.event_date && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => checkAvailability(p.id, p.name)}
-                            className="mb-2 h-7 text-[10px]"
-                          >
-                            Check availability
-                          </Button>
-                        )}
                         <Button
                           size="sm"
                           onClick={() => addProduct(p)}
