@@ -1150,27 +1150,70 @@ function QuotesPageContent() {
                       <Package className="h-4 w-4" />
                       Quote Items
                     </h3>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead>Unit Price</TableHead>
-                            <TableHead>Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {selectedQuote.quote_items.map((item: any, index: number) => (
-                            <TableRow key={index}>
-                              <TableCell className="font-medium">{item.product_name}</TableCell>
-                              <TableCell>{item.quantity}</TableCell>
-                              <TableCell>{formatCurrency(item.unit_price)}</TableCell>
-                              <TableCell>{formatCurrency(item.total_price)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                    <div className="space-y-4">
+                      {selectedQuote.quote_items.map((item: any, index: number) => (
+                        <div key={index} className="border rounded-lg p-4 space-y-3">
+                          {/* Category Badge */}
+                          {item.category && (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-xs font-semibold">
+                                {item.category}
+                              </Badge>
+                            </div>
+                          )}
+                          
+                          {/* Package/Product Name */}
+                          <div>
+                            <h4 className="font-bold text-lg">{item.product_name || item.package_name}</h4>
+                            {item.package_description && (
+                              <p className="text-sm text-muted-foreground mt-1">{item.package_description}</p>
+                            )}
+                          </div>
+
+                          {/* Variant Information */}
+                          {item.variant_name && (
+                            <div className="bg-blue-50 p-3 rounded-md">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-blue-700">
+                                  Variant: {item.variant_name}
+                                </span>
+                                {item.extra_safas > 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{item.extra_safas} Extra Safas
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              {/* Variant Inclusions */}
+                              {item.variant_inclusions && item.variant_inclusions.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-gray-600 mb-1">Inclusions:</p>
+                                  <div className="grid grid-cols-2 gap-1">
+                                    {item.variant_inclusions.map((inclusion: any, idx: number) => (
+                                      <div key={idx} className="flex items-center text-xs text-gray-700">
+                                        <span className="mr-1">•</span>
+                                        <span>{inclusion.product_name} × {inclusion.quantity}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Price Details */}
+                          <div className="flex justify-between items-center pt-2 border-t">
+                            <div className="flex items-center gap-4 text-sm">
+                              <span className="text-muted-foreground">Qty: <span className="font-medium text-foreground">{item.quantity}</span></span>
+                              <span className="text-muted-foreground">Unit Price: <span className="font-medium text-foreground">{formatCurrency(item.unit_price)}</span></span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-muted-foreground">Total</div>
+                              <div className="text-lg font-bold text-green-700">{formatCurrency(item.total_price)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                     
                     {/* Financial Breakdown */}
@@ -2442,18 +2485,52 @@ const getStatusBadge = (status: string) => {
                     <div>
                       <span className="font-medium">Event Type:</span> {selectedQuote.event_type || "N/A"}
                     </div>
+                    {selectedQuote.event_participant && (
+                      <div>
+                        <span className="font-medium">Event Participant:</span> {selectedQuote.event_participant}
+                      </div>
+                    )}
                     <div>
                       <span className="font-medium">Event Date:</span>{" "}
                       {selectedQuote.event_date ? new Date(selectedQuote.event_date).toLocaleDateString() : "N/A"}
                     </div>
                     {selectedQuote.groom_name && (
-                      <div>
-                        <span className="font-medium">Groom Name:</span> {selectedQuote.groom_name}
-                      </div>
+                      <>
+                        <div>
+                          <span className="font-medium">Groom Name:</span> {selectedQuote.groom_name}
+                        </div>
+                        {selectedQuote.groom_whatsapp && (
+                          <div>
+                            <span className="font-medium">Groom WhatsApp:</span> {selectedQuote.groom_whatsapp}
+                          </div>
+                        )}
+                        {selectedQuote.groom_address && (
+                          <div>
+                            <span className="font-medium">Groom Address:</span> {selectedQuote.groom_address}
+                          </div>
+                        )}
+                      </>
                     )}
                     {selectedQuote.bride_name && (
+                      <>
+                        <div>
+                          <span className="font-medium">Bride Name:</span> {selectedQuote.bride_name}
+                        </div>
+                        {selectedQuote.bride_whatsapp && (
+                          <div>
+                            <span className="font-medium">Bride WhatsApp:</span> {selectedQuote.bride_whatsapp}
+                          </div>
+                        )}
+                        {selectedQuote.bride_address && (
+                          <div>
+                            <span className="font-medium">Bride Address:</span> {selectedQuote.bride_address}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {selectedQuote.venue_name && (
                       <div>
-                        <span className="font-medium">Bride Name:</span> {selectedQuote.bride_name}
+                        <span className="font-medium">Venue:</span> {selectedQuote.venue_name}
                       </div>
                     )}
                     <div>
@@ -2523,27 +2600,70 @@ const getStatusBadge = (status: string) => {
                     <Package className="h-4 w-4" />
                     Quote Items
                   </h3>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Unit Price</TableHead>
-                          <TableHead>Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedQuote.quote_items.map((item: any, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{item.product_name}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>{formatCurrency(item.unit_price)}</TableCell>
-                            <TableCell>{formatCurrency(item.total_price)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-4">
+                    {selectedQuote.quote_items.map((item: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-3">
+                        {/* Category Badge */}
+                        {item.category && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs font-semibold">
+                              {item.category}
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        {/* Package/Product Name */}
+                        <div>
+                          <h4 className="font-bold text-lg">{item.product_name || item.package_name}</h4>
+                          {item.package_description && (
+                            <p className="text-sm text-muted-foreground mt-1">{item.package_description}</p>
+                          )}
+                        </div>
+
+                        {/* Variant Information */}
+                        {item.variant_name && (
+                          <div className="bg-blue-50 p-3 rounded-md">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-blue-700">
+                                Variant: {item.variant_name}
+                              </span>
+                              {item.extra_safas > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{item.extra_safas} Extra Safas
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {/* Variant Inclusions */}
+                            {item.variant_inclusions && item.variant_inclusions.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs font-medium text-gray-600 mb-1">Inclusions:</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  {item.variant_inclusions.map((inclusion: any, idx: number) => (
+                                    <div key={idx} className="flex items-center text-xs text-gray-700">
+                                      <span className="mr-1">•</span>
+                                      <span>{inclusion.product_name} × {inclusion.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Price Details */}
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-muted-foreground">Qty: <span className="font-medium text-foreground">{item.quantity}</span></span>
+                            <span className="text-muted-foreground">Unit Price: <span className="font-medium text-foreground">{formatCurrency(item.unit_price)}</span></span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-muted-foreground">Total</div>
+                            <div className="text-lg font-bold text-green-700">{formatCurrency(item.total_price)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   
                   {/* Financial Breakdown */}

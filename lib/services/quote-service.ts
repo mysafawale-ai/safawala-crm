@@ -141,7 +141,19 @@ export class QuoteService {
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
           package_booking_items(
             *,
-            package:package_sets!left(name)
+            package:package_sets!left(
+              name,
+              description,
+              category:package_categories!left(name)
+            ),
+            variant:package_variants!left(
+              name,
+              variant_inclusions(
+                product_id,
+                quantity,
+                product:products!left(name, product_code)
+              )
+            )
           )
         `)
         .eq("is_quote", true)
@@ -295,7 +307,11 @@ export class QuoteService {
         delivery_date: booking.delivery_date,
         return_date: booking.return_date,
         groom_name: booking.groom_name,
+        groom_whatsapp: booking.groom_whatsapp,
+        groom_address: booking.groom_address,
         bride_name: booking.bride_name,
+        bride_whatsapp: booking.bride_whatsapp,
+        bride_address: booking.bride_address,
         venue_name: booking.venue_name,
         venue_address: booking.venue_address,
         payment_type: booking.payment_type,
@@ -314,7 +330,17 @@ export class QuoteService {
         created_at: booking.created_at,
         quote_items: (booking.package_booking_items || []).map((item: any) => ({
           ...item,
-          product_name: item.package?.name || item.package_name || 'Package'
+          product_name: item.package?.name || item.package_name || 'Package',
+          package_name: item.package?.name || '',
+          package_description: item.package?.description || '',
+          category: item.package?.category?.name || '',
+          variant_name: item.variant?.name || '',
+          extra_safas: item.extra_safas || 0,
+          variant_inclusions: (item.variant?.variant_inclusions || []).map((inc: any) => ({
+            product_name: inc.product?.name || '',
+            product_code: inc.product?.product_code || '',
+            quantity: inc.quantity || 0
+          }))
         })),
         booking_type: 'package',
         booking_subtype: 'rental' // packages are always rental
