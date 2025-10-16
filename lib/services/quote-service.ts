@@ -120,7 +120,6 @@ export class QuoteService {
         .select(`
           *,
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
-          sales_staff:staff!product_orders_sales_closed_by_fkey(id, name),
           product_order_items(
             *,
             product:products!left(name, security_deposit)
@@ -141,7 +140,6 @@ export class QuoteService {
         .select(`
           *,
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
-          sales_staff:staff!package_bookings_sales_closed_by_fkey(id, name),
           package_booking_items(
             *,
             package:package_sets!left(
@@ -281,7 +279,7 @@ export class QuoteService {
         status: order.status,
         notes: order.notes,
         sales_closed_by: order.sales_closed_by,
-        sales_staff_name: order.sales_staff?.name || null,
+        sales_staff_name: null, // Will be populated separately if needed
         created_at: order.created_at,
         quote_items: (order.product_order_items || []).map((item: any) => ({
           ...item,
@@ -331,7 +329,7 @@ export class QuoteService {
         status: booking.status,
         notes: booking.notes,
         sales_closed_by: booking.sales_closed_by,
-        sales_staff_name: booking.sales_staff?.name || null,
+        sales_staff_name: null, // Will be populated separately if needed
         created_at: booking.created_at,
         quote_items: (booking.package_booking_items || []).map((item: any) => ({
           ...item,
@@ -358,6 +356,25 @@ export class QuoteService {
       const allQuotes = [...productQuotes, ...packageQuotes].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
+
+      // Fetch staff names for quotes that have sales_closed_by
+      const quotesWithStaff = allQuotes.filter(q => q.sales_closed_by)
+      if (quotesWithStaff.length > 0) {
+        const staffIds = [...new Set(quotesWithStaff.map(q => q.sales_closed_by))]
+        const { data: staffData } = await supabase
+          .from('staff')
+          .select('id, name')
+          .in('id', staffIds)
+        
+        if (staffData) {
+          const staffMap = new Map(staffData.map(s => [s.id, s.name]))
+          allQuotes.forEach(quote => {
+            if (quote.sales_closed_by) {
+              quote.sales_staff_name = staffMap.get(quote.sales_closed_by) || null
+            }
+          })
+        }
+      }
 
       console.log("✅ Successfully fetched quotes:", {
         total: allQuotes.length,
