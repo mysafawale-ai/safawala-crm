@@ -71,6 +71,9 @@ export default function BookingsPage() {
   const [bookingItems, setBookingItems] = useState<Record<string, any[]>>({})
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [showProductDialog, setShowProductDialog] = useState(false)
+  const [productDialogBooking, setProductDialogBooking] = useState<Booking | null>(null)
+  const [productDialogType, setProductDialogType] = useState<'pending' | 'items'>('items')
 
   useEffect(() => {
     ;(async () => {
@@ -601,7 +604,15 @@ export default function BookingsPage() {
                             
                             if (!hasItems) {
                               return (
-                                <Badge variant="outline" className="text-orange-600 border-orange-300">
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
+                                  onClick={() => {
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('pending')
+                                    setShowProductDialog(true)
+                                  }}
+                                >
                                   Selection Pending
                                 </Badge>
                               )
@@ -609,14 +620,29 @@ export default function BookingsPage() {
                             
                             if (items.length === 0) {
                               return (
-                                <Badge variant="default">
+                                <Badge 
+                                  variant="default"
+                                  className="cursor-pointer hover:bg-primary/80"
+                                  onClick={() => {
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('items')
+                                    setShowProductDialog(true)
+                                  }}
+                                >
                                   {(booking as any).total_safas || 0} items
                                 </Badge>
                               )
                             }
                             
                             return (
-                              <div className="flex flex-wrap gap-1 max-w-xs">
+                              <div 
+                                className="flex flex-wrap gap-1 max-w-xs cursor-pointer hover:opacity-80"
+                                onClick={() => {
+                                  setProductDialogBooking(booking)
+                                  setProductDialogType('items')
+                                  setShowProductDialog(true)
+                                }}
+                              >
                                 {items.slice(0, 3).map((item: any, idx: number) => (
                                   <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1">
                                     {item.product?.image_url && (
@@ -870,10 +896,15 @@ export default function BookingsPage() {
                         )}
                       </div>
                     )}
-                    {selectedBooking.venue_address && (
+                    {((selectedBooking as any).venue_name || selectedBooking.venue_address) && (
                       <div className="col-span-2">
                         <p className="text-sm text-muted-foreground">📍 Venue</p>
-                        <p className="font-medium">{selectedBooking.venue_address}</p>
+                        {(selectedBooking as any).venue_name && (
+                          <p className="font-medium">{(selectedBooking as any).venue_name}</p>
+                        )}
+                        {selectedBooking.venue_address && (
+                          <p className="text-sm text-muted-foreground">{selectedBooking.venue_address}</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -917,7 +948,24 @@ export default function BookingsPage() {
                     {(selectedBooking as any).payment_type && (
                       <div>
                         <p className="text-sm text-muted-foreground">Payment Type</p>
-                        <p className="font-medium capitalize">{(selectedBooking as any).payment_type.replace('_', ' ')}</p>
+                        <Badge variant="outline" className="mt-1">
+                          {(selectedBooking as any).payment_type === 'full' ? '💰 Full Payment' : 
+                           (selectedBooking as any).payment_type === 'advance' ? '💵 Advance Payment' : 
+                           (selectedBooking as any).payment_type === 'partial' ? '💳 Partial Payment' : 
+                           (selectedBooking as any).payment_type}
+                        </Badge>
+                      </div>
+                    )}
+                    {selectedBooking.paid_amount !== undefined && selectedBooking.paid_amount > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Amount Paid</p>
+                        <p className="font-medium text-green-600">₹{selectedBooking.paid_amount.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {((selectedBooking.total_amount || 0) - (selectedBooking.paid_amount || 0)) > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Pending Amount</p>
+                        <p className="font-medium text-orange-600">₹{((selectedBooking.total_amount || 0) - (selectedBooking.paid_amount || 0)).toLocaleString()}</p>
                       </div>
                     )}
                   </div>
@@ -982,37 +1030,68 @@ export default function BookingsPage() {
                   <CardContent className="pt-4">
                     <div className="space-y-4">
                       {bookingItems[selectedBooking.id].map((item: any, index: number) => (
-                        <div key={index} className="border rounded-lg p-3 space-y-2">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline">{item.category_name || 'Category'}</Badge>
+                        <div key={index} className="border rounded-lg p-4 space-y-3">
+                          {/* Category Badge */}
+                          {item.category_name && (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-xs font-semibold">
+                                {item.category_name}
+                              </Badge>
+                            </div>
+                          )}
+                          
+                          {/* Package/Product Name */}
+                          <div>
+                            <h4 className="font-bold text-lg">{item.package_name || item.product_name || 'Item'}</h4>
+                            {item.package_description && (
+                              <p className="text-sm text-muted-foreground mt-1">{item.package_description}</p>
+                            )}
+                          </div>
+
+                          {/* Variant Information */}
+                          {item.variant_name && (
+                            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                  Variant: {item.variant_name}
+                                </span>
+                                {item.extra_safas > 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{item.extra_safas} Extra Safas
+                                  </Badge>
+                                )}
                               </div>
-                              <p className="font-medium">{item.package_name || item.product_name || 'Item'}</p>
-                              {item.variant_name && (
-                                <p className="text-sm text-muted-foreground">Variant: {item.variant_name}</p>
+                              
+                              {/* Variant Inclusions */}
+                              {item.variant_inclusions && item.variant_inclusions.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Inclusions:</p>
+                                  <div className="grid grid-cols-2 gap-1">
+                                    {item.variant_inclusions.map((inc: any, i: number) => (
+                                      <div key={i} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                                        <span className="mr-1">•</span>
+                                        <span>{inc.product_name} × {inc.quantity}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Price Details */}
+                          <div className="flex justify-between items-center pt-2 border-t">
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <span>Quantity: {item.quantity || 1}</span>
+                              {item.unit_price && (
+                                <span className="ml-3">Unit Price: ₹{item.unit_price.toLocaleString()}</span>
                               )}
                             </div>
                             <div className="text-right">
-                              <p className="font-medium">₹{(item.price || 0).toLocaleString()}</p>
-                              {item.quantity && item.quantity > 1 && (
-                                <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                              )}
+                              <div className="text-sm text-gray-600 dark:text-gray-400">Line Total</div>
+                              <div className="font-bold text-lg">₹{(item.price || item.total_price || 0).toLocaleString()}</div>
                             </div>
                           </div>
-                          
-                          {item.variant_inclusions && item.variant_inclusions.length > 0 && (
-                            <div className="mt-2 pt-2 border-t">
-                              <p className="text-xs font-medium text-muted-foreground mb-1">📦 Inclusions:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {item.variant_inclusions.map((inc: any, i: number) => (
-                                  <Badge key={i} variant="secondary" className="text-xs">
-                                    {inc.product_name} ({inc.quantity})
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -1060,6 +1139,20 @@ export default function BookingsPage() {
                       </div>
                     )}
 
+                    {/* After Discounts Line */}
+                    {((selectedBooking.discount_amount && selectedBooking.discount_amount > 0) || 
+                      (selectedBooking.coupon_discount && selectedBooking.coupon_discount > 0)) && (
+                      <div className="flex justify-between text-sm font-medium border-t pt-2">
+                        <span>After Discounts</span>
+                        <span>₹{(
+                          (selectedBooking.total_amount || 0) + 
+                          ((selectedBooking as any).distance_amount || 0) - 
+                          (selectedBooking.discount_amount || 0) - 
+                          (selectedBooking.coupon_discount || 0)
+                        ).toLocaleString()}</span>
+                      </div>
+                    )}
+
                     {/* GST */}
                     {selectedBooking.tax_amount && selectedBooking.tax_amount > 0 && (
                       <div className="flex justify-between text-sm">
@@ -1071,10 +1164,28 @@ export default function BookingsPage() {
                     <div className="border-t pt-2 mt-2" />
 
                     {/* Grand Total */}
-                    <div className="flex justify-between font-bold text-lg">
+                    <div className="flex justify-between font-bold text-lg bg-green-50 dark:bg-green-950 p-3 rounded">
                       <span>Grand Total</span>
-                      <span>₹{(selectedBooking.total_amount || 0).toLocaleString()}</span>
+                      <span className="text-green-700 dark:text-green-400">₹{(selectedBooking.total_amount || 0).toLocaleString()}</span>
                     </div>
+
+                    {/* Total with Security Deposit */}
+                    {selectedBooking.security_deposit && selectedBooking.security_deposit > 0 && (
+                      <div className="flex justify-between font-bold text-base bg-purple-50 dark:bg-purple-950 p-3 rounded border-2 border-purple-200 dark:border-purple-800">
+                        <span>💎 Total with Security Deposit</span>
+                        <span className="text-purple-700 dark:text-purple-400">
+                          ₹{((selectedBooking.total_amount || 0) + selectedBooking.security_deposit).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Payment Method */}
+                    {(selectedBooking as any).payment_method && (
+                      <div className="flex justify-between text-sm bg-blue-50 dark:bg-blue-950 p-2 rounded">
+                        <span className="font-medium">💳 Payment Method:</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-400">{(selectedBooking as any).payment_method}</span>
+                      </div>
+                    )}
 
                     <div className="border-t pt-3 mt-3 space-y-2">
                       {/* Security Deposit */}
@@ -1147,6 +1258,189 @@ export default function BookingsPage() {
                   Close
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Details Dialog */}
+      <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {productDialogType === 'pending' ? '⏳ Selection Pending' : '📦 Booking Items'}
+            </DialogTitle>
+            <DialogDescription>
+              {productDialogType === 'pending' 
+                ? 'Customer needs to select products for this booking' 
+                : 'Complete list of items in this booking'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {productDialogBooking && (
+            <div className="space-y-4">
+              {/* Booking Info */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Booking Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Booking #</p>
+                      <p className="font-medium">{productDialogBooking.booking_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Customer</p>
+                      <p className="font-medium">{productDialogBooking.customer?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Event Date</p>
+                      <p className="font-medium">
+                        {new Date(productDialogBooking.event_date).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Total Amount</p>
+                      <p className="font-medium">₹{productDialogBooking.total_amount?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Products Section */}
+              {productDialogType === 'pending' ? (
+                <Card className="border-orange-200 bg-orange-50/50">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-orange-600" />
+                      Product Selection Pending
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      The customer hasn't selected specific products yet. This booking is waiting for product selection.
+                    </p>
+                    
+                    {(productDialogBooking as any).total_safas > 0 && (
+                      <div className="bg-white rounded-lg p-4 border">
+                        <p className="text-sm font-medium mb-2">Booking Capacity</p>
+                        <Badge variant="default" className="text-base px-3 py-1">
+                          {(productDialogBooking as any).total_safas} Safas
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    <div className="pt-3 space-y-2">
+                      <p className="text-sm font-medium">Next Steps:</p>
+                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                        <li>Customer will select products from available inventory</li>
+                        <li>Once selected, items will appear in this booking</li>
+                        <li>You'll be able to track delivery and returns</li>
+                      </ul>
+                    </div>
+                    
+                    <Button 
+                      className="w-full mt-4" 
+                      onClick={() => {
+                        setShowProductDialog(false)
+                        router.push(`/bookings/${productDialogBooking.id}/select-products`)
+                      }}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Help Customer Select Products
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Items List ({bookingItems[productDialogBooking.id]?.length || 0})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const items = bookingItems[productDialogBooking.id] || []
+                      
+                      if (items.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p>No items loaded yet</p>
+                            <p className="text-sm mt-1">
+                              Total Safas: {(productDialogBooking as any).total_safas || 0}
+                            </p>
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <div className="space-y-3">
+                          {items.map((item: any, idx: number) => (
+                            <div 
+                              key={idx} 
+                              className="flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                              {item.product?.image_url ? (
+                                <img 
+                                  src={item.product.image_url} 
+                                  alt={item.product?.name || 'Product'}
+                                  className="w-16 h-16 rounded-lg object-cover border"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center">
+                                  <Package className="h-8 w-8 text-gray-400" />
+                                </div>
+                              )}
+                              
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm truncate">
+                                  {item.product?.name || item.package_name || item.variant_name || 'Unknown Item'}
+                                </h4>
+                                {item.variant_name && item.variant_name !== item.product?.name && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Variant: {item.variant_name}
+                                  </p>
+                                )}
+                                {item.category_name && (
+                                  <Badge variant="outline" className="text-xs mt-1">
+                                    {item.category_name}
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <div className="text-right">
+                                <p className="font-medium">×{item.quantity || 1}</p>
+                                {item.price && (
+                                  <p className="text-sm text-muted-foreground">
+                                    ₹{item.price.toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Total Summary */}
+                          <div className="border-t pt-3 mt-4">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">Total Items</span>
+                              <span className="font-bold text-lg">
+                                {items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0)} pieces
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </DialogContent>
