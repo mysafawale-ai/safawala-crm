@@ -1227,30 +1227,6 @@ export default function CreateProductOrderPage() {
                     className="pl-10"
                   />
                 </div>
-
-                {/* Event date hint */}
-                {!formData.event_date && (
-                  <div className="text-xs text-orange-600 text-center py-2 bg-orange-50 rounded border border-orange-200">
-                    💡 Set event date above to check product availability for specific dates
-                  </div>
-                )}
-
-                {/* Check Availability Button */}
-                {formData.event_date && (
-                  <div className="flex justify-center">
-                    <InventoryAvailabilityPopup
-                      eventDate={formData.event_date ? new Date(formData.event_date) : undefined}
-                      deliveryDate={formData.delivery_date ? new Date(formData.delivery_date) : undefined}
-                      returnDate={formData.return_date ? new Date(formData.return_date) : undefined}
-                    >
-                      <Button variant="outline" type="button" className="flex items-center gap-2 bg-transparent">
-                        <Package className="h-4 w-4" />
-                        Check Product Availability
-                      </Button>
-                    </InventoryAvailabilityPopup>
-                  </div>
-                )}
-
                 <div className="max-h-[500px] overflow-y-auto border rounded-lg p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {filteredProducts.map((p) => {
