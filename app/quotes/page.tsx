@@ -2884,6 +2884,13 @@ const getStatusBadge = (status: string) => {
                           </Badge>
                         </div>
                       )}
+
+                      {selectedQuote.sales_staff_name && (
+                        <div className="flex justify-between items-center text-sm bg-indigo-50 p-2 rounded">
+                          <span className="text-indigo-800">👤 Sales Closed By:</span>
+                          <span className="font-semibold text-indigo-700">{selectedQuote.sales_staff_name}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>

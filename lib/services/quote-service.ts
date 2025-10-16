@@ -120,6 +120,7 @@ export class QuoteService {
         .select(`
           *,
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
+          sales_staff:staff!sales_closed_by(id, name),
           product_order_items(
             *,
             product:products!left(name, security_deposit)
@@ -140,6 +141,7 @@ export class QuoteService {
         .select(`
           *,
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
+          sales_staff:staff!sales_closed_by(id, name),
           package_booking_items(
             *,
             package:package_sets!left(
@@ -278,6 +280,8 @@ export class QuoteService {
         security_deposit: order.security_deposit,
         status: order.status,
         notes: order.notes,
+        sales_closed_by: order.sales_closed_by,
+        sales_staff_name: order.sales_staff?.name || null,
         created_at: order.created_at,
         quote_items: (order.product_order_items || []).map((item: any) => ({
           ...item,
@@ -326,6 +330,8 @@ export class QuoteService {
         security_deposit: booking.security_deposit,
         status: booking.status,
         notes: booking.notes,
+        sales_closed_by: booking.sales_closed_by,
+        sales_staff_name: booking.sales_staff?.name || null,
         created_at: booking.created_at,
         quote_items: (booking.package_booking_items || []).map((item: any) => ({
           ...item,

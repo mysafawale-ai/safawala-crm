@@ -417,6 +417,8 @@ export interface Quote {
   created_at: string
   updated_at?: string
   created_by?: string
+  sales_closed_by?: string
+  sales_staff_name?: string
 
   // Conversion tracking
   converted_to_booking_id?: string
