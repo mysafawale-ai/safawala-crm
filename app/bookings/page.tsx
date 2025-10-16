@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useConfirmationDialog } from "@/components/ui/confirmation-dialog"
 import {
   CalendarDays,
@@ -27,13 +27,18 @@ import {
   ArrowLeft,
   Calendar,
   List,
+  User,
+  FileText,
+  Clock,
+  Shield,
+  Share2,
+  Download,
 } from "lucide-react"
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { useData } from "@/hooks/use-data"
 import { useToast } from "@/hooks/use-toast"
 import { BookingCalendar } from "@/components/bookings/booking-calendar"
-import { BookingDetailsDialog } from "@/components/bookings/booking-details-dialog"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { AnimatedBackButton } from "@/components/ui/animated-back-button"
@@ -655,12 +660,12 @@ export default function BookingsPage() {
                                 Select Products
                               </Button>
                             )}
-                            <BookingDetailsDialog
-                              booking={booking}
-                              onEdit={(booking) => handleEditBooking(booking.id, (booking as any).source)}
-                              onStatusUpdate={(id, status) => handleStatusUpdate(id, status, (booking as any).source)}
-                              trigger={<Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1"/>View</Button>}
-                            />
+                            <Button variant="outline" size="sm" onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowViewDialog(true)
+                            }}>
+                              <Eye className="h-4 w-4 mr-1"/>View
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => handleEditBooking(booking.id, (booking as any).source)}>
                               <Edit className="h-4 w-4 mr-1"/>Edit
                             </Button>
@@ -760,6 +765,393 @@ export default function BookingsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Full-Featured Booking View Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>📋 Booking Details</DialogTitle>
+            <DialogDescription>Complete booking information and timeline</DialogDescription>
+          </DialogHeader>
+          
+          {selectedBooking && (
+            <div className="space-y-4">
+              {/* Customer Information */}
+              <Card>
+                <CardHeader className="bg-blue-50 dark:bg-blue-950">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    👤 Customer Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Name</p>
+                      <p className="font-medium">{selectedBooking.customer?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="font-medium">{selectedBooking.customer?.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">WhatsApp</p>
+                      <p className="font-medium">{(selectedBooking.customer as any)?.whatsapp_number || selectedBooking.customer?.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="font-medium">{selectedBooking.customer?.email || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Address</p>
+                      <p className="font-medium">
+                        {[
+                          selectedBooking.customer?.address,
+                          selectedBooking.customer?.city,
+                          selectedBooking.customer?.state,
+                          selectedBooking.customer?.pincode
+                        ].filter(Boolean).join(', ') || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Event Information */}
+              <Card>
+                <CardHeader className="bg-purple-50 dark:bg-purple-950">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    🎉 Event Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Event Type</p>
+                      <p className="font-medium capitalize">{selectedBooking.event_type?.replace('_', ' ') || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Participant</p>
+                      <p className="font-medium capitalize">{selectedBooking.event_for || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Event Date & Time</p>
+                      <p className="font-medium">
+                        {selectedBooking.event_date ? new Date(selectedBooking.event_date).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                        {(selectedBooking as any).event_time && ` at ${(selectedBooking as any).event_time}`}
+                      </p>
+                    </div>
+                    {selectedBooking.groom_name && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">🤵 Groom</p>
+                        <p className="font-medium">{selectedBooking.groom_name}</p>
+                        {selectedBooking.groom_additional_whatsapp && (
+                          <p className="text-xs text-muted-foreground">📱 {selectedBooking.groom_additional_whatsapp}</p>
+                        )}
+                        {selectedBooking.groom_home_address && (
+                          <p className="text-xs text-muted-foreground">📍 {selectedBooking.groom_home_address}</p>
+                        )}
+                      </div>
+                    )}
+                    {selectedBooking.bride_name && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">👰 Bride</p>
+                        <p className="font-medium">{selectedBooking.bride_name}</p>
+                        {selectedBooking.bride_additional_whatsapp && (
+                          <p className="text-xs text-muted-foreground">📱 {selectedBooking.bride_additional_whatsapp}</p>
+                        )}
+                        {(selectedBooking as any).bride_address && (
+                          <p className="text-xs text-muted-foreground">📍 {(selectedBooking as any).bride_address}</p>
+                        )}
+                      </div>
+                    )}
+                    {selectedBooking.venue_address && (
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">📍 Venue</p>
+                        <p className="font-medium">{selectedBooking.venue_address}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Booking Information */}
+              <Card>
+                <CardHeader className="bg-orange-50 dark:bg-orange-950">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    📝 Booking Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Booking Number</p>
+                      <p className="font-medium">{selectedBooking.booking_number || (selectedBooking as any).order_number || (selectedBooking as any).package_number || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Type</p>
+                      <Badge variant={(selectedBooking as any).source === 'package_booking' ? 'default' : 'secondary'}>
+                        {(selectedBooking as any).source === 'package_booking' ? '📦 Package' : '🛍️ Product Order'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Status</p>
+                      {getStatusBadge(selectedBooking.status)}
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Created Date</p>
+                      <p className="font-medium">
+                        {selectedBooking.created_at ? new Date(selectedBooking.created_at).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </p>
+                    </div>
+                    {(selectedBooking as any).payment_type && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Payment Type</p>
+                        <p className="font-medium capitalize">{(selectedBooking as any).payment_type.replace('_', ' ')}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Delivery Information */}
+              <Card>
+                <CardHeader className="bg-indigo-50 dark:bg-indigo-950">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    🚚 Delivery & Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedBooking.delivery_date && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">📦 Delivery Date</p>
+                        <p className="font-medium">
+                          {new Date(selectedBooking.delivery_date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                          {(selectedBooking as any).delivery_time && ` at ${(selectedBooking as any).delivery_time}`}
+                        </p>
+                      </div>
+                    )}
+                    {(selectedBooking as any).return_date && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">↩️ Return Date</p>
+                        <p className="font-medium">
+                          {new Date((selectedBooking as any).return_date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                          {(selectedBooking as any).return_time && ` at ${(selectedBooking as any).return_time}`}
+                        </p>
+                      </div>
+                    )}
+                    {selectedBooking.special_instructions && (
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">📝 Special Instructions</p>
+                        <p className="font-medium">{selectedBooking.special_instructions}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Booking Items */}
+              {selectedBooking && bookingItems[selectedBooking.id] && bookingItems[selectedBooking.id].length > 0 && (
+                <Card>
+                  <CardHeader className="bg-green-50 dark:bg-green-950">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      🛍️ Booking Items
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="space-y-4">
+                      {bookingItems[selectedBooking.id].map((item: any, index: number) => (
+                        <div key={index} className="border rounded-lg p-3 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline">{item.category_name || 'Category'}</Badge>
+                              </div>
+                              <p className="font-medium">{item.package_name || item.product_name || 'Item'}</p>
+                              {item.variant_name && (
+                                <p className="text-sm text-muted-foreground">Variant: {item.variant_name}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">₹{(item.price || 0).toLocaleString()}</p>
+                              {item.quantity && item.quantity > 1 && (
+                                <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {item.variant_inclusions && item.variant_inclusions.length > 0 && (
+                            <div className="mt-2 pt-2 border-t">
+                              <p className="text-xs font-medium text-muted-foreground mb-1">📦 Inclusions:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {item.variant_inclusions.map((inc: any, i: number) => (
+                                  <Badge key={i} variant="secondary" className="text-xs">
+                                    {inc.product_name} ({inc.quantity})
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Enhanced Financial Summary */}
+              <Card>
+                <CardHeader className="bg-amber-50 dark:bg-amber-950">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    💰 Financial Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="space-y-3">
+                    {/* Base Amount */}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-medium">₹{(selectedBooking.total_amount || 0).toLocaleString()}</span>
+                    </div>
+
+                    {/* Distance Charges */}
+                    {(selectedBooking as any).distance_amount && (selectedBooking as any).distance_amount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">🚗 Distance Charges</span>
+                        <span className="font-medium text-blue-600">+₹{(selectedBooking as any).distance_amount.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {/* Discounts */}
+                    {selectedBooking.discount_amount && selectedBooking.discount_amount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">💸 Discount</span>
+                        <span className="font-medium text-green-600">-₹{selectedBooking.discount_amount.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {/* Coupon Discount */}
+                    {selectedBooking.coupon_discount && selectedBooking.coupon_discount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">🎟️ Coupon ({selectedBooking.coupon_code})</span>
+                        <span className="font-medium text-green-600">-₹{selectedBooking.coupon_discount.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {/* GST */}
+                    {selectedBooking.tax_amount && selectedBooking.tax_amount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">📊 GST ({(selectedBooking as any).gst_percentage || 18}%)</span>
+                        <span className="font-medium">+₹{selectedBooking.tax_amount.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    <div className="border-t pt-2 mt-2" />
+
+                    {/* Grand Total */}
+                    <div className="flex justify-between font-bold text-lg">
+                      <span>Grand Total</span>
+                      <span>₹{(selectedBooking.total_amount || 0).toLocaleString()}</span>
+                    </div>
+
+                    <div className="border-t pt-3 mt-3 space-y-2">
+                      {/* Security Deposit */}
+                      {selectedBooking.security_deposit && selectedBooking.security_deposit > 0 && (
+                        <div className="flex justify-between text-sm bg-purple-50 dark:bg-purple-950 p-2 rounded">
+                          <span className="font-medium">🔒 Security Deposit</span>
+                          <span className="font-bold text-purple-600">₹{selectedBooking.security_deposit.toLocaleString()}</span>
+                        </div>
+                      )}
+
+                      {/* Amount Paid */}
+                      <div className="flex justify-between text-sm bg-green-50 dark:bg-green-950 p-2 rounded">
+                        <span className="font-medium">✅ Amount Paid</span>
+                        <span className="font-bold text-green-600">₹{(selectedBooking.paid_amount || 0).toLocaleString()}</span>
+                      </div>
+
+                      {/* Pending Amount */}
+                      <div className="flex justify-between text-sm bg-orange-50 dark:bg-orange-950 p-2 rounded">
+                        <span className="font-medium">⏳ Pending Amount</span>
+                        <span className="font-bold text-orange-600">
+                          ₹{((selectedBooking.total_amount || 0) - (selectedBooking.paid_amount || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notes */}
+              {selectedBooking.notes && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">📝 Notes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm whitespace-pre-wrap">{selectedBooking.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    // TODO: Implement PDF download
+                    console.log('Download PDF for booking:', selectedBooking.id)
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    const bookingNumber = selectedBooking.booking_number || (selectedBooking as any).order_number || (selectedBooking as any).package_number
+                    navigator.clipboard.writeText(bookingNumber || '')
+                    // TODO: Add toast notification
+                  }}
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </Button>
+                <Button 
+                  variant="default" 
+                  onClick={() => setShowViewDialog(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <ConfirmationDialog />
     </div>
   )
