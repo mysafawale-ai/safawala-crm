@@ -148,11 +148,7 @@ export class QuoteService {
             ),
             variant:package_variants!left(
               name,
-              variant_inclusions(
-                product_id,
-                quantity,
-                product:products!left(name, product_code)
-              )
+              inclusions
             )
           )
         `)

@@ -25,7 +25,7 @@ import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface Customer { id: string; name: string; phone: string; email?: string; pincode?: string }
 interface PackageCategory { id: string; name: string; description?: string; security_deposit?: number }
-interface PackageVariant { id: string; package_id: string; variant_name: string; base_price: number; security_deposit?: number }
+interface PackageVariant { id: string; package_id: string; variant_name: string; base_price: number; security_deposit?: number; inclusions?: string[] | string }
 interface PackageSet { id: string; category_id: string; name: string; base_price: number; extra_safa_price: number; security_deposit?: number; package_variants: PackageVariant[] }
 interface BookingItem { id: string; pkg: PackageSet; variant: PackageVariant; quantity: number; unit_price: number; total_price: number; extra_safas: number; distance_addon?: number; security_deposit?: number; products_pending?: boolean }
 interface StaffMember { id: string; name: string; email: string; role: string; franchise_id: string }
@@ -1108,11 +1108,33 @@ export default function BookPackageWizard() {
                       {bookingItems.map(i => (
                         <tr key={i.id} className="border-t">
                           <td className="p-2">
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               <div className="font-bold text-base">{i.pkg.name}</div>
                               {i.variant?.variant_name && (
-                                <div className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block">
-                                  Variant: {i.variant.variant_name}
+                                <div className="space-y-1">
+                                  <div className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block">
+                                    Variant: {i.variant.variant_name}
+                                  </div>
+                                  {/* Show variant inclusions */}
+                                  {(() => {
+                                    const inclusions: string[] = Array.isArray(i.variant?.inclusions)
+                                      ? i.variant.inclusions
+                                      : typeof i.variant?.inclusions === 'string'
+                                        ? JSON.parse(i.variant.inclusions)
+                                        : []
+                                    if (inclusions.length > 0) {
+                                      return (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {inclusions.map((inc, idx) => (
+                                            <span key={idx} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200">
+                                              {inc}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )
+                                    }
+                                    return null
+                                  })()}
                                 </div>
                               )}
                               {i.extra_safas > 0 && (
@@ -1146,8 +1168,35 @@ export default function BookPackageWizard() {
                       <div className="space-y-1 pr-6">
                         <div className="font-bold text-sm text-gray-900">{i.pkg.name}</div>
                         {i.variant?.variant_name && (
-                          <div className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block">
-                            {i.variant.variant_name}
+                          <div className="space-y-1">
+                            <div className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block">
+                              {i.variant.variant_name}
+                            </div>
+                            {/* Show variant inclusions in sidebar */}
+                            {(() => {
+                              const inclusions: string[] = Array.isArray(i.variant?.inclusions)
+                                ? i.variant.inclusions
+                                : typeof i.variant?.inclusions === 'string'
+                                  ? JSON.parse(i.variant.inclusions)
+                                  : []
+                              if (inclusions.length > 0) {
+                                return (
+                                  <div className="flex flex-wrap gap-0.5 mt-1">
+                                    {inclusions.slice(0, 3).map((inc, idx) => (
+                                      <span key={idx} className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                        {inc}
+                                      </span>
+                                    ))}
+                                    {inclusions.length > 3 && (
+                                      <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                        +{inclusions.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()}
                           </div>
                         )}
                         {i.products_pending && (
