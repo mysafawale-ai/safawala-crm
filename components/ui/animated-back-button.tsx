@@ -52,8 +52,8 @@ export function AnimatedBackButton({
         )} 
       />
       
-      {/* Text with smooth fade */}
-      {children && (
+      {/* Text with smooth fade - hide when size is icon */}
+      {children && size !== "icon" && (
         <span className="relative z-10 transition-all duration-300 group-hover:tracking-wide">
           {children}
         </span>
