@@ -527,6 +527,15 @@ export default function BookingDetailPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {(booking.status === 'pending_selection' || !booking.booking_items || booking.booking_items.length === 0) && (
+              <div className="p-4 border rounded-md bg-amber-50 flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Product selection is pending</p>
+                  <p className="text-sm text-muted-foreground">Add products to this booking to proceed</p>
+                </div>
+                <Button onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>Select Products</Button>
+              </div>
+            )}
             {booking.booking_items?.map((item: any) => (
               <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex-1">
@@ -551,6 +560,9 @@ export default function BookingDetailPage() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   This booking doesn't have any items associated with it.
                 </p>
+                <div className="mt-4">
+                  <Button onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>Select Products</Button>
+                </div>
               </div>
             )}
           </div>

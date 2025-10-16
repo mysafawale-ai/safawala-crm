@@ -545,6 +545,11 @@ export default function BookingsPage() {
                         <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {booking.status === 'pending_selection' && (
+                              <Button variant="secondary" size="sm" onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>
+                                Select Products
+                              </Button>
+                            )}
                             <BookingDetailsDialog
                               booking={booking}
                               onEdit={(booking) => handleEditBooking(booking.id, (booking as any).source)}

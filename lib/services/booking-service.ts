@@ -189,6 +189,9 @@ export class BookingService {
         throw new Error("Failed to generate booking number")
       }
 
+      // Determine if quote has selectable items
+      const validQuoteItemsPre = (quote as any).quote_items?.filter((item: any) => item && item.product_id) || []
+
       // Create booking data from quote
       const bookingData = {
         booking_number: bookingNumber,
@@ -208,8 +211,9 @@ export class BookingService {
         discount_amount: quote.discount_amount,
         security_deposit: quote.security_deposit,
         special_instructions: quote.special_instructions,
-        notes: `Converted from quote ${quote.quote_number}`,
-        status: "confirmed",
+  notes: `Converted from quote ${quote.quote_number}`,
+  // If no items present on quote, mark as pending_selection to let user pick products
+  status: validQuoteItemsPre.length > 0 ? "confirmed" : "pending_selection",
         type: quote.type || "rental",
         payment_type: "full",
         amount_paid: 0,

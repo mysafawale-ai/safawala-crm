@@ -398,6 +398,16 @@ export class QuoteService {
           return acc;
         }, {})
       })
+      
+      // LOG EACH QUOTE'S SALES DATA
+      console.log("🔍 DETAILED QUOTE SALES DATA:")
+      allQuotes.forEach(q => {
+        console.log(`  Quote ${q.quote_number}:`, {
+          sales_closed_by: q.sales_closed_by,
+          sales_staff_name: q.sales_staff_name
+        })
+      })
+      
       console.log("📋 ALL QUOTES LOADED:", allQuotes.map(q => ({
         number: q.quote_number,
         status: q.status,
