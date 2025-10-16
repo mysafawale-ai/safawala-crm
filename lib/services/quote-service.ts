@@ -367,7 +367,7 @@ export class QuoteService {
       if (quotesWithStaff.length > 0) {
         const staffIds = [...new Set(quotesWithStaff.map(q => q.sales_closed_by))]
         const { data: staffData, error: staffError } = await supabase
-          .from('staff')
+          .from('users')
           .select('id, name')
           .in('id', staffIds)
         
