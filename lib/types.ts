@@ -160,7 +160,11 @@ export interface Booking {
   coupon_code?: string // Coupon code applied
   coupon_discount?: number // Discount amount from coupon
   tax_amount?: number
+  gst_amount?: number // GST/Tax amount calculated
+  gst_percentage?: number // GST percentage (default 18%)
   security_deposit?: number
+  distance_amount?: number // Distance-based delivery charge
+  distance_km?: number // Distance in kilometers
   priority?: string
   groom_name?: string
   groom_home_address?: string
@@ -170,6 +174,10 @@ export interface Booking {
   venue_name?: string
   venue_address?: string
   special_instructions?: string
+  delivery_time?: string // Scheduled delivery time
+  return_time?: string // Scheduled return/pickup time
+  event_time?: string // Event start time
+  participant?: string // Event participant (groom/bride/both) - alias for event_for
   invoice_generated?: boolean
   whatsapp_sent?: boolean
 }
@@ -536,15 +544,28 @@ export interface Invoice {
   groom_name?: string
   bride_name?: string
   venue_address?: string
+  participant?: string // Event participant (groom/bride/both)
+  event_time?: string // Event start time
+
+  // Timeline details
+  delivery_time?: string // Scheduled delivery time
+  return_time?: string // Scheduled return/pickup time
 
   // Financial details
   total_amount: number
   subtotal_amount?: number
   tax_amount?: number
+  gst_amount?: number // GST/Tax amount calculated
+  gst_percentage?: number // GST percentage (default 18%)
   discount_amount?: number
+  coupon_code?: string // Coupon code applied
+  coupon_discount?: number // Discount amount from coupon
   paid_amount?: number
   pending_amount?: number
   security_deposit?: number
+  distance_amount?: number // Distance-based delivery charge
+  distance_km?: number // Distance in kilometers
+  payment_method?: string // Payment method used
 
   // Invoice status
   status: "draft" | "sent" | "paid" | "partially_paid" | "overdue" | "cancelled"
