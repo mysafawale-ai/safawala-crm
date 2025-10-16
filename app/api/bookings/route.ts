@@ -139,6 +139,8 @@ export async function GET(request: NextRequest) {
       type: r.booking_type || 'rental',
       booking_kind: 'product' as const,
       total_safas: productTotals[r.id] || 0,
+      has_items: (productTotals[r.id] || 0) > 0,
+      security_deposit: Number((r as any).security_deposit || 0),
     }))
 
     const packageRows = (packageRes.data || []).map((r: any) => ({
@@ -162,6 +164,8 @@ export async function GET(request: NextRequest) {
       type: 'package' as const,
       booking_kind: 'package' as const,
       total_safas: packageTotals[r.id] || 0,
+      has_items: (packageTotals[r.id] || 0) > 0,
+      security_deposit: Number((r as any).security_deposit || 0),
     }))
 
     const data = [...productRows, ...packageRows].sort(
