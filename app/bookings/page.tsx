@@ -545,7 +545,7 @@ export default function BookingsPage() {
                           <div className="flex flex-col items-start">
                             <span>₹{booking.total_amount?.toLocaleString() || 0}</span>
                             {typeof (booking as any).security_deposit === 'number' && (booking as any).security_deposit > 0 && (
-                              <span className="text-xs text-muted-foreground">Payable: ₹{(((booking as any).total_amount || 0) + ((booking as any).security_deposit || 0)).toLocaleString()}</span>
+                              <span className="text-xs text-muted-foreground">Payable Now: ₹{(((booking as any).total_amount || 0) + ((booking as any).security_deposit || 0)).toLocaleString()}</span>
                             )}
                           </div>
                         </TableCell>
@@ -556,6 +556,11 @@ export default function BookingsPage() {
                               <Button variant="secondary" size="sm" onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>
                                 Select Products
                               </Button>
+                            )}
+                            {(booking as any).type !== 'package' && (
+                              <Badge variant={(booking as any).has_items ? 'default' : 'outline'}>
+                                Product: {(booking as any).has_items ? 'Selected' : 'Pending'}
+                              </Badge>
                             )}
                             <BookingDetailsDialog
                               booking={booking}
