@@ -1124,15 +1124,28 @@ export default function BookPackageWizard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {bookingItems.map(i => (
+                      {bookingItems.map(i => {
+                        // Get category name
+                        const category = categories.find(c => c.id === i.pkg.category_id)
+                        return (
                         <tr key={i.id} className="border-t">
                           <td className="p-2">
-                            <div className="space-y-1.5">
-                              <div className="font-bold text-base">{i.pkg.name}</div>
+                            <div className="space-y-2">
+                              {/* Category name in green badge */}
+                              {category && (
+                                <div className="text-xs font-semibold text-green-800 bg-green-50 px-2 py-1 rounded inline-block border border-green-200">
+                                  {category.name}
+                                </div>
+                              )}
+                              
+                              {/* Package name */}
+                              <div className="font-bold text-base text-gray-900">{i.pkg.name}</div>
+                              
+                              {/* Variant and inclusions */}
                               {i.variant?.variant_name && (
-                                <div className="space-y-1">
-                                  <div className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block">
-                                    Variant: {i.variant.variant_name}
+                                <div className="space-y-1.5">
+                                  <div className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block border border-blue-200">
+                                    ◆ {i.variant.variant_name}
                                   </div>
                                   {/* Show variant inclusions */}
                                   {(() => {
@@ -1146,7 +1159,7 @@ export default function BookPackageWizard() {
                                         <div className="flex flex-wrap gap-1 mt-1">
                                           {inclusions.map((inc, idx) => (
                                             <span key={idx} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200">
-                                              {inc}
+                                              ✓ {inc}
                                             </span>
                                           ))}
                                         </div>
@@ -1156,9 +1169,11 @@ export default function BookPackageWizard() {
                                   })()}
                                 </div>
                               )}
+                              
+                              {/* Extra safas calculation */}
                               {i.extra_safas > 0 && (
-                                <div className="text-xs text-gray-700 font-medium">
-                                  Extra Safas: {i.extra_safas} × {formatCurrency(i.pkg.extra_safa_price)} = {formatCurrency(i.extra_safas * i.pkg.extra_safa_price)}
+                                <div className="text-xs text-gray-700 font-medium bg-orange-50 px-2 py-1 rounded border border-orange-200">
+                                  + Extra Safas: <span className="font-semibold">{i.extra_safas}</span> × {formatCurrency(i.pkg.extra_safa_price)} = <span className="font-bold text-orange-700">{formatCurrency(i.extra_safas * i.pkg.extra_safa_price)}</span>
                                 </div>
                               )}
                             </div>
@@ -1166,7 +1181,7 @@ export default function BookPackageWizard() {
                           <td className="p-2 text-right">{i.quantity}</td>
                           <td className="p-2 text-right">{formatCurrency(i.total_price * i.quantity)}</td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>
@@ -1181,15 +1196,28 @@ export default function BookPackageWizard() {
               <CardContent className="space-y-4">
                 <div className="space-y-3 max-h-72 overflow-auto pr-1">
                   {bookingItems.length === 0 && <div className="text-xs text-gray-500">No items added.</div>}
-                  {bookingItems.map(i => (
+                  {bookingItems.map(i => {
+                    // Get category name for sidebar
+                    const category = categories.find(c => c.id === i.pkg.category_id)
+                    return (
                     <div key={i.id} className="border rounded p-3 space-y-2 text-xs relative">
                       <button onClick={() => removeItem(i.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500" aria-label="Remove"><X className="h-4 w-4" /></button>
-                      <div className="space-y-1 pr-6">
+                      <div className="space-y-1.5 pr-6">
+                        {/* Category badge */}
+                        {category && (
+                          <div className="text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded inline-block border border-green-200">
+                            {category.name}
+                          </div>
+                        )}
+                        
+                        {/* Package name */}
                         <div className="font-bold text-sm text-gray-900">{i.pkg.name}</div>
+                        
+                        {/* Variant and inclusions */}
                         {i.variant?.variant_name && (
                           <div className="space-y-1">
-                            <div className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block">
-                              {i.variant.variant_name}
+                            <div className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block border border-blue-200">
+                              ◆ {i.variant.variant_name}
                             </div>
                             {/* Show variant inclusions in sidebar */}
                             {(() => {
@@ -1201,14 +1229,14 @@ export default function BookPackageWizard() {
                               if (inclusions.length > 0) {
                                 return (
                                   <div className="flex flex-wrap gap-0.5 mt-1">
-                                    {inclusions.slice(0, 3).map((inc, idx) => (
-                                      <span key={idx} className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
-                                        {inc}
+                                    {inclusions.slice(0, 2).map((inc, idx) => (
+                                      <span key={idx} className="text-[8px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                        ✓ {inc}
                                       </span>
                                     ))}
-                                    {inclusions.length > 3 && (
-                                      <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
-                                        +{inclusions.length - 3} more
+                                    {inclusions.length > 2 && (
+                                      <span className="text-[8px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                        +{inclusions.length - 2} more
                                       </span>
                                     )}
                                   </div>
@@ -1221,9 +1249,10 @@ export default function BookPackageWizard() {
                         {i.products_pending && (
                           <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[9px]">Products pending</Badge>
                         )}
+                        {/* Extra safas with calculation */}
                         {i.extra_safas > 0 && (
-                          <div className="text-[10px] text-gray-600 font-medium mt-1">
-                            + {i.extra_safas} Extra Safas ({formatCurrency(i.pkg.extra_safa_price)} each)
+                          <div className="text-[9px] text-orange-700 font-medium bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                            + {i.extra_safas} Extra × {formatCurrency(i.pkg.extra_safa_price)} = <span className="font-bold">{formatCurrency(i.extra_safas * i.pkg.extra_safa_price)}</span>
                           </div>
                         )}
                       </div>
@@ -1236,7 +1265,7 @@ export default function BookPackageWizard() {
                         <div className="font-bold text-sm">{formatCurrency(i.total_price * i.quantity)}</div>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
                 <div className="border-t pt-3 space-y-1 text-sm">
                   {/* Subtle context: resolved distance in km, for internal clarity */}
