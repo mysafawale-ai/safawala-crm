@@ -109,24 +109,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize optional fields - convert empty strings to null
+    const sanitizedData = {
+      code: code.trim().toUpperCase(),
+      description: description?.trim() || null,
+      discount_type,
+      discount_value,
+      min_order_value: min_order_value || 0,
+      max_discount: max_discount || null,
+      usage_limit: usage_limit || null,
+      per_user_limit: per_user_limit || null,
+      valid_from: valid_from || new Date().toISOString(),
+      valid_until: valid_until && valid_until.trim() !== '' ? valid_until : null,
+      is_active: is_active !== undefined ? is_active : true,
+      franchise_id: franchiseId,
+      created_by: userId,
+    };
+
     // Insert coupon
     const { data: coupon, error } = await supabase
       .from('coupons')
-      .insert({
-        code: code.trim().toUpperCase(),
-        description,
-        discount_type,
-        discount_value,
-        min_order_value: min_order_value || 0,
-        max_discount,
-        usage_limit,
-        per_user_limit,
-        valid_from: valid_from || new Date().toISOString(),
-        valid_until,
-        is_active: is_active !== undefined ? is_active : true,
-        franchise_id: franchiseId,
-        created_by: userId,
-      })
+      .insert(sanitizedData)
       .select()
       .single();
 
@@ -174,13 +177,39 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // If code is being updated, ensure it's uppercase
-    if (updates.code) {
-      updates.code = updates.code.trim().toUpperCase();
-    }
+    // Sanitize updates - convert empty strings to null
+    const sanitizedUpdates: any = {};
+    
+    Object.keys(updates).forEach(key => {
+      const value = updates[key];
+      
+      // Handle code field - ensure uppercase
+      if (key === 'code' && value) {
+        sanitizedUpdates[key] = value.trim().toUpperCase();
+      }
+      // Handle description - convert empty to null
+      else if (key === 'description') {
+        sanitizedUpdates[key] = value?.trim() || null;
+      }
+      // Handle date fields - convert empty strings to null
+      else if ((key === 'valid_until' || key === 'valid_from') && value === '') {
+        sanitizedUpdates[key] = null;
+      }
+      // Handle numeric fields - convert empty/falsy to null or 0
+      else if (key === 'max_discount' || key === 'usage_limit' || key === 'per_user_limit') {
+        sanitizedUpdates[key] = value || null;
+      }
+      else if (key === 'min_order_value') {
+        sanitizedUpdates[key] = value || 0;
+      }
+      // Keep other fields as is
+      else {
+        sanitizedUpdates[key] = value;
+      }
+    });
 
     // Validate percentage discount
-    if (updates.discount_type === 'percentage' && updates.discount_value > 100) {
+    if (sanitizedUpdates.discount_type === 'percentage' && sanitizedUpdates.discount_value > 100) {
       return NextResponse.json(
         { error: 'Percentage discount cannot exceed 100%' },
         { status: 400 }
@@ -190,7 +219,7 @@ export async function PUT(request: NextRequest) {
     // Update coupon (only franchise coupons)
     const { data: coupon, error } = await supabase
       .from('coupons')
-      .update(updates)
+      .update(sanitizedUpdates)
       .eq('id', id)
       .eq('franchise_id', franchiseId)
       .select()
