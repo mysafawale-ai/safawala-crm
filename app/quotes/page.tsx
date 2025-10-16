@@ -1175,40 +1175,87 @@ function QuotesPageContent() {
                     
                     {/* Financial Breakdown */}
                     <div className="mt-4 pt-4 border-t space-y-2">
+                      <h4 className="font-semibold text-sm text-gray-700 mb-2">💰 Price Breakdown</h4>
+                      
+                      {/* Items Subtotal */}
                       <div className="flex justify-between text-sm">
-                        <span>Subtotal:</span>
-                        <span className="font-medium">{formatCurrency(selectedQuote.subtotal_amount || selectedQuote.total_amount)}</span>
+                        <span>Items Subtotal</span>
+                        <span className="font-medium">₹{(selectedQuote.subtotal_amount || selectedQuote.total_amount).toLocaleString()}</span>
                       </div>
-                      {selectedQuote.payment_method && (
-                        <div className="flex justify-between text-sm">
-                          <span>Payment Method:</span>
-                          <span className="font-medium">{selectedQuote.payment_method}</span>
+
+                      {/* Distance Charges (if applicable for package) */}
+                      {selectedQuote.distance_amount && selectedQuote.distance_amount > 0 && (
+                        <div className="flex justify-between text-sm text-blue-600">
+                          <span className="flex items-center gap-1">
+                            <span>📍 Distance Charges</span>
+                            {selectedQuote.distance_km && <span className="text-xs text-gray-500">({selectedQuote.distance_km} km)</span>}
+                          </span>
+                          <span className="font-medium">₹{selectedQuote.distance_amount.toLocaleString()}</span>
                         </div>
                       )}
-                      {selectedQuote.coupon_code && (
-                        <div className="flex justify-between text-sm text-orange-600">
-                          <span>Coupon Applied ({selectedQuote.coupon_code}):</span>
-                          <span className="font-medium">- {formatCurrency(selectedQuote.coupon_discount || 0)}</span>
-                        </div>
-                      )}
+
+                      {/* Manual Discount */}
                       {selectedQuote.discount_amount && selectedQuote.discount_amount > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
-                          <span>Manual Discount:</span>
-                          <span className="font-medium">- {formatCurrency(selectedQuote.discount_amount)}</span>
+                          <span>Discount (40%)</span>
+                          <span className="font-medium">-₹{selectedQuote.discount_amount.toLocaleString()}</span>
                         </div>
                       )}
-                      {selectedQuote.tax_amount && selectedQuote.tax_amount > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span>Tax (GST):</span>
-                          <span className="font-medium">{formatCurrency(selectedQuote.tax_amount)}</span>
+
+                      {/* Coupon Discount */}
+                      {selectedQuote.coupon_code && selectedQuote.coupon_discount && selectedQuote.coupon_discount > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Coupon ({selectedQuote.coupon_code})</span>
+                          <span className="font-medium">-₹{selectedQuote.coupon_discount.toLocaleString()}</span>
                         </div>
                       )}
-                      
-                      {/* Total Amount */}
-                      <div className="flex justify-between text-base font-bold pt-2 border-t">
-                        <span>Total Amount:</span>
-                        <span className="text-green-600 text-lg">{formatCurrency(selectedQuote.total_amount)}</span>
+
+                      {/* After Discounts Line */}
+                      {((selectedQuote.discount_amount && selectedQuote.discount_amount > 0) || 
+                        (selectedQuote.coupon_discount && selectedQuote.coupon_discount > 0)) && (
+                        <div className="flex justify-between text-sm font-medium border-t pt-2">
+                          <span>After Discounts</span>
+                          <span>₹{(
+                            (selectedQuote.subtotal_amount || selectedQuote.total_amount) + 
+                            (selectedQuote.distance_amount || 0) - 
+                            (selectedQuote.discount_amount || 0) - 
+                            (selectedQuote.coupon_discount || 0)
+                          ).toLocaleString()}</span>
+                        </div>
+                      )}
+
+                      {/* GST */}
+                      <div className="flex justify-between text-sm">
+                        <span>GST (5%)</span>
+                        <span className="font-medium">₹{(selectedQuote.tax_amount || 0).toLocaleString()}</span>
                       </div>
+                      
+                      {/* Grand Total */}
+                      <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
+                        <span>Grand Total</span>
+                        <span className="text-green-700 text-lg">₹{selectedQuote.total_amount.toLocaleString()}</span>
+                      </div>
+
+                      {/* Payment Method */}
+                      {selectedQuote.payment_method && (
+                        <div className="flex justify-between text-sm bg-blue-50 p-2 rounded">
+                          <span>💳 Payment Method:</span>
+                          <span className="font-medium text-blue-700">{selectedQuote.payment_method}</span>
+                        </div>
+                      )}
+
+                      {/* Payment Type Badge */}
+                      {selectedQuote.payment_type && (
+                        <div className="flex justify-between text-sm bg-purple-50 p-2 rounded">
+                          <span>💰 Payment Type:</span>
+                          <Badge variant="outline" className="ml-2">
+                            {selectedQuote.payment_type === 'full' ? '100% Full Payment' : 
+                             selectedQuote.payment_type === 'advance' ? '50% Advance Payment' : 
+                             selectedQuote.payment_type === 'partial' ? 'Partial Payment' : 
+                             selectedQuote.payment_type}
+                          </Badge>
+                        </div>
+                      )}
 
                       {/* Security Deposit - Refundable */}
                       {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
@@ -2501,32 +2548,97 @@ const getStatusBadge = (status: string) => {
                   
                   {/* Financial Breakdown */}
                   <div className="mt-4 pt-4 border-t space-y-2">
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">💰 Price Breakdown</h4>
+                    
+                    {/* Items Subtotal */}
                     <div className="flex justify-between text-sm">
-                      <span>Subtotal:</span>
-                      <span className="font-medium">{formatCurrency(selectedQuote.subtotal_amount || selectedQuote.total_amount)}</span>
+                      <span>Items Subtotal</span>
+                      <span className="font-medium">₹{(selectedQuote.subtotal_amount || selectedQuote.total_amount).toLocaleString()}</span>
                     </div>
+
+                    {/* Distance Charges (if applicable for package) */}
+                    {selectedQuote.distance_amount && selectedQuote.distance_amount > 0 && (
+                      <div className="flex justify-between text-sm text-blue-600">
+                        <span className="flex items-center gap-1">
+                          <span>📍 Distance Charges</span>
+                          {selectedQuote.distance_km && <span className="text-xs text-gray-500">({selectedQuote.distance_km} km)</span>}
+                        </span>
+                        <span className="font-medium">₹{selectedQuote.distance_amount.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {/* Manual Discount */}
                     {selectedQuote.discount_amount && selectedQuote.discount_amount > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
-                        <span>Discount:</span>
-                        <span className="font-medium">- {formatCurrency(selectedQuote.discount_amount)}</span>
+                        <span>Discount (40%)</span>
+                        <span className="font-medium">-₹{selectedQuote.discount_amount.toLocaleString()}</span>
                       </div>
                     )}
-                    {selectedQuote.tax_amount && selectedQuote.tax_amount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>Tax (GST):</span>
-                        <span className="font-medium">{formatCurrency(selectedQuote.tax_amount)}</span>
+
+                    {/* Coupon Discount */}
+                    {selectedQuote.coupon_code && selectedQuote.coupon_discount && selectedQuote.coupon_discount > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Coupon ({selectedQuote.coupon_code})</span>
+                        <span className="font-medium">-₹{selectedQuote.coupon_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>Security Deposit:</span>
-                        <span className="font-medium">{formatCurrency(selectedQuote.security_deposit)}</span>
+
+                    {/* After Discounts Line */}
+                    {((selectedQuote.discount_amount && selectedQuote.discount_amount > 0) || 
+                      (selectedQuote.coupon_discount && selectedQuote.coupon_discount > 0)) && (
+                      <div className="flex justify-between text-sm font-medium border-t pt-2">
+                        <span>After Discounts</span>
+                        <span>₹{(
+                          (selectedQuote.subtotal_amount || selectedQuote.total_amount) + 
+                          (selectedQuote.distance_amount || 0) - 
+                          (selectedQuote.discount_amount || 0) - 
+                          (selectedQuote.coupon_discount || 0)
+                        ).toLocaleString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-base font-bold pt-2 border-t">
-                      <span>Total Amount:</span>
-                      <span className="text-green-600 text-lg">{formatCurrency(selectedQuote.total_amount)}</span>
+
+                    {/* GST */}
+                    <div className="flex justify-between text-sm">
+                      <span>GST (5%)</span>
+                      <span className="font-medium">₹{(selectedQuote.tax_amount || 0).toLocaleString()}</span>
                     </div>
+                    
+                    {/* Grand Total */}
+                    <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
+                      <span>Grand Total</span>
+                      <span className="text-green-700 text-lg">₹{selectedQuote.total_amount.toLocaleString()}</span>
+                    </div>
+
+                    {/* Payment Method */}
+                    {selectedQuote.payment_method && (
+                      <div className="flex justify-between text-sm bg-blue-50 p-2 rounded">
+                        <span>💳 Payment Method:</span>
+                        <span className="font-medium text-blue-700">{selectedQuote.payment_method}</span>
+                      </div>
+                    )}
+
+                    {/* Payment Type Badge */}
+                    {selectedQuote.payment_type && (
+                      <div className="flex justify-between text-sm bg-purple-50 p-2 rounded">
+                        <span>💰 Payment Type:</span>
+                        <Badge variant="outline" className="ml-2">
+                          {selectedQuote.payment_type === 'full' ? '100% Full Payment' : 
+                           selectedQuote.payment_type === 'advance' ? '50% Advance Payment' : 
+                           selectedQuote.payment_type === 'partial' ? 'Partial Payment' : 
+                           selectedQuote.payment_type}
+                        </Badge>
+                      </div>
+                    )}
+
+                    {/* Security Deposit */}
+                    {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                      <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200 mt-2">
+                        <span className="flex items-center gap-1">
+                          <span>🔒 Refundable Security Deposit</span>
+                        </span>
+                        <span className="font-medium text-blue-700">₹{selectedQuote.security_deposit.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 </Card>
               )}
