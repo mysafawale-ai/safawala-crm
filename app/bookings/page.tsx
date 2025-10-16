@@ -541,7 +541,14 @@ export default function BookingsPage() {
                           </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                        <TableCell>₹{booking.total_amount?.toLocaleString() || 0}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-start">
+                            <span>₹{booking.total_amount?.toLocaleString() || 0}</span>
+                            {typeof (booking as any).security_deposit === 'number' && (booking as any).security_deposit > 0 && (
+                              <span className="text-xs text-muted-foreground">Payable: ₹{(((booking as any).total_amount || 0) + ((booking as any).security_deposit || 0)).toLocaleString()}</span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">

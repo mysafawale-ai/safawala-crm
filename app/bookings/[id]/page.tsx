@@ -46,6 +46,7 @@ export default function BookingDetailPage() {
   const [settlementNotes, setSettlementNotes] = useState<string>("")
   const [finalizing, setFinalizing] = useState(false)
   const [settlementInvoice, setSettlementInvoice] = useState<{ id: string; invoice_number: string; pdf_url?: string | null } | null>(null)
+  const [salesStaffName, setSalesStaffName] = useState<string | null>(null)
 
   useEffect(() => {
     if (params.id) {
@@ -111,6 +112,27 @@ export default function BookingDetailPage() {
         settlement_locked: (data as any).settlement_locked ?? false,
         deposit_amount: (data as any).deposit_amount ?? (data as any).security_deposit ?? 0,
       } as BookingView)
+      // Load sales staff name (best-effort)
+      try {
+        const staffId = (data as any).sales_closed_by_id || (data as any).sales_closed_by
+        if (staffId) {
+          const { data: staff } = await supabase
+            .from('users')
+            .select('first_name, last_name, email')
+            .eq('id', staffId)
+            .maybeSingle()
+          if (staff) {
+            const name = [staff.first_name, staff.last_name].filter(Boolean).join(' ').trim()
+            setSalesStaffName(name || staff.email || null)
+          } else {
+            setSalesStaffName(null)
+          }
+        } else {
+          setSalesStaffName(null)
+        }
+      } catch {
+        setSalesStaffName(null)
+      }
       // Load latest settlement invoice (if any)
       try {
         const { data: sInv } = await supabase
@@ -397,6 +419,16 @@ export default function BookingDetailPage() {
                 <p className="text-lg font-semibold">₹{booking.total_amount.toLocaleString()}</p>
               </div>
               <div>
+                <p className="text-sm font-medium text-muted-foreground">Security Deposit</p>
+                <p className="text-lg font-semibold">₹{Number(booking.deposit_amount || 0).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Refundable</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Payable Now</p>
+                <p className="text-lg font-semibold">₹{(Number(booking.total_amount || 0) + Number(booking.deposit_amount || 0)).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total + Deposit</p>
+              </div>
+              <div>
                 <p className="text-sm font-medium text-muted-foreground">Event Date</p>
                 <p className="flex items-center">
                   <Calendar className="mr-2 h-4 w-4" />
@@ -406,6 +438,10 @@ export default function BookingDetailPage() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Created</p>
                 <p>{format(new Date(booking.created_at), "PPP")}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-sm font-medium text-muted-foreground">Sales Closed By</p>
+                <p className="text-sm">{salesStaffName || '—'}</p>
               </div>
             </div>
 
