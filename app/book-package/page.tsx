@@ -1127,6 +1127,13 @@ export default function BookPackageWizard() {
                       {bookingItems.map(i => {
                         // Get category name
                         const category = categories.find(c => c.id === i.pkg.category_id)
+                        console.log('🔍 Review Debug:', {
+                          packageName: i.pkg.name,
+                          categoryId: i.pkg.category_id,
+                          foundCategory: category,
+                          allCategories: categories.length,
+                          categoryNames: categories.map(c => c.name)
+                        })
                         return (
                         <tr key={i.id} className="border-t">
                           <td className="p-2">
@@ -1135,6 +1142,13 @@ export default function BookPackageWizard() {
                               {category && (
                                 <div className="text-xs font-semibold text-green-800 bg-green-50 px-2 py-1 rounded inline-block border border-green-200">
                                   {category.name}
+                                </div>
+                              )}
+                              
+                              {/* Debug: Always show category_id */}
+                              {!category && i.pkg.category_id && (
+                                <div className="text-xs font-semibold text-red-800 bg-red-50 px-2 py-1 rounded inline-block border border-red-200">
+                                  Category ID: {i.pkg.category_id.substring(0, 8)}... (not found in categories)
                                 </div>
                               )}
                               
@@ -1199,6 +1213,11 @@ export default function BookPackageWizard() {
                   {bookingItems.map(i => {
                     // Get category name for sidebar
                     const category = categories.find(c => c.id === i.pkg.category_id)
+                    console.log('🔍 Sidebar Debug:', {
+                      packageName: i.pkg.name,
+                      categoryId: i.pkg.category_id,
+                      foundCategory: category?.name
+                    })
                     return (
                     <div key={i.id} className="border rounded p-3 space-y-2 text-xs relative">
                       <button onClick={() => removeItem(i.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500" aria-label="Remove"><X className="h-4 w-4" /></button>
@@ -1207,6 +1226,13 @@ export default function BookPackageWizard() {
                         {category && (
                           <div className="text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded inline-block border border-green-200">
                             {category.name}
+                          </div>
+                        )}
+                        
+                        {/* Debug: Show if category not found */}
+                        {!category && i.pkg.category_id && (
+                          <div className="text-[9px] font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded inline-block border border-red-200">
+                            Cat ID: {i.pkg.category_id.substring(0, 8)}
                           </div>
                         )}
                         
