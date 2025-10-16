@@ -64,6 +64,8 @@ export default function BookingsPage() {
   const { data: bookings = [], loading, error, refresh } = useData<Booking[]>("bookings")
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [bookingItems, setBookingItems] = useState<Record<string, any[]>>({})
+  const [showViewDialog, setShowViewDialog] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
 
   useEffect(() => {
     ;(async () => {

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import {
   Plus,
   Search,
@@ -20,6 +21,8 @@ import {
   Clock,
   DollarSign,
   ArrowLeft,
+  User,
+  Calendar,
 } from "lucide-react"
 import { InvoiceService } from "@/lib/services/invoice-service"
 import { useToast } from "@/hooks/use-toast"
@@ -62,6 +65,8 @@ function InvoicesPageContent() {
   const [dateFilter, setDateFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
+  const [showViewDialog, setShowViewDialog] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
   useEffect(() => {
     loadInvoices()
@@ -418,11 +423,8 @@ function InvoicesPageContent() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              const editPath =
-                                invoice.invoice_type === "package_booking"
-                                  ? `/book-package?edit=${invoice.id}`
-                                  : `/create-product-order?edit=${invoice.id}`
-                              router.push(editPath)
+                              setSelectedInvoice(invoice)
+                              setShowViewDialog(true)
                             }}
                           >
                             <Eye className="h-4 w-4" />
@@ -498,6 +500,141 @@ function InvoicesPageContent() {
           </CardContent>
         </Card>
       )}
+      
+      {/* View Invoice Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Invoice Details - {selectedInvoice?.invoice_number}
+            </DialogTitle>
+            <DialogDescription>Complete information for this invoice</DialogDescription>
+          </DialogHeader>
+          {selectedInvoice && (
+            <div className="space-y-6">
+              {/* Customer Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Customer Information
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium">Name:</span> {selectedInvoice.customer_name || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">Phone:</span> {selectedInvoice.customer_phone || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">Email:</span> {selectedInvoice.customer_email || "N/A"}
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Event Information
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium">Event Type:</span> {selectedInvoice.event_type || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">Event Date:</span>{" "}
+                      {selectedInvoice.event_date ? new Date(selectedInvoice.event_date).toLocaleDateString() : "N/A"}
+                    </div>
+                    {selectedInvoice.groom_name && (
+                      <div>
+                        <span className="font-medium">Groom:</span> {selectedInvoice.groom_name}
+                      </div>
+                    )}
+                    {selectedInvoice.bride_name && (
+                      <div>
+                        <span className="font-medium">Bride:</span> {selectedInvoice.bride_name}
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-medium">Venue:</span> {selectedInvoice.venue_address || "N/A"}
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Invoice Information */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Invoice Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium">Invoice #:</span> {selectedInvoice.invoice_number}
+                  </div>
+                  <div>
+                    <span className="font-medium">Type:</span>{" "}
+                    <Badge variant={selectedInvoice.invoice_type === 'package_booking' ? 'default' : 'secondary'}>
+                      {selectedInvoice.invoice_type === 'package_booking' ? '📦 Package' : '🛍️ Product Order'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="font-medium">Status:</span> {getStatusBadge(selectedInvoice.payment_status || "pending")}
+                  </div>
+                  <div>
+                    <span className="font-medium">Created:</span>{" "}
+                    {new Date(selectedInvoice.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Financial Summary */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Financial Summary
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="text-sm">Subtotal:</span>
+                    <span className="font-medium">{formatCurrency(selectedInvoice.subtotal_amount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="text-sm">Tax (GST):</span>
+                    <span className="font-medium">{formatCurrency(selectedInvoice.tax_amount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b bg-primary/5 px-3 rounded">
+                    <span className="font-semibold">Total Amount:</span>
+                    <span className="font-bold text-lg">{formatCurrency(selectedInvoice.total_amount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b text-green-600">
+                    <span className="text-sm">Paid Amount:</span>
+                    <span className="font-medium">{formatCurrency(selectedInvoice.paid_amount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 text-orange-600">
+                    <span className="text-sm">Pending Amount:</span>
+                    <span className="font-medium">{formatCurrency(selectedInvoice.pending_amount || 0)}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end items-center pt-4 border-t gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {}}
+                  className="text-green-600 border-green-200 hover:bg-green-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+                <Button onClick={() => setShowViewDialog(false)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
