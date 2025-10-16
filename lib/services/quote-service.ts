@@ -278,7 +278,7 @@ export class QuoteService {
         security_deposit: order.security_deposit,
         status: order.status,
         notes: order.notes,
-        sales_closed_by: order.sales_closed_by,
+        sales_closed_by: order.sales_closed_by_id,
         sales_staff_name: null, // Will be populated separately if needed
         created_at: order.created_at,
         quote_items: (order.product_order_items || []).map((item: any) => ({
@@ -328,7 +328,7 @@ export class QuoteService {
         security_deposit: booking.security_deposit,
         status: booking.status,
         notes: booking.notes,
-        sales_closed_by: booking.sales_closed_by,
+        sales_closed_by: booking.sales_closed_by_id,
         sales_staff_name: null, // Will be populated separately if needed
         created_at: booking.created_at,
         quote_items: (booking.package_booking_items || []).map((item: any) => ({
