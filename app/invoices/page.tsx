@@ -10,6 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Plus,
   Search,
   Download,
@@ -244,10 +250,24 @@ function InvoicesPageContent() {
             <p className="text-muted-foreground">View and manage invoices for confirmed bookings and orders</p>
           </div>
         </div>
-        <Button onClick={() => router.push("/create-product-order")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Order
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Invoice
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => router.push('/create-product-order')}>
+              <Package className="h-4 w-4 mr-2" />
+              Create Order
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/book-package')}>
+              <FileText className="h-4 w-4 mr-2" />
+              Book a Package
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Stats Cards */}
