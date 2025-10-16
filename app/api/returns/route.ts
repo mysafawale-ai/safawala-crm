@@ -1,18 +1,122 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import AuditLogger from "@/lib/audit-logger"
 
-// Contract
-// Input JSON:
-// {
-//   deliveryId: string,
-//   bookingId: string,
-//   items: Array<{ product_id: string, qty_delivered: number, qty_returned: number, qty_damaged: number, qty_lost: number, notes?: string }>,
-//   notes?: string,
-//   user?: { id?: string, email?: string }
-// }
-// Output: { success: boolean, returnId?: string }
+export const dynamic = "force-dynamic"
 
+/**
+ * GET /api/returns
+ * Fetch all returns with delivery, booking, customer, and product details
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = createClient()
+    const { searchParams } = new URL(request.url)
+    
+    const status = searchParams.get("status") // pending, completed, etc.
+    const franchise_id = searchParams.get("franchise_id")
+    
+    // Build query
+    let query = supabase
+      .from("returns")
+      .select(`
+        *,
+        delivery:deliveries(
+          id,
+          delivery_number,
+          delivery_address,
+          delivered_at,
+          driver_name,
+          vehicle_number
+        ),
+        customer:customers(
+          id,
+          name,
+          phone,
+          email,
+          address
+        )
+      `)
+      .order("created_at", { ascending: false })
+    
+    // Apply filters
+    if (status) {
+      query = query.eq("status", status)
+    }
+    
+    if (franchise_id) {
+      query = query.eq("franchise_id", franchise_id)
+    }
+    
+    const { data: returns, error } = await query
+    
+    if (error) {
+      console.error("Error fetching returns:", error)
+      return NextResponse.json(
+        { error: "Failed to fetch returns", details: error.message },
+        { status: 500 }
+      )
+    }
+    
+    // For each return, fetch the items with product details
+    const enrichedReturns = await Promise.all(
+      (returns || []).map(async (returnRecord) => {
+        // Get booking details based on source
+        let booking = null
+        if (returnRecord.booking_source === "product_order") {
+          const { data: po } = await supabase
+            .from("product_orders")
+            .select("order_number, order_type, event_date, delivery_date, return_date")
+            .eq("id", returnRecord.booking_id)
+            .maybeSingle()
+          booking = po
+        } else if (returnRecord.booking_source === "package_booking") {
+          const { data: pb } = await supabase
+            .from("package_bookings")
+            .select("package_number, event_date, delivery_date, return_date")
+            .eq("id", returnRecord.booking_id)
+            .maybeSingle()
+          booking = { ...pb, order_type: "rental" }
+        }
+        
+        // Get return items
+        const { data: items } = await supabase
+          .from("return_items")
+          .select(`
+            *,
+            product:products(
+              id,
+              name,
+              product_code,
+              category,
+              image_url
+            )
+          `)
+          .eq("return_id", returnRecord.id)
+        
+        return {
+          ...returnRecord,
+          booking,
+          items: items || []
+        }
+      })
+    )
+    
+    return NextResponse.json({
+      success: true,
+      returns: enrichedReturns,
+      count: enrichedReturns.length
+    })
+  } catch (error: any) {
+    console.error("Error in GET /api/returns:", error)
+    return NextResponse.json(
+      { error: "Internal server error", details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+// Legacy POST endpoint for rental_returns compatibility
 export async function POST(request: Request) {
   const supabase = createClient()
   try {
