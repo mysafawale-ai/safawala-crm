@@ -144,8 +144,7 @@ export class QuoteService {
             *,
             package:package_sets!left(
               name,
-              description,
-              category:package_categories!left(name)
+              description
             ),
             variant:package_variants!left(
               name,
