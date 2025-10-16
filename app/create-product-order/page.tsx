@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectTrigger,
@@ -114,6 +115,7 @@ export default function CreateProductOrderPage() {
   const [customerSearch, setCustomerSearch] = useState("")
   const [productSearch, setProductSearch] = useState("")
   const [loading, setLoading] = useState(false)
+  const [customersLoading, setCustomersLoading] = useState(true)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [couponValidating, setCouponValidating] = useState(false)
   const [couponError, setCouponError] = useState("")
@@ -155,6 +157,7 @@ export default function CreateProductOrderPage() {
   // Load initial data
   useEffect(() => {
     ;(async () => {
+      setCustomersLoading(true)
       try {
         // Fetch current user to apply franchise isolation
         const userRes = await fetch('/api/auth/user')
@@ -217,6 +220,8 @@ export default function CreateProductOrderPage() {
       } catch (e) {
         console.error(e)
         toast.error("Failed to load data")
+      } finally {
+        setCustomersLoading(false)
       }
     })()
   }, [])
@@ -731,32 +736,46 @@ export default function CreateProductOrderPage() {
                   </div>
                 ) : (
                   <div className="border rounded-md max-h-56 overflow-y-auto text-sm">
-                    {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelectedCustomer(c)}
-                        className="w-full text-left p-3 border-b last:border-b-0 hover:bg-muted"
-                      >
-                        <div className="font-medium">{c.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {c.phone}
-                        </div>
-                      </button>
-                    ))}
-                    {customerSearch && filteredCustomers.length === 0 && (
-                      <div className="p-3 text-xs text-muted-foreground">
-                        No matches
+                    {customersLoading ? (
+                      // Skeleton loading state
+                      <div className="space-y-0">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <div key={i} className="p-3 border-b last:border-b-0">
+                            <Skeleton className="h-5 w-32 mb-2" />
+                            <Skeleton className="h-4 w-24" />
+                          </div>
+                        ))}
                       </div>
-                    )}
-                    {!customerSearch && customers.length > 5 && (
-                      <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
-                        Showing first 5 of {customers.length} customers. Type to search more...
-                      </div>
-                    )}
-                    {!customerSearch && customers.length === 0 && (
-                      <div className="p-3 text-xs text-muted-foreground">
-                        No customers found
-                      </div>
+                    ) : (
+                      <>
+                        {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => setSelectedCustomer(c)}
+                            className="w-full text-left p-3 border-b last:border-b-0 hover:bg-muted"
+                          >
+                            <div className="font-medium">{c.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {c.phone}
+                            </div>
+                          </button>
+                        ))}
+                        {customerSearch && filteredCustomers.length === 0 && (
+                          <div className="p-3 text-xs text-muted-foreground">
+                            No matches
+                          </div>
+                        )}
+                        {!customerSearch && customers.length > 5 && (
+                          <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
+                            Showing first 5 of {customers.length} customers. Type to search more...
+                          </div>
+                        )}
+                        {!customerSearch && customers.length === 0 && (
+                          <div className="p-3 text-xs text-muted-foreground">
+                            No customers found
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

@@ -15,6 +15,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   ArrowLeft, ArrowRight, User, Package, FileText, Search, X, Plus,
   CalendarIcon, Gift, ShoppingCart, Loader2, CheckCircle
@@ -43,6 +44,7 @@ export default function BookPackageWizard() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [customersLoading, setCustomersLoading] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)  // ✅ Store logged-in user
   const [basePincode, setBasePincode] = useState<string>('390007') // Default fallback
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -107,6 +109,7 @@ export default function BookPackageWizard() {
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
+    setCustomersLoading(true)
     try {
       // Fetch current user first for franchise filtering
       console.log("Fetching current user...")
@@ -221,6 +224,8 @@ export default function BookPackageWizard() {
     } catch (e) {
       console.error("Error in loadData:", e)
       toast.error("Error loading data")
+    } finally {
+      setCustomersLoading(false)
     }
   }
 
@@ -888,26 +893,40 @@ export default function BookPackageWizard() {
                       </div>
                     ) : (
                       <div className="border rounded-md max-h-56 overflow-y-auto text-sm">
-                        {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => setSelectedCustomer(c)}
-                            className="w-full text-left p-3 border-b last:border-b-0 hover:bg-muted"
-                          >
-                            <div className="font-medium">{c.name}</div>
-                            <div className="text-xs text-muted-foreground">{c.phone}</div>
-                          </button>
-                        ))}
-                        {customerSearch && filteredCustomers.length === 0 && (
-                          <div className="p-3 text-xs text-muted-foreground">No matches</div>
-                        )}
-                        {!customerSearch && customers.length > 5 && (
-                          <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
-                            Showing first 5 of {customers.length} customers. Type to search more...
+                        {customersLoading ? (
+                          // Skeleton loading state
+                          <div className="space-y-0">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <div key={i} className="p-3 border-b last:border-b-0">
+                                <Skeleton className="h-5 w-32 mb-2" />
+                                <Skeleton className="h-4 w-24" />
+                              </div>
+                            ))}
                           </div>
-                        )}
-                        {!customerSearch && customers.length === 0 && (
-                          <div className="p-3 text-xs text-muted-foreground">No customers found</div>
+                        ) : (
+                          <>
+                            {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
+                              <button
+                                key={c.id}
+                                onClick={() => setSelectedCustomer(c)}
+                                className="w-full text-left p-3 border-b last:border-b-0 hover:bg-muted"
+                              >
+                                <div className="font-medium">{c.name}</div>
+                                <div className="text-xs text-muted-foreground">{c.phone}</div>
+                              </button>
+                            ))}
+                            {customerSearch && filteredCustomers.length === 0 && (
+                              <div className="p-3 text-xs text-muted-foreground">No matches</div>
+                            )}
+                            {!customerSearch && customers.length > 5 && (
+                              <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
+                                Showing first 5 of {customers.length} customers. Type to search more...
+                              </div>
+                            )}
+                            {!customerSearch && customers.length === 0 && (
+                              <div className="p-3 text-xs text-muted-foreground">No customers found</div>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
