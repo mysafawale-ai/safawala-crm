@@ -359,18 +359,31 @@ export class QuoteService {
 
       // Fetch staff names for quotes that have sales_closed_by
       const quotesWithStaff = allQuotes.filter(q => q.sales_closed_by)
+      console.log("👥 Fetching staff names:", {
+        quotesWithStaff: quotesWithStaff.length,
+        staffIds: quotesWithStaff.map(q => q.sales_closed_by)
+      })
+      
       if (quotesWithStaff.length > 0) {
         const staffIds = [...new Set(quotesWithStaff.map(q => q.sales_closed_by))]
-        const { data: staffData } = await supabase
+        const { data: staffData, error: staffError } = await supabase
           .from('staff')
           .select('id, name')
           .in('id', staffIds)
         
-        if (staffData) {
+        console.log("👥 Staff fetch result:", {
+          success: !staffError,
+          count: staffData?.length || 0,
+          data: staffData,
+          error: staffError
+        })
+        
+        if (staffData && staffData.length > 0) {
           const staffMap = new Map(staffData.map(s => [s.id, s.name]))
           allQuotes.forEach(quote => {
             if (quote.sales_closed_by) {
               quote.sales_staff_name = staffMap.get(quote.sales_closed_by) || null
+              console.log(`  - Quote ${quote.quote_number}: staff ID ${quote.sales_closed_by} → ${quote.sales_staff_name}`)
             }
           })
         }
