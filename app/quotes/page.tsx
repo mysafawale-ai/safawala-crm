@@ -1272,12 +1272,32 @@ function QuotesPageContent() {
                         <span>GST (5%)</span>
                         <span className="font-medium">₹{(selectedQuote.tax_amount || 0).toLocaleString()}</span>
                       </div>
+
+                      {/* Security Deposit - Refundable */}
+                      {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                        <div className="flex justify-between text-sm text-blue-600 font-medium">
+                          <span className="flex items-center gap-1">
+                            🔒 Security Deposit (Refundable)
+                          </span>
+                          <span>₹{selectedQuote.security_deposit.toLocaleString()}</span>
+                        </div>
+                      )}
                       
                       {/* Grand Total */}
                       <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
                         <span>Grand Total</span>
                         <span className="text-green-700 text-lg">₹{selectedQuote.total_amount.toLocaleString()}</span>
                       </div>
+
+                      {/* Grand Total with Security Deposit */}
+                      {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                        <div className="flex justify-between text-base font-bold bg-purple-50 p-2 rounded border-2 border-purple-200">
+                          <span>💎 Total with Security Deposit:</span>
+                          <span className="text-purple-700 text-lg">
+                            ₹{(selectedQuote.total_amount + selectedQuote.security_deposit).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Payment Method */}
                       {selectedQuote.payment_method && (
@@ -1297,26 +1317,6 @@ function QuotesPageContent() {
                              selectedQuote.payment_type === 'partial' ? 'Partial Payment' : 
                              selectedQuote.payment_type}
                           </Badge>
-                        </div>
-                      )}
-
-                      {/* Security Deposit - Refundable */}
-                      {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
-                        <div className="flex justify-between text-sm bg-blue-50 p-2 rounded">
-                          <span className="flex items-center gap-1">
-                            <span>🔒 Refundable Security Deposit</span>
-                          </span>
-                          <span className="font-medium text-blue-700">{formatCurrency(selectedQuote.security_deposit)}</span>
-                        </div>
-                      )}
-
-                      {/* Grand Total with Security Deposit */}
-                      {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
-                        <div className="flex justify-between text-base font-bold bg-purple-50 p-2 rounded">
-                          <span>💎 Grand Total (Including Security):</span>
-                          <span className="text-purple-700 text-lg">
-                            {formatCurrency(selectedQuote.total_amount + selectedQuote.security_deposit)}
-                          </span>
                         </div>
                       )}
 
@@ -2722,12 +2722,32 @@ const getStatusBadge = (status: string) => {
                       <span>GST (5%)</span>
                       <span className="font-medium">₹{(selectedQuote.tax_amount || 0).toLocaleString()}</span>
                     </div>
+
+                    {/* Security Deposit - Refundable */}
+                    {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                      <div className="flex justify-between text-sm text-blue-600 font-medium">
+                        <span className="flex items-center gap-1">
+                          🔒 Security Deposit (Refundable)
+                        </span>
+                        <span>₹{selectedQuote.security_deposit.toLocaleString()}</span>
+                      </div>
+                    )}
                     
                     {/* Grand Total */}
                     <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
                       <span>Grand Total</span>
                       <span className="text-green-700 text-lg">₹{selectedQuote.total_amount.toLocaleString()}</span>
                     </div>
+
+                    {/* Grand Total with Security Deposit */}
+                    {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                      <div className="flex justify-between text-base font-bold bg-purple-50 p-2 rounded border-2 border-purple-200">
+                        <span>💎 Total with Security Deposit:</span>
+                        <span className="text-purple-700 text-lg">
+                          ₹{(selectedQuote.total_amount + selectedQuote.security_deposit).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Payment Method */}
                     {selectedQuote.payment_method && (
@@ -2747,16 +2767,6 @@ const getStatusBadge = (status: string) => {
                            selectedQuote.payment_type === 'partial' ? 'Partial Payment' : 
                            selectedQuote.payment_type}
                         </Badge>
-                      </div>
-                    )}
-
-                    {/* Security Deposit */}
-                    {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
-                      <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200 mt-2">
-                        <span className="flex items-center gap-1">
-                          <span>🔒 Refundable Security Deposit</span>
-                        </span>
-                        <span className="font-medium text-blue-700">₹{selectedQuote.security_deposit.toLocaleString()}</span>
                       </div>
                     )}
                   </div>
