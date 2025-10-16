@@ -33,6 +33,7 @@ import {
   Shield,
   Share2,
   Download,
+  AlertCircle,
 } from "lucide-react"
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -69,6 +70,8 @@ export default function BookingsPage() {
   const { data: bookings = [], loading, error, refresh } = useData<Booking[]>("bookings")
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [bookingItems, setBookingItems] = useState<Record<string, any[]>>({})
+  const [itemsLoading, setItemsLoading] = useState<Record<string, boolean>>({})
+  const [itemsError, setItemsError] = useState<Record<string, string>>({})
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showProductDialog, setShowProductDialog] = useState(false)
@@ -87,41 +90,120 @@ export default function BookingsPage() {
     })()
   }, [])
 
-  // Fetch booking items for display
+  // Fetch booking items for display with comprehensive error handling
   useEffect(() => {
     const fetchBookingItems = async () => {
-      if (!bookings || bookings.length === 0) return
+      if (!bookings || bookings.length === 0) {
+        console.log('[Bookings] No bookings to fetch items for')
+        return
+      }
+      
+      console.log(`[Bookings] Fetching items for ${bookings.length} bookings...`)
       
       try {
         const items: Record<string, any[]> = {}
+        const errors: Record<string, string> = {}
+        const loading: Record<string, boolean> = {}
         
-        for (const booking of bookings) {
-          const source = (booking as any).source
+        // Fetch items for each booking with retry logic
+        const fetchWithRetry = async (booking: any, retries = 2): Promise<void> => {
+          const source = booking.source
           const bookingId = booking.id
+          const bookingNumber = booking.booking_number
           
-          if (source === 'product_order') {
-            const res = await fetch(`/api/bookings/${bookingId}/items?source=product_order`)
-            if (res.ok) {
+          if (!source) {
+            console.warn(`[Bookings] Booking ${bookingNumber} has no source field`)
+            errors[bookingId] = 'No source specified'
+            return
+          }
+          
+          console.log(`[Bookings] Fetching items for ${bookingNumber} (${source})...`)
+          loading[bookingId] = true
+          
+          for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+              const url = `/api/bookings/${bookingId}/items?source=${source}`
+              console.log(`[Bookings] Attempt ${attempt + 1}/${retries + 1}: GET ${url}`)
+              
+              const res = await fetch(url)
+              
+              if (!res.ok) {
+                const errorText = await res.text()
+                console.error(`[Bookings] HTTP ${res.status} for ${bookingNumber}:`, errorText)
+                
+                if (attempt === retries) {
+                  errors[bookingId] = `HTTP ${res.status}: ${errorText.substring(0, 100)}`
+                  break
+                }
+                
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+                continue
+              }
+              
               const data = await res.json()
-              items[bookingId] = data.items || []
-            }
-          } else if (source === 'package_booking') {
-            const res = await fetch(`/api/bookings/${bookingId}/items?source=package_booking`)
-            if (res.ok) {
-              const data = await res.json()
-              items[bookingId] = data.items || []
+              
+              if (data.success && Array.isArray(data.items)) {
+                items[bookingId] = data.items
+                console.log(`[Bookings] ✓ Loaded ${data.items.length} items for ${bookingNumber}`)
+                loading[bookingId] = false
+                return
+              } else {
+                console.warn(`[Bookings] Invalid response format for ${bookingNumber}:`, data)
+                if (attempt === retries) {
+                  errors[bookingId] = 'Invalid response format'
+                }
+              }
+            } catch (error: any) {
+              console.error(`[Bookings] Fetch error for ${bookingNumber} (attempt ${attempt + 1}):`, error)
+              
+              if (attempt === retries) {
+                errors[bookingId] = error.message || 'Network error'
+              } else {
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+              }
             }
           }
+          
+          loading[bookingId] = false
+        }
+        
+        // Fetch items in parallel with concurrency limit
+        const BATCH_SIZE = 10
+        for (let i = 0; i < bookings.length; i += BATCH_SIZE) {
+          const batch = bookings.slice(i, i + BATCH_SIZE)
+          await Promise.all(batch.map(booking => fetchWithRetry(booking)))
         }
         
         setBookingItems(items)
+        setItemsLoading(loading)
+        setItemsError(errors)
+        
+        const successCount = Object.keys(items).length
+        const errorCount = Object.keys(errors).length
+        console.log(`[Bookings] Items fetch complete: ${successCount} success, ${errorCount} errors`)
+        
+        if (errorCount > 0) {
+          console.warn('[Bookings] Failed bookings:', errors)
+          toast({
+            title: 'Some items failed to load',
+            description: `${errorCount} booking(s) had errors loading items`,
+            variant: 'destructive',
+          })
+        }
       } catch (error) {
-        console.error('Error fetching booking items:', error)
+        console.error('[Bookings] Fatal error fetching booking items:', error)
+        toast({
+          title: 'Failed to load booking items',
+          description: 'Please refresh the page to try again',
+          variant: 'destructive',
+        })
       }
     }
     
     fetchBookingItems()
-  }, [bookings])
+  }, [bookings, toast])
   const { data: statsData } = useData<any>("booking-stats")
   const stats = statsData || {}
 
@@ -1366,8 +1448,53 @@ export default function BookingsPage() {
                   </CardHeader>
                   <CardContent>
                     {(() => {
-                      const items = bookingItems[productDialogBooking.id] || []
+                      const bookingId = productDialogBooking.id
+                      const items = bookingItems[bookingId] || []
+                      const isLoading = itemsLoading[bookingId]
+                      const error = itemsError[bookingId]
                       
+                      // Show loading state
+                      if (isLoading) {
+                        return (
+                          <div className="text-center py-8">
+                            <RefreshCw className="h-12 w-12 mx-auto mb-2 animate-spin text-blue-500" />
+                            <p className="font-medium">Loading items...</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Fetching from database
+                            </p>
+                          </div>
+                        )
+                      }
+                      
+                      // Show error state
+                      if (error) {
+                        return (
+                          <div className="text-center py-8">
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                              <AlertCircle className="h-12 w-12 mx-auto mb-2 text-red-500" />
+                              <p className="font-medium text-red-700">Failed to load items</p>
+                              <p className="text-sm text-red-600 mt-1">{error}</p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Total Safas: {(productDialogBooking as any).total_safas || 0}
+                              </p>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="mt-4"
+                                onClick={() => {
+                                  // Force refresh
+                                  window.location.reload()
+                                }}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Refresh Page
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      // Show empty state
                       if (items.length === 0) {
                         return (
                           <div className="text-center py-8 text-muted-foreground">
