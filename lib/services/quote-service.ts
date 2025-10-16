@@ -122,7 +122,7 @@ export class QuoteService {
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
           product_order_items(
             *,
-            product:products!left(name)
+            product:products!left(name, security_deposit)
           )
         `)
         .eq("is_quote", true)
@@ -144,7 +144,9 @@ export class QuoteService {
             *,
             package:package_sets!left(
               name,
-              description
+              description,
+              security_deposit,
+              category:packages_categories!left(name)
             ),
             variant:package_variants!left(
               name,
@@ -279,7 +281,8 @@ export class QuoteService {
         created_at: order.created_at,
         quote_items: (order.product_order_items || []).map((item: any) => ({
           ...item,
-          product_name: item.product?.name || item.product_name || 'Product'
+          product_name: item.product?.name || item.product_name || 'Product',
+          product_security_deposit: item.product?.security_deposit || 0
         })),
         booking_type: 'product',
         booking_subtype: order.booking_type || 'rental' // rental or sale
@@ -329,14 +332,17 @@ export class QuoteService {
           product_name: item.package?.name || item.package_name || 'Package',
           package_name: item.package?.name || '',
           package_description: item.package?.description || '',
+          package_security_deposit: item.package?.security_deposit || 0,
           category: item.package?.category?.name || '',
           variant_name: item.variant?.name || '',
           extra_safas: item.extra_safas || 0,
-          variant_inclusions: (item.variant?.variant_inclusions || []).map((inc: any) => ({
-            product_name: inc.product?.name || '',
-            product_code: inc.product?.product_code || '',
-            quantity: inc.quantity || 0
-          }))
+          // Use inclusions array directly from variant (text[] field)
+          variant_inclusions: Array.isArray(item.variant?.inclusions) 
+            ? item.variant.inclusions.map((inclusion: string) => ({
+                product_name: inclusion,
+                quantity: 1
+              }))
+            : []
         })),
         booking_type: 'package',
         booking_subtype: 'rental' // packages are always rental

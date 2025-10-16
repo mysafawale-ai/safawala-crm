@@ -2675,6 +2675,12 @@ const getStatusBadge = (status: string) => {
                           <div className="flex items-center gap-4 text-sm">
                             <span className="text-muted-foreground">Qty: <span className="font-medium text-foreground">{item.quantity}</span></span>
                             <span className="text-muted-foreground">Unit Price: <span className="font-medium text-foreground">{formatCurrency(item.unit_price)}</span></span>
+                            {/* Show item-level security deposit if present */}
+                            {(item.package_security_deposit > 0 || item.product_security_deposit > 0) && (
+                              <span className="text-amber-700 text-xs">
+                                🔒 Deposit: <span className="font-medium">{formatCurrency(item.package_security_deposit || item.product_security_deposit)}</span>
+                              </span>
+                            )}
                           </div>
                           <div className="text-right">
                             <div className="text-sm text-muted-foreground">Total</div>
