@@ -2759,18 +2759,6 @@ const getStatusBadge = (status: string) => {
                       </div>
                     </div>
 
-                    {/* Security Deposit Section */}
-                    {selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
-                      <div className="mt-3 bg-amber-50 border-2 border-amber-200 rounded-lg p-3">
-                        <div className="flex justify-between items-center text-amber-800">
-                          <span className="flex items-center gap-1 font-semibold text-sm">
-                            🔒 Security Deposit (Refundable)
-                          </span>
-                          <span className="font-bold text-base">₹{selectedQuote.security_deposit.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Payment Breakdown - For Advance/Partial */}
                     {selectedQuote.payment_type && selectedQuote.payment_type !== 'full' && selectedQuote.payment_type !== '' && (
                       <>
@@ -2803,15 +2791,15 @@ const getStatusBadge = (status: string) => {
                                 </div>
                                 {deposit > 0 && (
                                   <div className="flex justify-between text-xs text-amber-700">
-                                    <span>Security Deposit now</span>
+                                    <span>+ Security Deposit</span>
                                     <span>₹{deposit.toLocaleString()}</span>
                                   </div>
                                 )}
                                 
                                 {/* Payable Now - Highlighted */}
-                                <div className="flex justify-between bg-green-100 border border-green-300 rounded p-2 mt-1">
+                                <div className="flex justify-between bg-green-100 border-2 border-green-300 rounded-lg p-3 mt-2">
                                   <span className="font-semibold text-green-800">💵 Payable Now</span>
-                                  <span className="font-bold text-green-800 text-base">₹{payableNow.toLocaleString()}</span>
+                                  <span className="font-bold text-green-800 text-lg">₹{payableNow.toLocaleString()}</span>
                                 </div>
                                 
                                 <div className="h-px bg-gray-200 my-2" />
@@ -2846,13 +2834,13 @@ const getStatusBadge = (status: string) => {
                           return (
                             <>
                               {deposit > 0 && (
-                                <div className="space-y-2 mb-3">
+                                <div className="space-y-1 mb-2">
                                   <div className="flex justify-between text-xs text-gray-600">
                                     <span>Package total</span>
                                     <span>₹{grandTotal.toLocaleString()}</span>
                                   </div>
                                   <div className="flex justify-between text-xs text-amber-700">
-                                    <span>Security Deposit</span>
+                                    <span>+ Security Deposit</span>
                                     <span>₹{deposit.toLocaleString()}</span>
                                   </div>
                                 </div>
