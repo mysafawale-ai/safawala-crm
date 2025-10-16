@@ -23,6 +23,9 @@ import {
   ArrowLeft,
   User,
   Calendar,
+  Package,
+  Shield,
+  Share2,
 } from "lucide-react"
 import { InvoiceService } from "@/lib/services/invoice-service"
 import { useToast } from "@/hooks/use-toast"
@@ -501,7 +504,7 @@ function InvoicesPageContent() {
         </Card>
       )}
       
-      {/* View Invoice Dialog */}
+      {/* View Invoice Dialog - Full Featured */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -513,7 +516,7 @@ function InvoicesPageContent() {
           </DialogHeader>
           {selectedInvoice && (
             <div className="space-y-6">
-              {/* Customer Information */}
+              {/* Customer & Event Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card className="p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -563,72 +566,171 @@ function InvoicesPageContent() {
                 </Card>
               </div>
 
-              {/* Invoice Information */}
-              <Card className="p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Invoice Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">Invoice #:</span> {selectedInvoice.invoice_number}
+              {/* Invoice & Status Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Invoice Information
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium">Invoice #:</span> {selectedInvoice.invoice_number}
+                    </div>
+                    <div>
+                      <span className="font-medium">Type:</span>{" "}
+                      <Badge variant={selectedInvoice.invoice_type === 'package_booking' ? 'default' : 'secondary'}>
+                        {selectedInvoice.invoice_type === 'package_booking' ? '📦 Package' : '🛍️ Product Order'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="font-medium">Status:</span> {getStatusBadge(selectedInvoice.payment_status || "pending")}
+                    </div>
+                    <div>
+                      <span className="font-medium">Created:</span>{" "}
+                      {new Date(selectedInvoice.created_at).toLocaleDateString()}
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-medium">Type:</span>{" "}
-                    <Badge variant={selectedInvoice.invoice_type === 'package_booking' ? 'default' : 'secondary'}>
-                      {selectedInvoice.invoice_type === 'package_booking' ? '📦 Package' : '🛍️ Product Order'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="font-medium">Status:</span> {getStatusBadge(selectedInvoice.payment_status || "pending")}
-                  </div>
-                  <div>
-                    <span className="font-medium">Created:</span>{" "}
-                    {new Date(selectedInvoice.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-              </Card>
+                </Card>
 
-              {/* Financial Summary */}
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Timeline Information
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    {selectedInvoice.delivery_date && (
+                      <div>
+                        <span className="font-medium">Delivery Date:</span>{" "}
+                        {new Date(selectedInvoice.delivery_date).toLocaleDateString()}
+                      </div>
+                    )}
+                    {selectedInvoice.return_date && (
+                      <div>
+                        <span className="font-medium">Return Date:</span>{" "}
+                        {new Date(selectedInvoice.return_date).toLocaleDateString()}
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-medium">Invoice Date:</span>{" "}
+                      {new Date(selectedInvoice.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Financial Summary - Full Featured */}
               <Card className="p-4">
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  Financial Summary
+                  💰 Financial Summary
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2">
+                  {/* Subtotal */}
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="text-sm">Subtotal:</span>
                     <span className="font-medium">{formatCurrency(selectedInvoice.subtotal_amount || 0)}</span>
                   </div>
+
+                  {/* Discounts */}
+                  {selectedInvoice.discount_amount && selectedInvoice.discount_amount > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b text-green-600">
+                      <span className="text-sm">Discount:</span>
+                      <span className="font-medium">-{formatCurrency(selectedInvoice.discount_amount)}</span>
+                    </div>
+                  )}
+
+                  {/* Tax/GST */}
                   <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm">Tax (GST):</span>
+                    <span className="text-sm">GST (5%):</span>
                     <span className="font-medium">{formatCurrency(selectedInvoice.tax_amount || 0)}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b bg-primary/5 px-3 rounded">
-                    <span className="font-semibold">Total Amount:</span>
-                    <span className="font-bold text-lg">{formatCurrency(selectedInvoice.total_amount)}</span>
+
+                  {/* Security Deposit */}
+                  {selectedInvoice.security_deposit && selectedInvoice.security_deposit > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b text-blue-600 font-medium">
+                      <span className="text-sm flex items-center gap-1">
+                        🔒 Security Deposit (Refundable)
+                      </span>
+                      <span>{formatCurrency(selectedInvoice.security_deposit)}</span>
+                    </div>
+                  )}
+
+                  {/* Grand Total */}
+                  <div className="flex justify-between items-center py-3 bg-green-50 px-3 rounded font-bold">
+                    <span>Grand Total:</span>
+                    <span className="text-green-700 text-lg">{formatCurrency(selectedInvoice.total_amount)}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b text-green-600">
-                    <span className="text-sm">Paid Amount:</span>
-                    <span className="font-medium">{formatCurrency(selectedInvoice.paid_amount || 0)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 text-orange-600">
-                    <span className="text-sm">Pending Amount:</span>
-                    <span className="font-medium">{formatCurrency(selectedInvoice.pending_amount || 0)}</span>
+
+                  {/* Total with Deposit */}
+                  {selectedInvoice.security_deposit && selectedInvoice.security_deposit > 0 && (
+                    <div className="flex justify-between items-center py-3 bg-purple-50 px-3 rounded border-2 border-purple-200 font-bold">
+                      <span>💎 Total with Security Deposit:</span>
+                      <span className="text-purple-700 text-lg">
+                        {formatCurrency(selectedInvoice.total_amount + selectedInvoice.security_deposit)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Payment Breakdown */}
+                  <div className="pt-3 mt-3 border-t space-y-2">
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">💳 Payment Status</h4>
+                    
+                    {selectedInvoice.paid_amount !== undefined && selectedInvoice.paid_amount > 0 && (
+                      <div className="flex justify-between items-center py-2 bg-green-50 px-3 rounded">
+                        <span className="text-sm">✅ Amount Paid:</span>
+                        <span className="font-medium text-green-700">{formatCurrency(selectedInvoice.paid_amount)}</span>
+                      </div>
+                    )}
+
+                    {selectedInvoice.pending_amount !== undefined && selectedInvoice.pending_amount > 0 && (
+                      <div className="flex justify-between items-center py-2 bg-orange-50 px-3 rounded">
+                        <span className="text-sm">⏳ Balance Due:</span>
+                        <span className="font-medium text-orange-700">{formatCurrency(selectedInvoice.pending_amount)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
 
+              {/* Notes */}
+              {selectedInvoice.notes && (
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Notes
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{selectedInvoice.notes}</p>
+                </Card>
+              )}
+
               {/* Action Buttons */}
-              <div className="flex justify-end items-center pt-4 border-t gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {}}
-                  className="text-green-600 border-green-200 hover:bg-green-50"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      // Download PDF functionality
+                    }}
+                    className="text-green-600 border-green-200 hover:bg-green-50"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`Invoice #${selectedInvoice.invoice_number}`)
+                      toast({
+                        title: "Copied",
+                        description: "Invoice number copied to clipboard",
+                      })
+                    }}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share
+                  </Button>
+                </div>
                 <Button onClick={() => setShowViewDialog(false)}>Close</Button>
               </div>
             </div>
