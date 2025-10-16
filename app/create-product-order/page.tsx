@@ -217,6 +217,15 @@ export default function CreateProductOrderPage() {
         setSubcategories(subCats)
         
         setStaffMembers(staff.data || [])
+        
+        // Auto-select current user as sales staff if they are in the staff list
+        if (user && staff.data) {
+          const currentUserInStaff = staff.data.find((s: any) => s.id === user.id)
+          if (currentUserInStaff) {
+            setSelectedStaff(user.id)
+            console.log('✅ Auto-selected current user as sales staff:', currentUserInStaff.name)
+          }
+        }
       } catch (e) {
         console.error(e)
         toast.error("Failed to load data")

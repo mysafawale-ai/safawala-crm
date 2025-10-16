@@ -221,6 +221,15 @@ export default function BookPackageWizard() {
       setStaffMembers(staffRes.data || [])
       
       console.log("Final staffMembers state:", staffRes.data || [])
+      
+      // Auto-select current user as sales staff if they are in the staff list
+      if (userData && staffRes.data) {
+        const currentUserInStaff = staffRes.data.find((s: any) => s.id === userData.id)
+        if (currentUserInStaff) {
+          setSelectedStaff(userData.id)
+          console.log('✅ Auto-selected current user as sales staff:', currentUserInStaff.name)
+        }
+      }
     } catch (e) {
       console.error("Error in loadData:", e)
       toast.error("Error loading data")
