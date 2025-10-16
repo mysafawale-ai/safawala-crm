@@ -120,7 +120,7 @@ export class QuoteService {
         .select(`
           *,
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
-          sales_staff:staff!sales_closed_by(id, name),
+          sales_staff:staff(id, name),
           product_order_items(
             *,
             product:products!left(name, security_deposit)
@@ -141,7 +141,7 @@ export class QuoteService {
         .select(`
           *,
           customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
-          sales_staff:staff!sales_closed_by(id, name),
+          sales_staff:staff(id, name),
           package_booking_items(
             *,
             package:package_sets!left(
