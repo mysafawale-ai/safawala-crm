@@ -2765,8 +2765,8 @@ const getStatusBadge = (status: string) => {
                       </div>
                     )}
 
-                    {/* Payment Breakdown - Only for Advance/Partial */}
-                    {selectedQuote.payment_type && selectedQuote.payment_type !== 'full' && (
+                    {/* Payment Breakdown - For Advance/Partial */}
+                    {selectedQuote.payment_type && selectedQuote.payment_type !== 'full' && selectedQuote.payment_type !== '' && (
                       <>
                         <div className="h-px bg-gray-300 my-3" />
                         <div className="space-y-2">
@@ -2828,21 +2828,45 @@ const getStatusBadge = (status: string) => {
                       </>
                     )}
 
-                    {/* Full Payment Display */}
-                    {selectedQuote.payment_type === 'full' && selectedQuote.security_deposit && selectedQuote.security_deposit > 0 && (
+                    {/* Full Payment or Default Display */}
+                    {(selectedQuote.payment_type === 'full' || !selectedQuote.payment_type) && (
                       <>
                         <div className="h-px bg-gray-300 my-3" />
-                        <div className="bg-green-100 border-2 border-green-300 rounded-lg p-3">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold text-green-800">💵 Total Payable Now</span>
-                            <span className="font-bold text-green-800 text-lg">
-                              ₹{(selectedQuote.total_amount + selectedQuote.security_deposit).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-xs text-green-700 mt-1">
-                            Includes ₹{selectedQuote.security_deposit.toLocaleString()} refundable security deposit
-                          </p>
-                        </div>
+                        {(() => {
+                          const grandTotal = selectedQuote.total_amount
+                          const deposit = selectedQuote.security_deposit || 0
+                          const totalPayable = grandTotal + deposit
+                          
+                          return (
+                            <>
+                              {deposit > 0 && (
+                                <div className="space-y-2 mb-3">
+                                  <div className="flex justify-between text-xs text-gray-600">
+                                    <span>Package total</span>
+                                    <span>₹{grandTotal.toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex justify-between text-xs text-amber-700">
+                                    <span>Security Deposit</span>
+                                    <span>₹{deposit.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="bg-green-100 border-2 border-green-300 rounded-lg p-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-semibold text-green-800">💵 Payable Now</span>
+                                  <span className="font-bold text-green-800 text-lg">
+                                    ₹{totalPayable.toLocaleString()}
+                                  </span>
+                                </div>
+                                {deposit > 0 && (
+                                  <p className="text-xs text-green-700 mt-1">
+                                    Includes ₹{deposit.toLocaleString()} refundable security deposit
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          )
+                        })()}
                       </>
                     )}
 
