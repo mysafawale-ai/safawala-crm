@@ -94,8 +94,13 @@ export default function SelectProductsForBookingPage() {
   }, [products, search, category])
 
   const addProduct = (p: Product) => {
+    const stock = typeof p.stock_available === 'number' ? p.stock_available : undefined
     setItems((prev) => {
       const current = prev[p.id]?.qty || 0
+      if (typeof stock === 'number' && current >= stock) {
+        toast({ title: "Out of stock", description: `Only ${stock} available`, variant: "destructive" })
+        return prev
+      }
       const unit = Number((booking?.type === "rental" ? p.rental_price : p.price) || 0)
       return { ...prev, [p.id]: { qty: current + 1, unit } }
     })
@@ -104,11 +109,19 @@ export default function SelectProductsForBookingPage() {
   const updateQty = (productId: string, qty: number) => {
     setItems((prev) => {
       const unit = prev[productId]?.unit || 0
-      if (qty <= 0) {
+      // normalize to integer
+      const nextQty = Math.floor(qty)
+      if (!nextQty || nextQty <= 0) {
         const { [productId]: _, ...rest } = prev
         return rest
       }
-      return { ...prev, [productId]: { qty, unit } }
+      const product = products.find(p => p.id === productId)
+      const stock = product && typeof product.stock_available === 'number' ? product.stock_available : undefined
+      if (typeof stock === 'number' && nextQty > stock) {
+        toast({ title: "Stock limit", description: `Max ${stock} allowed`, variant: "destructive" })
+        return prev
+      }
+      return { ...prev, [productId]: { qty: nextQty, unit } }
     })
   }
 
@@ -230,7 +243,7 @@ export default function SelectProductsForBookingPage() {
                     <div className="flex items-center gap-2 mt-auto">
                       <Button size="sm" variant="outline" onClick={() => updateQty(p.id, (selected || 0) - 1)}>-</Button>
                       <span className="w-6 text-center text-sm">{selected || 0}</span>
-                      <Button size="sm" variant="outline" onClick={() => updateQty(p.id, (selected || 0) + 1)}>+</Button>
+                      <Button size="sm" variant="outline" onClick={() => updateQty(p.id, (selected || 0) + 1)} disabled={typeof p.stock_available === 'number' && (selected || 0) >= p.stock_available}>+</Button>
                       <Button size="sm" className="ml-auto" onClick={() => addProduct(p)} disabled={p.stock_available !== null && p.stock_available !== undefined && p.stock_available <= 0}>
                         <Plus className="h-4 w-4 mr-1" /> Add
                       </Button>

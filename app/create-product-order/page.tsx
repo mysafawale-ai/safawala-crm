@@ -522,6 +522,9 @@ export default function CreateProductOrderPage() {
         ? combineDateAndTime(formData.return_date, formData.return_time)
         : null
 
+      // Calculate amount to save as paid now (includes deposit for rentals)
+      const amountPaidNow = totals.payable + (formData.booking_type === "rental" ? totals.deposit : 0)
+
       const { data: order, error } = await supabase
         .from("product_orders")
         .insert({
@@ -551,8 +554,8 @@ export default function CreateProductOrderPage() {
           subtotal_amount: totals.subtotalAfterDiscount,
           total_amount: totals.grand,
           security_deposit: totals.deposit, // Track order-level deposit (rental)
-          amount_paid: totals.payable,  // payment portion excluding deposit
-          pending_amount: totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
+          amount_paid: amountPaidNow,  // Payable portion plus refundable deposit (if rental)
+          pending_amount: totals.remaining,  // Remaining on the grand total (excludes deposit)
           status: isQuote ? "quote" : "confirmed",
           is_quote: isQuote,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
