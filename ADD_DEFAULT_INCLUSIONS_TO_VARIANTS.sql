@@ -24,7 +24,7 @@ LIMIT 10;
 -- OPTION 1: Add Basic Inclusions to ALL null variants
 -- ========================================
 UPDATE package_variants
-SET inclusions = '["Safas", "Accessories", "Delivery & Pickup"]'::jsonb,
+SET inclusions = ARRAY['Safas', 'Accessories', 'Delivery & Pickup']::text[],
     updated_at = NOW()
 WHERE inclusions IS NULL;
 
@@ -33,25 +33,25 @@ WHERE inclusions IS NULL;
 -- ========================================
 -- Update Basic variants
 UPDATE package_variants
-SET inclusions = '["Traditional Safas", "Basic Accessories", "Delivery & Pickup"]'::jsonb,
+SET inclusions = ARRAY['Traditional Safas', 'Basic Accessories', 'Delivery & Pickup']::text[],
     updated_at = NOW()
 WHERE LOWER(name) = 'basic' AND inclusions IS NULL;
 
 -- Update Premium variants
 UPDATE package_variants
-SET inclusions = '["Premium Safas", "Premium Accessories", "Decorative Items", "Professional Setup", "Delivery & Pickup"]'::jsonb,
+SET inclusions = ARRAY['Premium Safas', 'Premium Accessories', 'Decorative Items', 'Professional Setup', 'Delivery & Pickup']::text[],
     updated_at = NOW()
 WHERE LOWER(name) IN ('premium', 'deluxe') AND inclusions IS NULL;
 
 -- Update Luxury/Royal variants
 UPDATE package_variants
-SET inclusions = '["Royal Safas", "Designer Accessories", "Premium Decorative Items", "Professional Setup Team", "White Glove Delivery & Pickup"]'::jsonb,
+SET inclusions = ARRAY['Royal Safas', 'Designer Accessories', 'Premium Decorative Items', 'Professional Setup Team', 'White Glove Delivery & Pickup']::text[],
     updated_at = NOW()
 WHERE LOWER(name) IN ('luxury', 'royal', 'grand') AND inclusions IS NULL;
 
 -- Update any remaining variants with generic inclusions
 UPDATE package_variants
-SET inclusions = '["Safas", "Accessories", "Delivery & Pickup"]'::jsonb,
+SET inclusions = ARRAY['Safas', 'Accessories', 'Delivery & Pickup']::text[],
     updated_at = NOW()
 WHERE inclusions IS NULL;
 
