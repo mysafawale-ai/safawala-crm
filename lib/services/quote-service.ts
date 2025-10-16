@@ -107,10 +107,11 @@ export class QuoteService {
       const isSuperAdmin = currentUser?.role === 'super_admin'
       const franchiseId = currentUser?.franchise_id
 
-      console.log("🔐 User context:", { 
+      console.log("🔐 FRANCHISE ISOLATION ACTIVE:", { 
         role: currentUser?.role, 
         franchiseId, 
-        isSuperAdmin 
+        isSuperAdmin,
+        filteringBy: !isSuperAdmin && franchiseId ? `franchise_id = ${franchiseId}` : 'NO FILTER (Super Admin)'
       })
 
       // Fetch from product_orders where is_quote=true
@@ -360,10 +361,11 @@ export class QuoteService {
           return acc;
         }, {})
       })
-      console.log("Sample quotes:", allQuotes.slice(0, 5).map(q => ({
+      console.log("📋 ALL QUOTES LOADED:", allQuotes.map(q => ({
         number: q.quote_number,
         status: q.status,
-        type: q.booking_type
+        type: q.booking_type,
+        customer: q.customer_name
       })))
       
       return allQuotes
@@ -426,7 +428,7 @@ export class QuoteService {
     expired: number
   }> {
     try {
-      console.log("Fetching quote stats")
+      console.log("📊 Fetching quote stats with franchise isolation")
 
       // Get current user for franchise filtering
       const userStr = typeof window !== 'undefined' ? localStorage.getItem('safawala_user') : null
@@ -440,8 +442,11 @@ export class QuoteService {
 
       // Apply franchise filter unless super admin
       if (!isSuperAdmin && franchiseId) {
+        console.log("🔒 Filtering stats by franchise_id:", franchiseId)
         productQuery = productQuery.eq("franchise_id", franchiseId)
         packageQuery = packageQuery.eq("franchise_id", franchiseId)
+      } else {
+        console.log("🌐 Stats: No franchise filter (Super Admin)")
       }
 
       const [productResult, packageResult] = await Promise.all([
