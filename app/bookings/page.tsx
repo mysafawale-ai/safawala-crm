@@ -48,10 +48,11 @@ export default function BookingsPage() {
   // Applied filters
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [productFilter, setProductFilter] = useState<string>("all")
   // Pending filters (UI staging)
-  const [pendingFilters, setPendingFilters] = useState<{status:string; type:string}>({ status:'all', type:'all' })
-  const applyFilters = () => { setStatusFilter(pendingFilters.status); setTypeFilter(pendingFilters.type); toast({ title:'Filters applied' }) }
-  const resetFilters = () => { setPendingFilters({status:'all', type:'all'}); setStatusFilter('all'); setTypeFilter('all') }
+  const [pendingFilters, setPendingFilters] = useState<{status:string; type:string; products:string}>({ status:'all', type:'all', products:'all' })
+  const applyFilters = () => { setStatusFilter(pendingFilters.status); setTypeFilter(pendingFilters.type); setProductFilter(pendingFilters.products); toast({ title:'Filters applied' }) }
+  const resetFilters = () => { setPendingFilters({status:'all', type:'all', products:'all'}); setStatusFilter('all'); setTypeFilter('all'); setProductFilter('all') }
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table")
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [sort, setSort] = useState<{field:'date'|'amount'; dir:'asc'|'desc'}>({ field:'date', dir:'desc'})
@@ -62,6 +63,7 @@ export default function BookingsPage() {
 
   const { data: bookings = [], loading, error, refresh } = useData<Booking[]>("bookings")
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [bookingItems, setBookingItems] = useState<Record<string, any[]>>({})
 
   useEffect(() => {
     ;(async () => {
@@ -74,6 +76,42 @@ export default function BookingsPage() {
       } catch {}
     })()
   }, [])
+
+  // Fetch booking items for display
+  useEffect(() => {
+    const fetchBookingItems = async () => {
+      if (!bookings || bookings.length === 0) return
+      
+      try {
+        const items: Record<string, any[]> = {}
+        
+        for (const booking of bookings) {
+          const source = (booking as any).source
+          const bookingId = booking.id
+          
+          if (source === 'product_order') {
+            const res = await fetch(`/api/bookings/${bookingId}/items?source=product_order`)
+            if (res.ok) {
+              const data = await res.json()
+              items[bookingId] = data.items || []
+            }
+          } else if (source === 'package_booking') {
+            const res = await fetch(`/api/bookings/${bookingId}/items?source=package_booking`)
+            if (res.ok) {
+              const data = await res.json()
+              items[bookingId] = data.items || []
+            }
+          }
+        }
+        
+        setBookingItems(items)
+      } catch (error) {
+        console.error('Error fetching booking items:', error)
+      }
+    }
+    
+    fetchBookingItems()
+  }, [bookings])
   const { data: statsData } = useData<any>("booking-stats")
   const stats = statsData || {}
 
@@ -98,12 +136,16 @@ export default function BookingsPage() {
       booking.customer?.name?.toLowerCase().includes(searchLower) ||
       booking.customer?.phone?.includes(searchLower) ||
       booking.venue_name?.toLowerCase().includes(searchLower)
+    
+    const matchesProducts = productFilter === 'all' || 
+      (productFilter === 'selected' && (booking as any).has_items) ||
+      (productFilter === 'pending' && !(booking as any).has_items)
 
     const matchesStatus = statusFilter === "all" || booking.status === statusFilter
   // booking.type: 'rental' | 'sale' for product orders, 'package' for packages
   const matchesType = typeFilter === "all" || (booking as any).type === typeFilter
 
-    return matchesSearch && matchesStatus && matchesType
+    return matchesSearch && matchesStatus && matchesType && matchesProducts
   })
 
   const sortedBookings = [...filteredBookings].sort((a,b)=>{
@@ -475,6 +517,16 @@ export default function BookingsPage() {
                 <SelectItem value="package">Package</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={pendingFilters.products} onValueChange={(v)=>setPendingFilters(p=>({...p,products:v}))}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Product Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                <SelectItem value="selected">Products Selected</SelectItem>
+                <SelectItem value="pending">Selection Pending</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="secondary" size="sm" onClick={applyFilters}>Apply</Button>
             <Button variant="ghost" size="sm" onClick={resetFilters}>Reset</Button>
           </div>
@@ -509,7 +561,7 @@ export default function BookingsPage() {
                       <TableHead>Booking #</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>Venue</TableHead>
+                      <TableHead>Products</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('amount')}>Amount {sort.field==='amount' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('date')}>Event Date {sort.field==='date' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
@@ -536,9 +588,53 @@ export default function BookingsPage() {
                           })()}
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">
-                            {formatVenueWithCity(booking.venue_name, booking.venue_address)}
-                          </div>
+                          {(() => {
+                            const items = bookingItems[booking.id] || []
+                            const hasItems = (booking as any).has_items
+                            
+                            if (!hasItems) {
+                              return (
+                                <Badge variant="outline" className="text-orange-600 border-orange-300">
+                                  Selection Pending
+                                </Badge>
+                              )
+                            }
+                            
+                            if (items.length === 0) {
+                              return (
+                                <Badge variant="default">
+                                  {(booking as any).total_safas || 0} items
+                                </Badge>
+                              )
+                            }
+                            
+                            return (
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {items.slice(0, 3).map((item: any, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1">
+                                    {item.product?.image_url && (
+                                      <img 
+                                        src={item.product.image_url} 
+                                        alt={item.product?.name || 'Product'}
+                                        className="w-6 h-6 rounded object-cover"
+                                      />
+                                    )}
+                                    <span className="text-xs font-medium">
+                                      {item.product?.name || item.variant_name || 'Unknown'}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      ×{item.quantity || 0}
+                                    </span>
+                                  </div>
+                                ))}
+                                {items.length > 3 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    +{items.length - 3} more
+                                  </Badge>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell>{getStatusBadge(booking.status)}</TableCell>
                         <TableCell>
@@ -556,11 +652,6 @@ export default function BookingsPage() {
                               <Button variant="secondary" size="sm" onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>
                                 Select Products
                               </Button>
-                            )}
-                            {(booking as any).type !== 'package' && (
-                              <Badge variant={(booking as any).has_items ? 'default' : 'outline'}>
-                                Product: {(booking as any).has_items ? 'Selected' : 'Pending'}
-                              </Badge>
                             )}
                             <BookingDetailsDialog
                               booking={booking}
