@@ -550,7 +550,8 @@ export default function CreateProductOrderPage() {
           tax_amount: totals.gst,
           subtotal_amount: totals.subtotalAfterDiscount,
           total_amount: totals.grand,
-          amount_paid: totals.payable,  // ✅ BUG FIX #2: Use calculated payment
+          security_deposit: totals.deposit, // Track order-level deposit (rental)
+          amount_paid: totals.payable,  // payment portion excluding deposit
           pending_amount: totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
           status: isQuote ? "quote" : "confirmed",
           is_quote: isQuote,
