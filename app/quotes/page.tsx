@@ -268,6 +268,8 @@ function QuotesPageContent() {
     try {
       setLoading(true)
       const data = await QuoteService.getAll()
+      console.log("📥 QUOTES PAGE - Loaded", data.length, "quotes")
+      console.log("📊 Status breakdown:", data.reduce((acc: any, q) => { acc[q.status] = (acc[q.status] || 0) + 1; return acc }, {}))
       setQuotes(data)
     } catch (error) {
       console.error("Error loading quotes:", error)
@@ -335,6 +337,8 @@ function QuotesPageContent() {
       }
     }
 
+    console.log("🔍 FILTER RESULT:", filtered.length, "quotes after filtering (statusFilter:", statusFilter, ")")
+    console.log("Filtered status breakdown:", filtered.reduce((acc: any, q) => { acc[q.status] = (acc[q.status] || 0) + 1; return acc }, {}))
     setFilteredQuotes(filtered)
   }
 
@@ -1548,6 +1552,8 @@ export default function QuotesPage() {
     try {
       setLoading(true)
       const data = await QuoteService.getAll()
+      console.log("📥 QUOTES PAGE - Loaded", data.length, "quotes")
+      console.log("📊 Status breakdown:", data.reduce((acc: any, q) => { acc[q.status] = (acc[q.status] || 0) + 1; return acc }, {}))
       setQuotes(data)
     } catch (error) {
       console.error("Error loading quotes:", error)
@@ -1615,6 +1621,8 @@ export default function QuotesPage() {
       }
     }
 
+    console.log("🔍 FILTER RESULT:", filtered.length, "quotes after filtering (statusFilter:", statusFilter, ")")
+    console.log("Filtered status breakdown:", filtered.reduce((acc: any, q) => { acc[q.status] = (acc[q.status] || 0) + 1; return acc }, {}))
     setFilteredQuotes(filtered)
   }
 
