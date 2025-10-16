@@ -1108,9 +1108,19 @@ export default function BookPackageWizard() {
                       {bookingItems.map(i => (
                         <tr key={i.id} className="border-t">
                           <td className="p-2">
-                            <div className="font-medium">{i.pkg.name}{i.variant?.variant_name ? ` – ${i.variant.variant_name}` : ''}</div>
-                            {i.extra_safas > 0 && <div className="text-xs text-gray-500">+ {i.extra_safas} extra safas</div>}
-                            {/* Distance surcharge hidden from customer-facing view; included in price */}
+                            <div className="space-y-1">
+                              <div className="font-bold text-base">{i.pkg.name}</div>
+                              {i.variant?.variant_name && (
+                                <div className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block">
+                                  Variant: {i.variant.variant_name}
+                                </div>
+                              )}
+                              {i.extra_safas > 0 && (
+                                <div className="text-xs text-gray-700 font-medium">
+                                  Extra Safas: {i.extra_safas} × {formatCurrency(i.pkg.extra_safa_price)} = {formatCurrency(i.extra_safas * i.pkg.extra_safa_price)}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 text-right">{i.quantity}</td>
                           <td className="p-2 text-right">{formatCurrency(i.total_price * i.quantity)}</td>
@@ -1131,22 +1141,31 @@ export default function BookPackageWizard() {
                 <div className="space-y-3 max-h-72 overflow-auto pr-1">
                   {bookingItems.length === 0 && <div className="text-xs text-gray-500">No items added.</div>}
                   {bookingItems.map(i => (
-                    <div key={i.id} className="border rounded p-2 space-y-1 text-xs relative">
-                      <button onClick={() => removeItem(i.id)} className="absolute top-1 right-1 text-gray-400 hover:text-red-500" aria-label="Remove"><X className="h-3 w-3" /></button>
-                      <div className="font-medium text-gray-800 text-sm flex items-center gap-2">
-                        <span>{i.pkg.name}{i.variant?.variant_name ? ` – ${i.variant.variant_name}` : ''}</span>
+                    <div key={i.id} className="border rounded p-3 space-y-2 text-xs relative">
+                      <button onClick={() => removeItem(i.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500" aria-label="Remove"><X className="h-4 w-4" /></button>
+                      <div className="space-y-1 pr-6">
+                        <div className="font-bold text-sm text-gray-900">{i.pkg.name}</div>
+                        {i.variant?.variant_name && (
+                          <div className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block">
+                            {i.variant.variant_name}
+                          </div>
+                        )}
                         {i.products_pending && (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-200">Products pending</Badge>
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[9px]">Products pending</Badge>
+                        )}
+                        {i.extra_safas > 0 && (
+                          <div className="text-[10px] text-gray-600 font-medium mt-1">
+                            + {i.extra_safas} Extra Safas ({formatCurrency(i.pkg.extra_safa_price)} each)
+                          </div>
                         )}
                       </div>
-                      {i.extra_safas > 0 && <div className="text-[10px] text-gray-500">Extra Safas: {i.extra_safas}</div>}
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between pt-2 border-t">
                         <div className="flex items-center gap-1">
                           <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQuantity(i.id, i.quantity - 1)}>-</Button>
                           <span className="px-2">{i.quantity}</span>
                           <Button size="icon" variant="outline" className="h-6 w-6" onClick={() => updateQuantity(i.id, i.quantity + 1)}>+</Button>
                         </div>
-                        <div className="font-medium">{formatCurrency(i.total_price * i.quantity)}</div>
+                        <div className="font-bold text-sm">{formatCurrency(i.total_price * i.quantity)}</div>
                       </div>
                     </div>
                   ))}
@@ -1225,83 +1244,8 @@ export default function BookPackageWizard() {
                   )}
                 </div>
                 
-                {/* Custom Pricing Override */}
-                <div className="pt-3 border-t space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-medium">Override with Custom Price</Label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={useCustomPricing ? "default" : "outline"}
-                      onClick={() => {
-                        setUseCustomPricing(!useCustomPricing)
-                        if (!useCustomPricing) {
-                          // Pre-fill with current calculated values
-                          setCustomPricing({
-                            package_price: totals.subtotal,
-                            deposit: totals.advanceDue || totals.grand * 0.5
-                          })
-                        }
-                      }}
-                      className="h-7"
-                    >
-                      {useCustomPricing ? "Using Custom" : "Use Custom"}
-                    </Button>
-                  </div>
-                  
-                  {useCustomPricing && (
-                    <div className="space-y-3 p-3 bg-gray-50 rounded border">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Package Price (before GST)</Label>
-                        <Input
-                          type="number"
-                          value={customPricing.package_price}
-                          onChange={e => setCustomPricing(p => ({ ...p, package_price: Number(e.target.value) }))}
-                          min={0}
-                          step={100}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Deposit Amount</Label>
-                        <Input
-                          type="number"
-                          value={customPricing.deposit}
-                          onChange={e => setCustomPricing(p => ({ ...p, deposit: Number(e.target.value) }))}
-                          min={0}
-                          step={100}
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="text-xs space-y-0.5 pt-2 border-t">
-                        <div className="flex justify-between text-gray-600">
-                          <span>Package Price:</span>
-                          <span className="font-medium">{formatCurrency(customPricing.package_price)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                          <span>GST (5%):</span>
-                          <span className="font-medium">{formatCurrency(customPricing.package_price * 0.05)}</span>
-                        </div>
-                        <div className="flex justify-between font-semibold text-green-700">
-                          <span>Grand Total:</span>
-                          <span>{formatCurrency(customPricing.package_price * 1.05)}</span>
-                        </div>
-                        <div className="flex justify-between text-blue-600 pt-1 border-t mt-1">
-                          <span>Deposit:</span>
-                          <span className="font-medium">{formatCurrency(customPricing.deposit)}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-500">
-                          <span>Remaining:</span>
-                          <span>{formatCurrency((customPricing.package_price * 1.05) - customPricing.deposit)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
                 {/* Discount & Coupon Section */}
-                {!useCustomPricing && (
-                  <div className="space-y-4 pt-3 border-t">
+                <div className="space-y-4 pt-3 border-t">
                     {/* Manual Discount */}
                     <div className="space-y-2">
                       <Label className="text-xs font-medium">Discount (Optional)</Label>
@@ -1379,10 +1323,8 @@ export default function BookPackageWizard() {
                       )}
                     </div>
                   </div>
-                )}
                 
-                {!useCustomPricing && (
-                  <div className="space-y-2 pt-3 border-t">
+                <div className="space-y-2 pt-3 border-t">
                     <Label className="text-xs">Payment Type</Label>
                   <div className="flex gap-2 flex-wrap">
                     {(["full","advance","partial"] as const).map(pt => (
@@ -1422,7 +1364,6 @@ export default function BookPackageWizard() {
                     <div className="flex justify-between text-xs text-gray-500"><span>Remaining</span><span>{formatCurrency(totals.remainingTotal)}</span></div>
                   </div>
                 </div>
-                )}
                 {currentStep === 3 && (
                   <div className="mt-4 pt-4 border-t space-y-2">
                     <Label className="text-xs">Sales Closed By</Label>
