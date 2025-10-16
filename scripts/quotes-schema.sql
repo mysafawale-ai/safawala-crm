@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS quotes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_by UUID REFERENCES users(id),
+  sales_closed_by_id UUID REFERENCES staff(id),
   
   -- Conversion tracking
   converted_to_booking_id UUID REFERENCES bookings(id),
