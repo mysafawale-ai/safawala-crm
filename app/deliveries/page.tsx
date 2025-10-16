@@ -19,8 +19,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck } from "lucide-react"
+import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
 
 const supabase = createClient()
 
@@ -88,7 +89,11 @@ export default function DeliveriesPage() {
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false)
+  const [showReturnDialog, setShowReturnDialog] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
+  const [selectedReturn, setSelectedReturn] = useState<any>(null)
+  const [returns, setReturns] = useState<any[]>([])
+  const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
   const [editForm, setEditForm] = useState({
     customer_name: "",
     customer_phone: "",
@@ -231,6 +236,21 @@ export default function DeliveriesPage() {
         console.warn("Error fetching deliveries:", e.message)
         setDeliveries([])
       }
+
+      // Fetch returns
+      try {
+        const returnsRes = await fetch("/api/returns?status=pending", { cache: "no-store" })
+        if (returnsRes.ok) {
+          const returnsJson = await returnsRes.json()
+          setReturns(returnsJson?.returns || [])
+        } else {
+          console.warn("Returns API not available yet")
+          setReturns([])
+        }
+      } catch (e: any) {
+        console.warn("Error fetching returns:", e.message)
+        setReturns([])
+      }
     } catch (error) {
       console.error("Error in fetchData:", error)
       toast({
@@ -240,6 +260,116 @@ export default function DeliveriesPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Status update handlers
+  const handleStartTransit = async (deliveryId: string) => {
+    setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
+    try {
+      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "in_transit" }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.message || "Failed to update status")
+      }
+
+      toast({
+        title: "Success",
+        description: "Delivery marked as in transit",
+      })
+
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setUpdatingStatus((prev) => {
+        const next = new Set(prev)
+        next.delete(deliveryId)
+        return next
+      })
+    }
+  }
+
+  const handleMarkDelivered = async (deliveryId: string) => {
+    setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
+    try {
+      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "delivered" }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.message || "Failed to update status")
+      }
+
+      const data = await res.json()
+
+      toast({
+        title: "Success",
+        description: data.returnCreated
+          ? "Delivery marked as delivered. Return automatically created."
+          : "Delivery marked as delivered.",
+      })
+
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setUpdatingStatus((prev) => {
+        const next = new Set(prev)
+        next.delete(deliveryId)
+        return next
+      })
+    }
+  }
+
+  const handleCancelDelivery = async (deliveryId: string) => {
+    setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
+    try {
+      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.message || "Failed to cancel delivery")
+      }
+
+      toast({
+        title: "Success",
+        description: "Delivery cancelled",
+      })
+
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setUpdatingStatus((prev) => {
+        const next = new Set(prev)
+        next.delete(deliveryId)
+        return next
+      })
     }
   }
 
@@ -909,32 +1039,28 @@ export default function DeliveriesPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(`/api/deliveries/${delivery.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: "in_transit" }),
-                              })
-                              
-                              if (!response.ok) throw new Error("Failed to update status")
-                              
-                              await fetchData()
-                              toast({
-                                title: "Status Updated",
-                                description: `Order ${delivery.delivery_number} is now in transit`,
-                              })
-                            } catch (error) {
-                              toast({
-                                title: "Error",
-                                description: "Failed to update status",
-                                variant: "destructive",
-                              })
-                            }
-                          }}
+                          disabled={updatingStatus.has(delivery.id)}
+                          onClick={() => handleStartTransit(delivery.id)}
                         >
-                          <Truck className="h-4 w-4 mr-1" />
+                          {updatingStatus.has(delivery.id) ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4 mr-1" />
+                          )}
                           Start Transit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={updatingStatus.has(delivery.id)}
+                          onClick={() => handleCancelDelivery(delivery.id)}
+                        >
+                          {updatingStatus.has(delivery.id) ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Ban className="h-4 w-4 mr-1" />
+                          )}
+                          Cancel
                         </Button>
                       </>
                     )}
@@ -943,61 +1069,27 @@ export default function DeliveriesPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(`/api/deliveries/${delivery.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: "delivered" }),
-                              })
-                              
-                              if (!response.ok) throw new Error("Failed to update status")
-                              
-                              await fetchData()
-                              toast({
-                                title: "Status Updated",
-                                description: `Order ${delivery.delivery_number} marked as delivered`,
-                              })
-                            } catch (error) {
-                              toast({
-                                title: "Error",
-                                description: "Failed to update status",
-                                variant: "destructive",
-                              })
-                            }
-                          }}
+                          disabled={updatingStatus.has(delivery.id)}
+                          onClick={() => handleMarkDelivered(delivery.id)}
                         >
-                          <CheckCircle className="h-4 w-4 mr-1" />
+                          {updatingStatus.has(delivery.id) ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                          )}
                           Mark Delivered
                         </Button>
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(`/api/deliveries/${delivery.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ status: "cancelled" }),
-                              })
-                              
-                              if (!response.ok) throw new Error("Failed to update status")
-                              
-                              await fetchData()
-                              toast({
-                                title: "Status Updated",
-                                description: `Order ${delivery.delivery_number} has been cancelled`,
-                              })
-                            } catch (error) {
-                              toast({
-                                title: "Error",
-                                description: "Failed to update status",
-                                variant: "destructive",
-                              })
-                            }
-                          }}
+                          disabled={updatingStatus.has(delivery.id)}
+                          onClick={() => handleCancelDelivery(delivery.id)}
                         >
-                          <XCircle className="h-4 w-4 mr-1" />
+                          {updatingStatus.has(delivery.id) ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Ban className="h-4 w-4 mr-1" />
+                          )}
                           Cancel
                         </Button>
                       </>
@@ -1130,125 +1222,81 @@ export default function DeliveriesPage() {
         <TabsContent value="returns" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>🔄 Returns Management</CardTitle>
-              <CardDescription>Track and schedule product returns from completed deliveries</CardDescription>
+              <CardTitle>🔄 Returns Processing</CardTitle>
+              <CardDescription>Process returns and update inventory for damaged, lost, or stolen items</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {(() => {
-                  // Filter deliveries that have been delivered and have linked bookings (potential returns)
-                  const returnsData = deliveries
-                    .filter(d => d.booking_id && d.status === 'delivered')
-                    .map(delivery => {
-                      const booking = bookingsById.get(delivery.booking_id!)
-                      const returnDate = getCurrentReturnISO(delivery)
-                      const returnDateObj = returnDate ? new Date(returnDate) : null
-                      const isOverdue = returnDateObj && returnDateObj < new Date()
-                      
-                      return {
-                        delivery,
-                        booking,
-                        returnDate,
-                        returnDateObj,
-                        isOverdue,
-                        canReschedule: true
-                      }
-                    })
-                    .sort((a, b) => {
-                      // Sort by return date (overdue first, then by date)
-                      if (a.isOverdue && !b.isOverdue) return -1
-                      if (!a.isOverdue && b.isOverdue) return 1
-                      if (!a.returnDateObj) return 1
-                      if (!b.returnDateObj) return -1
-                      return a.returnDateObj.getTime() - b.returnDateObj.getTime()
-                    })
-
-                  if (returnsData.length === 0) {
+                {returns.length === 0 ? (
+                  <div className="text-center py-12">
+                    <PackageCheck className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Returns Pending</h3>
+                    <p className="text-sm text-gray-600 max-w-md mx-auto">
+                      Returns are automatically created when rental deliveries are marked as delivered. They will appear here for processing.
+                    </p>
+                  </div>
+                ) : (
+                  returns.map((returnItem) => {
+                    const returnDate = returnItem.return_date ? new Date(returnItem.return_date) : null
+                    const isOverdue = returnDate && returnDate < new Date()
+                    
                     return (
-                      <div className="text-center py-12">
-                        <PackageCheck className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Returns Pending</h3>
-                        <p className="text-sm text-gray-600 max-w-md mx-auto">
-                          Returns will appear here after deliveries are completed. Link bookings to deliveries to track returns.
-                        </p>
+                      <div 
+                        key={returnItem.id} 
+                        className={`flex items-center justify-between p-4 border rounded-lg ${
+                          isOverdue ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-4 flex-1">
+                          <div className={`p-2 rounded-full ${isOverdue ? 'bg-red-100' : 'bg-blue-100'}`}>
+                            {isOverdue ? (
+                              <XCircle className="h-5 w-5 text-red-600" />
+                            ) : (
+                              <RotateCcw className="h-5 w-5 text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium">{returnItem.return_number}</p>
+                              {isOverdue && (
+                                <Badge variant="destructive" className="text-xs">⚠️ Overdue</Badge>
+                              )}
+                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                                {returnItem.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Delivery: {returnItem.delivery_number} • Customer: {returnItem.customer_name}
+                            </p>
+                            <div className="flex items-center gap-4 mt-2">
+                              <p className="text-xs text-muted-foreground">
+                                � {returnItem.total_items} item(s)
+                              </p>
+                              {returnDate && (
+                                <p className={`text-xs font-medium ${isOverdue ? 'text-red-700' : 'text-gray-700'}`}>
+                                  🔄 Return: {returnDate.toLocaleDateString()} at {returnDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant={isOverdue ? "destructive" : "default"}
+                            size="sm"
+                            onClick={() => {
+                              setSelectedReturn(returnItem)
+                              setShowReturnDialog(true)
+                            }}
+                          >
+                            <PackageCheck className="h-4 w-4 mr-1" />
+                            Process Return
+                          </Button>
+                        </div>
                       </div>
                     )
-                  }
-
-                  return returnsData.map(({ delivery, booking, returnDate, returnDateObj, isOverdue }) => (
-                    <div 
-                      key={delivery.id} 
-                      className={`flex items-center justify-between p-4 border rounded-lg ${
-                        isOverdue ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-4 flex-1">
-                        <div className={`p-2 rounded-full ${isOverdue ? 'bg-red-100' : 'bg-blue-100'}`}>
-                          {isOverdue ? (
-                            <XCircle className="h-5 w-5 text-red-600" />
-                          ) : (
-                            <RotateCcw className="h-5 w-5 text-blue-600" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium">{delivery.customer_name}</p>
-                            {isOverdue && (
-                              <Badge variant="destructive" className="text-xs">⚠️ Overdue</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Delivery: {delivery.delivery_number}
-                            {booking && ` • Booking: ${booking.booking_number}`}
-                          </p>
-                          <div className="flex items-center gap-4 mt-2">
-                            <p className="text-xs text-muted-foreground">
-                              📍 {delivery.delivery_address}
-                            </p>
-                            {returnDateObj && (
-                              <p className={`text-xs font-medium ${isOverdue ? 'text-red-700' : 'text-gray-700'}`}>
-                                🔄 Return: {returnDateObj.toLocaleDateString()} at {returnDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedDelivery(delivery)
-                            if (returnDateObj) {
-                              const dateStr = returnDateObj.toISOString().split('T')[0]
-                              const timeStr = returnDateObj.toTimeString().slice(0, 5)
-                              setRescheduleForm({ date: dateStr, time: timeStr })
-                            } else {
-                              setRescheduleForm({ date: '', time: '18:00' })
-                            }
-                            setShowRescheduleDialog(true)
-                          }}
-                          className="flex items-center gap-1"
-                        >
-                          <CalendarClock className="h-4 w-4" />
-                          Reschedule
-                        </Button>
-                        <Button
-                          variant={isOverdue ? "destructive" : "default"}
-                          size="sm"
-                          onClick={() => {
-                            // Open view dialog to see full details
-                            setSelectedDelivery(delivery)
-                            setShowViewDialog(true)
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                })()}
+                  })
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1550,6 +1598,27 @@ export default function DeliveriesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Return Processing Dialog */}
+      {selectedReturn && (
+        <ReturnProcessingDialog
+          open={showReturnDialog}
+          onClose={() => {
+            setShowReturnDialog(false)
+            setSelectedReturn(null)
+          }}
+          returnRecord={selectedReturn}
+          onSuccess={async () => {
+            setShowReturnDialog(false)
+            setSelectedReturn(null)
+            await fetchData()
+            toast({
+              title: "Success",
+              description: "Return processed successfully. Inventory has been updated.",
+            })
+          }}
+        />
+      )}
     </div>
   )
 }
