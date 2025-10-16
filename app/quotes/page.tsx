@@ -2989,6 +2989,30 @@ const getStatusBadge = (status: string) => {
                 </CardContent>
               </Card>
 
+              {/* Sales Information */}
+              {selectedQuote.sales_staff_name && (
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <User className="h-5 w-5 text-blue-600" />
+                      Sales Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Sales Staff</Label>
+                        <p className="text-sm font-semibold mt-1 text-blue-700">{selectedQuote.sales_staff_name}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Role</Label>
+                        <p className="text-sm font-medium mt-1">Sales Representative</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Event & Wedding Details */}
               <Card>
                 <CardHeader>
