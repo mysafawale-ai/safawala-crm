@@ -1164,8 +1164,14 @@ export default function BookPackageWizard() {
                                           ))}
                                         </div>
                                       )
+                                    } else {
+                                      // Show message when no inclusions specified
+                                      return (
+                                        <div className="text-[10px] text-gray-500 italic mt-1">
+                                          Standard package inclusions apply
+                                        </div>
+                                      )
                                     }
-                                    return null
                                   })()}
                                 </div>
                               )}
@@ -1241,8 +1247,13 @@ export default function BookPackageWizard() {
                                     )}
                                   </div>
                                 )
+                              } else {
+                                return (
+                                  <div className="text-[8px] text-gray-400 italic mt-0.5">
+                                    Standard inclusions
+                                  </div>
+                                )
                               }
-                              return null
                             })()}
                           </div>
                         )}
