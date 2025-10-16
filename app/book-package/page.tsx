@@ -26,7 +26,7 @@ import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface Customer { id: string; name: string; phone: string; email?: string; pincode?: string }
 interface PackageCategory { id: string; name: string; description?: string; security_deposit?: number }
-interface PackageVariant { id: string; package_id: string; variant_name: string; base_price: number; security_deposit?: number; inclusions?: string[] | string }
+interface PackageVariant { id: string; package_id: string; name: string; variant_name?: string; base_price: number; security_deposit?: number; inclusions?: string[] | string }
 interface PackageSet { id: string; category_id: string; name: string; base_price: number; extra_safa_price: number; security_deposit?: number; package_variants: PackageVariant[] }
 interface BookingItem { id: string; pkg: PackageSet; variant: PackageVariant; quantity: number; unit_price: number; total_price: number; extra_safas: number; distance_addon?: number; security_deposit?: number; products_pending?: boolean }
 interface StaffMember { id: string; name: string; email: string; role: string; franchise_id: string }
@@ -369,7 +369,7 @@ export default function BookPackageWizard() {
       products_pending: false,
     }
     setBookingItems(prev => [...prev, item])
-    const vName = (variant?.variant_name || '').trim()
+    const vName = (variant?.name || variant?.variant_name || '').trim()
     toast.success(vName ? `Added ${pkg.name} – ${vName}` : `Added ${pkg.name}`)
     return item
   }
@@ -1127,13 +1127,6 @@ export default function BookPackageWizard() {
                       {bookingItems.map(i => {
                         // Get category name
                         const category = categories.find(c => c.id === i.pkg.category_id)
-                        console.log('🔍 Review Debug:', {
-                          packageName: i.pkg.name,
-                          categoryId: i.pkg.category_id,
-                          foundCategory: category,
-                          allCategories: categories.length,
-                          categoryNames: categories.map(c => c.name)
-                        })
                         return (
                         <tr key={i.id} className="border-t">
                           <td className="p-2">
@@ -1145,21 +1138,14 @@ export default function BookPackageWizard() {
                                 </div>
                               )}
                               
-                              {/* Debug: Always show category_id */}
-                              {!category && i.pkg.category_id && (
-                                <div className="text-xs font-semibold text-red-800 bg-red-50 px-2 py-1 rounded inline-block border border-red-200">
-                                  Category ID: {i.pkg.category_id.substring(0, 8)}... (not found in categories)
-                                </div>
-                              )}
-                              
                               {/* Package name */}
                               <div className="font-bold text-base text-gray-900">{i.pkg.name}</div>
                               
                               {/* Variant and inclusions */}
-                              {i.variant?.variant_name && (
+                              {(i.variant?.name || i.variant?.variant_name) && (
                                 <div className="space-y-1.5">
                                   <div className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block border border-blue-200">
-                                    ◆ {i.variant.variant_name}
+                                    ◆ {i.variant.name || i.variant.variant_name}
                                   </div>
                                   {/* Show variant inclusions */}
                                   {(() => {
@@ -1213,11 +1199,6 @@ export default function BookPackageWizard() {
                   {bookingItems.map(i => {
                     // Get category name for sidebar
                     const category = categories.find(c => c.id === i.pkg.category_id)
-                    console.log('🔍 Sidebar Debug:', {
-                      packageName: i.pkg.name,
-                      categoryId: i.pkg.category_id,
-                      foundCategory: category?.name
-                    })
                     return (
                     <div key={i.id} className="border rounded p-3 space-y-2 text-xs relative">
                       <button onClick={() => removeItem(i.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500" aria-label="Remove"><X className="h-4 w-4" /></button>
@@ -1229,21 +1210,14 @@ export default function BookPackageWizard() {
                           </div>
                         )}
                         
-                        {/* Debug: Show if category not found */}
-                        {!category && i.pkg.category_id && (
-                          <div className="text-[9px] font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded inline-block border border-red-200">
-                            Cat ID: {i.pkg.category_id.substring(0, 8)}
-                          </div>
-                        )}
-                        
                         {/* Package name */}
                         <div className="font-bold text-sm text-gray-900">{i.pkg.name}</div>
                         
                         {/* Variant and inclusions */}
-                        {i.variant?.variant_name && (
+                        {(i.variant?.name || i.variant?.variant_name) && (
                           <div className="space-y-1">
                             <div className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block border border-blue-200">
-                              ◆ {i.variant.variant_name}
+                              ◆ {i.variant.name || i.variant.variant_name}
                             </div>
                             {/* Show variant inclusions in sidebar */}
                             {(() => {
@@ -1613,7 +1587,7 @@ function VariantDialog({ pkg, onClose, onAdd }: VariantDialogProps) {
                 <div key={v.id} className="border rounded-lg p-4 space-y-3 hover:shadow-sm transition">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <div className="font-semibold text-base text-green-800">{v.variant_name}</div>
+                      <div className="font-semibold text-base text-green-800">{v.name || v.variant_name}</div>
                       <div className="text-xs text-gray-500 mt-0.5">Variant Price: {formatCurrency(v.base_price)}</div>
                     </div>
                     <Badge variant="outline" className="text-sm font-medium">{formatCurrency(pkg.base_price + v.base_price)}</Badge>
@@ -1874,7 +1848,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
       <DialogContent className="w-[98vw] max-w-[1400px]">
         <DialogHeader>
           <DialogTitle>
-            {`Select Products for ${context.pkg.name}${(context.variant as any)?.variant_name ? ` – ${(context.variant as any).variant_name}` : ''}`}
+            {`Select Products for ${context.pkg.name}${(context.variant as any)?.name || (context.variant as any)?.variant_name ? ` – ${(context.variant as any).name || (context.variant as any).variant_name}` : ''}`}
             {context.eventDate ? (
               <span className="ml-2 text-xs text-gray-500">Availability window: {new Date(new Date(context.eventDate).setDate(new Date(context.eventDate).getDate()-2)).toLocaleDateString()} → {new Date(new Date(context.eventDate).setDate(new Date(context.eventDate).getDate()+2)).toLocaleDateString()}</span>
             ) : (
