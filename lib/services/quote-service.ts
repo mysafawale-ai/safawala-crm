@@ -355,8 +355,16 @@ export class QuoteService {
         total: allQuotes.length,
         product: productQuotes.length,
         package: packageQuotes.length,
+        statuses: allQuotes.reduce((acc: any, q) => {
+          acc[q.status] = (acc[q.status] || 0) + 1;
+          return acc;
+        }, {})
       })
-      console.log("Sample quotes:", allQuotes.slice(0, 2))
+      console.log("Sample quotes:", allQuotes.slice(0, 5).map(q => ({
+        number: q.quote_number,
+        status: q.status,
+        type: q.booking_type
+      })))
       
       return allQuotes
     } catch (error) {
