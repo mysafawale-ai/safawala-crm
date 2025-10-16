@@ -504,7 +504,7 @@ function InvoicesPageContent() {
         </Card>
       )}
       
-      {/* View Invoice Dialog - Full Featured */}
+      {/* View Invoice Dialog - Complete (Matches Quotes) */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -531,7 +531,22 @@ function InvoicesPageContent() {
                       <span className="font-medium">Phone:</span> {selectedInvoice.customer_phone || "N/A"}
                     </div>
                     <div>
+                      <span className="font-medium">WhatsApp:</span> {(selectedInvoice.customer as any)?.whatsapp || selectedInvoice.customer_phone || "N/A"}
+                    </div>
+                    <div>
                       <span className="font-medium">Email:</span> {selectedInvoice.customer_email || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">Address:</span> {selectedInvoice.customer_address || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">City:</span> {selectedInvoice.customer_city || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">State:</span> {selectedInvoice.customer_state || "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">Pincode:</span> {selectedInvoice.customer_pincode || "N/A"}
                     </div>
                   </div>
                 </Card>
@@ -545,28 +560,67 @@ function InvoicesPageContent() {
                     <div>
                       <span className="font-medium">Event Type:</span> {selectedInvoice.event_type || "N/A"}
                     </div>
+                    {selectedInvoice.participant && (
+                      <div>
+                        <span className="font-medium">Event Participant:</span> {selectedInvoice.participant}
+                      </div>
+                    )}
                     <div>
                       <span className="font-medium">Event Date:</span>{" "}
                       {selectedInvoice.event_date ? new Date(selectedInvoice.event_date).toLocaleDateString() : "N/A"}
                     </div>
-                    {selectedInvoice.groom_name && (
+                    {selectedInvoice.event_time && (
                       <div>
-                        <span className="font-medium">Groom:</span> {selectedInvoice.groom_name}
+                        <span className="font-medium">Event Time:</span> {selectedInvoice.event_time}
                       </div>
                     )}
+                    {selectedInvoice.groom_name && (
+                      <>
+                        <div>
+                          <span className="font-medium">Groom Name:</span> {selectedInvoice.groom_name}
+                        </div>
+                        {(selectedInvoice as any).groom_whatsapp && (
+                          <div>
+                            <span className="font-medium">Groom WhatsApp:</span> {(selectedInvoice as any).groom_whatsapp}
+                          </div>
+                        )}
+                        {(selectedInvoice as any).groom_address && (
+                          <div>
+                            <span className="font-medium">Groom Address:</span> {(selectedInvoice as any).groom_address}
+                          </div>
+                        )}
+                      </>
+                    )}
                     {selectedInvoice.bride_name && (
+                      <>
+                        <div>
+                          <span className="font-medium">Bride Name:</span> {selectedInvoice.bride_name}
+                        </div>
+                        {(selectedInvoice as any).bride_whatsapp && (
+                          <div>
+                            <span className="font-medium">Bride WhatsApp:</span> {(selectedInvoice as any).bride_whatsapp}
+                          </div>
+                        )}
+                        {(selectedInvoice as any).bride_address && (
+                          <div>
+                            <span className="font-medium">Bride Address:</span> {(selectedInvoice as any).bride_address}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {(selectedInvoice as any).venue_name && (
                       <div>
-                        <span className="font-medium">Bride:</span> {selectedInvoice.bride_name}
+                        <span className="font-medium">Venue:</span> {(selectedInvoice as any).venue_name}
                       </div>
                     )}
                     <div>
-                      <span className="font-medium">Venue:</span> {selectedInvoice.venue_address || "N/A"}
+                      <span className="font-medium">Venue Address:</span> {selectedInvoice.venue_address || "N/A"}
                     </div>
                   </div>
                 </Card>
               </div>
 
-              {/* Invoice & Status Information */}
+              {/* Invoice & Delivery Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card className="p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -580,7 +634,9 @@ function InvoicesPageContent() {
                     <div>
                       <span className="font-medium">Type:</span>{" "}
                       <Badge variant={selectedInvoice.invoice_type === 'package_booking' ? 'default' : 'secondary'}>
-                        {selectedInvoice.invoice_type === 'package_booking' ? '📦 Package' : '🛍️ Product Order'}
+                        {selectedInvoice.invoice_type === 'package_booking' 
+                          ? '📦 Package (Rent)' 
+                          : `🛍️ Product (${(selectedInvoice as any).booking_subtype === 'sale' ? 'Sale' : 'Rent'})`}
                       </Badge>
                     </div>
                     <div>
@@ -590,34 +646,138 @@ function InvoicesPageContent() {
                       <span className="font-medium">Created:</span>{" "}
                       {new Date(selectedInvoice.created_at).toLocaleDateString()}
                     </div>
+                    {(selectedInvoice as any).payment_method && (
+                      <div>
+                        <span className="font-medium">Payment Type:</span>{" "}
+                        <Badge variant="outline">
+                          {(selectedInvoice as any).payment_method === 'full' ? 'Full Payment' : 
+                           (selectedInvoice as any).payment_method === 'advance' ? 'Advance Payment' : 
+                           (selectedInvoice as any).payment_method === 'partial' ? 'Partial Payment' : 
+                           (selectedInvoice as any).payment_method}
+                        </Badge>
+                      </div>
+                    )}
+                    {selectedInvoice.paid_amount !== undefined && selectedInvoice.paid_amount > 0 && (
+                      <div>
+                        <span className="font-medium">Amount Paid:</span> {formatCurrency(selectedInvoice.paid_amount)}
+                      </div>
+                    )}
+                    {selectedInvoice.pending_amount !== undefined && selectedInvoice.pending_amount > 0 && (
+                      <div>
+                        <span className="font-medium">Pending Amount:</span> {formatCurrency(selectedInvoice.pending_amount)}
+                      </div>
+                    )}
                   </div>
                 </Card>
 
                 <Card className="p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <Clock className="h-4 w-4" />
-                    Timeline Information
+                    Delivery Information
                   </h3>
                   <div className="space-y-2 text-sm">
-                    {selectedInvoice.delivery_date && (
-                      <div>
-                        <span className="font-medium">Delivery Date:</span>{" "}
-                        {new Date(selectedInvoice.delivery_date).toLocaleDateString()}
-                      </div>
-                    )}
-                    {selectedInvoice.return_date && (
-                      <div>
-                        <span className="font-medium">Return Date:</span>{" "}
-                        {new Date(selectedInvoice.return_date).toLocaleDateString()}
-                      </div>
-                    )}
                     <div>
-                      <span className="font-medium">Invoice Date:</span>{" "}
-                      {new Date(selectedInvoice.created_at).toLocaleDateString()}
+                      <span className="font-medium">Delivery Date:</span>{" "}
+                      {selectedInvoice.delivery_date ? new Date(selectedInvoice.delivery_date).toLocaleDateString() : "N/A"}
                     </div>
+                    <div>
+                      <span className="font-medium">Delivery Time:</span>{" "}
+                      {(selectedInvoice as any).delivery_time || (selectedInvoice.delivery_date ? new Date(selectedInvoice.delivery_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A")}
+                    </div>
+                    <div>
+                      <span className="font-medium">Return Date:</span>{" "}
+                      {selectedInvoice.return_date ? new Date(selectedInvoice.return_date).toLocaleDateString() : "N/A"}
+                    </div>
+                    <div>
+                      <span className="font-medium">Return Time:</span>{" "}
+                      {(selectedInvoice as any).return_time || (selectedInvoice.return_date ? new Date(selectedInvoice.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A")}
+                    </div>
+                    {(selectedInvoice as any).special_instructions && (
+                      <div>
+                        <span className="font-medium">Special Instructions:</span>
+                        <p className="text-muted-foreground mt-1">{(selectedInvoice as any).special_instructions}</p>
+                      </div>
+                    )}
                   </div>
                 </Card>
               </div>
+
+              {/* Invoice Items */}
+              {(selectedInvoice as any).invoice_items && (selectedInvoice as any).invoice_items.length > 0 && (
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Invoice Items
+                  </h3>
+                  <div className="space-y-4">
+                    {(selectedInvoice as any).invoice_items.map((item: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-3">
+                        {/* Category Badge */}
+                        {item.category && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs font-semibold">
+                              {item.category}
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        {/* Package/Product Name */}
+                        <div>
+                          <h4 className="font-bold text-lg">{item.product_name || item.package_name}</h4>
+                          {item.package_description && (
+                            <p className="text-sm text-muted-foreground mt-1">{item.package_description}</p>
+                          )}
+                        </div>
+
+                        {/* Variant Information */}
+                        {item.variant_name && (
+                          <div className="bg-blue-50 p-3 rounded-md">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-blue-700">
+                                Variant: {item.variant_name}
+                              </span>
+                              {item.extra_safas > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{item.extra_safas} Extra Safas
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {/* Variant Inclusions */}
+                            {item.variant_inclusions && item.variant_inclusions.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs font-medium text-gray-600 mb-1">Inclusions:</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  {item.variant_inclusions.map((inclusion: any, idx: number) => (
+                                    <div key={idx} className="flex items-center text-xs text-gray-700">
+                                      <span className="mr-1">•</span>
+                                      <span>{inclusion.product_name} × {inclusion.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Price Details */}
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <div className="text-sm text-gray-600">
+                            <span>Quantity: {item.quantity || 1}</span>
+                            {item.unit_price && (
+                              <span className="ml-3">Unit Price: {formatCurrency(item.unit_price)}</span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-600">Line Total</div>
+                            <div className="font-bold text-lg">{formatCurrency(item.total_price || item.price || 0)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
 
               {/* Financial Summary - Full Featured */}
               <Card className="p-4">
@@ -626,23 +786,56 @@ function InvoicesPageContent() {
                   💰 Financial Summary
                 </h3>
                 <div className="space-y-2">
-                  {/* Subtotal */}
+                  {/* Items Subtotal */}
                   <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm">Subtotal:</span>
+                    <span className="text-sm">Items Subtotal:</span>
                     <span className="font-medium">{formatCurrency(selectedInvoice.subtotal_amount || 0)}</span>
                   </div>
 
-                  {/* Discounts */}
+                  {/* Distance Charges (if applicable for package) */}
+                  {(selectedInvoice as any).distance_amount && (selectedInvoice as any).distance_amount > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b text-blue-600">
+                      <span className="text-sm flex items-center gap-1">
+                        <span>📍 Distance Charges</span>
+                        {(selectedInvoice as any).distance_km && <span className="text-xs text-gray-500">({(selectedInvoice as any).distance_km} km)</span>}
+                      </span>
+                      <span className="font-medium">{formatCurrency((selectedInvoice as any).distance_amount)}</span>
+                    </div>
+                  )}
+
+                  {/* Manual Discount */}
                   {selectedInvoice.discount_amount && selectedInvoice.discount_amount > 0 && (
                     <div className="flex justify-between items-center py-2 border-b text-green-600">
-                      <span className="text-sm">Discount:</span>
+                      <span className="text-sm">Discount{(selectedInvoice as any).discount_percentage ? ` (${(selectedInvoice as any).discount_percentage}%)` : ''}:</span>
                       <span className="font-medium">-{formatCurrency(selectedInvoice.discount_amount)}</span>
                     </div>
                   )}
 
-                  {/* Tax/GST */}
+                  {/* Coupon Discount */}
+                  {(selectedInvoice as any).coupon_code && (selectedInvoice as any).coupon_discount && (selectedInvoice as any).coupon_discount > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b text-green-600">
+                      <span className="text-sm">Coupon ({(selectedInvoice as any).coupon_code}):</span>
+                      <span className="font-medium">-{formatCurrency((selectedInvoice as any).coupon_discount)}</span>
+                    </div>
+                  )}
+
+                  {/* After Discounts Line */}
+                  {((selectedInvoice.discount_amount && selectedInvoice.discount_amount > 0) || 
+                    ((selectedInvoice as any).coupon_discount && (selectedInvoice as any).coupon_discount > 0)) && (
+                    <div className="flex justify-between items-center py-2 border-b font-medium">
+                      <span className="text-sm">After Discounts:</span>
+                      <span>{formatCurrency(
+                        (selectedInvoice.subtotal_amount || selectedInvoice.total_amount) + 
+                        ((selectedInvoice as any).distance_amount || 0) - 
+                        (selectedInvoice.discount_amount || 0) - 
+                        ((selectedInvoice as any).coupon_discount || 0)
+                      )}</span>
+                    </div>
+                  )}
+
+                  {/* Tax/GST with dynamic percentage */}
                   <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-sm">GST (5%):</span>
+                    <span className="text-sm">GST ({(selectedInvoice as any).gst_percentage || 5}%):</span>
                     <span className="font-medium">{formatCurrency(selectedInvoice.tax_amount || 0)}</span>
                   </div>
 
