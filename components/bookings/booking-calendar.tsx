@@ -109,7 +109,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     const today = startOfDay(new Date())
     const currentDate = startOfDay(date)
 
-    // Past dates
+    // Past dates - grey
     if (isBefore(currentDate, today)) {
       return "past"
     }
@@ -117,30 +117,16 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     const dayBookings = getBookingsForDate(date)
     const bookingCount = dayBookings.length
 
+    // Count-based coloring
     if (bookingCount === 0) {
-      return "zero" // Zero bookings = light gray/white
+      return "zero" // 0 bookings = green
     }
-
-    // Status-based coloring for days with bookings
-    const hasConfirmed = dayBookings.some(b => b.status === 'confirmed')
-    const hasPendingPayment = dayBookings.some(b => b.status === 'pending_payment')
-    const hasDelivered = dayBookings.some(b => b.status === 'delivered')
-    const hasCancelled = dayBookings.some(b => b.status === 'cancelled')
-    const hasQuote = dayBookings.some(b => b.status === 'quote')
-
-    // Priority: Confirmed > Delivered > Pending > Quote > Cancelled
-    if (hasConfirmed) return "confirmed"       // Green - confirmed bookings
-    if (hasDelivered) return "delivered"      // Blue - delivered/completed
-    if (hasPendingPayment) return "pending"   // Yellow/Orange - needs payment
-    if (hasQuote) return "quote"              // Purple - quotes
-    if (hasCancelled) return "cancelled"      // Gray - cancelled
-
-    // Fallback for old bookings system (use count-based)
+    
     if (bookingCount >= 20) {
-      return "full" // 20+ bookings = red
-    } else {
-      return "mid" // 1-19 bookings = default blue
+      return "high" // 20+ bookings = red
     }
+    
+    return "low" // 1-19 bookings = blue
   }
 
   const handleDateClick = (date: Date) => {
@@ -164,15 +150,10 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
 
   const dayModifiers = React.useMemo(() => {
     const modifiers: Record<string, Date[]> = {
-      past: [],
-      zero: [],          // 0 bookings
-      confirmed: [],     // Has confirmed bookings (green)
-      delivered: [],     // Has delivered bookings (blue)
-      pending: [],       // Has pending payment (yellow/orange)
-      quote: [],         // Has quotes (purple)
-      cancelled: [],     // Has cancelled (gray)
-      mid: [],           // 1-19 bookings (fallback blue)
-      full: [],          // 20+ bookings (fallback red)
+      past: [],    // Past dates (grey)
+      zero: [],    // 0 bookings (green)
+      low: [],     // 1-19 bookings (blue)
+      high: [],    // 20+ bookings (red)
     }
 
     // Generate dates for the current month and next few months
@@ -189,18 +170,14 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   }, [bookings])
 
   const dayClassNames = {
-    past: "!bg-muted/60 !text-muted-foreground !opacity-60 !cursor-not-allowed hover:!bg-muted/60",
-    // No bookings → subtle gray/white
-    zero: "!bg-background !text-foreground hover:!bg-muted/30 !cursor-pointer !border !border-border",
-    // Status-based colors
-    confirmed: "!bg-green-500/90 !text-white hover:!bg-green-600 !cursor-pointer !border !border-green-600/30 shadow-sm font-semibold",
-    delivered: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm font-semibold",
-    pending: "!bg-orange-500/90 !text-white hover:!bg-orange-600 !cursor-pointer !border !border-orange-600/30 shadow-sm font-semibold",
-    quote: "!bg-purple-500/90 !text-white hover:!bg-purple-600 !cursor-pointer !border !border-purple-600/30 shadow-sm font-semibold",
-    cancelled: "!bg-gray-400/90 !text-white hover:!bg-gray-500 !cursor-pointer !border !border-gray-500/30 shadow-sm",
-    // Fallback count-based colors
-    mid: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm",
-    full: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm",
+    // Past dates → grey
+    past: "!bg-gray-300 !text-gray-600 !opacity-60 !cursor-not-allowed hover:!bg-gray-300 dark:!bg-gray-700 dark:!text-gray-400",
+    // 0 bookings → green
+    zero: "!bg-green-500/90 !text-white hover:!bg-green-600 !cursor-pointer !border !border-green-600/30 shadow-sm font-semibold",
+    // 1-19 bookings → blue
+    low: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm font-semibold",
+    // 20+ bookings → red
+    high: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm font-semibold",
   }
 
   return (
@@ -215,19 +192,19 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-green-500 border border-green-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">Confirmed</span>
+                <span className="text-muted-foreground font-medium">0 Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-blue-500 border border-blue-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">Delivered</span>
+                <span className="text-muted-foreground font-medium">1-20 Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm bg-orange-500 border border-orange-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">Pending</span>
+                <span className="inline-block w-3 h-3 rounded-sm bg-red-500 border border-red-600/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">20+ Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm bg-purple-500 border border-purple-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">Quote</span>
+                <span className="inline-block w-3 h-3 rounded-sm bg-gray-400 border border-gray-500/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">Past Date</span>
               </div>
             </div>
           )}
