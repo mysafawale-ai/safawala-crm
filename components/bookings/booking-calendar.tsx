@@ -114,14 +114,32 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       return "past"
     }
 
-    const bookingCount = getBookingsForDate(date).length
+    const dayBookings = getBookingsForDate(date)
+    const bookingCount = dayBookings.length
 
     if (bookingCount === 0) {
-      return "zero" // Zero bookings = green per requirement
-    } else if (bookingCount >= 20) {
+      return "zero" // Zero bookings = light gray/white
+    }
+
+    // Status-based coloring for days with bookings
+    const hasConfirmed = dayBookings.some(b => b.status === 'confirmed')
+    const hasPendingPayment = dayBookings.some(b => b.status === 'pending_payment')
+    const hasDelivered = dayBookings.some(b => b.status === 'delivered')
+    const hasCancelled = dayBookings.some(b => b.status === 'cancelled')
+    const hasQuote = dayBookings.some(b => b.status === 'quote')
+
+    // Priority: Confirmed > Delivered > Pending > Quote > Cancelled
+    if (hasConfirmed) return "confirmed"       // Green - confirmed bookings
+    if (hasDelivered) return "delivered"      // Blue - delivered/completed
+    if (hasPendingPayment) return "pending"   // Yellow/Orange - needs payment
+    if (hasQuote) return "quote"              // Purple - quotes
+    if (hasCancelled) return "cancelled"      // Gray - cancelled
+
+    // Fallback for old bookings system (use count-based)
+    if (bookingCount >= 20) {
       return "full" // 20+ bookings = red
     } else {
-      return "mid" // 1-20 bookings = blue
+      return "mid" // 1-19 bookings = default blue
     }
   }
 
@@ -147,9 +165,14 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const dayModifiers = React.useMemo(() => {
     const modifiers: Record<string, Date[]> = {
       past: [],
-      zero: [], // 0 bookings (green)
-      mid: [], // 1-20 bookings (blue)
-      full: [], // 20+ bookings (red)
+      zero: [],          // 0 bookings
+      confirmed: [],     // Has confirmed bookings (green)
+      delivered: [],     // Has delivered bookings (blue)
+      pending: [],       // Has pending payment (yellow/orange)
+      quote: [],         // Has quotes (purple)
+      cancelled: [],     // Has cancelled (gray)
+      mid: [],           // 1-19 bookings (fallback blue)
+      full: [],          // 20+ bookings (fallback red)
     }
 
     // Generate dates for the current month and next few months
@@ -167,11 +190,16 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
 
   const dayClassNames = {
     past: "!bg-muted/60 !text-muted-foreground !opacity-60 !cursor-not-allowed hover:!bg-muted/60",
-    // 0 bookings → green
-    zero: "!bg-emerald-500/90 !text-white hover:!bg-emerald-600 !cursor-pointer !border !border-emerald-600/30 shadow-sm",
-    // 1-20 bookings → blue
+    // No bookings → subtle gray/white
+    zero: "!bg-background !text-foreground hover:!bg-muted/30 !cursor-pointer !border !border-border",
+    // Status-based colors
+    confirmed: "!bg-green-500/90 !text-white hover:!bg-green-600 !cursor-pointer !border !border-green-600/30 shadow-sm font-semibold",
+    delivered: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm font-semibold",
+    pending: "!bg-orange-500/90 !text-white hover:!bg-orange-600 !cursor-pointer !border !border-orange-600/30 shadow-sm font-semibold",
+    quote: "!bg-purple-500/90 !text-white hover:!bg-purple-600 !cursor-pointer !border !border-purple-600/30 shadow-sm font-semibold",
+    cancelled: "!bg-gray-400/90 !text-white hover:!bg-gray-500 !cursor-pointer !border !border-gray-500/30 shadow-sm",
+    // Fallback count-based colors
     mid: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm",
-    // 20+ bookings → red
     full: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm",
   }
 
@@ -186,16 +214,20 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           {!compact && (
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm bg-emerald-500 border border-emerald-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">0 Bookings</span>
+                <span className="inline-block w-3 h-3 rounded-sm bg-green-500 border border-green-600/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">Confirmed</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-blue-500 border border-blue-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">1-20 Bookings</span>
+                <span className="text-muted-foreground font-medium">Delivered</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm bg-red-500 border border-red-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">20+ Bookings</span>
+                <span className="inline-block w-3 h-3 rounded-sm bg-orange-500 border border-orange-600/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">Pending</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-purple-500 border border-purple-600/30 shadow-sm" />
+                <span className="text-muted-foreground font-medium">Quote</span>
               </div>
             </div>
           )}
@@ -222,10 +254,12 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             className={`rounded-lg border-2 border-border/50 w-full bg-background/50 ${compact ? (mini ? '[--cell-size:1.5rem]' : '[--cell-size:2rem]') : '[--cell-size:3.5rem] md:[--cell-size:4rem]'}`}
           />
           {/* Always show a small legend for reference */}
-          <div className={`mt-4 flex items-center ${mini ? 'gap-3 text-[11px]' : 'gap-5 text-xs'} justify-center bg-muted/30 rounded-lg py-2.5 px-4`}>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-emerald-500 border border-emerald-600/30`} /> 0 Bookings</span>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-blue-500 border border-blue-600/30`} /> 1-20 Bookings</span>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-red-500 border border-red-600/30`} /> 20+ Bookings</span>
+          <div className={`mt-4 flex items-center ${mini ? 'gap-3 text-[11px]' : 'gap-5 text-xs'} justify-center bg-muted/30 rounded-lg py-2.5 px-4 flex-wrap`}>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-green-500 border border-green-600/30`} /> Confirmed</span>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-blue-500 border border-blue-600/30`} /> Delivered</span>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-orange-500 border border-orange-600/30`} /> Pending</span>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-purple-500 border border-purple-600/30`} /> Quote</span>
+            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-gray-400 border border-gray-500/30`} /> Cancelled</span>
           </div>
         </div>
       </CardContent>
@@ -239,10 +273,22 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       >
         <DialogContent className={`${compact ? 'max-w-md' : 'max-w-7xl'} max-h-[90vh] overflow-y-auto`}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               <CalendarIcon className="w-5 h-5" />
               Event Details - {selectedDate && format(selectedDate, "MMMM dd, yyyy")}
-              <Badge variant="secondary">{dateBookings.length} bookings</Badge>
+              <Badge variant="secondary" className="ml-2">{dateBookings.length} total</Badge>
+              {dateBookings.filter(b => b.status === 'confirmed').length > 0 && (
+                <Badge className="bg-green-500">{dateBookings.filter(b => b.status === 'confirmed').length} confirmed</Badge>
+              )}
+              {dateBookings.filter(b => b.status === 'delivered').length > 0 && (
+                <Badge className="bg-blue-500">{dateBookings.filter(b => b.status === 'delivered').length} delivered</Badge>
+              )}
+              {dateBookings.filter(b => b.status === 'pending_payment').length > 0 && (
+                <Badge className="bg-orange-500">{dateBookings.filter(b => b.status === 'pending_payment').length} pending</Badge>
+              )}
+              {dateBookings.filter(b => b.status === 'quote').length > 0 && (
+                <Badge className="bg-purple-500">{dateBookings.filter(b => b.status === 'quote').length} quotes</Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 

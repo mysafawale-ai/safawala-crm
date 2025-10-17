@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,10 @@ const STEPS = [
 
 export default function BookPackageWizard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editQuoteId = searchParams.get('edit')
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [loadingQuoteData, setLoadingQuoteData] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [customersLoading, setCustomersLoading] = useState(true)
@@ -107,6 +111,13 @@ export default function BookPackageWizard() {
   const [productDialogContext, setProductDialogContext] = useState<{ pkg: PackageSet; variant: PackageVariant; eventDate?: string; itemId?: string; distanceKm?: number; pincode?: string } | null>(null)
 
   useEffect(() => { loadData() }, [])
+
+  // Load quote data for editing
+  useEffect(() => {
+    if (editQuoteId && !loadingQuoteData && customers.length > 0 && packages.length > 0) {
+      loadQuoteForEdit(editQuoteId)
+    }
+  }, [editQuoteId, customers, packages])
 
   const loadData = async () => {
     setCustomersLoading(true)
@@ -235,6 +246,114 @@ export default function BookPackageWizard() {
       toast.error("Error loading data")
     } finally {
       setCustomersLoading(false)
+    }
+  }
+
+  const loadQuoteForEdit = async (quoteId: string) => {
+    try {
+      setLoadingQuoteData(true)
+      setIsEditMode(true)
+
+      // Load quote header from package_bookings
+      const { data: quote, error: quoteError } = await supabase
+        .from('package_bookings')
+        .select('*')
+        .eq('id', quoteId)
+        .single()
+
+      if (quoteError) throw quoteError
+
+      // Load quote items
+      const { data: items, error: itemsError } = await supabase
+        .from('package_booking_items')
+        .select('*')
+        .eq('booking_id', quoteId)
+
+      if (itemsError) throw itemsError
+
+      // Find and set customer
+      const customer = customers.find(c => c.id === quote.customer_id)
+      if (customer) {
+        setSelectedCustomer(customer)
+      }
+
+      // Set sales staff
+      if (quote.sales_staff_id) {
+        setSelectedStaff(quote.sales_staff_id)
+      }
+
+      // Set distance
+      if (quote.distance_km) {
+        setDistanceKm(quote.distance_km)
+      }
+
+      // Pre-fill form data
+      const eventDateTime = quote.event_date ? new Date(quote.event_date) : null
+      const deliveryDateTime = quote.delivery_date ? new Date(quote.delivery_date) : null
+      const returnDateTime = quote.return_date ? new Date(quote.return_date) : null
+
+      setFormData({
+        event_type: quote.event_type || "Wedding",
+        event_participant: quote.event_participant || "Both",
+        payment_type: quote.payment_type || "full",
+        custom_amount: quote.custom_amount || 0,
+        discount_type: "flat" as "flat" | "percentage",
+        discount_amount: quote.discount_amount || 0,
+        coupon_code: quote.coupon_code || "",
+        coupon_discount: quote.coupon_discount || 0,
+        event_date: eventDateTime ? format(eventDateTime, "yyyy-MM-dd") : "",
+        event_time: eventDateTime ? format(eventDateTime, "HH:mm") : "10:00",
+        delivery_date: deliveryDateTime ? format(deliveryDateTime, "yyyy-MM-dd") : "",
+        delivery_time: deliveryDateTime ? format(deliveryDateTime, "HH:mm") : "09:00",
+        return_date: returnDateTime ? format(returnDateTime, "yyyy-MM-dd") : "",
+        return_time: returnDateTime ? format(returnDateTime, "HH:mm") : "18:00",
+        venue_address: quote.venue_address || "",
+        groom_name: quote.groom_name || "",
+        groom_whatsapp: quote.groom_whatsapp || "",
+        groom_address: quote.groom_address || "",
+        bride_name: quote.bride_name || "",
+        bride_whatsapp: quote.bride_whatsapp || "",
+        notes: quote.notes || "",
+      })
+
+      // Pre-fill booking items - reconstruct BookingItem[]
+      const loadedItems: BookingItem[] = []
+      for (const item of items) {
+        // Find package
+        const pkg = packages.find(p => p.id === item.package_id)
+        if (pkg) {
+          // Find variant
+          const variant = pkg.package_variants.find(v => v.id === item.variant_id)
+          if (variant) {
+            loadedItems.push({
+              id: Math.random().toString(36).substr(2, 9),
+              pkg,
+              variant,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total_price: item.total_price,
+              extra_safas: item.extra_safas || 0,
+              distance_addon: item.distance_addon || 0,
+              security_deposit: item.security_deposit || 0,
+              products_pending: false,
+            })
+          }
+        }
+      }
+      setBookingItems(loadedItems)
+
+      // Move to review step if items loaded
+      if (loadedItems.length > 0) {
+        setCurrentStep(3)
+      }
+
+      toast.success("Quote loaded successfully")
+    } catch (error) {
+      console.error("Error loading quote:", error)
+      toast.error("Failed to load quote data")
+      router.push('/quotes')
+    } finally {
+      setLoadingQuoteData(false)
     }
   }
 
@@ -587,6 +706,108 @@ export default function BookPackageWizard() {
     }
     setLoading(true)
     try {
+      // ==================================================================
+      // EDIT MODE: Update existing quote
+      // ==================================================================
+      if (isEditMode && editQuoteId) {
+        // Resolve event date/time
+        const eventDate = new Date(formData.event_date)
+        const [hours, minutes] = formData.event_time.split(":")
+        eventDate.setHours(parseInt(hours), parseInt(minutes))
+
+        // Combine delivery/return dates with times
+        const deliveryDateISO = formData.delivery_date ? (() => {
+          const d = new Date(formData.delivery_date)
+          const [hh, mm] = (formData.delivery_time || '00:00').split(':')
+          d.setHours(parseInt(hh||'0'), parseInt(mm||'0'))
+          return d.toISOString()
+        })() : null
+        const returnDateISO = formData.return_date ? (() => {
+          const d = new Date(formData.return_date)
+          const [hh, mm] = (formData.return_time || '00:00').split(':')
+          d.setHours(parseInt(hh||'0'), parseInt(mm||'0'))
+          return d.toISOString()
+        })() : null
+
+        // 1. Update quote header
+        const { error: updateError } = await supabase
+          .from("package_bookings")
+          .update({
+            customer_id: selectedCustomer.id,
+            event_type: formData.event_type,
+            event_participant: formData.event_participant,
+            payment_type: formData.payment_type,
+            custom_amount: formData.custom_amount,
+            discount_amount: formData.discount_amount,
+            coupon_code: formData.coupon_code || null,
+            coupon_discount: formData.coupon_discount || 0,
+            event_date: eventDate.toISOString(),
+            delivery_date: deliveryDateISO,
+            return_date: returnDateISO,
+            venue_address: formData.venue_address,
+            groom_name: formData.groom_name || null,
+            groom_whatsapp: formData.groom_whatsapp || null,
+            groom_address: formData.groom_address || null,
+            bride_name: formData.bride_name || null,
+            bride_whatsapp: formData.bride_whatsapp || null,
+            notes: formData.notes || null,
+            distance_km: distanceKm,
+            distance_amount: (totals as any).distanceSurcharge || 0,
+            tax_amount: totals.gst,
+            subtotal_amount: totals.subtotal,
+            total_amount: totals.grand,
+            security_deposit: (totals as any).baseDeposit || 0,
+            amount_paid: totals.payable + ((totals as any).baseDeposit || 0),
+            pending_amount: totals.remaining,
+            sales_closed_by_id: selectedStaff || null,
+            use_custom_pricing: useCustomPricing || false,
+            custom_package_price: useCustomPricing ? customPricing.package_price : null,
+            custom_deposit: useCustomPricing ? customPricing.deposit : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editQuoteId)
+
+        if (updateError) throw updateError
+
+        // 2. Delete existing items
+        const { error: deleteError } = await supabase
+          .from("package_booking_items")
+          .delete()
+          .eq('booking_id', editQuoteId)
+
+        if (deleteError) throw deleteError
+
+        // 3. Insert updated items
+        const itemRows = bookingItems.map((itm) => ({
+          booking_id: editQuoteId,
+          package_id: itm.pkg.id,
+          variant_id: itm.variant.id,
+          variant_name: itm.variant.variant_name || itm.variant.name,
+          variant_inclusions: itm.variant.inclusions || [],
+          quantity: itm.quantity,
+          unit_price: itm.unit_price,
+          total_price: itm.total_price,
+          security_deposit: itm.security_deposit,
+          extra_safas: itm.extra_safas || 0,
+          distance_addon: itm.distance_addon || 0,
+        }))
+
+        const { error: itemsErr } = await supabase
+          .from("package_booking_items")
+          .insert(itemRows)
+
+        if (itemsErr) throw itemsErr
+
+        toast.success("Quote updated successfully")
+        router.push(`/quotes?refresh=${Date.now()}`)
+        router.refresh()
+        setLoading(false)
+        return
+      }
+
+      // ==================================================================
+      // CREATE MODE: Create new booking/quote
+      // ==================================================================
       // Resolve event date/time
       const eventDate = new Date(formData.event_date)
       const [hours, minutes] = formData.event_time.split(":")
@@ -740,7 +961,7 @@ export default function BookPackageWizard() {
               customer_id: selectedCustomer.id,
               booking_id: booking.id,
               discount_applied: formData.coupon_discount
-            }).catch((err) => {
+            }).catch((err: any) => {
               console.warn('Failed to log coupon usage:', err)
             })
           }
@@ -763,13 +984,35 @@ export default function BookPackageWizard() {
     }
   }
 
+  // Show loading state while quote data is being loaded
+  if (loadingQuoteData) {
+    return (
+      <div className="min-h-screen bg-white p-4">
+        <div className="max-w-7xl mx-auto">
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-24">
+              <Loader2 className="h-12 w-12 animate-spin text-green-700 mb-4" />
+              <p className="text-xl font-medium text-gray-700">Loading quote data...</p>
+              <p className="text-sm text-gray-500 mt-2">Please wait while we fetch the quote details</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white p-4">
   <CustomerFormDialog open={showNewCustomer} onOpenChange={setShowNewCustomer} onCustomerCreated={handleCustomerCreated} />
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <AnimatedBackButton variant="ghost" onClick={() => router.back()} className="mb-4" />
-          <h1 className="text-3xl font-bold text-green-800">Create Package Booking</h1>
+          <h1 className="text-3xl font-bold text-green-800">
+            {isEditMode ? 'Edit Package Quote' : 'Create Package Booking'}
+          </h1>
+          {isEditMode && (
+            <p className="text-sm text-gray-600 mt-1">Update package details and settings</p>
+          )}
         </div>
 
         <Card className="mb-6 shadow-lg">
@@ -1528,12 +1771,14 @@ export default function BookPackageWizard() {
                 <div className="space-y-2">
                   <Button className="w-full" disabled={loading} onClick={() => handleSubmit(false)}>
                     {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Create Booking
+                    {isEditMode ? 'Update Quote' : 'Create Booking'}
                   </Button>
-                  <Button variant="outline" className="w-full" disabled={loading} onClick={() => handleSubmit(true)}>
-                    {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Save as Quote
-                  </Button>
+                  {!isEditMode && (
+                    <Button variant="outline" className="w-full" disabled={loading} onClick={() => handleSubmit(true)}>
+                      {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      Save as Quote
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

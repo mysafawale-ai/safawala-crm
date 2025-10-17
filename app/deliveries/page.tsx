@@ -19,6 +19,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Progress } from "@/components/ui/progress"
 import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
@@ -470,6 +472,31 @@ export default function DeliveriesPage() {
       return b?.pickup_date || null
     }
     return null
+  }
+
+  // Calculate completeness percentage based on filled optional fields
+  const calculateCompleteness = (delivery: Delivery): { percentage: number; missing: string[] } => {
+    const fields = [
+      { key: 'driver_name', label: 'Driver Name', value: delivery.driver_name },
+      { key: 'vehicle_number', label: 'Vehicle Number', value: delivery.vehicle_number },
+      { key: 'pickup_address', label: 'Pickup Address', value: delivery.pickup_address },
+      { key: 'customer_phone', label: 'Customer Phone', value: delivery.customer_phone },
+      { key: 'special_instructions', label: 'Special Instructions', value: delivery.special_instructions },
+    ]
+    
+    const filled = fields.filter(f => f.value && f.value.trim() !== '').length
+    const total = fields.length
+    const percentage = Math.round((filled / total) * 100)
+    const missing = fields.filter(f => !f.value || f.value.trim() === '').map(f => f.label)
+    
+    return { percentage, missing }
+  }
+
+  // Get color based on completion percentage
+  const getCompletenessColor = (percentage: number): string => {
+    if (percentage >= 80) return 'text-green-600 bg-green-100'
+    if (percentage >= 50) return 'text-yellow-600 bg-yellow-100'
+    return 'text-red-600 bg-red-100'
   }
 
   const handleBack = () => {
@@ -1006,21 +1033,55 @@ export default function DeliveriesPage() {
                 <p className="mt-1 text-sm text-gray-500">Get started by scheduling a new delivery.</p>
               </div>
             ) : (
-              paginatedDeliveries.map((delivery) => (
-                <div key={delivery.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    {getStatusIcon(delivery.status)}
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <p className="font-medium">{delivery.delivery_number}</p>
-                        <Badge className={getStatusColor(delivery.status)}>{delivery.status}</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {delivery.customer_name} • {delivery.driver_name} • ₹{delivery.total_amount}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Delivery: {delivery.delivery_date}
-                        {(() => {
+              paginatedDeliveries.map((delivery) => {
+                const { percentage, missing } = calculateCompleteness(delivery)
+                
+                return (
+                  <div key={delivery.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4 flex-1">
+                      {getStatusIcon(delivery.status)}
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <p className="font-medium">{delivery.delivery_number}</p>
+                          <Badge className={getStatusColor(delivery.status)}>{delivery.status}</Badge>
+                          
+                          {/* Completeness Indicator */}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center space-x-2 ml-2">
+                                  <Badge variant="outline" className={getCompletenessColor(percentage)}>
+                                    {percentage}% Complete
+                                  </Badge>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <div className="space-y-2">
+                                  <p className="font-semibold text-sm">Delivery Completeness</p>
+                                  <Progress value={percentage} className="h-2" />
+                                  {missing.length > 0 ? (
+                                    <div>
+                                      <p className="text-xs font-medium mb-1">Missing fields:</p>
+                                      <ul className="text-xs list-disc list-inside">
+                                        {missing.map((field) => (
+                                          <li key={field}>{field}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-green-600">✓ All fields complete!</p>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {delivery.customer_name} • {delivery.driver_name} • ₹{delivery.total_amount}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Delivery: {delivery.delivery_date}
+                          {(() => {
                           const ret = getCurrentReturnISO(delivery)
                           if (!ret) return null
                           try {
@@ -1104,33 +1165,6 @@ export default function DeliveriesPage() {
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    {delivery.booking_id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedDelivery(delivery)
-                          // Pre-fill with current (rescheduled or original) return
-                          const currentISO = getCurrentReturnISO(delivery)
-                          let date = ""
-                          let time = "18:00"
-                          if (currentISO) {
-                            const d = new Date(currentISO)
-                            if (!Number.isNaN(d.getTime())) {
-                              date = d.toISOString().slice(0, 10)
-                              const hh = String(d.getHours()).padStart(2, "0")
-                              const mm = String(d.getMinutes()).padStart(2, "0")
-                              time = `${hh}:${mm}`
-                            }
-                          }
-                          setRescheduleForm({ date, time })
-                          setShowRescheduleDialog(true)
-                        }}
-                      >
-                        <CalendarClock className="h-4 w-4 mr-1" />
-                        Reschedule Return
-                      </Button>
-                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1155,7 +1189,8 @@ export default function DeliveriesPage() {
                     </Button>
                   </div>
                 </div>
-              ))
+              )
+            })
             )}
           </div>
         </CardContent>
@@ -1281,6 +1316,41 @@ export default function DeliveriesPage() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
+                          {returnItem.booking_id && returnItem.booking_source && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Create a delivery-like object for the reschedule logic
+                                const deliveryLike = {
+                                  id: returnItem.delivery_id || returnItem.id,
+                                  booking_id: returnItem.booking_id,
+                                  booking_source: returnItem.booking_source,
+                                  rescheduled_return_at: returnItem.booking?.return_date || returnItem.return_date,
+                                }
+                                setSelectedDelivery(deliveryLike as any)
+                                
+                                // Pre-fill with current return date
+                                const currentISO = returnItem.booking?.return_date || returnItem.return_date
+                                let date = ""
+                                let time = "18:00"
+                                if (currentISO) {
+                                  const d = new Date(currentISO)
+                                  if (!Number.isNaN(d.getTime())) {
+                                    date = d.toISOString().slice(0, 10)
+                                    const hh = String(d.getHours()).padStart(2, "0")
+                                    const mm = String(d.getMinutes()).padStart(2, "0")
+                                    time = `${hh}:${mm}`
+                                  }
+                                }
+                                setRescheduleForm({ date, time })
+                                setShowRescheduleDialog(true)
+                              }}
+                            >
+                              <CalendarClock className="h-4 w-4 mr-1" />
+                              Reschedule Return
+                            </Button>
+                          )}
                           <Button
                             variant={isOverdue ? "destructive" : "default"}
                             size="sm"

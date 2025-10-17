@@ -1828,36 +1828,22 @@ export default function QuotesPage() {
     }
   }
 
-  // Open edit dialog and populate form
+  // Redirect to appropriate create page with edit parameter
   const handleEditQuote = (quote: Quote) => {
-    setSelectedQuote(quote)
-    
-    // Parse date and time from ISO strings
-    const eventDateTime = quote.event_date ? new Date(quote.event_date) : null
-    const deliveryDateTime = quote.delivery_date ? new Date(quote.delivery_date) : null
-    const returnDateTime = quote.return_date ? new Date(quote.return_date) : null
-    
-    setEditFormData({
-      event_type: quote.event_type || "Wedding",
-      event_participant: quote.event_participant || "Both",
-      payment_type: quote.payment_type || "full",
-      event_date: eventDateTime ? eventDateTime.toISOString().split('T')[0] : "",
-      event_time: eventDateTime ? format(eventDateTime, "HH:mm") : "10:00",
-      delivery_date: deliveryDateTime ? deliveryDateTime.toISOString().split('T')[0] : "",
-      delivery_time: deliveryDateTime ? format(deliveryDateTime, "HH:mm") : "09:00",
-      return_date: returnDateTime ? returnDateTime.toISOString().split('T')[0] : "",
-      return_time: returnDateTime ? format(returnDateTime, "HH:mm") : "18:00",
-      venue_address: quote.venue_address || "",
-      groom_name: quote.groom_name || "",
-      groom_whatsapp: quote.groom_whatsapp || "",
-      groom_address: quote.groom_address || "",
-      bride_name: quote.bride_name || "",
-      bride_whatsapp: quote.bride_whatsapp || "",
-      bride_address: quote.bride_address || "",
-      notes: quote.notes || quote.special_instructions || "",
-    })
-    
-    setShowEditDialog(true)
+    const source = (quote as any).source
+    // Route to the appropriate create page with edit parameter
+    if (quote.booking_type === 'package' || source === 'package_bookings') {
+      router.push(`/book-package?edit=${quote.id}`)
+    } else if (quote.booking_type === 'product' || source === 'product_orders') {
+      router.push(`/create-product-order?edit=${quote.id}`)
+    } else {
+      // Fallback - try to detect from booking type
+      toast({ 
+        title: "Cannot edit", 
+        description: "Unable to determine quote type. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
   // Save edited quote

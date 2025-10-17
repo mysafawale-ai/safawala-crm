@@ -405,6 +405,9 @@ export interface Quote {
   payment_method?: string
   coupon_code?: string
   coupon_discount?: number
+  distance_amount?: number
+  distance_km?: number
+  custom_amount?: number
 
   // Quote status and tracking
   status: "generated" | "sent" | "viewed" | "accepted" | "rejected" | "quote" | "converted"

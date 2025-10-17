@@ -95,17 +95,21 @@ export async function GET(
       
       const qty_delivered = itemData?.qty_delivered || 0
       const qty_returned = itemData?.qty_returned || 0
+      const qty_not_used = itemData?.qty_not_used || 0
       const qty_damaged = itemData?.qty_damaged || 0
       const qty_lost = itemData?.qty_lost || 0
       const send_to_laundry = itemData?.send_to_laundry || false
       
       // Calculate new inventory values
-      const new_stock_available = product.stock_available + qty_returned - (send_to_laundry ? qty_returned : 0)
+      // qty_not_used: Goes directly to available (never used, no laundry needed)
+      // qty_returned: Goes to laundry if send_to_laundry is true, otherwise to available
+      const directToAvailable = qty_not_used + (send_to_laundry ? 0 : qty_returned)
+      const tolaundry = send_to_laundry ? qty_returned : 0
+      
+      const new_stock_available = product.stock_available + directToAvailable
       const new_stock_damaged = product.stock_damaged + qty_damaged
       const new_stock_total = product.stock_total - qty_lost
-      const new_stock_in_laundry = send_to_laundry 
-        ? (product.stock_in_laundry || 0) + qty_returned
-        : product.stock_in_laundry
+      const new_stock_in_laundry = (product.stock_in_laundry || 0) + tolaundry
       const new_stock_booked = Math.max(0, (product.stock_booked || 0) - qty_delivered)
       
       return {
@@ -137,6 +141,7 @@ export async function GET(
         quantities: {
           delivered: qty_delivered,
           returned: qty_returned,
+          not_used: qty_not_used,
           damaged: qty_damaged,
           lost: qty_lost,
           send_to_laundry
@@ -146,7 +151,8 @@ export async function GET(
           ...(new_stock_available < 0 ? ["Available stock would go negative"] : []),
           ...(qty_lost > 0 ? [`${qty_lost} items will be permanently removed`] : []),
           ...(qty_damaged > 0 ? [`${qty_damaged} items will be archived as damaged`] : []),
-          ...(send_to_laundry && qty_returned > 0 ? [`${qty_returned} items will be sent to laundry`] : [])
+          ...(send_to_laundry && qty_returned > 0 ? [`${qty_returned} used items will be sent to laundry`] : []),
+          ...(qty_not_used > 0 ? [`${qty_not_used} unused items will go directly to available`] : [])
         ]
       }
     })

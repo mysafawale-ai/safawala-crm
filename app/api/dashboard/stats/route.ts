@@ -114,13 +114,61 @@ export async function GET(request: NextRequest) {
       (p.stock_available || 0) <= (p.reorder_level || 5)
     ).length
 
+    // Calculate additional metrics
+    const confirmedBookings = bookingsData.filter((b: any) => b.status === 'confirmed').length
+    const quotesCount = bookingsData.filter((b: any) => b.status === 'quote').length
+    const conversionRate = quotesCount > 0 ? ((confirmedBookings / (confirmedBookings + quotesCount)) * 100) : 0
+    
+    const avgBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0
+
+    // Revenue by month (last 6 months)
+    const revenueByMonth = []
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+      const monthRevenue = bookingsData
+        .filter((b: any) => {
+          const date = new Date(b.created_at)
+          return date >= monthDate && date <= monthEnd
+        })
+        .reduce((sum: number, b: any) => sum + (b.total_amount || 0), 0)
+      
+      revenueByMonth.push({
+        month: monthDate.toLocaleDateString('en-US', { month: 'short' }),
+        revenue: monthRevenue
+      })
+    }
+
+    // Bookings by type
+    const packageBookings = bookingsData.filter((b: any) => b.type === 'package').length
+    const productBookings = bookingsData.filter((b: any) => b.type !== 'package').length
+
+    // Pending actions
+    const pendingPayments = bookingsData.filter((b: any) => b.status === 'pending_payment').length
+    const pendingDeliveries = bookingsData.filter((b: any) => b.status === 'confirmed').length
+    const pendingReturns = bookingsData.filter((b: any) => b.status === 'delivered').length
+    const overdueTasks = 0 // Can be enhanced with actual due date logic
+
     const stats = {
       totalBookings,
       activeBookings,
       totalCustomers,
       totalRevenue,
       monthlyGrowth: Math.round(monthlyGrowth),
-      lowStockItems
+      lowStockItems,
+      conversionRate: Math.round(conversionRate),
+      avgBookingValue: Math.round(avgBookingValue),
+      revenueByMonth,
+      bookingsByType: {
+        package: packageBookings,
+        product: productBookings
+      },
+      pendingActions: {
+        payments: pendingPayments,
+        deliveries: pendingDeliveries,
+        returns: pendingReturns,
+        overdue: overdueTasks
+      }
     }
 
     console.log(`[Dashboard Stats API] Returning stats:`, stats)

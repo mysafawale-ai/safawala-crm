@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
 import { toast } from "sonner"
@@ -51,6 +51,9 @@ import {
 } from "lucide-react"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
+import { ProductSelector } from "@/components/products/product-selector"
+import { BarcodeInput } from "@/components/barcode/barcode-input"
+import type { Product as ProductType, Category, Subcategory } from "@/components/products/product-selector"
 
 interface Customer {
   id: string
@@ -98,6 +101,10 @@ interface StaffMember {
 
 export default function CreateProductOrderPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editQuoteId = searchParams.get('edit')
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [loadingQuoteData, setLoadingQuoteData] = useState(false)
 
   // State
   const [currentUser, setCurrentUser] = useState<any>(null)  // ✅ Store logged-in user
@@ -106,14 +113,11 @@ export default function CreateProductOrderPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
   const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [selectedStaff, setSelectedStaff] = useState<string>("none")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
   const [customerSearch, setCustomerSearch] = useState("")
-  const [productSearch, setProductSearch] = useState("")
   const [loading, setLoading] = useState(false)
   const [customersLoading, setCustomersLoading] = useState(true)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
@@ -211,8 +215,8 @@ export default function CreateProductOrderPage() {
         
         // Fetch categories and subcategories from database
         const { data: cats } = await supabase.from('product_categories').select('*').order('name')
-        const mainCats = cats?.filter(c => !c.parent_id) || []
-        const subCats = cats?.filter(c => c.parent_id) || []
+        const mainCats = cats?.filter((c: any) => !c.parent_id) || []
+        const subCats = cats?.filter((c: any) => c.parent_id) || []
         setCategories(mainCats)
         setSubcategories(subCats)
         
@@ -235,6 +239,108 @@ export default function CreateProductOrderPage() {
     })()
   }, [])
 
+  // Load quote data for editing
+  useEffect(() => {
+    if (editQuoteId) {
+      loadQuoteForEdit(editQuoteId)
+    }
+  }, [editQuoteId])
+
+  const loadQuoteForEdit = async (quoteId: string) => {
+    try {
+      setLoadingQuoteData(true)
+      setIsEditMode(true)
+
+      // Load quote header from product_orders
+      const { data: quote, error: quoteError } = await supabase
+        .from('product_orders')
+        .select('*')
+        .eq('id', quoteId)
+        .single()
+
+      if (quoteError) throw quoteError
+
+      // Load quote items
+      const { data: items, error: itemsError } = await supabase
+        .from('product_order_items')
+        .select('*')
+        .eq('order_id', quoteId)
+
+      if (itemsError) throw itemsError
+
+      // Find customer
+      const customer = customers.find(c => c.id === quote.customer_id)
+      if (customer) {
+        setSelectedCustomer(customer)
+      }
+
+      // Set sales staff
+      if (quote.sales_staff_id) {
+        setSelectedStaff(quote.sales_staff_id)
+      }
+
+      // Pre-fill form data
+      const eventDateTime = quote.event_date ? new Date(quote.event_date) : null
+      const deliveryDateTime = quote.delivery_date ? new Date(quote.delivery_date) : null
+      const returnDateTime = quote.return_date ? new Date(quote.return_date) : null
+
+      setFormData({
+        booking_type: quote.booking_type || "rental",
+        event_type: quote.event_type || "Wedding",
+        event_participant: quote.event_participant || "Both",
+        payment_type: quote.payment_type || "full",
+        payment_method: quote.payment_method || "Cash / Offline Payment",
+        custom_amount: quote.custom_amount || 0,
+        discount_amount: quote.discount_amount || 0,
+        coupon_code: quote.coupon_code || "",
+        coupon_discount: quote.coupon_discount || 0,
+        event_date: eventDateTime ? eventDateTime.toISOString().split('T')[0] : "",
+        event_time: eventDateTime ? format(eventDateTime, "HH:mm") : "10:00",
+        delivery_date: deliveryDateTime ? deliveryDateTime.toISOString().split('T')[0] : "",
+        delivery_time: deliveryDateTime ? format(deliveryDateTime, "HH:mm") : "09:00",
+        return_date: returnDateTime ? returnDateTime.toISOString().split('T')[0] : "",
+        return_time: returnDateTime ? format(returnDateTime, "HH:mm") : "18:00",
+        venue_address: quote.venue_address || "",
+        groom_name: quote.groom_name || "",
+        groom_whatsapp: quote.groom_whatsapp || "",
+        groom_address: quote.groom_address || "",
+        bride_name: quote.bride_name || "",
+        bride_whatsapp: quote.bride_whatsapp || "",
+        bride_address: quote.bride_address || "",
+        notes: quote.notes || quote.special_instructions || "",
+      })
+
+      // Pre-fill items - find products and create order items
+      const orderItems: OrderItem[] = []
+      for (const item of items) {
+        // Find the product in the products list
+        const product = products.find(p => p.id === item.product_id)
+        if (product) {
+          orderItems.push({
+            id: Math.random().toString(36).substr(2, 9),
+            product_id: product.id,
+            product_name: product.name,
+            category: product.category,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            security_deposit: item.security_deposit || 0,
+            stock_available: product.stock_available,
+          })
+        }
+      }
+      setItems(orderItems)
+
+      toast.success("Quote loaded successfully")
+    } catch (error) {
+      console.error("Error loading quote:", error)
+      toast.error("Failed to load quote data")
+      router.push('/quotes')
+    } finally {
+      setLoadingQuoteData(false)
+    }
+  }
+
   // Auto-set payment type to "full" when booking type is "sale" (Direct Sale)
   useEffect(() => {
     if (formData.booking_type === "sale") {
@@ -252,18 +358,6 @@ export default function CreateProductOrderPage() {
       ),
     [customers, customerSearch]
   )
-
-  const filteredProducts = useMemo(
-    () =>
-      products.filter((p) => {
-        const matchesSearch = p.name.toLowerCase().includes(productSearch.toLowerCase())
-        const matchesCategory = !selectedCategory || p.category_id === selectedCategory
-        const matchesSubcategory = !selectedSubcategory || p.subcategory_id === selectedSubcategory
-        return matchesSearch && matchesCategory && matchesSubcategory
-      }),
-    [products, productSearch, selectedCategory, selectedSubcategory]
-  )
-
   // Product management
   const addProduct = (p: Product) => {
     const existing = items.find((i) => i.product_id === p.id)
@@ -518,6 +612,92 @@ export default function CreateProductOrderPage() {
 
     setLoading(true)
     try {
+      // ==================================================================
+      // EDIT MODE: Update existing quote
+      // ==================================================================
+      if (isEditMode && editQuoteId) {
+        // Combine dates with times
+        const eventDateTime = combineDateAndTime(formData.event_date, formData.event_time)
+        const deliveryDateTime = formData.delivery_date 
+          ? combineDateAndTime(formData.delivery_date, formData.delivery_time)
+          : null
+        const returnDateTime = formData.return_date
+          ? combineDateAndTime(formData.return_date, formData.return_time)
+          : null
+
+        // Calculate amount to save as paid now (includes deposit for rentals)
+        const amountPaidNow = totals.payable + (formData.booking_type === "rental" ? totals.deposit : 0)
+
+        // 1. Update quote header
+        const { error: updateError } = await supabase
+          .from("product_orders")
+          .update({
+            customer_id: selectedCustomer.id,
+            booking_type: formData.booking_type,
+            event_type: formData.event_type,
+            event_participant: formData.event_participant,
+            payment_type: formData.payment_type,
+            event_date: eventDateTime,
+            delivery_date: deliveryDateTime,
+            return_date: returnDateTime,
+            venue_address: formData.venue_address,
+            groom_name: formData.groom_name,
+            groom_whatsapp: formData.groom_whatsapp,
+            groom_address: formData.groom_address,
+            bride_name: formData.bride_name,
+            bride_whatsapp: formData.bride_whatsapp,
+            bride_address: formData.bride_address,
+            notes: formData.notes,
+            payment_method: formData.payment_method,
+            discount_amount: formData.discount_amount,
+            coupon_code: formData.coupon_code || null,
+            coupon_discount: formData.coupon_discount || 0,
+            tax_amount: totals.gst,
+            subtotal_amount: totals.subtotalAfterDiscount,
+            total_amount: totals.grand,
+            security_deposit: totals.deposit,
+            amount_paid: amountPaidNow,
+            pending_amount: totals.remaining,
+            sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editQuoteId)
+
+        if (updateError) throw updateError
+
+        // 2. Delete existing items
+        const { error: deleteError } = await supabase
+          .from("product_order_items")
+          .delete()
+          .eq('order_id', editQuoteId)
+
+        if (deleteError) throw deleteError
+
+        // 3. Insert updated items
+        const rows = items.map((it) => ({
+          order_id: editQuoteId,
+          product_id: it.product_id,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          total_price: it.total_price,
+          security_deposit: it.security_deposit,
+        }))
+
+        const { error: itemsErr } = await supabase
+          .from("product_order_items")
+          .insert(rows)
+
+        if (itemsErr) throw itemsErr
+
+        toast.success("Quote updated successfully")
+        router.push(`/quotes?refresh=${Date.now()}`)
+        router.refresh()
+        return
+      }
+
+      // ==================================================================
+      // CREATE MODE: Create new order/quote
+      // ==================================================================
       // Generate number with appropriate prefix
       const prefix = isQuote ? "QT" : "ORD"
       const orderNumber = `${prefix}${Date.now().toString().slice(-8)}`
@@ -679,26 +859,38 @@ export default function CreateProductOrderPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Link href="/bookings">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">Create Product Order</h1>
-            <p className="text-sm text-gray-600">
-              Products only (rental & sale)
-            </p>
-          </div>
-        </div>
+        {/* Loading State */}
+        {loadingQuoteData ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mr-3" />
+              <span className="text-lg">Loading quote data...</span>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-6">
+              <Link href={isEditMode ? "/quotes" : "/bookings"}>
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold">
+                  {isEditMode ? 'Edit Quote' : 'Create Product Order'}
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {isEditMode ? 'Update quote details and products' : 'Products only (rental & sale)'}
+                </p>
+              </div>
+            </div>
 
-        <div className="space-y-6">
-          {/* Forms Section */}
-          <div className="space-y-6">
-            {/* Customer Selection */}
+            <div className="space-y-6">
+              {/* Forms Section */}
+              <div className="space-y-6">
+                {/* Customer Selection */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -1167,156 +1359,57 @@ export default function CreateProductOrderPage() {
               </CardContent>
             </Card>
 
-            {/* Product Selection */}
+            {/* Quick Barcode Scanner */}
             <Card>
               <CardHeader>
-                <CardTitle>Select Products</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Quick Add by Barcode
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Category Filter Buttons */}
-                {categories.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    <Button
-                      size="sm"
-                      variant={selectedCategory === null ? "default" : "outline"}
-                      onClick={() => {
-                        setSelectedCategory(null)
-                        setSelectedSubcategory(null)
-                      }}
-                      className="h-7 px-3 text-xs font-normal"
-                    >
-                      All
-                    </Button>
-                    {categories.map((cat) => (
-                      <Button
-                        key={cat.id}
-                        size="sm"
-                        variant={selectedCategory === cat.id ? "default" : "outline"}
-                        onClick={() => {
-                          setSelectedCategory(cat.id)
-                          setSelectedSubcategory(null)
-                        }}
-                        className="h-7 px-3 text-xs font-normal"
-                      >
-                        {cat.name}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Subcategory Filter Buttons - Show only when category is selected */}
-                {selectedCategory && subcategories.filter(sc => sc.parent_id === selectedCategory).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    <Button
-                      size="sm"
-                      variant={selectedSubcategory === null ? "default" : "outline"}
-                      onClick={() => setSelectedSubcategory(null)}
-                      className="h-7 px-3 text-xs font-normal"
-                    >
-                      All Subcategories
-                    </Button>
-                    {subcategories
-                      .filter(sc => sc.parent_id === selectedCategory)
-                      .map((subcat) => (
-                        <Button
-                          key={subcat.id}
-                          size="sm"
-                          variant={selectedSubcategory === subcat.id ? "default" : "outline"}
-                          onClick={() => setSelectedSubcategory(subcat.id)}
-                          className="h-7 px-3 text-xs font-normal"
-                        >
-                          {subcat.name}
-                        </Button>
-                      ))}
-                  </div>
-                )}
-
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search products..."
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <div className="max-h-[500px] overflow-y-auto border rounded-lg p-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {filteredProducts.map((p) => {
-                    const unit =
-                      formData.booking_type === "rental"
-                        ? p.rental_price
-                        : p.sale_price
-
-                    // Calculate reserved quantity from order items
-                    const reservedQty = items.find((i) => i.product_id === p.id)?.quantity || 0
-                    const availableStock = p.stock_available - reservedQty
-                    const isOutOfStock = availableStock <= 0
-
-                    return (
-                      <div
-                        key={p.id}
-                        className="border rounded-lg p-4 flex flex-col text-sm"
-                      >
-                        <div className="aspect-square bg-gray-100 rounded mb-3 flex items-center justify-center text-xs text-muted-foreground">
-                          {p.image_url ? (
-                            <img
-                              src={p.image_url}
-                              alt={p.name}
-                              className="w-full h-full object-cover rounded"
-                            />
-                          ) : (
-                            "No Image"
-                          )}
-                        </div>
-                        <div className="font-medium line-clamp-1" title={p.name}>
-                          {p.name}
-                        </div>
-                        <div className="text-[11px] text-gray-600 mb-1">
-                          {p.category}
-                        </div>
-                        <div className="text-xs mb-2 space-y-0.5">
-                          <div>₹{unit}</div>
-                          <div className={`${isOutOfStock ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
-                            Stock: {availableStock}
-                            {reservedQty > 0 && (
-                              <span className="text-blue-600 ml-1">
-                                ({reservedQty} in cart)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {formData.event_date && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => checkAvailability(p.id, p.name)}
-                            className="mb-2 h-7 text-[10px]"
-                          >
-                            Check availability
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          onClick={() => addProduct(p)}
-                          disabled={isOutOfStock}
-                          className="mt-auto"
-                        >
-                          {isOutOfStock ? "Out of Stock" : "Add"}
-                        </Button>
-                      </div>
+              <CardContent>
+                <BarcodeInput
+                  onScan={async (code) => {
+                    // Search for product by barcode or product_code
+                    const product = products.find(
+                      (p) =>
+                        (p as any).barcode === code ||
+                        (p as any).product_code === code
                     )
-                  })}
-
-                  {filteredProducts.length === 0 && (
-                    <div className="text-xs text-muted-foreground col-span-full p-4 border rounded">
-                      No products found
-                    </div>
-                  )}
-                  </div>
-                </div>
+                    
+                    if (product) {
+                      addProduct(product)
+                      toast.success("Product added!", {
+                        description: `${product.name} added to cart`
+                      })
+                    } else {
+                      toast.error("Product not found", {
+                        description: `No product found with code: ${code}`
+                      })
+                    }
+                  }}
+                  placeholder="Scan barcode or product code..."
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  💡 Use handheld barcode scanner or type product code manually
+                </p>
               </CardContent>
             </Card>
+
+            {/* Product Selection */}
+            <ProductSelector
+              products={products}
+              categories={categories}
+              subcategories={subcategories}
+              selectedItems={items.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity
+              }))}
+              bookingType={formData.booking_type}
+              eventDate={formData.event_date}
+              onProductSelect={addProduct}
+              onCheckAvailability={checkAvailability}
+            />
 
             {/* Order Items */}
             <Card>
@@ -1607,7 +1700,7 @@ export default function CreateProductOrderPage() {
                     Saving...
                   </>
                 ) : (
-                  "Create Quote for Now"
+                  isEditMode ? "Update Quote" : "Create Quote for Now"
                 )}
               </Button>
               <Button
@@ -1621,12 +1714,14 @@ export default function CreateProductOrderPage() {
                     Saving...
                   </>
                 ) : (
-                  "Create Order"
+                  isEditMode ? "Update Order" : "Create Order"
                 )}
               </Button>
             </div>
           </div>
         </div>
+          </>
+        )}
       </div>
 
       {/* New Customer Dialog */}

@@ -35,7 +35,8 @@ interface ReturnItem {
   category?: string
   image_url?: string
   qty_delivered: number
-  qty_returned: number
+  qty_returned: number // Used items that need laundry
+  qty_not_used: number // Extra items that were never used
   qty_damaged: number
   qty_lost: number
   damage_reason?: string
@@ -164,7 +165,8 @@ export function ReturnProcessingDialog({
             category: product?.category,
             image_url: product?.image_url,
             qty_delivered: item.quantity || 1,
-            qty_returned: item.quantity || 1, // Default: all returned clean
+            qty_returned: item.quantity || 1, // Default: all returned clean (to laundry)
+            qty_not_used: 0, // Extra items not used
             qty_damaged: 0,
             qty_lost: 0,
             damage_reason: undefined,
@@ -196,18 +198,19 @@ export function ReturnProcessingDialog({
     )
   }
 
-  const handleQuantityChange = (index: number, field: "qty_returned" | "qty_damaged" | "qty_lost", value: string) => {
+  const handleQuantityChange = (index: number, field: "qty_returned" | "qty_not_used" | "qty_damaged" | "qty_lost", value: string) => {
     const numValue = parseInt(value) || 0
     const item = items[index]
     const otherFields = {
       qty_returned: item.qty_returned,
+      qty_not_used: item.qty_not_used,
       qty_damaged: item.qty_damaged,
       qty_lost: item.qty_lost,
     }
     otherFields[field] = numValue
 
     // Auto-balance: ensure total doesn't exceed delivered
-    const total = otherFields.qty_returned + otherFields.qty_damaged + otherFields.qty_lost
+    const total = otherFields.qty_returned + otherFields.qty_not_used + otherFields.qty_damaged + otherFields.qty_lost
     if (total > item.qty_delivered) {
       toast({
         title: "Invalid Quantity",
@@ -222,7 +225,7 @@ export function ReturnProcessingDialog({
 
   const validateItems = (): boolean => {
     for (const item of items) {
-      const total = item.qty_returned + item.qty_damaged + item.qty_lost
+      const total = item.qty_returned + item.qty_not_used + item.qty_damaged + item.qty_lost
       if (total !== item.qty_delivered) {
         toast({
           title: "Validation Error",
@@ -265,6 +268,7 @@ export function ReturnProcessingDialog({
               product_id: item.product_id,
               qty_delivered: item.qty_delivered,
               qty_returned: item.qty_returned,
+              qty_not_used: item.qty_not_used,
               qty_damaged: item.qty_damaged,
               qty_lost: item.qty_lost,
               send_to_laundry: sendToLaundry,
@@ -305,6 +309,7 @@ export function ReturnProcessingDialog({
             product_id: item.product_id,
             qty_delivered: item.qty_delivered,
             qty_returned: item.qty_returned,
+            qty_not_used: item.qty_not_used,
             qty_damaged: item.qty_damaged,
             qty_lost: item.qty_lost,
             damage_reason: item.damage_reason,
@@ -350,10 +355,11 @@ export function ReturnProcessingDialog({
     (acc, item) => ({
       delivered: acc.delivered + item.qty_delivered,
       returned: acc.returned + item.qty_returned,
+      not_used: acc.not_used + item.qty_not_used,
       damaged: acc.damaged + item.qty_damaged,
       lost: acc.lost + item.qty_lost,
     }),
-    { delivered: 0, returned: 0, damaged: 0, lost: 0 }
+    { delivered: 0, returned: 0, not_used: 0, damaged: 0, lost: 0 }
   )
 
   return (
@@ -362,7 +368,15 @@ export function ReturnProcessingDialog({
         <DialogHeader>
           <DialogTitle>Process Return - {returnRecord?.return_number}</DialogTitle>
           <DialogDescription>
-            Review and process returned items. Enter quantities and reasons for damaged or lost items.
+            <div className="space-y-1">
+              <p>Review and process returned items:</p>
+              <ul className="text-xs list-disc list-inside space-y-0.5 mt-2">
+                <li><strong>Used (Laundry)</strong>: Items that were used and need cleaning</li>
+                <li><strong className="text-blue-600">Not Used (Extra)</strong>: Extra items that weren't used - go directly to available</li>
+                <li><strong className="text-orange-600">Damaged</strong>: Items with damage - provide details</li>
+                <li><strong className="text-red-600">Stolen/Lost</strong>: Missing items</li>
+              </ul>
+            </div>
           </DialogDescription>
         </DialogHeader>
 
@@ -392,18 +406,18 @@ export function ReturnProcessingDialog({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-4">
+                      <div className="grid grid-cols-5 gap-3">
                         <div>
-                          <Label>Delivered</Label>
+                          <Label className="text-xs">Delivered</Label>
                           <Input
                             type="number"
                             value={item.qty_delivered}
                             disabled
-                            className="bg-muted"
+                            className="bg-muted h-9"
                           />
                         </div>
                         <div>
-                          <Label>Returned (Clean)</Label>
+                          <Label className="text-xs">Used (Laundry)</Label>
                           <Input
                             type="number"
                             value={item.qty_returned}
@@ -412,10 +426,24 @@ export function ReturnProcessingDialog({
                             }
                             min={0}
                             max={item.qty_delivered}
+                            className="h-9"
                           />
                         </div>
                         <div>
-                          <Label>Damaged</Label>
+                          <Label className="text-xs text-blue-600">Not Used (Extra)</Label>
+                          <Input
+                            type="number"
+                            value={item.qty_not_used}
+                            onChange={(e) =>
+                              handleQuantityChange(index, "qty_not_used", e.target.value)
+                            }
+                            min={0}
+                            max={item.qty_delivered}
+                            className="h-9 border-blue-300 focus-visible:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-orange-600">Damaged</Label>
                           <Input
                             type="number"
                             value={item.qty_damaged}
@@ -424,10 +452,11 @@ export function ReturnProcessingDialog({
                             }
                             min={0}
                             max={item.qty_delivered}
+                            className="h-9 border-orange-300 focus-visible:ring-orange-500"
                           />
                         </div>
                         <div>
-                          <Label>Lost/Stolen</Label>
+                          <Label className="text-xs text-red-600">Stolen/Lost</Label>
                           <Input
                             type="number"
                             value={item.qty_lost}
@@ -436,6 +465,7 @@ export function ReturnProcessingDialog({
                             }
                             min={0}
                             max={item.qty_delivered}
+                            className="h-9 border-red-300 focus-visible:ring-red-500"
                           />
                         </div>
                       </div>
@@ -547,14 +577,18 @@ export function ReturnProcessingDialog({
 
               <Card className="p-4 bg-muted">
                 <h4 className="font-semibold mb-3">Summary</h4>
-                <div className="grid grid-cols-4 gap-4 text-center">
+                <div className="grid grid-cols-5 gap-4 text-center">
                   <div>
                     <div className="text-2xl font-bold">{totals.delivered}</div>
                     <div className="text-sm text-muted-foreground">Delivered</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-600">{totals.returned}</div>
-                    <div className="text-sm text-muted-foreground">Returned</div>
+                    <div className="text-xs text-muted-foreground">Used (Laundry)</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{totals.not_used}</div>
+                    <div className="text-xs text-muted-foreground">Not Used (Direct)</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-orange-600">{totals.damaged}</div>
@@ -562,20 +596,27 @@ export function ReturnProcessingDialog({
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-red-600">{totals.lost}</div>
-                    <div className="text-sm text-muted-foreground">Lost</div>
+                    <div className="text-sm text-muted-foreground">Stolen/Lost</div>
                   </div>
                 </div>
               </Card>
 
-              <div className="flex items-center space-x-2 p-4 border rounded">
+              <div className="flex items-start space-x-2 p-4 border rounded bg-green-50 dark:bg-green-950">
                 <Checkbox
                   id="send-to-laundry"
                   checked={sendToLaundry}
                   onCheckedChange={(checked) => setSendToLaundry(checked as boolean)}
+                  className="mt-0.5"
                 />
-                <Label htmlFor="send-to-laundry" className="cursor-pointer">
-                  Send returned items to laundry (clean items will go to laundry before being available)
-                </Label>
+                <div className="flex-1">
+                  <Label htmlFor="send-to-laundry" className="cursor-pointer font-medium">
+                    Send used items to laundry
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Used items will be sent to laundry before becoming available. 
+                    "Not Used" items skip laundry and go directly to available inventory.
+                  </p>
+                </div>
               </div>
 
               <div>

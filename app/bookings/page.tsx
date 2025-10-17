@@ -308,8 +308,19 @@ export default function BookingsPage() {
   }
 
   const handleEditBooking = (bookingId: string, source?: string) => {
-    const qs = source ? `?type=${source}` : ''
-    router.push(`/bookings/${bookingId}/edit${qs}`)
+    // Route to the appropriate create page with edit parameter
+    if (source === 'package_bookings') {
+      router.push(`/book-package?edit=${bookingId}`)
+    } else if (source === 'product_orders') {
+      router.push(`/create-product-order?edit=${bookingId}`)
+    } else {
+      // Fallback - try to detect from booking type
+      toast({ 
+        title: "Cannot edit", 
+        description: "Unable to determine booking type. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
   const handleDeleteBooking = async (bookingId: string, source?: string) => {

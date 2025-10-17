@@ -379,7 +379,7 @@ export class QuoteService {
         })
         
         if (staffData && staffData.length > 0) {
-          const staffMap = new Map(staffData.map(s => [s.id, s.name]))
+          const staffMap = new Map(staffData.map((s: any) => [s.id, s.name]))
           allQuotes.forEach(quote => {
             if (quote.sales_closed_by) {
               quote.sales_staff_name = staffMap.get(quote.sales_closed_by) || null

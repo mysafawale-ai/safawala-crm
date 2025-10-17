@@ -70,6 +70,9 @@ interface QuoteItem {
   product_name: string
   category?: string
   product_code?: string
+  variant_name?: string // Package variant name
+  inclusions?: string[] // Package variant inclusions
+  extra_safas?: number // Extra safas for packages
   quantity: number
   unit_price: number
   total_price: number
@@ -448,7 +451,13 @@ class PDFGenerator {
 
     if (this.data.customer.address) {
       yPos += 4
-      const addressLines = wrapText(this.doc, `${this.data.customer.address}, ${this.data.customer.city || ""}, ${this.data.customer.state || ""}`, colWidth - 6)
+      // Build complete address with city, state, and pincode
+      let fullAddress = this.data.customer.address
+      if (this.data.customer.city) fullAddress += `, ${this.data.customer.city}`
+      if (this.data.customer.state) fullAddress += `, ${this.data.customer.state}`
+      if (this.data.customer.pincode) fullAddress += ` - ${this.data.customer.pincode}`
+      
+      const addressLines = wrapText(this.doc, fullAddress, colWidth - 6)
       addressLines.forEach((line, index) => {
         this.doc.text(line, leftCol + 3, yPos + (index * 4))
       })
@@ -615,17 +624,39 @@ class PDFGenerator {
 
     this.currentY += 10
 
-    // Prepare table data
+    // Prepare table data with enhanced item descriptions including inclusions
     const headers = [["#", "Item Description", "Category", "Qty", "Rate", "Amount", "Deposit"]]
-    const rows = this.data.items.map((item, index) => [
-      (index + 1).toString(),
-      item.product_name,
-      item.category || "General",
-      item.quantity.toString(),
-      formatCurrency(item.unit_price),
-      formatCurrency(item.total_price),
-      formatCurrency(item.security_deposit || 0),
-    ])
+    const rows = this.data.items.map((item, index) => {
+      // Build item description with variant and inclusions
+      let description = item.product_name
+      
+      if (item.variant_name) {
+        description += `\nVariant: ${item.variant_name}`
+      }
+      
+      if (item.extra_safas && item.extra_safas > 0) {
+        description += ` (+${item.extra_safas} Extra Safas)`
+      }
+      
+      if (item.inclusions && item.inclusions.length > 0) {
+        // Add first 3 inclusions inline
+        const inclusionText = item.inclusions.slice(0, 3).join(", ")
+        description += `\nIncludes: ${inclusionText}`
+        if (item.inclusions.length > 3) {
+          description += `... +${item.inclusions.length - 3} more`
+        }
+      }
+
+      return [
+        (index + 1).toString(),
+        description,
+        item.category || "General",
+        item.quantity.toString(),
+        formatCurrency(item.unit_price),
+        formatCurrency(item.total_price),
+        formatCurrency(item.security_deposit || 0),
+      ]
+    })
 
     // Generate table
     autoTable(this.doc, {
@@ -645,13 +676,15 @@ class PDFGenerator {
         fontSize: 8,
         textColor: this.colors.darkText as any,
         cellPadding: 3,
+        lineColor: [200, 200, 200] as any,
+        lineWidth: 0.1,
       },
       alternateRowStyles: {
         fillColor: [250, 250, 250] as any,
       },
       columnStyles: {
         0: { cellWidth: 10, halign: "center" },
-        1: { cellWidth: 55 },
+        1: { cellWidth: 55, cellPadding: { top: 2, right: 2, bottom: 2, left: 2 } },
         2: { cellWidth: 25 },
         3: { cellWidth: 15, halign: "center" },
         4: { cellWidth: 25, halign: "right" },

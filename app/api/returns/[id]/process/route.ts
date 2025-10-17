@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic"
 interface ReturnItem {
   product_id: string
   qty_delivered: number
-  qty_returned: number
+  qty_returned: number // Used items that need laundry
+  qty_not_used: number // Extra items that weren't used
   qty_damaged: number
   qty_lost: number
   damage_reason?: string
@@ -75,7 +76,7 @@ export async function POST(
     
     // 2. Validate quantities for each item
     for (const item of items) {
-      const total = item.qty_returned + item.qty_damaged + item.qty_lost
+      const total = item.qty_returned + item.qty_not_used + item.qty_damaged + item.qty_lost
       if (total !== item.qty_delivered) {
         return NextResponse.json(
           { error: `Quantity mismatch for product ${item.product_id}. Delivered: ${item.qty_delivered}, Accounted: ${total}` },
@@ -132,6 +133,7 @@ export async function POST(
           product_category: product.category,
           qty_delivered: item.qty_delivered,
           qty_returned: item.qty_returned,
+          qty_not_used: item.qty_not_used,
           qty_damaged: item.qty_damaged,
           qty_lost: item.qty_lost,
           damage_reason: item.damage_reason,
@@ -152,13 +154,16 @@ export async function POST(
       results.items_processed++
       
       // 5. Update inventory
+      // qty_not_used: Goes directly to available (never used, no laundry needed)
+      // qty_returned: Goes to laundry if send_to_laundry is true, otherwise to available
+      const directToAvailable = item.qty_not_used + (send_to_laundry ? 0 : item.qty_returned)
+      const toLoadry = send_to_laundry ? item.qty_returned : 0
+      
       const newInventory = {
-        stock_available: product.stock_available + item.qty_returned - (send_to_laundry ? item.qty_returned : 0),
+        stock_available: product.stock_available + directToAvailable,
         stock_damaged: product.stock_damaged + item.qty_damaged,
         stock_total: product.stock_total - item.qty_lost,
-        stock_in_laundry: send_to_laundry 
-          ? (product.stock_in_laundry || 0) + item.qty_returned
-          : product.stock_in_laundry,
+        stock_in_laundry: (product.stock_in_laundry || 0) + toLoadry,
         stock_booked: Math.max(0, (product.stock_booked || 0) - item.qty_delivered)
       }
       

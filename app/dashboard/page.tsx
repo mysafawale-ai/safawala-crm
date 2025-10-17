@@ -8,12 +8,18 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { getCurrentUser } from "@/lib/auth"
 import { useData } from "@/hooks/use-data"
 import type { User, Booking } from "@/lib/types"
-import { Calendar, Users, Package, DollarSign, Plus, Eye, Crown, RefreshCw, Search } from "lucide-react"
+import { BookingCalendar } from "@/components/bookings/booking-calendar"
+import { 
+  Calendar, Users, Package, DollarSign, Plus, Eye, Crown, RefreshCw, Search,
+  TrendingUp, TrendingDown, AlertCircle, Clock, CheckCircle2, XCircle,
+  ArrowUpRight, ArrowDownRight, Minus, ShoppingCart, Box, Truck, RotateCcw
+} from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface DashboardStats {
   totalBookings: number
@@ -22,6 +28,19 @@ interface DashboardStats {
   totalRevenue: number
   monthlyGrowth: number
   lowStockItems: number
+  conversionRate: number
+  avgBookingValue: number
+  revenueByMonth: Array<{ month: string; revenue: number }>
+  bookingsByType: {
+    package: number
+    product: number
+  }
+  pendingActions: {
+    payments: number
+    deliveries: number
+    returns: number
+    overdue: number
+  }
 }
 
 export default function DashboardPage() {
@@ -141,46 +160,210 @@ export default function DashboardPage() {
           <DashboardSkeleton />
         ) : (
           <>
-        {/* Stats Cards */}
+        {/* Primary Stats Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
-              <p className="text-xs text-muted-foreground">{stats?.activeBookings || 0} active bookings</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalCustomers || 0}</div>
-              <p className="text-xs text-muted-foreground">Growing steadily</p>
-            </CardContent>
-          </Card>
-          <Card>
+          <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">₹{stats?.totalRevenue?.toLocaleString() || 0}</div>
-              <p className="text-xs text-muted-foreground">+{stats?.monthlyGrowth || 0}% from last month</p>
+              <div className="flex items-center mt-1">
+                {(stats?.monthlyGrowth || 0) >= 0 ? (
+                  <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 text-red-600 mr-1" />
+                )}
+                <p className={`text-xs ${(stats?.monthlyGrowth || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {(stats?.monthlyGrowth || 0) >= 0 ? '+' : ''}{stats?.monthlyGrowth || 0}% from last month
+                </p>
+              </div>
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+              <Calendar className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats?.lowStockItems || 0}</div>
-              <p className="text-xs text-muted-foreground">Require immediate attention</p>
+              <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.activeBookings || 0} active • {stats?.conversionRate || 0}% conversion
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Booking Value</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{stats?.avgBookingValue?.toLocaleString() || 0}</div>
+              <p className="text-xs text-muted-foreground">{stats?.totalCustomers || 0} total customers</p>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Low Stock Alert</CardTitle>
+              <Package className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{stats?.lowStockItems || 0}</div>
+              <p className="text-xs text-muted-foreground">Items need restocking</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Pending Actions Alert */}
+        {stats?.pendingActions && (stats.pendingActions.payments > 0 || stats.pendingActions.deliveries > 0 || stats.pendingActions.returns > 0) && (
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <AlertTitle className="text-orange-900">Pending Actions Require Attention</AlertTitle>
+            <AlertDescription className="text-orange-800">
+              <div className="flex flex-wrap gap-4 mt-2">
+                {stats.pendingActions.payments > 0 && (
+                  <Link href="/bookings?status=pending_payment" className="flex items-center gap-1 hover:underline">
+                    <DollarSign className="h-4 w-4" />
+                    <span>{stats.pendingActions.payments} pending payments</span>
+                  </Link>
+                )}
+                {stats.pendingActions.deliveries > 0 && (
+                  <Link href="/deliveries?status=pending" className="flex items-center gap-1 hover:underline">
+                    <Truck className="h-4 w-4" />
+                    <span>{stats.pendingActions.deliveries} deliveries scheduled</span>
+                  </Link>
+                )}
+                {stats.pendingActions.returns > 0 && (
+                  <Link href="/returns?status=pending" className="flex items-center gap-1 hover:underline">
+                    <RotateCcw className="h-4 w-4" />
+                    <span>{stats.pendingActions.returns} returns due</span>
+                  </Link>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Booking Calendar - Prominently Placed */}
+        <Card>
+          <CardHeader>
+            <CardTitle>📅 Booking Calendar</CardTitle>
+            <CardDescription>View all your bookings at a glance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BookingCalendar 
+              compact={false} 
+              mini={false} 
+              franchiseId={user?.role !== 'super_admin' ? user?.franchise_id : undefined} 
+            />
+          </CardContent>
+        </Card>
+
+        {/* Charts Row */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Revenue Trends Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue Trends</CardTitle>
+              <CardDescription>Last 6 months performance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats?.revenueByMonth && stats.revenueByMonth.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.revenueByMonth.map((item, index) => {
+                    const maxRevenue = Math.max(...stats.revenueByMonth.map(m => m.revenue))
+                    const percentage = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0
+                    return (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">{item.month}</span>
+                          <span className="text-muted-foreground">₹{item.revenue.toLocaleString()}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No revenue data available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Bookings by Type */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Bookings Distribution</CardTitle>
+              <CardDescription>Package vs Product bookings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats?.bookingsByType ? (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <Box className="h-4 w-4 text-purple-600" />
+                        <span className="font-medium">Package Bookings</span>
+                      </div>
+                      <span className="text-muted-foreground">{stats.bookingsByType.package}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full"
+                        style={{ 
+                          width: `${stats.bookingsByType.package + stats.bookingsByType.product > 0 
+                            ? (stats.bookingsByType.package / (stats.bookingsByType.package + stats.bookingsByType.product)) * 100 
+                            : 0}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart className="h-4 w-4 text-blue-600" />
+                        <span className="font-medium">Product Orders</span>
+                      </div>
+                      <span className="text-muted-foreground">{stats.bookingsByType.product}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full"
+                        style={{ 
+                          width: `${stats.bookingsByType.package + stats.bookingsByType.product > 0 
+                            ? (stats.bookingsByType.product / (stats.bookingsByType.package + stats.bookingsByType.product)) * 100 
+                            : 0}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Total Bookings</span>
+                      <span className="text-2xl font-bold">{stats.bookingsByType.package + stats.bookingsByType.product}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No booking data available</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -220,30 +403,47 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Recent Bookings */}
+          {/* Recent Activity Timeline */}
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Recent Bookings</CardTitle>
-              <CardDescription>Latest booking activity</CardDescription>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Latest booking updates and events</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {recentBookings && recentBookings.length > 0 ? (
                   recentBookings.slice(0, 5).map((booking) => (
-                    <div key={booking.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Crown className="h-5 w-5 text-purple-600" />
-                        <div className="flex-1">
-                          <p className="font-medium">{booking.booking_number}</p>
-                          <p className="text-sm text-gray-500">{booking.customer?.name}</p>
-                          <p className="text-xs text-gray-400">
-                            Event: {new Date(booking.event_date).toLocaleDateString()}
-                          </p>
-                        </div>
+                    <div key={booking.id} className="flex items-start gap-4 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex-shrink-0 mt-1">
+                        {booking.status === 'confirmed' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
+                        {(booking as any).status === 'pending_payment' && <Clock className="h-5 w-5 text-yellow-600" />}
+                        {booking.status === 'delivered' && <Truck className="h-5 w-5 text-blue-600" />}
+                        {(booking as any).status === 'quote' && <Calendar className="h-5 w-5 text-purple-600" />}
+                        {!['confirmed', 'pending_payment', 'delivered', 'quote'].includes((booking as any).status) && <Crown className="h-5 w-5 text-gray-600" />}
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">₹{booking.total_amount?.toLocaleString()}</p>
-                        <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-sm">{booking.booking_number}</p>
+                            <p className="text-sm text-gray-600">{booking.customer?.name}</p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              <span className="text-xs text-gray-500">
+                                Event: {new Date(booking.event_date).toLocaleDateString()}
+                              </span>
+                              {(booking as any).type && (
+                                <Badge variant="outline" className="text-xs">
+                                  {(booking as any).type === 'package' ? 'Package' : 'Product'}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-semibold text-sm">₹{booking.total_amount?.toLocaleString()}</p>
+                            <Badge className={`${getStatusColor(booking.status)} text-xs mt-1`}>
+                              {booking.status.replace(/_/g, ' ')}
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))

@@ -79,6 +79,9 @@ interface QuoteItem {
   unit_price: number
   total_price: number
   security_deposit?: number
+  variant_name?: string
+  inclusions?: string[]
+  extra_safas?: number
 }
 
 interface PricingInfo {
@@ -439,9 +442,15 @@ class ModernPDFGenerator {
 
     if (this.data.customer.address) {
       yPos += 5
+      // Build complete address with city, state, and pincode
+      let fullAddress = this.data.customer.address
+      if (this.data.customer.city) fullAddress += `, ${this.data.customer.city}`
+      if (this.data.customer.state) fullAddress += `, ${this.data.customer.state}`
+      if (this.data.customer.pincode) fullAddress += ` - ${this.data.customer.pincode}`
+      
       const addressLines = wrapText(
         this.doc,
-        `${this.data.customer.address}, ${this.data.customer.city || ""}, ${this.data.customer.state || ""}`,
+        fullAddress,
         cardWidth - 10
       )
       addressLines.forEach((line, idx) => {
@@ -625,15 +634,36 @@ class ModernPDFGenerator {
     this.currentY += 6
 
     const headers = [["#", "Description", "Category", "Qty", "Rate", "Amount", "Deposit"]]
-    const rows = this.data.items.map((item, index) => [
-      (index + 1).toString(),
-      item.product_name,
-      item.category || "-",
-      item.quantity.toString(),
-      formatCurrency(item.unit_price),
-      formatCurrency(item.total_price),
-      formatCurrency(item.security_deposit || 0),
-    ])
+    const rows = this.data.items.map((item, index) => {
+      // Build enhanced description with variant and inclusions
+      let description = item.product_name
+      
+      if (item.variant_name) {
+        description += `\nVariant: ${item.variant_name}`
+      }
+      
+      if (item.extra_safas && item.extra_safas > 0) {
+        description += ` (+${item.extra_safas} Extra Safas)`
+      }
+      
+      if (item.inclusions && item.inclusions.length > 0) {
+        const inclusionText = item.inclusions.slice(0, 3).join(', ')
+        description += `\nIncludes: ${inclusionText}`
+        if (item.inclusions.length > 3) {
+          description += `... +${item.inclusions.length - 3} more`
+        }
+      }
+
+      return [
+        (index + 1).toString(),
+        description,
+        item.category || "-",
+        item.quantity.toString(),
+        formatCurrency(item.unit_price),
+        formatCurrency(item.total_price),
+        formatCurrency(item.security_deposit || 0),
+      ]
+    })
 
     autoTable(this.doc, {
       head: headers,
