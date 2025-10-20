@@ -668,6 +668,7 @@ export default function BookingsPage() {
                       <TableHead>Status</TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('amount')}>Amount {sort.field==='amount' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
                       <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('date')}>Event Date {sort.field==='date' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
+                      <TableHead>Created At</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -772,24 +773,43 @@ export default function BookingsPage() {
                           </div>
                         </TableCell>
                         <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1">
                             {booking.status === 'pending_selection' && (
                               <Button variant="secondary" size="sm" onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>
                                 Select Products
                               </Button>
                             )}
-                            <Button variant="outline" size="sm" onClick={() => {
-                              setSelectedBooking(booking)
-                              setShowViewDialog(true)
-                            }}>
-                              <Eye className="h-4 w-4 mr-1"/>View
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setSelectedBooking(booking)
+                                setShowViewDialog(true)
+                              }}
+                              title="View Booking"
+                            >
+                              <Eye className="h-4 w-4"/>
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEditBooking(booking.id, (booking as any).source)}>
-                              <Edit className="h-4 w-4 mr-1"/>Edit
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleEditBooking(booking.id, (booking as any).source)}
+                              title="Edit Booking"
+                            >
+                              <Edit className="h-4 w-4"/>
                             </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleDeleteBooking(booking.id, (booking as any).source)}>
-                              Delete
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteBooking(booking.id, (booking as any).source)}
+                              title="Delete Booking"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                             </Button>
                           </div>
                         </TableCell>
