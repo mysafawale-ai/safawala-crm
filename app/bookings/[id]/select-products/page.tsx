@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Plus, Minus, RefreshCw, ShoppingCart } from "lucide-react"
+import { ArrowLeft, Plus, Minus, RefreshCw, ShoppingCart, Package, QrCode } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { BarcodeInput } from "@/components/barcode/barcode-input"
 
 type Product = {
   id: string
@@ -209,6 +210,70 @@ export default function SelectProductsForBookingPage() {
             <CardTitle>Products</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Quick Barcode Scanner */}
+            <Card className="mb-4 bg-muted/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <QrCode className="h-5 w-5" />
+                  Quick Add by Barcode Scanner
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarcodeInput
+                  onScan={async (code) => {
+                    // First try to find by barcode in product_items (individual items)
+                    const { data: itemData, error: itemError } = await supabase
+                      .from('product_items')
+                      .select('*, product:products(*)')
+                      .eq('barcode', code)
+                      .eq('status', 'available')
+                      .single()
+                    
+                    if (itemData && itemData.product) {
+                      // Found individual item - add its product
+                      const product = itemData.product as any
+                      const mappedProduct: Product = {
+                        id: product.id,
+                        name: product.name,
+                        category: product.category,
+                        price: product.sale_price,
+                        rental_price: product.rental_price,
+                        stock_available: product.stock_available
+                      }
+                      addProduct(mappedProduct)
+                      toast({
+                        title: "✅ Item scanned!",
+                        description: `${product.name} (${itemData.item_code}) added to booking`
+                      })
+                    } else {
+                      // Try to find by product barcode or code
+                      const product = products.find(
+                        (p) => (p as any).barcode === code || (p as any).product_code === code
+                      )
+                      
+                      if (product) {
+                        addProduct(product)
+                        toast({
+                          title: "✅ Product added!",
+                          description: `${product.name} added to cart`
+                        })
+                      } else {
+                        toast({
+                          title: "❌ Not found",
+                          description: `No product or item found with code: ${code}`,
+                          variant: "destructive"
+                        })
+                      }
+                    }
+                  }}
+                  placeholder="Scan individual item barcode or product code..."
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  💡 Scan individual barcoded items (TUR-0001) or product codes. Each scan adds 1 quantity automatically.
+                </p>
+              </CardContent>
+            </Card>
+
             <div className="flex items-center gap-2 mb-4">
               <div className="flex-1">
                 <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
