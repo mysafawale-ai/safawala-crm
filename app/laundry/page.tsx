@@ -35,6 +35,9 @@ import {
   Trash2,
   X,
   RefreshCw,
+  CalendarRange,
+  Edit,
+  FileText,
 } from "lucide-react"
 
 interface Vendor {
@@ -94,94 +97,6 @@ interface NewBatchItem {
   notes: string
 }
 
-const mockVendors: Vendor[] = [
-  {
-    id: "1",
-    name: "Premium Dry Cleaners",
-    contact_person: "Rajesh Kumar",
-    phone: "+91-9876543210",
-    email: "rajesh@premiumdry.com",
-    service_type: "both",
-    notes: "Specializes in delicate fabrics and wedding attire",
-    is_active: true,
-  },
-  {
-    id: "2",
-    name: "Royal Laundry Services",
-    contact_person: "Priya Sharma",
-    phone: "+91-9876543211",
-    email: "priya@royallaundry.com",
-    service_type: "laundry",
-    notes: "Fast turnaround, good for bulk items",
-    is_active: true,
-  },
-  {
-    id: "3",
-    name: "Express Clean Co.",
-    contact_person: "Amit Singh",
-    phone: "+91-9876543212",
-    email: "amit@expressclean.com",
-    service_type: "dry_cleaning",
-    notes: "Premium service for expensive items",
-    is_active: true,
-  },
-]
-
-const mockBatches: LaundryBatch[] = [
-  {
-    id: "1",
-    batch_number: "LB001",
-    vendor_name: "Premium Cleaners",
-    sent_date: "2024-01-15",
-    expected_return_date: "2024-01-18",
-    actual_return_date: null,
-    status: "in_progress",
-    total_items: 5,
-    total_cost: 250.0,
-    notes: "Rush order for weekend wedding",
-    categories: "Veils and Drapes",
-    item_types_count: 1,
-  },
-]
-
-const mockProducts: Product[] = [
-  { id: "1", name: "Wedding Dress", category: "Bridal Wear", price: 50.0 },
-  { id: "2", name: "Tuxedo", category: "Formal Wear", price: 40.0 },
-  { id: "3", name: "Tablecloth", category: "Linens", price: 15.0 },
-  { id: "4", name: "Napkins", category: "Linens", price: 5.0 },
-  { id: "5", name: "Bridal Veil", category: "Veils and Drapes", price: 60.0 },
-  { id: "6", name: "Formal Shirt", category: "Formal Wear", price: 20.0 },
-  { id: "7", name: "Saree", category: "Traditional Wear", price: 35.0 },
-  { id: "8", name: "Lehenga", category: "Bridal Wear", price: 75.0 },
-  { id: "9", name: "Curtains", category: "Linens", price: 25.0 },
-  { id: "10", name: "Bedsheets", category: "Linens", price: 18.0 },
-]
-
-const mockBatchItems: BatchItem[] = [
-  {
-    id: "1",
-    product_name: "Wedding Dress",
-    product_category: "Bridal Wear",
-    quantity: 2,
-    condition_before: "dirty",
-    condition_after: "clean",
-    unit_cost: 50.0,
-    total_cost: 100.0,
-    notes: "Delicate silk material",
-  },
-  {
-    id: "2",
-    product_name: "Tuxedo",
-    product_category: "Formal Wear",
-    quantity: 3,
-    condition_before: "stained",
-    condition_after: "clean",
-    unit_cost: 40.0,
-    total_cost: 120.0,
-    notes: "Wine stain on lapel",
-  },
-]
-
 export default function LaundryPage() {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [batches, setBatches] = useState<LaundryBatch[]>([])
@@ -190,6 +105,11 @@ export default function LaundryPage() {
   const [usingMockData, setUsingMockData] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [dateFilter, setDateFilter] = useState<{
+    from: string
+    to: string
+  } | null>(null)
+  const [showDateFilter, setShowDateFilter] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const [selectedBatch, setSelectedBatch] = useState<LaundryBatch | null>(null)
@@ -235,6 +155,8 @@ export default function LaundryPage() {
 
   const [customProductName, setCustomProductName] = useState("")
   const [showCustomProduct, setShowCustomProduct] = useState(false)
+  const [batchNote, setBatchNote] = useState("")
+  const [addingNote, setAddingNote] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -299,31 +221,34 @@ export default function LaundryPage() {
         hasErrors = true
       }
 
-      if (hasErrors || (vendorsData.length === 0 && batchesData.length === 0)) {
-        throw new Error("Database tables not found or empty")
+      if (hasErrors) {
+        console.warn("Some data failed to load, using available data")
+        setUsingMockData(true)
       }
 
       setVendors(vendorsData)
       setBatches(batchesData)
       setProducts(productsData)
-      setUsingMockData(false)
+      setUsingMockData(hasErrors)
 
-      toast({
-        title: "Data loaded successfully",
-        description: "Connected to database and loaded real data.",
-      })
+      if (!hasErrors) {
+        toast({
+          title: "Data loaded successfully",
+          description: `Loaded ${batchesData.length} batches, ${vendorsData.length} vendors.`,
+        })
+      }
     } catch (error: any) {
       console.error("Database error:", error)
 
-      // Fall back to mock data
-      setVendors(mockVendors)
-      setBatches(mockBatches)
-      setProducts(mockProducts)
+      // Set empty arrays instead of mock data
+      setVendors([])
+      setBatches([])
+      setProducts([])
       setUsingMockData(true)
 
       toast({
-        title: "Using sample data",
-        description: "Database not configured. Run the laundry management schema script to enable full functionality.",
+        title: "Database Error",
+        description: "Failed to load data. Please check database configuration.",
         variant: "destructive",
       })
     } finally {
@@ -332,11 +257,6 @@ export default function LaundryPage() {
   }
 
   const fetchBatchItems = async (batchId: string) => {
-    if (usingMockData) {
-      setBatchItems(mockBatchItems)
-      return
-    }
-
     try {
       const { data, error } = await supabase.from("laundry_batch_items").select("*").eq("batch_id", batchId)
 
@@ -344,7 +264,12 @@ export default function LaundryPage() {
       setBatchItems(data || [])
     } catch (error) {
       console.error("Error fetching batch items:", error)
-      setBatchItems(mockBatchItems)
+      setBatchItems([])
+      toast({
+        title: "Error",
+        description: "Failed to load batch items.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -352,6 +277,145 @@ export default function LaundryPage() {
     setSelectedBatch(batch)
     await fetchBatchItems(batch.id)
     setShowBatchDetails(true)
+  }
+
+  const handleEditBatch = async (batch: LaundryBatch) => {
+    setEditingBatch(batch)
+    await fetchBatchItems(batch.id)
+    setEditBatchItems(batchItems)
+    setShowEditBatch(true)
+  }
+
+  const addEditItemToBatch = () => {
+    if (!editSelectedProduct && !showCustomProduct) {
+      toast({
+        title: "Error",
+        description: "Please select a product",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (showCustomProduct && !customProductName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a custom product name",
+        variant: "destructive",
+      })
+      return
+    }
+
+    let productData
+    if (showCustomProduct) {
+      productData = {
+        id: null,
+        name: customProductName.trim(),
+        category: "Custom",
+      }
+    } else {
+      const product = products.find((p) => p.id === editSelectedProduct)
+      if (!product) return
+      productData = product
+    }
+
+    if (!editingBatch) return
+    const vendor = vendors.find((v) => v.name === editingBatch.vendor_name)
+    const unitCost = vendor?.pricing_per_item || 0
+    const totalCost = unitCost * editItemQuantity
+
+    const newItem: BatchItem = {
+      id: `temp-${Date.now()}`,
+      product_name: productData.name,
+      product_category: productData.category,
+      quantity: editItemQuantity,
+      unit_cost: unitCost,
+      total_cost: totalCost,
+      condition_before: editItemCondition,
+      condition_after: null,
+      notes: editItemNotes,
+    }
+
+    setEditBatchItems([...editBatchItems, newItem])
+
+    // Reset form
+    setEditSelectedProduct("")
+    setCustomProductName("")
+    setShowCustomProduct(false)
+    setEditItemQuantity(1)
+    setEditItemCondition("dirty")
+    setEditItemNotes("")
+  }
+
+  const removeEditItemFromBatch = (index: number) => {
+    setEditBatchItems(editBatchItems.filter((_, i) => i !== index))
+  }
+
+  const handleSaveBatchEdit = async () => {
+    if (!editingBatch) return
+
+    try {
+      setCreating(true)
+
+      // Calculate totals
+      const totalItems = editBatchItems.reduce((sum, item) => sum + item.quantity, 0)
+      const totalCost = editBatchItems.reduce((sum, item) => sum + item.total_cost, 0)
+
+      // Update batch
+      const { error: batchError } = await supabase
+        .from("laundry_batches")
+        .update({
+          total_items: totalItems,
+          total_cost: totalCost,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingBatch.id)
+
+      if (batchError) throw batchError
+
+      // Delete existing items
+      const { error: deleteError } = await supabase
+        .from("laundry_batch_items")
+        .delete()
+        .eq("batch_id", editingBatch.id)
+
+      if (deleteError) throw deleteError
+
+      // Insert updated items
+      const itemsToInsert = editBatchItems.map((item) => ({
+        batch_id: editingBatch.id,
+        product_id: item.id.startsWith("temp-") ? null : item.id,
+        product_name: item.product_name,
+        product_category: item.product_category,
+        quantity: item.quantity,
+        unit_cost: item.unit_cost,
+        total_cost: item.total_cost,
+        condition_before: item.condition_before,
+        notes: item.notes,
+      }))
+
+      const { error: insertError } = await supabase.from("laundry_batch_items").insert(itemsToInsert)
+
+      if (insertError) throw insertError
+
+      toast({
+        title: "Batch updated",
+        description: `Batch ${editingBatch.batch_number} has been updated successfully.`,
+      })
+
+      setShowEditBatch(false)
+      setEditingBatch(null)
+      setEditBatchItems([])
+      fetchData()
+    } catch (error: any) {
+      console.error("Error updating batch:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update batch. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setCreating(false)
+    }
   }
 
   const generateBatchNumber = () => {
@@ -448,15 +512,6 @@ export default function LaundryPage() {
   }
 
   const handleCreateBatch = async () => {
-    if (usingMockData) {
-      toast({
-        title: "Demo Mode",
-        description: "Batch creation is not available in demo mode. Please configure the database.",
-        variant: "destructive",
-      })
-      return
-    }
-
     if (!newBatch.vendor_id || !newBatch.sent_date || !newBatch.expected_return_date) {
       toast({
         title: "Error",
@@ -583,6 +638,55 @@ export default function LaundryPage() {
     }
   }
 
+  const handleAddNote = async () => {
+    if (!selectedBatch || !batchNote.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a note",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setAddingNote(true)
+
+      // Append to existing notes with timestamp
+      const timestamp = new Date().toLocaleString()
+      const updatedNotes = selectedBatch.notes
+        ? `${selectedBatch.notes}\n\n[${timestamp}] ${batchNote.trim()}`
+        : `[${timestamp}] ${batchNote.trim()}`
+
+      const { error } = await supabase
+        .from("laundry_batches")
+        .update({ notes: updatedNotes })
+        .eq("id", selectedBatch.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Note added",
+        description: "Your note has been added to the batch.",
+      })
+
+      setBatchNote("")
+      
+      // Refresh the batch data
+      const updatedBatch = { ...selectedBatch, notes: updatedNotes }
+      setSelectedBatch(updatedBatch)
+      fetchData()
+    } catch (error: any) {
+      console.error("Error adding note:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add note. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setAddingNote(false)
+    }
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "pending":
@@ -622,7 +726,22 @@ export default function LaundryPage() {
       batch.batch_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       batch.vendor_name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || batch.status === statusFilter
-    return matchesSearch && matchesStatus
+    
+    // Date filter logic
+    let matchesDate = true
+    if (dateFilter?.from || dateFilter?.to) {
+      const batchDate = new Date(batch.sent_date)
+      if (dateFilter.from) {
+        const fromDate = new Date(dateFilter.from)
+        matchesDate = matchesDate && batchDate >= fromDate
+      }
+      if (dateFilter.to) {
+        const toDate = new Date(dateFilter.to)
+        matchesDate = matchesDate && batchDate <= toDate
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate
   })
 
   const paginatedBatches = useMemo(() => {
@@ -688,7 +807,7 @@ export default function LaundryPage() {
               <div className="space-y-6">
                 {/* Batch Details */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="col-span-2">
                     <Label htmlFor="vendor">Vendor *</Label>
                     <Select
                       value={newBatch.vendor_id}
@@ -700,11 +819,41 @@ export default function LaundryPage() {
                       <SelectContent>
                         {vendors.map((vendor) => (
                           <SelectItem key={vendor.id} value={vendor.id}>
-                            {vendor.name} - ({vendor.service_type})
+                            <div className="flex flex-col">
+                              <span className="font-medium">{vendor.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {vendor.contact_person} • {vendor.phone} • {vendor.service_type}
+                                {vendor.pricing_per_item && ` • ₹${vendor.pricing_per_item}/item`}
+                              </span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {newBatch.vendor_id && (() => {
+                      const selectedVendor = vendors.find((v) => v.id === newBatch.vendor_id)
+                      return selectedVendor ? (
+                        <div className="mt-2 p-3 bg-muted rounded-lg text-sm space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{selectedVendor.name}</span>
+                            <Badge variant="outline">{selectedVendor.service_type}</Badge>
+                          </div>
+                          <div className="text-muted-foreground">
+                            <div>Contact: {selectedVendor.contact_person}</div>
+                            <div>Phone: {selectedVendor.phone}</div>
+                            <div>Email: {selectedVendor.email}</div>
+                            {selectedVendor.pricing_per_item && (
+                              <div className="font-medium text-foreground mt-1">
+                                Pricing: ₹{selectedVendor.pricing_per_item} per item
+                              </div>
+                            )}
+                            {selectedVendor.notes && (
+                              <div className="mt-1 text-xs italic">{selectedVendor.notes}</div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null
+                    })()}
                   </div>
                   <div>
                     <Label htmlFor="sent_date">Sent Date *</Label>
@@ -714,15 +863,14 @@ export default function LaundryPage() {
                       onChange={(e) => setNewBatch({ ...newBatch, sent_date: e.target.value })}
                     />
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="expected_return_date">Expected Return Date *</Label>
-                  <Input
-                    type="date"
-                    value={newBatch.expected_return_date}
-                    onChange={(e) => setNewBatch({ ...newBatch, expected_return_date: e.target.value })}
-                  />
+                  <div>
+                    <Label htmlFor="expected_return_date">Expected Return Date *</Label>
+                    <Input
+                      type="date"
+                      value={newBatch.expected_return_date}
+                      onChange={(e) => setNewBatch({ ...newBatch, expected_return_date: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -908,12 +1056,11 @@ export default function LaundryPage() {
       </div>
 
       {/* Database Status Alert */}
-      {usingMockData && (
-        <Alert>
+      {usingMockData && batches.length === 0 && vendors.length === 0 && (
+        <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Database Schema Update Needed:</strong> Laundry management tables are missing. Run the SQL script to
-            add laundry management schema and enable full functionality.
+            <strong>Database Error:</strong> Unable to load laundry data. Please check database configuration or run the laundry management schema script.
           </AlertDescription>
         </Alert>
       )}
@@ -971,7 +1118,7 @@ export default function LaundryPage() {
           <CardDescription>Track and manage all laundry batches sent to vendors</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -984,7 +1131,7 @@ export default function LaundryPage() {
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -996,61 +1143,158 @@ export default function LaundryPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <Dialog open={showDateFilter} onOpenChange={setShowDateFilter}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <CalendarRange className="h-4 w-4 mr-2" />
+                  {dateFilter?.from || dateFilter?.to ? "Date Filtered" : "Date Filter"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Filter by Date</DialogTitle>
+                  <DialogDescription>Filter batches by sent date range</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="from_date">From Date</Label>
+                    <Input
+                      id="from_date"
+                      type="date"
+                      value={dateFilter?.from || ""}
+                      onChange={(e) =>
+                        setDateFilter((prev) => ({
+                          from: e.target.value,
+                          to: prev?.to || "",
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="to_date">To Date</Label>
+                    <Input
+                      id="to_date"
+                      type="date"
+                      value={dateFilter?.to || ""}
+                      onChange={(e) =>
+                        setDateFilter((prev) => ({
+                          from: prev?.from || "",
+                          to: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setDateFilter(null)
+                        setShowDateFilter(false)
+                      }}
+                    >
+                      Clear Filter
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => setShowDateFilter(false)}
+                    >
+                      Apply Filter
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Batches Table */}
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Batch Number</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Cost</TableHead>
-                  <TableHead>Sent Date</TableHead>
-                  <TableHead>Expected Return</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="min-w-[120px]">Batch Number</TableHead>
+                  <TableHead className="min-w-[150px]">Vendor</TableHead>
+                  <TableHead className="min-w-[120px]">Status</TableHead>
+                  <TableHead className="min-w-[100px]">Items</TableHead>
+                  <TableHead className="min-w-[100px]">Cost</TableHead>
+                  <TableHead className="min-w-[120px]">Sent Date</TableHead>
+                  <TableHead className="min-w-[140px]">Expected Return</TableHead>
+                  <TableHead className="min-w-[200px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedBatches.map((batch) => (
-                  <TableRow key={batch.id}>
-                    <TableCell className="font-medium">{batch.batch_number}</TableCell>
-                    <TableCell>{batch.vendor_name}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(batch.status)}>
-                        <div className="flex items-center gap-1">
-                          {getStatusIcon(batch.status)}
-                          {batch.status.replace("_", " ")}
-                        </div>
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{batch.total_items} items</div>
-                        <div className="text-muted-foreground">{batch.item_types_count} types</div>
+                {paginatedBatches.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-32 text-center">
+                      <div className="flex flex-col items-center justify-center text-muted-foreground">
+                        <Package className="h-12 w-12 mb-2 opacity-50" />
+                        <p className="text-lg font-medium">No batches found</p>
+                        <p className="text-sm">
+                          {searchTerm || statusFilter !== "all" || dateFilter
+                            ? "Try adjusting your filters"
+                            : "Create your first laundry batch to get started"}
+                        </p>
                       </div>
                     </TableCell>
-                    <TableCell>₹{batch.total_cost.toFixed(2)}</TableCell>
-                    <TableCell>{new Date(batch.sent_date).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(batch.expected_return_date).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewBatch(batch)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {batch.status === "in_progress" && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleStatusUpdate(batch, "returned")}
-                              disabled={creating}
-                              className="bg-purple-600 hover:bg-purple-700"
-                            >
-                              <Package className="h-3 w-3 mr-1" />
-                              Mark Returned
-                            </Button>
+                  </TableRow>
+                ) : (
+                  paginatedBatches.map((batch) => (
+                    <TableRow key={batch.id}>
+                      <TableCell className="font-medium">{batch.batch_number}</TableCell>
+                      <TableCell>{batch.vendor_name}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(batch.status)}>
+                          <div className="flex items-center gap-1">
+                            {getStatusIcon(batch.status)}
+                            {batch.status.replace("_", " ")}
+                          </div>
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{batch.total_items} items</div>
+                          <div className="text-muted-foreground">{batch.item_types_count} types</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>₹{batch.total_cost.toFixed(2)}</TableCell>
+                      <TableCell>{new Date(batch.sent_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(batch.expected_return_date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button variant="outline" size="sm" onClick={() => handleViewBatch(batch)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {batch.status === "in_progress" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditBatch(batch)}
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleStatusUpdate(batch, "returned")}
+                                disabled={creating}
+                                className="bg-purple-600 hover:bg-purple-700"
+                              >
+                                <Package className="h-3 w-3 mr-1" />
+                                Mark Returned
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleStatusUpdate(batch, "cancelled")}
+                                disabled={creating}
+                              >
+                                <X className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </>
+                          )}
+                          {batch.status === "returned" && (
                             <Button
                               size="sm"
                               variant="destructive"
@@ -1060,23 +1304,12 @@ export default function LaundryPage() {
                               <X className="h-3 w-3 mr-1" />
                               Cancel
                             </Button>
-                          </>
-                        )}
-                        {batch.status === "returned" && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleStatusUpdate(batch, "cancelled")}
-                            disabled={creating}
-                          >
-                            <X className="h-3 w-3 mr-1" />
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -1141,50 +1374,100 @@ export default function LaundryPage() {
 
       {/* Batch Details Dialog */}
       <Dialog open={showBatchDetails} onOpenChange={setShowBatchDetails}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Batch Details - {selectedBatch?.batch_number}</DialogTitle>
             <DialogDescription>Detailed information about this laundry batch</DialogDescription>
           </DialogHeader>
           {selectedBatch && (
             <div className="space-y-6">
+              {/* Vendor Info Card */}
+              {(() => {
+                const vendor = vendors.find((v) => v.name === selectedBatch.vendor_name)
+                return vendor ? (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Vendor Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Vendor Name</Label>
+                          <p className="font-medium">{vendor.name}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Service Type</Label>
+                          <Badge variant="outline" className="mt-1">
+                            {vendor.service_type}
+                          </Badge>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Contact Person</Label>
+                          <p>{vendor.contact_person}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Phone</Label>
+                          <p>{vendor.phone}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Email</Label>
+                          <p>{vendor.email}</p>
+                        </div>
+                        {vendor.pricing_per_item && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Price per Item</Label>
+                            <p className="font-medium">₹{vendor.pricing_per_item}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null
+              })()}
+
               {/* Batch Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Vendor</Label>
-                  <p className="text-sm font-medium">{selectedBatch.vendor_name}</p>
+                  <Label>Status</Label>
+                  <div className="mt-1">
+                    <Badge className={getStatusColor(selectedBatch.status)}>
+                      <div className="flex items-center gap-1">
+                        {getStatusIcon(selectedBatch.status)}
+                        {selectedBatch.status.replace("_", " ")}
+                      </div>
+                    </Badge>
+                  </div>
                 </div>
                 <div>
-                  <Label>Status</Label>
-                  <Badge className={getStatusColor(selectedBatch.status)}>
-                    <div className="flex items-center gap-1">
-                      {getStatusIcon(selectedBatch.status)}
-                      {selectedBatch.status.replace("_", " ")}
-                    </div>
-                  </Badge>
+                  <Label>Batch Number</Label>
+                  <p className="text-sm font-medium mt-1">{selectedBatch.batch_number}</p>
                 </div>
                 <div>
                   <Label>Sent Date</Label>
-                  <p className="text-sm">{new Date(selectedBatch.sent_date).toLocaleDateString()}</p>
+                  <p className="text-sm mt-1">{new Date(selectedBatch.sent_date).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <Label>Expected Return</Label>
-                  <p className="text-sm">{new Date(selectedBatch.expected_return_date).toLocaleDateString()}</p>
+                  <p className="text-sm mt-1">{new Date(selectedBatch.expected_return_date).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <Label>Total Items</Label>
-                  <p className="text-sm font-medium">{selectedBatch.total_items}</p>
+                  <p className="text-sm font-medium mt-1">
+                    {selectedBatch.total_items} items ({selectedBatch.item_types_count} types)
+                  </p>
                 </div>
                 <div>
                   <Label>Total Cost</Label>
-                  <p className="text-sm font-medium">₹{selectedBatch.total_cost.toFixed(2)}</p>
+                  <p className="text-sm font-medium mt-1">₹{selectedBatch.total_cost.toFixed(2)}</p>
                 </div>
               </div>
 
               {selectedBatch.notes && (
                 <div>
-                  <Label>Notes</Label>
-                  <p className="text-sm">{selectedBatch.notes}</p>
+                  <Label>Batch Notes</Label>
+                  <div className="mt-1 p-3 bg-muted rounded-lg text-sm">
+                    {selectedBatch.notes}
+                  </div>
                 </div>
               )}
 
@@ -1228,11 +1511,235 @@ export default function LaundryPage() {
                   </Table>
                 </div>
               </div>
+
+              {/* Add Note Section */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Add Note
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <Textarea
+                      placeholder="Add a note or update about this batch..."
+                      value={batchNote}
+                      onChange={(e) => setBatchNote(e.target.value)}
+                      rows={3}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleAddNote}
+                      disabled={addingNote || !batchNote.trim()}
+                    >
+                      {addingNote ? "Adding..." : "Add Note"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBatchDetails(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowBatchDetails(false)
+              setBatchNote("")
+            }}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Batch Dialog */}
+      <Dialog open={showEditBatch} onOpenChange={setShowEditBatch}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Batch - {editingBatch?.batch_number}</DialogTitle>
+            <DialogDescription>Modify batch items and update details</DialogDescription>
+          </DialogHeader>
+          {editingBatch && (
+            <div className="space-y-6">
+              {/* Batch Info (Read-only) */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Vendor</Label>
+                  <p className="font-medium">{editingBatch.vendor_name}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Sent Date</Label>
+                  <p>{new Date(editingBatch.sent_date).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Badge className={getStatusColor(editingBatch.status)}>
+                    {editingBatch.status.replace("_", " ")}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Current Items */}
+              <div>
+                <Label className="text-base font-semibold mb-2 block">Current Items</Label>
+                {editBatchItems.length > 0 ? (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Condition</TableHead>
+                          <TableHead>Unit Cost</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {editBatchItems.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">{item.product_name}</TableCell>
+                            <TableCell>{item.product_category}</TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{item.condition_before}</Badge>
+                            </TableCell>
+                            <TableCell>₹{item.unit_cost.toFixed(2)}</TableCell>
+                            <TableCell>₹{item.total_cost.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeEditItemFromBatch(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/50 font-medium">
+                          <TableCell colSpan={2}>Total</TableCell>
+                          <TableCell>{editBatchItems.reduce((sum, item) => sum + item.quantity, 0)}</TableCell>
+                          <TableCell colSpan={2}></TableCell>
+                          <TableCell>
+                            ₹{editBatchItems.reduce((sum, item) => sum + item.total_cost, 0).toFixed(2)}
+                          </TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                    <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No items in this batch</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Add More Items */}
+              <div className="border-t pt-4">
+                <Label className="text-base font-semibold mb-4 block">Add More Items</Label>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label>Product</Label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id="edit-custom-product"
+                        checked={showCustomProduct}
+                        onChange={(e) => {
+                          setShowCustomProduct(e.target.checked)
+                          if (e.target.checked) {
+                            setEditSelectedProduct("")
+                          } else {
+                            setCustomProductName("")
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <Label htmlFor="edit-custom-product" className="text-sm">
+                        Other Product
+                      </Label>
+                    </div>
+                    {showCustomProduct ? (
+                      <Input
+                        value={customProductName}
+                        onChange={(e) => setCustomProductName(e.target.value)}
+                        placeholder="Enter product name"
+                      />
+                    ) : (
+                      <Select value={editSelectedProduct} onValueChange={setEditSelectedProduct}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {products.map((product) => (
+                            <SelectItem key={product.id} value={product.id}>
+                              {product.name} - {product.category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={editItemQuantity}
+                      onChange={(e) => setEditItemQuantity(Number.parseInt(e.target.value) || 1)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <Label>Condition Before</Label>
+                    <Select value={editItemCondition} onValueChange={setEditItemCondition}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dirty">Dirty</SelectItem>
+                        <SelectItem value="stained">Stained</SelectItem>
+                        <SelectItem value="damaged">Damaged</SelectItem>
+                        <SelectItem value="clean">Clean</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Item Notes</Label>
+                    <Input
+                      placeholder="Notes about this item..."
+                      value={editItemNotes}
+                      onChange={(e) => setEditItemNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={addEditItemToBatch}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowEditBatch(false)
+                setEditingBatch(null)
+                setEditBatchItems([])
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveBatchEdit} disabled={creating || editBatchItems.length === 0}>
+              {creating ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
