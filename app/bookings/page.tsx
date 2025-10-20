@@ -61,7 +61,6 @@ export default function BookingsPage() {
   const resetFilters = () => { setPendingFilters({status:'all', type:'all', products:'all'}); setStatusFilter('all'); setTypeFilter('all'); setProductFilter('all') }
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table")
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [sort, setSort] = useState<{field:'date'|'amount'; dir:'asc'|'desc'}>({ field:'date', dir:'desc'})
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -240,18 +239,12 @@ export default function BookingsPage() {
     return matchesSearch && matchesStatus && matchesType && matchesProducts
   })
 
+  // Always sort by created_at (newest first)
   const sortedBookings = [...filteredBookings].sort((a,b)=>{
-    if(sort.field==='date'){
-      const ad = new Date(a.event_date).getTime(); const bd = new Date(b.event_date).getTime();
-      return sort.dir==='asc'? ad-bd : bd-ad
-    } else {
-      const aa = a.total_amount||0; const bb = b.total_amount||0
-      return sort.dir==='asc'? aa-bb : bb-aa
-    }
+    const aDate = new Date(a.created_at).getTime()
+    const bDate = new Date(b.created_at).getTime()
+    return bDate - aDate // Descending order (newest first)
   })
-  const toggleSort = (field:'date'|'amount') => {
-    setSort(prev => prev.field===field ? { field, dir: prev.dir==='asc'?'desc':'asc'} : { field, dir:'asc'})
-  }
 
   // Pagination calculations
   const totalItems = sortedBookings.length
@@ -666,8 +659,8 @@ export default function BookingsPage() {
                       <TableHead>Type</TableHead>
                       <TableHead>Products</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('amount')}>Amount {sort.field==='amount' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('date')}>Event Date {sort.field==='date' && (sort.dir==='asc'?'▲':'▼')}</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Event Date</TableHead>
                       <TableHead>Created At</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
