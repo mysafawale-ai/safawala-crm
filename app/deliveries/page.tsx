@@ -597,11 +597,26 @@ export default function DeliveriesPage() {
                         if (!value) return
                         // value contains "<id>::<source>"
                         const [id, source] = value.split("::")
-                        setScheduleForm({ ...scheduleForm, booking_id: id, booking_source: source })
-                        // Auto-fill customer from booking if available
+                        
+                        // Find the selected booking
                         const selectedBooking = bookings.find((b: any) => b.id === id)
-                        if (selectedBooking?.customer_id && !scheduleForm.customer_id) {
-                          setScheduleForm((prev) => ({ ...prev, customer_id: selectedBooking.customer_id }))
+                        
+                        if (selectedBooking) {
+                          // Auto-fill data from booking
+                          setScheduleForm((prev) => ({
+                            ...prev,
+                            booking_id: id,
+                            booking_source: source,
+                            // Auto-fill customer if not already selected
+                            customer_id: prev.customer_id || selectedBooking.customer_id || "",
+                            // Auto-fill delivery date and time from booking
+                            delivery_date: selectedBooking.delivery_date || prev.delivery_date || "",
+                            delivery_time: selectedBooking.delivery_time || prev.delivery_time || "",
+                            // Auto-fill delivery address if available
+                            delivery_address: selectedBooking.delivery_address || prev.delivery_address || "",
+                          }))
+                        } else {
+                          setScheduleForm({ ...scheduleForm, booking_id: id, booking_source: source })
                         }
                       }}
                     >
