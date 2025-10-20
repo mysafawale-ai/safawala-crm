@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     let productQuery = supabase
       .from("product_orders")
       .select(`
-        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, return_date, booking_type,
+        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         customer:customers(name, phone, email),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     let packageQuery = supabase
       .from("package_bookings")
       .select(`
-        id, package_number, customer_id, franchise_id, status, event_date, delivery_date, return_date,
+        id, package_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         customer:customers(name, phone, email),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
@@ -127,6 +127,8 @@ export async function GET(request: NextRequest) {
       franchise_id: r.franchise_id,
       event_date: r.event_date,
       delivery_date: r.delivery_date,
+      delivery_time: r.delivery_time || null,
+      delivery_address: r.venue_address || null,
       pickup_date: r.return_date,
       event_type: r.event_type || null,
       status: r.status,
@@ -152,6 +154,8 @@ export async function GET(request: NextRequest) {
       franchise_id: r.franchise_id,
       event_date: r.event_date,
       delivery_date: r.delivery_date,
+      delivery_time: r.delivery_time || null,
+      delivery_address: r.venue_address || null,
       pickup_date: r.return_date,
       event_type: r.event_type || null,
       status: r.status,
