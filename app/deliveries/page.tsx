@@ -50,11 +50,13 @@ interface Booking {
 interface Delivery {
   id: string
   delivery_number: string
+  customer_id?: string
   customer_name: string
   customer_phone: string
   pickup_address: string
   delivery_address: string
   delivery_date: string
+  delivery_time?: string
   status: string
   driver_name: string
   vehicle_number: string
@@ -96,12 +98,16 @@ export default function DeliveriesPage() {
   const [selectedReturn, setSelectedReturn] = useState<any>(null)
   const [returns, setReturns] = useState<any[]>([])
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([])
+  const [loadingAddresses, setLoadingAddresses] = useState(false)
   const [editForm, setEditForm] = useState({
     customer_name: "",
     customer_phone: "",
+    customer_id: "",
     pickup_address: "",
     delivery_address: "",
     delivery_date: "",
+    delivery_time: "",
     driver_name: "",
     vehicle_number: "",
     delivery_charge: "",
@@ -214,11 +220,13 @@ export default function DeliveriesPage() {
           const mappedDeliveries = (deliveriesJson?.data || []).map((d: any) => ({
             id: d.id,
             delivery_number: d.delivery_number,
+            customer_id: d.customer_id,
             customer_name: d.customer?.name || "Unknown",
             customer_phone: d.customer?.phone || "",
             pickup_address: d.pickup_address || "",
             delivery_address: d.delivery_address,
             delivery_date: d.delivery_date,
+            delivery_time: d.delivery_time,
             status: d.status,
             driver_name: d.driver_name || "",
             vehicle_number: d.vehicle_number || "",
@@ -1168,20 +1176,44 @@ export default function DeliveriesPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={async () => {
                         setSelectedDelivery(delivery)
                         setEditForm({
                           customer_name: delivery.customer_name,
                           customer_phone: delivery.customer_phone,
+                          customer_id: delivery.customer_id || "",
                           pickup_address: delivery.pickup_address,
                           delivery_address: delivery.delivery_address,
                           delivery_date: delivery.delivery_date,
+                          delivery_time: delivery.delivery_time || "",
                           driver_name: delivery.driver_name,
                           vehicle_number: delivery.vehicle_number,
                           delivery_charge: delivery.delivery_charge.toString(),
                           fuel_cost: delivery.fuel_cost.toString(),
                           special_instructions: delivery.special_instructions,
                         })
+                        
+                        // Fetch saved addresses for this customer
+                        if (delivery.customer_id) {
+                          setLoadingAddresses(true)
+                          try {
+                            const { data, error } = await supabase
+                              .from('customer_addresses')
+                              .select('*')
+                              .eq('customer_id', delivery.customer_id)
+                              .order('last_used_at', { ascending: false })
+                              .limit(10)
+                            
+                            if (!error && data) {
+                              setSavedAddresses(data)
+                            }
+                          } catch (e) {
+                            console.warn('Saved addresses not available yet')
+                          } finally {
+                            setLoadingAddresses(false)
+                          }
+                        }
+                        
                         setShowEditDialog(true)
                       }}
                     >
@@ -1466,11 +1498,47 @@ export default function DeliveriesPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit_pickup_address">Pickup Address</Label>
+              
+              {/* Smart Address Dropdown */}
+              {savedAddresses.length > 0 && (
+                <Select
+                  onValueChange={(value) => {
+                    if (value === 'new') {
+                      setEditForm({ ...editForm, pickup_address: '' })
+                    } else if (value === 'current') {
+                      // Keep current value
+                    } else {
+                      const selected = savedAddresses.find(a => a.id === value)
+                      if (selected) {
+                        setEditForm({ ...editForm, pickup_address: selected.full_address })
+                      }
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mb-2">
+                    <SelectValue placeholder="📍 Quick Select from Saved Addresses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current">Use Current Address</SelectItem>
+                    <SelectItem value="new">✏️ Type New Address</SelectItem>
+                    {savedAddresses.map(addr => (
+                      <SelectItem key={addr.id} value={addr.id}>
+                        {addr.label ? `${addr.label}: ` : ''}{addr.full_address.substring(0, 50)}{addr.full_address.length > 50 ? '...' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              
               <Textarea
                 id="edit_pickup_address"
+                placeholder="Enter pickup address or select from saved addresses above"
                 value={editForm.pickup_address}
                 onChange={(e) => setEditForm({ ...editForm, pickup_address: e.target.value })}
               />
+              {loadingAddresses && (
+                <p className="text-xs text-muted-foreground">Loading saved addresses...</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit_delivery_address">Delivery Address</Label>
@@ -1491,6 +1559,18 @@ export default function DeliveriesPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="edit_delivery_time">Delivery Time</Label>
+                <Input
+                  id="edit_delivery_time"
+                  type="time"
+                  value={editForm.delivery_time}
+                  onChange={(e) => setEditForm({ ...editForm, delivery_time: e.target.value })}
+                  placeholder="HH:MM"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit_driver_name">Driver Name</Label>
                 <Input
                   id="edit_driver_name"
@@ -1498,8 +1578,6 @@ export default function DeliveriesPage() {
                   onChange={(e) => setEditForm({ ...editForm, driver_name: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_vehicle_number">Vehicle Number</Label>
                 <Input
@@ -1508,6 +1586,8 @@ export default function DeliveriesPage() {
                   onChange={(e) => setEditForm({ ...editForm, vehicle_number: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_delivery_charge">Delivery Charge (₹)</Label>
                 <Input
@@ -1517,15 +1597,15 @@ export default function DeliveriesPage() {
                   onChange={(e) => setEditForm({ ...editForm, delivery_charge: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_fuel_cost">Fuel Cost (₹)</Label>
-              <Input
-                id="edit_fuel_cost"
-                type="number"
-                value={editForm.fuel_cost}
-                onChange={(e) => setEditForm({ ...editForm, fuel_cost: e.target.value })}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="edit_fuel_cost">Fuel Cost (₹)</Label>
+                <Input
+                  id="edit_fuel_cost"
+                  type="number"
+                  value={editForm.fuel_cost}
+                  onChange={(e) => setEditForm({ ...editForm, fuel_cost: e.target.value })}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit_special_instructions">Special Instructions</Label>
@@ -1552,6 +1632,7 @@ export default function DeliveriesPage() {
                       pickup_address: editForm.pickup_address,
                       delivery_address: editForm.delivery_address,
                       delivery_date: editForm.delivery_date,
+                      delivery_time: editForm.delivery_time || null,
                       driver_name: editForm.driver_name,
                       vehicle_number: editForm.vehicle_number,
                       delivery_charge: editForm.delivery_charge,
@@ -1561,6 +1642,43 @@ export default function DeliveriesPage() {
                   })
 
                   if (!response.ok) throw new Error("Failed to update delivery")
+
+                  // Save pickup address to customer_addresses if it's new
+                  if (editForm.customer_id && editForm.pickup_address.trim()) {
+                    try {
+                      const { data: existingAddresses } = await supabase
+                        .from('customer_addresses')
+                        .select('id')
+                        .eq('customer_id', editForm.customer_id)
+                        .ilike('full_address', editForm.pickup_address.trim())
+                        .limit(1)
+                      
+                      if (!existingAddresses || existingAddresses.length === 0) {
+                        // New address - save it
+                        await supabase
+                          .from('customer_addresses')
+                          .insert({
+                            customer_id: editForm.customer_id,
+                            full_address: editForm.pickup_address.trim(),
+                            address_line_1: editForm.pickup_address.trim(),
+                            address_type: 'pickup',
+                            usage_count: 1,
+                            last_used_at: new Date().toISOString(),
+                          })
+                      } else {
+                        // Update usage count
+                        await supabase
+                          .from('customer_addresses')
+                          .update({
+                            usage_count: supabase.sql`usage_count + 1`,
+                            last_used_at: new Date().toISOString(),
+                          })
+                          .eq('id', existingAddresses[0].id)
+                      }
+                    } catch (e) {
+                      console.warn('Could not save address:', e)
+                    }
+                  }
 
                   await fetchData()
                   toast({
