@@ -5,42 +5,44 @@
 -- If not, we'll create some sample data
 
 -- Sample Return 1: Recent delivery return with mixed items
-INSERT INTO returns (
-  return_number,
-  delivery_id,
-  booking_id,
-  booking_source,
-  customer_name,
-  customer_phone,
-  return_date,
-  return_time,
-  actual_return_date,
-  status,
-  return_address,
-  notes,
-  special_instructions
-) VALUES (
-  'RET-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-001',
-  NULL, -- Will be filled if you have a delivery
-  NULL, -- Will be filled if you have a booking
-  'product_order',
-  'Sample Customer',
-  '+91-9876543210',
-  CURRENT_DATE::text,
-  '18:00',
-  CURRENT_TIMESTAMP,
-  'scheduled', -- Status: scheduled (ready to process)
-  '123 Sample Street, Mumbai, Maharashtra 400001',
-  'Sample return for testing - wedding items',
-  'Customer prefers afternoon pickup'
-)
-ON CONFLICT DO NOTHING;
+-- First get or create a customer
+DO $$
+DECLARE
+  customer_id_var UUID;
+BEGIN
+  -- Try to get first customer, or use NULL
+  SELECT id INTO customer_id_var FROM customers LIMIT 1;
+  
+  -- Insert return
+  INSERT INTO returns (
+    return_number,
+    delivery_id,
+    booking_id,
+    booking_source,
+    customer_id,
+    return_date,
+    status,
+    notes
+  ) VALUES (
+    'RET-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-001',
+    NULL, -- Will be filled if you have a delivery
+    NULL, -- Will be filled if you have a booking
+    'product_order',
+    customer_id_var, -- Use actual customer or NULL
+    CURRENT_DATE,
+    'pending', -- Status: pending (ready to process)
+    'Sample return for testing - wedding items with mixed conditions'
+  )
+  ON CONFLICT (return_number) DO NOTHING;
+END $$;
 
--- Get the return ID we just created
+-- Add items to the return we just created
+-- Note: return_items are typically created during processing, but we can pre-create them for testing
 DO $$
 DECLARE
   return_id_var UUID;
-  product_id_var UUID;
+  product_rec RECORD;
+  item_count INT := 0;
 BEGIN
   -- Get the return we just created
   SELECT id INTO return_id_var
@@ -49,139 +51,95 @@ BEGIN
   ORDER BY created_at DESC
   LIMIT 1;
 
-  -- Get some product IDs (adjust based on your actual products)
-  -- Example: Add return items for Wedding Dress and Tuxedo
-  
-  -- Wedding Dress - delivered 5, some damaged
-  SELECT id INTO product_id_var
-  FROM products
-  WHERE LOWER(name) LIKE '%wedding dress%' OR LOWER(name) LIKE '%lehenga%'
-  LIMIT 1;
-  
-  IF product_id_var IS NOT NULL AND return_id_var IS NOT NULL THEN
-    INSERT INTO delivery_items (
-      return_id,
-      product_id,
-      quantity_delivered
-    ) VALUES (
-      return_id_var,
-      product_id_var,
-      5
-    )
-    ON CONFLICT DO NOTHING;
+  IF return_id_var IS NULL THEN
+    RAISE NOTICE 'Return not found, skipping item creation';
+    RETURN;
   END IF;
 
-  -- Tuxedo/Suit - delivered 3
-  SELECT id INTO product_id_var
-  FROM products
-  WHERE LOWER(name) LIKE '%tuxedo%' OR LOWER(name) LIKE '%suit%' OR LOWER(name) LIKE '%sherwani%'
-  LIMIT 1;
-  
-  IF product_id_var IS NOT NULL AND return_id_var IS NOT NULL THEN
-    INSERT INTO delivery_items (
+  -- Get up to 5 products from database and create return items
+  FOR product_rec IN (
+    SELECT id, name, product_code, category
+    FROM products
+    WHERE stock_total > 0
+    LIMIT 5
+  ) LOOP
+    -- Create a return item with delivered quantity (not yet processed)
+    -- Quantity varies based on position to make it interesting
+    INSERT INTO return_items (
       return_id,
       product_id,
-      quantity_delivered
+      product_name,
+      product_code,
+      product_category,
+      qty_delivered,
+      qty_returned,
+      qty_damaged,
+      qty_lost,
+      archived,
+      sent_to_laundry
     ) VALUES (
       return_id_var,
-      product_id_var,
-      3
+      product_rec.id,
+      product_rec.name,
+      product_rec.product_code,
+      product_rec.category,
+      CASE item_count
+        WHEN 0 THEN 5   -- First product: 5 items
+        WHEN 1 THEN 10  -- Second product: 10 items
+        WHEN 2 THEN 3   -- Third product: 3 items
+        WHEN 3 THEN 20  -- Fourth product: 20 items
+        ELSE 8          -- Fifth product: 8 items
+      END,
+      0, -- Not yet processed
+      0, -- Not yet processed
+      0, -- Not yet processed
+      false,
+      false
     )
     ON CONFLICT DO NOTHING;
-  END IF;
+    
+    item_count := item_count + 1;
+  END LOOP;
 
-  -- Tablecloth - delivered 10
-  SELECT id INTO product_id_var
-  FROM products
-  WHERE LOWER(name) LIKE '%tablecloth%' OR LOWER(name) LIKE '%table cover%' OR LOWER(category) LIKE '%linen%'
-  LIMIT 1;
-  
-  IF product_id_var IS NOT NULL AND return_id_var IS NOT NULL THEN
-    INSERT INTO delivery_items (
-      return_id,
-      product_id,
-      quantity_delivered
-    ) VALUES (
-      return_id_var,
-      product_id_var,
-      10
-    )
-    ON CONFLICT DO NOTHING;
-  END IF;
-
-  -- Napkins - delivered 50
-  SELECT id INTO product_id_var
-  FROM products
-  WHERE LOWER(name) LIKE '%napkin%' OR LOWER(name) LIKE '%serviette%'
-  LIMIT 1;
-  
-  IF product_id_var IS NOT NULL AND return_id_var IS NOT NULL THEN
-    INSERT INTO delivery_items (
-      return_id,
-      product_id,
-      quantity_delivered
-    ) VALUES (
-      return_id_var,
-      product_id_var,
-      50
-    )
-    ON CONFLICT DO NOTHING;
-  END IF;
-
-  -- Chairs - delivered 100
-  SELECT id INTO product_id_var
-  FROM products
-  WHERE LOWER(name) LIKE '%chair%'
-  LIMIT 1;
-  
-  IF product_id_var IS NOT NULL AND return_id_var IS NOT NULL THEN
-    INSERT INTO delivery_items (
-      return_id,
-      product_id,
-      quantity_delivered
-    ) VALUES (
-      return_id_var,
-      product_id_var,
-      100
-    )
-    ON CONFLICT DO NOTHING;
-  END IF;
-
+  RAISE NOTICE 'Created % return items for return %', item_count, return_id_var;
 END $$;
 
 -- Sample Return 2: Another return with different status
-INSERT INTO returns (
-  return_number,
-  delivery_id,
-  booking_id,
-  booking_source,
-  customer_name,
-  customer_phone,
-  return_date,
-  return_time,
-  status,
-  return_address,
-  notes
-) VALUES (
-  'RET-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-002',
-  NULL,
-  NULL,
-  'package_booking',
-  'Test Customer 2',
-  '+91-9876543211',
-  (CURRENT_DATE + INTERVAL '1 day')::text,
-  '14:00',
-  'scheduled',
-  '456 Test Avenue, Delhi 110001',
-  'Sample return for testing - corporate event items'
-)
-ON CONFLICT DO NOTHING;
+DO $$
+DECLARE
+  customer_id_var UUID;
+BEGIN
+  -- Try to get first customer, or use NULL
+  SELECT id INTO customer_id_var FROM customers LIMIT 1;
+  
+  INSERT INTO returns (
+    return_number,
+    delivery_id,
+    booking_id,
+    booking_source,
+    customer_id,
+    return_date,
+    status,
+    notes
+  ) VALUES (
+    'RET-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-002',
+    NULL,
+    NULL,
+    'package_booking',
+    customer_id_var,
+    (CURRENT_DATE + INTERVAL '1 day'),
+    'pending',
+    'Sample return for testing - corporate event items'
+  )
+  ON CONFLICT (return_number) DO NOTHING;
+END $$;
 
 -- Add items to second return
 DO $$
 DECLARE
   return_id_var UUID;
-  product_id_var UUID;
+  product_rec RECORD;
+  item_count INT := 0;
 BEGIN
   SELECT id INTO return_id_var
   FROM returns
@@ -189,44 +147,54 @@ BEGIN
   ORDER BY created_at DESC
   LIMIT 1;
 
-  -- Add projector
-  SELECT id INTO product_id_var
-  FROM products
-  WHERE LOWER(name) LIKE '%projector%' OR LOWER(category) LIKE '%equipment%'
-  LIMIT 1;
-  
-  IF product_id_var IS NOT NULL AND return_id_var IS NOT NULL THEN
-    INSERT INTO delivery_items (
-      return_id,
-      product_id,
-      quantity_delivered
-    ) VALUES (
-      return_id_var,
-      product_id_var,
-      2
-    )
-    ON CONFLICT DO NOTHING;
+  IF return_id_var IS NULL THEN
+    RAISE NOTICE 'Return 002 not found, skipping item creation';
+    RETURN;
   END IF;
 
-  -- Add tables
-  SELECT id INTO product_id_var
-  FROM products
-  WHERE LOWER(name) LIKE '%table%' AND NOT LOWER(name) LIKE '%tablecloth%'
-  LIMIT 1;
-  
-  IF product_id_var IS NOT NULL AND return_id_var IS NOT NULL THEN
-    INSERT INTO delivery_items (
+  -- Get different products for second return (offset by 5)
+  FOR product_rec IN (
+    SELECT id, name, product_code, category
+    FROM products
+    WHERE stock_total > 0
+    OFFSET 5
+    LIMIT 3
+  ) LOOP
+    INSERT INTO return_items (
       return_id,
       product_id,
-      quantity_delivered
+      product_name,
+      product_code,
+      product_category,
+      qty_delivered,
+      qty_returned,
+      qty_damaged,
+      qty_lost,
+      archived,
+      sent_to_laundry
     ) VALUES (
       return_id_var,
-      product_id_var,
-      20
+      product_rec.id,
+      product_rec.name,
+      product_rec.product_code,
+      product_rec.category,
+      CASE item_count
+        WHEN 0 THEN 2   -- First product: 2 items
+        WHEN 1 THEN 15  -- Second product: 15 items
+        ELSE 7          -- Third product: 7 items
+      END,
+      0, -- Not yet processed
+      0, -- Not yet processed
+      0, -- Not yet processed
+      false,
+      false
     )
     ON CONFLICT DO NOTHING;
-  END IF;
+    
+    item_count := item_count + 1;
+  END LOOP;
 
+  RAISE NOTICE 'Created % return items for return %', item_count, return_id_var;
 END $$;
 
 -- Summary
@@ -253,12 +221,15 @@ ORDER BY created_at DESC;
 -- Show items for these returns
 SELECT 
   r.return_number,
-  p.name as product_name,
-  di.quantity_delivered,
-  p.category
+  ri.product_name,
+  ri.qty_delivered,
+  ri.product_category,
+  CASE 
+    WHEN ri.qty_returned + ri.qty_damaged + ri.qty_lost = 0 THEN 'Not Processed'
+    ELSE 'Processed'
+  END as processing_status
 FROM returns r
-JOIN delivery_items di ON di.return_id = r.id
-JOIN products p ON p.id = di.product_id
+JOIN return_items ri ON ri.return_id = r.id
 WHERE r.return_number LIKE 'RET-%'
   AND r.created_at > NOW() - INTERVAL '1 hour'
-ORDER BY r.return_number, p.name;
+ORDER BY r.return_number, ri.product_name;
