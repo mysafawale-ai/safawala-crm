@@ -1193,14 +1193,34 @@ export default function DeliveriesPage() {
                       size="sm"
                       onClick={async () => {
                         setSelectedDelivery(delivery)
+                        
+                        // If delivery has no date/time but has a linked booking, fetch from booking
+                        let deliveryDate = delivery.delivery_date
+                        let deliveryTime = delivery.delivery_time || ""
+                        let deliveryAddress = delivery.delivery_address
+                        
+                        if (delivery.booking_id && (!deliveryDate || !deliveryTime)) {
+                          // Fetch booking details to get date/time
+                          const linkedBooking = bookings.find((b: any) => 
+                            b.id === delivery.booking_id && b.source === delivery.booking_source
+                          )
+                          
+                          if (linkedBooking) {
+                            // Use booking's delivery_date and delivery_time if not set in delivery
+                            deliveryDate = deliveryDate || linkedBooking.delivery_date || ""
+                            deliveryTime = deliveryTime || linkedBooking.delivery_time || ""
+                            deliveryAddress = deliveryAddress || linkedBooking.delivery_address || ""
+                          }
+                        }
+                        
                         setEditForm({
                           customer_name: delivery.customer_name,
                           customer_phone: delivery.customer_phone,
                           customer_id: delivery.customer_id || "",
                           pickup_address: delivery.pickup_address,
-                          delivery_address: delivery.delivery_address,
-                          delivery_date: delivery.delivery_date,
-                          delivery_time: delivery.delivery_time || "",
+                          delivery_address: deliveryAddress,
+                          delivery_date: deliveryDate,
+                          delivery_time: deliveryTime,
                           driver_name: delivery.driver_name,
                           vehicle_number: delivery.vehicle_number,
                           delivery_charge: delivery.delivery_charge.toString(),
