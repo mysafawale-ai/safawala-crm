@@ -36,6 +36,17 @@ interface PackageVariant {
   base_price: number
   inclusions: string[]
   package_id: string
+  package_levels?: PackageLevel[]
+}
+
+interface PackageLevel {
+  id: string
+  name: string
+  base_price: number
+  variant_id: string
+  is_active: boolean
+  display_order: number
+  distance_pricing?: DistancePricing[]
 }
 
 interface PackageSet {
@@ -66,11 +77,11 @@ interface Staff {
 
 interface DistancePricing {
   id: string
-  variant_id: string
-  min_km: number
-  max_km: number
+  package_level_id: string
+  min_distance_km: number
+  max_distance_km: number
   distance_range: string
-  base_price_addition: number
+  additional_price: number
   is_active: boolean
 }
 
@@ -100,6 +111,7 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [selectedPackage, setSelectedPackage] = useState<string>("")
   const [selectedVariant, setSelectedVariant] = useState<string>("")
+  const [selectedLevel, setSelectedLevel] = useState<string>("")
   const [selectedProducts, setSelectedProducts] = useState<{ [key: string]: boolean }>({})
   const [skipProductSelection, setSkipProductSelection] = useState(false)
   const [eventDate, setEventDate] = useState<Date>()
@@ -133,12 +145,19 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
   useEffect(() => {
     if (selectedPackage) {
       setSelectedVariant("")
+      setSelectedLevel("")
     }
   }, [selectedPackage])
 
   useEffect(() => {
+    if (selectedVariant) {
+      setSelectedLevel("")
+    }
+  }, [selectedVariant])
+
+  useEffect(() => {
     calculateDistancePricing()
-  }, [selectedCustomer, newCustomer.pincode, selectedVariant, isNewCustomer])
+  }, [selectedCustomer, newCustomer.pincode, selectedLevel, isNewCustomer])
 
   const loadData = async () => {
     try {
@@ -168,13 +187,40 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
 
       if (variantsError) throw variantsError
 
-      const { data: distancePricingData, error: distancePricingError } = await supabase
-        .from("distance_pricing")
-        .select("*")
-        .eq("is_active", true)
-        .order("min_km")
+      // Fetch levels for all variants
+      const variantIds = (variantsData || []).map((v: any) => v.id)
+      let levelsData: any[] = []
+      if (variantIds.length > 0) {
+        const { data: lvlData, error: levelsError } = await supabase
+          .from("package_levels")
+          .select("*")
+          .in("variant_id", variantIds)
+          .eq("is_active", true)
+          .order("display_order")
+        if (levelsError) throw levelsError
+        levelsData = lvlData || []
+      }
 
-      if (distancePricingError) throw distancePricingError
+      // Fetch distance pricing for all levels
+      const levelIds = levelsData.map((l: any) => l.id)
+      let distancePricingData: any[] = []
+      if (levelIds.length > 0) {
+        const { data: dpData, error: distancePricingError } = await supabase
+          .from("distance_pricing")
+          .select("*")
+          .in("package_level_id", levelIds)
+          .eq("is_active", true)
+          .order("min_distance_km")
+        if (distancePricingError) throw distancePricingError
+        distancePricingData = (dpData || []).map((dp: any) => ({
+          ...dp,
+          // Backward compatibility mapping
+          min_distance_km: dp.min_distance_km ?? dp.min_km ?? 0,
+          max_distance_km: dp.max_distance_km ?? dp.max_km ?? 0,
+          additional_price: dp.additional_price ?? dp.base_price_addition ?? 0,
+          distance_range: dp.distance_range ?? dp.range ?? '',
+        }))
+      }
 
       const { data: customersData, error: customersError } = await supabase.from("customers").select("*").order("name")
 
@@ -188,10 +234,17 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
 
       if (staffError) throw staffError
 
+      // Build hierarchical structure: packages -> variants -> levels -> distance_pricing
       const packagesWithVariants =
         packagesData?.map((pkg) => ({
           ...pkg,
-          variants: variantsData?.filter((variant) => variant.package_id === pkg.id) || [],
+          variants: (variantsData?.filter((variant) => variant.package_id === pkg.id) || []).map((variant: any) => ({
+            ...variant,
+            package_levels: (levelsData.filter((lvl: any) => lvl.variant_id === variant.id) || []).map((level: any) => ({
+              ...level,
+              distance_pricing: distancePricingData.filter((dp: any) => dp.package_level_id === level.id),
+            })),
+          })),
         })) || []
 
       setCategories(categoriesData || [])
@@ -201,7 +254,7 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
       setStaff(staffData || [])
 
       console.log(
-        `[v0] Loaded ${categoriesData?.length || 0} categories, ${packagesData?.length || 0} packages, ${variantsData?.length || 0} variants, ${distancePricingData?.length || 0} distance pricing, ${customersData?.length || 0} customers, ${staffData?.length || 0} staff`,
+        `[v0] Loaded ${categoriesData?.length || 0} categories, ${packagesData?.length || 0} packages, ${variantsData?.length || 0} variants, ${levelsData?.length || 0} levels, ${distancePricingData?.length || 0} distance pricing, ${customersData?.length || 0} customers, ${staffData?.length || 0} staff`,
       )
     } catch (error) {
       console.error("Error loading data:", error)
@@ -216,7 +269,7 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
   }
 
   const calculateDistancePricing = async () => {
-    if (!selectedVariant) {
+    if (!selectedLevel) {
       setDistancePricingAmount(0)
       return
     }
@@ -234,10 +287,10 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
     const distance = Math.abs(Number.parseInt(customerPincode) - basePincode) / 1000 // Mock distance calculation
 
     const applicablePricing = distancePricing.find(
-      (dp) => dp.variant_id === selectedVariant && distance >= dp.min_km && distance <= dp.max_km,
+      (dp) => dp.package_level_id === selectedLevel && distance >= dp.min_distance_km && distance <= dp.max_distance_km,
     )
 
-    setDistancePricingAmount(applicablePricing?.base_price_addition || 0)
+    setDistancePricingAmount(applicablePricing?.additional_price || 0)
   }
 
   const filteredPackages = packages.filter((pkg) => (selectedCategory ? pkg.category_id === selectedCategory : true))
@@ -245,18 +298,22 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
   const selectedCategoryData = categories.find((c) => c.id === selectedCategory)
   const selectedPackageData = packages.find((p) => p.id === selectedPackage)
   const selectedVariantData = selectedPackageData?.variants.find((v) => v.id === selectedVariant)
+  const selectedLevelData = selectedVariantData?.package_levels?.find((l) => l.id === selectedLevel)
 
   const calculateTotal = () => {
     let total = 0
 
-    if (selectedPackageData) {
-      total += selectedPackageData.base_price
-    }
-
+    // Variant base price
     if (selectedVariantData) {
-      total += selectedVariantData.base_price // This is the extra price
+      total += selectedVariantData.base_price
     }
 
+    // Level additional price
+    if (selectedLevelData) {
+      total += selectedLevelData.base_price
+    }
+
+    // Distance pricing additional
     total += distancePricingAmount
 
     // Apply discount and coupon
