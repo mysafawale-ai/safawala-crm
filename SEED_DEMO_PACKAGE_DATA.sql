@@ -31,21 +31,23 @@ WITH demo_cats AS (
 )
 INSERT INTO package_variants (
     id,
-    category_id,
     name,
     description,
     base_price,
     is_active,
-    display_order
+    display_order,
+    package_id,
+    category_id
 )
 SELECT 
     gen_random_uuid(),
-    dc.id,
     variant_name,
     variant_desc,
     base_price,
     true,
-    variant_display_order
+    variant_display_order,
+    dc.id, -- Using category id as package_id temporarily
+    dc.id  -- And also as category_id
 FROM demo_cats dc
 CROSS JOIN (
     VALUES 
@@ -63,7 +65,7 @@ WHERE NOT EXISTS (
 -- STEP 3: CREATE DEMO LEVELS (Raja, VIP, VVIP for each variant)
 -- ================================================================
 WITH demo_variants AS (
-    SELECT id, name, base_price, franchise_id 
+    SELECT id, name, base_price
     FROM package_variants 
     WHERE name LIKE 'Demo%'
 )
@@ -74,7 +76,6 @@ INSERT INTO package_levels (
     description,
     base_price,
     display_order,
-    franchise_id,
     is_active
 )
 SELECT 
@@ -84,7 +85,6 @@ SELECT
     level_desc,
     dv.base_price + price_increment,
     level_order,
-    dv.franchise_id,
     true
 FROM demo_variants dv
 CROSS JOIN (
