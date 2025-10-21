@@ -94,7 +94,7 @@ const navigationItems = {
       description: "Track wedding accessories, manage stock levels, and monitor product availability",
     },
     {
-      title: "Sets",
+      title: "Packages",
       url: "/sets",
       icon: Layers,
       roles: ["super_admin", "franchise_admin"],
