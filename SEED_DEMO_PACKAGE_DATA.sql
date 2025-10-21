@@ -14,11 +14,11 @@
 -- ================================================================
 -- STEP 1: CREATE DEMO CATEGORIES
 -- ================================================================
-INSERT INTO packages_categories (id, name, description, safa_count, is_active, display_order)
+INSERT INTO packages_categories (id, name, description, is_active, display_order)
 VALUES 
-    (gen_random_uuid(), 'Demo 25 Safas', 'Demo package for 25 people wedding celebrations', 25, true, 1),
-    (gen_random_uuid(), 'Demo 50 Safas', 'Demo package for 50 people grand celebrations', 50, true, 2),
-    (gen_random_uuid(), 'Demo 75 Safas', 'Demo package for 75 people royal celebrations', 75, true, 3)
+    (gen_random_uuid(), 'Demo 25 Safas', 'Demo package for 25 people wedding celebrations', true, 1),
+    (gen_random_uuid(), 'Demo 50 Safas', 'Demo package for 50 people grand celebrations', true, 2),
+    (gen_random_uuid(), 'Demo 75 Safas', 'Demo package for 75 people royal celebrations', true, 3)
 ON CONFLICT (id) DO NOTHING;
 
 -- ================================================================
