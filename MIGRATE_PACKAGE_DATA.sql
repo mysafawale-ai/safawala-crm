@@ -24,10 +24,10 @@ INSERT INTO package_levels (
 )
 SELECT 
     pv.id as variant_id,
-    level_name,
-    level_description,
-    pv.base_price + price_increment,
-    display_order,
+    levels.level_name,
+    levels.level_description,
+    pv.base_price + levels.price_increment,
+    levels.level_display_order,
     pv.franchise_id,
     true
 FROM package_variants pv
@@ -36,7 +36,7 @@ CROSS JOIN (
         ('Raja', 'Standard tier with essential features', 0, 1),
         ('VIP', 'Premium tier with enhanced features', 5000, 2),
         ('VVIP', 'Ultimate tier with all premium features', 10000, 3)
-) AS levels(level_name, level_description, price_increment, display_order)
+) AS levels(level_name, level_description, price_increment, level_display_order)
 WHERE pv.id IS NOT NULL
 AND NOT EXISTS (
     SELECT 1 FROM package_levels pl 
