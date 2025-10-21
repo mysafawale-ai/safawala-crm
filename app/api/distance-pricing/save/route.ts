@@ -28,19 +28,28 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { id, variant_id, distance_range, min_km, max_km, base_price_addition, is_active = true } = body || {}
+    const { 
+      id, 
+      package_level_id, 
+      distance_range, 
+      min_distance_km, 
+      max_distance_km, 
+      additional_price, 
+      franchise_id: bodyFranchiseId,
+      is_active = true 
+    } = body || {}
 
-    if (!variant_id || typeof variant_id !== 'string') {
-      return NextResponse.json({ error: 'variant_id is required' }, { status: 400 })
+    if (!package_level_id || typeof package_level_id !== 'string') {
+      return NextResponse.json({ error: 'package_level_id is required' }, { status: 400 })
     }
     if (typeof distance_range !== 'string' || !distance_range.trim()) {
       return NextResponse.json({ error: 'distance_range is required' }, { status: 400 })
     }
-    if (!Number.isFinite(min_km) || !Number.isFinite(max_km) || min_km < 0 || max_km <= min_km) {
-      return NextResponse.json({ error: 'Invalid min_km/max_km' }, { status: 400 })
+    if (!Number.isFinite(min_distance_km) || !Number.isFinite(max_distance_km) || min_distance_km < 0 || max_distance_km <= min_distance_km) {
+      return NextResponse.json({ error: 'Invalid min_distance_km/max_distance_km' }, { status: 400 })
     }
-    if (!Number.isFinite(base_price_addition) || base_price_addition < 0) {
-      return NextResponse.json({ error: 'Invalid base_price_addition' }, { status: 400 })
+    if (!Number.isFinite(additional_price) || additional_price < 0) {
+      return NextResponse.json({ error: 'Invalid additional_price' }, { status: 400 })
     }
 
     const supabase = createClient()
@@ -52,34 +61,43 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase.from('distance_pricing').select(name).limit(1)
       return !error
     }
-    const [hasBaseAdd, hasExtraPrice, hasPriceMult, hasMinKm, hasMaxKm, hasFranchise, hasCreatedAt, hasUpdatedAt, hasIsActive, hasDistanceRange, hasVariantId] = await Promise.all([
-      has('base_price_addition'),
-      has('extra_price'),
-      has('price_multiplier'),
-      has('min_km'),
-      has('max_km'),
+    const [
+      hasPackageLevelId,
+      hasDistanceRange,
+      hasMinDistanceKm,
+      hasMaxDistanceKm,
+      hasAdditionalPrice,
+      hasFranchise,
+      hasCreatedAt,
+      hasUpdatedAt,
+      hasIsActive,
+      hasDisplayOrder
+    ] = await Promise.all([
+      has('package_level_id'),
+      has('distance_range'),
+      has('min_distance_km'),
+      has('max_distance_km'),
+      has('additional_price'),
       has('franchise_id'),
       has('created_at'),
       has('updated_at'),
       has('is_active'),
-      has('distance_range'),
-      has('variant_id'),
+      has('display_order'),
     ])
 
     const dataToSave: any = {}
-    if (hasVariantId) dataToSave.variant_id = variant_id
+    if (hasPackageLevelId) dataToSave.package_level_id = package_level_id
     if (hasDistanceRange) dataToSave.distance_range = distance_range.trim()
-    if (hasMinKm) dataToSave.min_km = min_km
-    if (hasMaxKm) dataToSave.max_km = max_km
+    if (hasMinDistanceKm) dataToSave.min_distance_km = min_distance_km
+    if (hasMaxDistanceKm) dataToSave.max_distance_km = max_distance_km
+    if (hasAdditionalPrice) dataToSave.additional_price = additional_price
     if (hasIsActive) dataToSave.is_active = is_active
     if (hasUpdatedAt) dataToSave.updated_at = now
-    // Price columns variants
-    if (hasBaseAdd) dataToSave.base_price_addition = base_price_addition
-    else if (hasExtraPrice) {
-      dataToSave.extra_price = base_price_addition
-      if (hasPriceMult && dataToSave.price_multiplier === undefined) dataToSave.price_multiplier = 1.0
-    }
-    if (franchiseId && hasFranchise) dataToSave.franchise_id = franchiseId
+    if (hasDisplayOrder && !id) dataToSave.display_order = 0
+    
+    // Use franchise_id from body if provided (from frontend), otherwise use from user session
+    const finalFranchiseId = bodyFranchiseId || franchiseId
+    if (finalFranchiseId && hasFranchise) dataToSave.franchise_id = finalFranchiseId
 
     if (id) {
       // Update

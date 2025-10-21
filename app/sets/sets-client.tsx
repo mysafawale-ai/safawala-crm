@@ -543,12 +543,12 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
 
       const payload: any = {
-        level_id: selectedLevel.id,
-        variant_id: selectedVariant.id,
+        package_level_id: selectedLevel.id,
         distance_range: distancePricingForm.range.trim(),
-        min_km: distancePricingForm.min_km,
-        max_km: distancePricingForm.max_km,
-        base_price_addition: distancePricingForm.base_price_addition,
+        min_distance_km: distancePricingForm.min_km,
+        max_distance_km: distancePricingForm.max_km,
+        additional_price: distancePricingForm.base_price_addition,
+        franchise_id: user?.franchise_id,
         is_active: true,
       }
       if (editingDistancePricing) payload.id = editingDistancePricing.id
@@ -707,10 +707,16 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         const { data: dpData, error: dpError } = await supabase
           .from("distance_pricing")
           .select("*")
-          .in("level_id", levelIds)
-          .order("min_km")
+          .in("package_level_id", levelIds)
+          .order("min_distance_km")
         if (dpError) throw dpError
-  pricingData = (dpData || []).map((dp:any) => ({ ...dp, range: dp.range ?? dp.range_name ?? dp.distance_range ?? '' }))
+  pricingData = (dpData || []).map((dp:any) => ({ 
+    ...dp, 
+    range: dp.range ?? dp.range_name ?? dp.distance_range ?? '',
+    min_km: dp.min_km ?? dp.min_distance_km ?? 0,
+    max_km: dp.max_km ?? dp.max_distance_km ?? 0,
+    base_price_addition: dp.base_price_addition ?? dp.additional_price ?? 0
+  }))
       }
 
       const categoriesWithVariants = (categoriesData || []).map((category:any) => {
@@ -719,7 +725,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           const vLevels = levelsData.filter((l:any) => l.variant_id === v.id)
           const vLevelsWithPricing = vLevels.map((lvl:any) => ({
             ...lvl,
-            distance_pricing: pricingData.filter((dp:any) => dp.level_id === lvl.id),
+            distance_pricing: pricingData.filter((dp:any) => dp.package_level_id === lvl.id || dp.level_id === lvl.id),
           }))
           return { ...v, package_levels: vLevelsWithPricing }
         })
@@ -1340,7 +1346,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <span className="text-sm text-brown-600">₹{variantBase.toLocaleString()} (base)</span>
                             <span className="text-brown-400">+</span>
-                            <span className="text-sm text-brown-600">₹{levelExtra.toLocaleString()} (extra)</span>
+                            <span className="text-sm text-brown-600">₹{levelExtra.toLocaleString()} (additional)</span>
                             <span className="text-brown-400">=</span>
                             <Badge className="bg-gold text-brown-800 font-semibold">₹{total.toLocaleString()}</Badge>
                           </div>
@@ -1419,7 +1425,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       />
                     </div>
                     <div>
-                      <Label htmlFor="level-price">Extra Price (₹) - Optional</Label>
+                      <Label htmlFor="level-price">Additional Price (₹) - Optional</Label>
                       <Input
                         id="level-price"
                         type="number"
@@ -1430,7 +1436,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         onChange={(e) => setLevelForm((prev) => ({ ...prev, base_price: e.target.value }))}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Total = Variant Base (₹{selectedVariant?.base_price?.toLocaleString() || "0"}) + Extra (₹{levelForm.base_price || "0"})
+                        Total = Variant Base (₹{selectedVariant?.base_price?.toLocaleString() || "0"}) + Additional (₹{levelForm.base_price || "0"})
                         {" = ₹"}
                         {((selectedVariant?.base_price || 0) + (Number.parseFloat(levelForm.base_price) || 0)).toLocaleString()}
                       </p>
@@ -1617,8 +1623,12 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           }))
                         }
                       />
-                      <p className="text-sm text-brown-600 mt-1">
-                        This amount will be added to the variant's total price
+                      <p className="text-xs text-gray-500 mt-1">
+                        Level Total: ₹{((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0)).toLocaleString()} 
+                        {" + Distance: ₹"}
+                        {(distancePricingForm.base_price_addition || 0).toLocaleString()}
+                        {" = Final: ₹"}
+                        {((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0) + (distancePricingForm.base_price_addition || 0)).toLocaleString()}
                       </p>
                     </div>
                   </div>
