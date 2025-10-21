@@ -36,10 +36,7 @@ INSERT INTO package_variants (
     description,
     base_price,
     is_active,
-    display_order,
-    franchise_id,
-    size,
-    quantity_safas
+    display_order
 )
 SELECT 
     gen_random_uuid(),
@@ -48,21 +45,14 @@ SELECT
     variant_desc,
     base_price,
     true,
-    display_order,
-    NULL, -- No franchise restriction for demo
-    'Standard',
-    CASE 
-        WHEN dc.name = 'Demo 25 Safas' THEN 25
-        WHEN dc.name = 'Demo 50 Safas' THEN 50
-        ELSE 75
-    END
+    variant_display_order
 FROM demo_cats dc
 CROSS JOIN (
     VALUES 
         ('Demo Premium', 'Premium quality safas with embroidery', 25000.00, 1),
         ('Demo Standard', 'Standard quality safas for traditional ceremonies', 18000.00, 2),
         ('Demo Deluxe', 'Deluxe collection with designer patterns', 35000.00, 3)
-) AS variants(variant_name, variant_desc, base_price, display_order)
+) AS variants(variant_name, variant_desc, base_price, variant_display_order)
 WHERE NOT EXISTS (
     SELECT 1 FROM package_variants pv 
     WHERE pv.name = variant_name 
