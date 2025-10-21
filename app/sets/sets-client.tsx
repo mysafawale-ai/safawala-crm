@@ -1265,52 +1265,49 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             <div className="text-center py-8">
               <Palette className="w-16 h-16 mx-auto text-brown-400 mb-4" />
               <h3 className="vintage-heading text-xl mb-2">Select a Category</h3>
-              <p className="text-brown-600 mb-4">Choose a category to view and manage its variants</p>
-              <div className="grid gap-3 max-w-md mx-auto">
-                {categories.flatMap((cat) =>
-                  (cat.packages || []).map((pkg) => (
-                    <Button
-                      key={pkg.id}
-                      variant="outline"
-                      className="border-brown-300 text-brown-700 hover:bg-brown-50 justify-start bg-transparent"
-                      onClick={() => {
-                        setSelectedCategory(cat)
-                        setSelectedPackage(pkg)
-                        setActiveTab("variants")
-                      }}
-                    >
-                      <Package className="w-4 h-4 mr-2" />
-                      {pkg.name} ({(pkg.variants || []).length} variants)
-                    </Button>
-                  )),
-                )}
-              </div>
+              <p className="text-brown-600 mb-4">Choose a category to view its variants</p>
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="vintage-heading text-xl font-bold text-heritage-dark mb-2">Package Variants</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="bg-brown-100 text-brown-800">
-                      {selectedPackage.name}
-                    </Badge>
-                    <p className="text-sm text-brown-600">
-                      {(selectedPackage.variants || []).length} variants available
-                    </p>
-                  </div>
+                  <h3 className="vintage-heading text-xl font-bold text-heritage-dark mb-2">{selectedCategory.name}</h3>
+                  <p className="text-sm text-brown-600">
+                    {(selectedCategory.package_variants || []).length} variants available
+                  </p>
                 </div>
-                <Button
-                  className="btn-heritage-dark"
-                  onClick={() => setDialogs((prev) => ({ ...prev, createVariant: true }))}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Variant
-                </Button>
               </div>
 
               <div className="grid gap-4">
-                {(selectedPackage.variants || []).map((variant: PackageVariant) => (
+                {(selectedCategory.package_variants || []).map((variant: any) => (
+                  <Card key={variant.id} className="card-heritage">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-semibold">{variant.name}</h4>
+                          <p className="text-sm text-brown-600">{variant.description}</p>
+                          <Badge className="bg-gold text-brown-800 mt-2">
+                            ₹{variant.base_price?.toLocaleString() || "0"}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedVariant(variant)
+                            setActiveTab("distance-pricing")
+                          }}
+                        >
+                          View Levels
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </TabsContent>
                   <Card key={variant.id} className="card-heritage">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
