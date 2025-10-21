@@ -94,12 +94,12 @@ const navigationItems = {
       description: "Track wedding accessories, manage stock levels, and monitor product availability",
     },
     {
-      title: "Packages",
+      title: "Sets",
       url: "/sets",
       icon: Layers,
       roles: ["super_admin", "franchise_admin"],
       description:
-        "Manage wedding accessory packages with categories, variants, and distance-based pricing from Alkapuri, Vadodara",
+        "Manage categories, variants, levels, and distance-based pricing",
     },
     {
       title: "Vendors",

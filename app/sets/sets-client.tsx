@@ -123,7 +123,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const [editingVariant, setEditingVariant] = useState<PackageVariant | null>(null)
   const [editingDistancePricing, setEditingDistancePricing] = useState<DistancePricing | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
-  const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
   const [selectedVariant, setSelectedVariant] = useState<PackageVariant | null>(null)
   const [selectedLevel, setSelectedLevel] = useState<PackageLevel | null>(null)
   const [editingLevel, setEditingLevel] = useState<PackageLevel | null>(null)
@@ -981,18 +980,33 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                 </Button>
               </div>
 
-              <div className="grid gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {(selectedCategory.package_variants || []).map((variant: any) => (
                   <Card key={variant.id} className="card-heritage">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-semibold">{variant.name}</h4>
-                          <p className="text-sm text-brown-600">{variant.description}</p>
-                          <Badge className="bg-gold text-brown-800 mt-2">
-                            ₹{variant.base_price?.toLocaleString() || "0"}
-                          </Badge>
+                    <CardContent className="p-5 flex flex-col h-full">
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold vintage-heading text-heritage-dark">{variant.name}</h4>
+                        <p className="text-sm text-brown-600 mt-1 line-clamp-2">{variant.description}</p>
+                        <div className="mt-3 flex items-center gap-2">
+                          <Badge className="bg-gold text-brown-800">₹{variant.base_price?.toLocaleString() || "0"}</Badge>
+                          {Array.isArray(variant.package_levels) && variant.package_levels.length > 0 && (
+                            <span className="text-xs text-brown-500">{variant.package_levels.length} level(s)</span>
+                          )}
                         </div>
+                        {Array.isArray(variant.inclusions) && variant.inclusions.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {variant.inclusions.slice(0, 4).map((inc: string, idx: number) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {inc}
+                              </Badge>
+                            ))}
+                            {variant.inclusions.length > 4 && (
+                              <Badge variant="outline" className="text-xs">+{variant.inclusions.length - 4} more</Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="pt-4 flex items-center justify-between gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -1003,11 +1017,103 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         >
                           View Levels
                         </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
+                            onClick={() => handleEditVariant(variant)}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" /> Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
+                            onClick={() => handleDeleteVariant(variant.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
+
+              {/* Add/Edit Variant Dialog */}
+              <Dialog
+                open={dialogs.createVariant}
+                onOpenChange={(open) => {
+                  setDialogs((prev) => ({ ...prev, createVariant: open }))
+                  if (!open) {
+                    setEditingVariant(null)
+                    setVariantForm({ name: "", description: "", extra_price: "0.00", inclusions: "" })
+                  }
+                }}
+              >
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="vintage-heading text-heritage-dark">
+                      {editingVariant ? "Edit Variant" : "Create New Variant"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {selectedCategory ? `Category: ${selectedCategory.name}` : "Select a category first"}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="variant-name">Variant Name</Label>
+                      <Input
+                        id="variant-name"
+                        placeholder="E.g. Premium Collection"
+                        value={variantForm.name}
+                        onChange={(e) => setVariantForm((prev) => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="variant-description">Description</Label>
+                      <Textarea
+                        id="variant-description"
+                        placeholder="Variant description..."
+                        value={variantForm.description}
+                        onChange={(e) => setVariantForm((prev) => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="variant-price">Base Price (₹)</Label>
+                      <Input
+                        id="variant-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Base price for this variant"
+                        value={variantForm.extra_price}
+                        onChange={(e) => setVariantForm((prev) => ({ ...prev, extra_price: e.target.value }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">This is the base price for the variant.</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="variant-inclusions">Inclusions (comma-separated)</Label>
+                      <Textarea
+                        id="variant-inclusions"
+                        placeholder="E.g. Safa, Kalgi, Necklace, Earrings"
+                        value={variantForm.inclusions}
+                        onChange={(e) => setVariantForm((prev) => ({ ...prev, inclusions: e.target.value }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Separate each inclusion with a comma</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-6">
+                    <Button variant="outline" onClick={() => setDialogs((prev) => ({ ...prev, createVariant: false }))}>
+                      Cancel
+                    </Button>
+                    <Button className="btn-heritage-dark" onClick={handleCreateVariant}>
+                      {editingVariant ? "Update Variant" : "Create Variant"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </>
           )}
         </TabsContent>
