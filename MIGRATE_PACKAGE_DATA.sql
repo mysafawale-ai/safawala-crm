@@ -67,7 +67,7 @@ FROM packages_categories pc
 LEFT JOIN package_variants pv ON pv.category_id = pc.id
 LEFT JOIN package_levels pl ON pl.variant_id = pv.id
 LEFT JOIN distance_pricing dp ON dp.level_id = pl.id
-GROUP BY pc.name, pv.name, pl.name, pl.base_price
+GROUP BY pc.name, pv.name, pl.name, pl.base_price, pv.display_order, pl.display_order
 ORDER BY pc.name, pv.display_order, pl.display_order
 LIMIT 30;
 
