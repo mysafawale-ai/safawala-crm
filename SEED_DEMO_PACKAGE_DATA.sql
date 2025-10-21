@@ -103,7 +103,7 @@ WHERE NOT EXISTS (
 -- STEP 4: CREATE DEMO DISTANCE PRICING
 -- ================================================================
 WITH demo_levels AS (
-    SELECT pl.id as level_id, pv.name as variant_name, pl.name as level_name
+    SELECT pl.id as level_id, pv.id as variant_id, pv.name as variant_name, pl.name as level_name
     FROM package_levels pl
     JOIN package_variants pv ON pl.variant_id = pv.id
     WHERE pv.name LIKE 'Demo%'
@@ -111,21 +111,21 @@ WITH demo_levels AS (
 INSERT INTO distance_pricing (
     id,
     level_id,
-    range_name,
+    variant_id,
+    distance_range,
     min_km,
     max_km,
     base_price_addition,
-    display_order,
     is_active
 )
 SELECT 
     gen_random_uuid(),
     dl.level_id,
+    dl.variant_id,
     range_name,
     min_km,
     max_km,
     price_add,
-    price_order,
     true
 FROM demo_levels dl
 CROSS JOIN (
@@ -139,7 +139,7 @@ CROSS JOIN (
 WHERE NOT EXISTS (
     SELECT 1 FROM distance_pricing dp 
     WHERE dp.level_id = dl.level_id 
-    AND dp.range_name = range_name
+    AND dp.distance_range = range_name
 );
 
 -- ================================================================
@@ -208,7 +208,7 @@ SELECT
     pv.name as "Variant",
     pl.name as "Level",
     CONCAT('₹', pl.base_price) as "Base Price",
-    dp.range_name as "Distance Range",
+    dp.distance_range as "Distance Range",
     CONCAT('₹', dp.base_price_addition) as "Distance Charge",
     CONCAT('₹', pl.base_price + dp.base_price_addition) as "Total Price"
 FROM packages_categories pc

@@ -415,12 +415,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
   const handleCreateVariant = async () => {
     try {
-      if (!selectedPackage) {
-        toast.error("Please select a package first")
+      if (!selectedCategory) {
+        toast.error("Please select a category first")
         return
       }
 
-      // Validate form
       if (!variantForm.name.trim()) {
         toast.error("Variant name is required")
         return
@@ -431,68 +430,53 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         return
       }
 
-      const extraPrice = Number.parseFloat(variantForm.extra_price)
-      if (isNaN(extraPrice) || extraPrice < 0) {
-        toast.error("Please enter a valid extra price")
+      const basePrice = Number.parseFloat(variantForm.extra_price)
+      if (isNaN(basePrice) || basePrice < 0) {
+        toast.error("Please enter a valid base price")
         return
       }
 
-      // Parse inclusions from comma-separated string
       const inclusions = variantForm.inclusions
         .split(",")
         .map((item) => item.trim())
         .filter((item) => item.length > 0)
 
-      if (inclusions.length === 0) {
-        toast.error("Please add at least one inclusion")
-        return
-      }
-
-      const variantData = {
+      const payload: any = {
         name: variantForm.name.trim(),
         description: variantForm.description.trim(),
-        base_price: extraPrice,
-        inclusions: inclusions,
-        package_id: selectedPackage.id,
+        base_price: basePrice,
+        inclusions,
+        category_id: selectedCategory.id,
+        // For backward-compat where package_id may be NOT NULL, set to category id
+        package_id: (selectedCategory as any).id,
         is_active: true,
-        display_order: 1,
+        display_order: ((selectedCategory.package_variants || []).length) + 1,
       }
 
       let result
       if (editingVariant) {
-        // Update existing variant
         result = await supabase
           .from("package_variants")
           .update({
-            ...variantData,
+            ...payload,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingVariant.id)
           .select()
-
         if (result.error) throw result.error
         toast.success("Variant updated successfully!")
       } else {
-        // Create new variant
-        result = await supabase.from("package_variants").insert([variantData]).select()
-
+        result = await supabase.from("package_variants").insert([payload]).select()
         if (result.error) throw result.error
         toast.success("Variant created successfully!")
       }
 
-      // Refresh data and close dialog
       await refetchData()
     } catch (error) {
       console.error("Error creating/updating variant:", error)
       toast.error("Failed to save variant. Please try again.")
     } finally {
-      // Reset form and close dialog
-      setVariantForm({
-        name: "",
-        description: "",
-        extra_price: "0.00",
-        inclusions: "",
-      })
+      setVariantForm({ name: "", description: "", extra_price: "0.00", inclusions: "" })
       setEditingVariant(null)
       setDialogs((prev) => ({ ...prev, createVariant: false }))
     }
@@ -510,7 +494,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   }
 
   const handleDeleteVariant = async (variantId: string) => {
-  const variant = selectedPackage?.variants?.find((v: PackageVariant) => v.id === variantId)
+  const variant = selectedCategory?.package_variants?.find((v: PackageVariant) => v.id === variantId)
     if (!variant) return
     setPendingVariantDelete({ id: variantId, name: variant.name })
     setShowVariantDeleteDialog(true)
@@ -535,8 +519,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   }
 
   const handleCreateDistancePricing = async () => {
-    if (!selectedVariant) {
-      toast.error("Please select a variant first")
+    if (!selectedLevel || !selectedVariant) {
+      toast.error("Please select a level first")
       return
     }
     try {
@@ -558,6 +542,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
 
       const payload: any = {
+        level_id: selectedLevel.id,
         variant_id: selectedVariant.id,
         distance_range: distancePricingForm.range.trim(),
         min_km: distancePricingForm.min_km,
@@ -605,6 +590,55 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     setDialogs((prev) => ({ ...prev, configurePricing: true }))
   }
 
+  const handleSaveLevel = async () => {
+    try {
+      if (!selectedVariant) {
+        toast.error("Select a variant first")
+        return
+      }
+      const price = Number.parseFloat(levelForm.base_price)
+      if (isNaN(price) || price < 0) {
+        toast.error("Enter a valid base price")
+        return
+      }
+      const payload: any = {
+        variant_id: selectedVariant.id,
+        name: levelForm.name.trim(),
+        base_price: price,
+        is_active: true,
+      }
+      let resp
+      if (editingLevel) {
+        resp = await supabase.from('package_levels').update({
+          ...payload,
+          updated_at: new Date().toISOString(),
+        }).eq('id', editingLevel.id)
+      } else {
+        resp = await supabase.from('package_levels').insert(payload)
+      }
+      if (resp.error) throw resp.error
+      toast.success(editingLevel ? 'Level updated' : 'Level created')
+      setDialogs(prev=>({...prev, createLevel:false}))
+      setEditingLevel(null)
+      setLevelForm({ name: '', base_price: '0.00' })
+      await refetchData()
+    } catch (e:any) {
+      toast.error(e.message || 'Failed to save level')
+    }
+  }
+
+  const handleDeleteLevel = async (levelId: string) => {
+    try {
+      const resp = await supabase.from('package_levels').delete().eq('id', levelId)
+      if (resp.error) throw resp.error
+      toast.success('Level deleted')
+      if (selectedLevel?.id === levelId) setSelectedLevel(null)
+      await refetchData()
+    } catch (e:any) {
+      toast.error(e.message || 'Failed to delete level')
+    }
+  }
+
   const handleDeleteDistancePricing = async (distancePricingId: string) => {
     try {
       setIsLoading(true)
@@ -636,116 +670,68 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         .from("packages_categories")
         .select("*")
         .order("display_order")
-      if (categoriesError) {
-        console.error("[v0] Categories fetch error:", categoriesError)
-        throw categoriesError
-      }
-      console.log(`[v0] Categories fetched: ${categoriesData?.length || 0}`)
+      if (categoriesError) throw categoriesError
 
-      console.log("[v0] Fetching packages with franchise filter...")
-      // Build packages query with franchise filtering
-      let packagesQuery = supabase
-        .from("package_sets")
-        .select("*")
-        .order("display_order")
-      
-      // Apply franchise filtering for non-super-admins
+      // Fetch variants by category_id (franchise filter for non-super-admin)
+      let variantsQuery = supabase.from("package_variants").select("*")
       if (user?.role !== "super_admin" && user?.franchise_id) {
-        console.log("[v0] Applying franchise filter:", user.franchise_id)
-        packagesQuery = packagesQuery.eq("franchise_id", user.franchise_id)
+        variantsQuery = variantsQuery.eq("franchise_id", user.franchise_id)
       }
-      
-      const { data: packagesData, error: packagesError } = await packagesQuery
-      if (packagesError) {
-        console.error("[v0] Packages fetch error:", packagesError)
-        throw packagesError
-      }
-      console.log(`[v0] Packages fetched: ${packagesData?.length || 0}`)
+      const { data: allVariants, error: variantsError } = await variantsQuery.order("display_order")
+      if (variantsError) throw variantsError
 
-      // Only fetch variants for the filtered packages
-      const packageIds = (packagesData || []).map((p:any) => p.id)
-      let variantsData: any[] = []
-      if (packageIds.length > 0) {
-        console.log("[v0] Fetching variants for filtered packages...", packageIds.length)
-        const { data: vData, error: variantsError } = await supabase
-          .from("package_variants")
-          .select("*")
-          .in("package_id", packageIds)
-          .order("display_order")
-        if (variantsError) {
-          console.error("[v0] Variants fetch error:", variantsError)
-          throw variantsError
-        }
-        variantsData = vData || []
-      }
-      console.log(`[v0] Variants fetched: ${variantsData.length}`)
-
-      // Only fetch distance pricing for those variants
-      const variantIds = variantsData.map((v:any) => v.id)
-      let distancePricingData: any[] = []
+      const variantIds = (allVariants || []).map((v: any) => v.id)
+      let levelsData: any[] = []
       if (variantIds.length > 0) {
-        console.log("[v0] Fetching distance pricing for filtered variants...", variantIds.length)
-        const { data: dpData, error: distancePricingError } = await supabase
-          .from("distance_pricing")
+        const { data: lvlData, error: levelsError } = await supabase
+          .from("package_levels")
           .select("*")
           .in("variant_id", variantIds)
+          .order("display_order")
+        if (levelsError) throw levelsError
+        levelsData = lvlData || []
+      }
+
+      const levelIds = levelsData.map((l: any) => l.id)
+      let pricingData: any[] = []
+      if (levelIds.length > 0) {
+        const { data: dpData, error: dpError } = await supabase
+          .from("distance_pricing")
+          .select("*")
+          .in("level_id", levelIds)
           .order("min_km")
-        if (distancePricingError) {
-          console.error("[v0] Distance pricing fetch error:", distancePricingError)
-          throw distancePricingError
-        }
-        distancePricingData = (dpData || []).map((dp:any) => ({ ...dp, range: dp.range ?? dp.distance_range ?? '' }))
+        if (dpError) throw dpError
+  pricingData = (dpData || []).map((dp:any) => ({ ...dp, range: dp.range ?? dp.range_name ?? dp.distance_range ?? '' }))
       }
-      console.log(`[v0] Distance pricing fetched: ${distancePricingData.length}`)
 
-      console.log("[v0] Processing data relationships...")
-      const categoriesWithPackages = categoriesData.map((category) => ({
-        ...category,
-        packages: packagesData
-          .filter((pkg) => pkg.category_id === category.id)
-          .map((pkg) => ({
-            ...pkg,
-            variants: variantsData
-              .filter((variant) => variant.package_id === pkg.id)
-              .map((variant) => ({
-                ...variant,
-                distance_pricing: distancePricingData.filter((dp) => dp.variant_id === variant.id),
-              })),
-          })),
-      }))
+      const categoriesWithVariants = (categoriesData || []).map((category:any) => {
+        const variants = (allVariants || []).filter((v:any) => v.category_id === category.id)
+        const variantsWithLevels = variants.map((v:any) => {
+          const vLevels = levelsData.filter((l:any) => l.variant_id === v.id)
+          const vLevelsWithPricing = vLevels.map((lvl:any) => ({
+            ...lvl,
+            distance_pricing: pricingData.filter((dp:any) => dp.level_id === lvl.id),
+          }))
+          return { ...v, package_levels: vLevelsWithPricing }
+        })
+        return { ...category, package_variants: variantsWithLevels }
+      })
 
-      console.log("[v0] Setting categories state...")
-      setCategories(categoriesWithPackages)
+      setCategories(categoriesWithVariants)
 
-      // Update selectedCategory if it exists
       if (selectedCategory) {
-        const updatedCategory = categoriesWithPackages.find(cat => cat.id === selectedCategory.id)
-        if (updatedCategory) {
-          console.log("[v0] Updating selectedCategory with fresh data")
-          setSelectedCategory(updatedCategory)
-          
-          // Update selectedPackage if it exists
-          if (selectedPackage) {
-            const updatedPackage = updatedCategory.packages?.find((pkg: PackageType) => pkg.id === selectedPackage.id)
-            if (updatedPackage) {
-              console.log("[v0] Updating selectedPackage with fresh data")
-              setSelectedPackage(updatedPackage)
-              
-              // Update selectedVariant if it exists
-              if (selectedVariant) {
-                const updatedVariant = updatedPackage.variants?.find((v: PackageVariant) => v.id === selectedVariant.id)
-                if (updatedVariant) {
-                  console.log("[v0] Updating selectedVariant with fresh data")
-                  setSelectedVariant(updatedVariant)
-                }
-              }
-            }
-          }
-        }
+        const updatedCategory = categoriesWithVariants.find((c:any) => c.id === selectedCategory.id)
+        if (updatedCategory) setSelectedCategory(updatedCategory)
       }
-
-      const totalPackages = packagesData.length
-      console.log(`[v0] Data refetched successfully: ${categoriesData.length} categories, ${totalPackages} packages`)
+      if (selectedVariant && selectedCategory) {
+        const updatedVariant = (categoriesWithVariants.find((c:any)=>c.id===selectedCategory.id)?.package_variants||[])
+          .find((v:any)=>v.id===selectedVariant.id)
+        if (updatedVariant) setSelectedVariant(updatedVariant)
+      }
+      if (selectedLevel && selectedVariant) {
+        const updatedLevel = (selectedVariant.package_levels||[]).find((l:any)=>l.id===selectedLevel.id)
+        if (updatedLevel) setSelectedLevel(updatedLevel)
+      }
     } catch (error) {
       console.error("[v0] Error refetching data:", error)
       toast.error("Failed to refresh data")
@@ -986,6 +972,13 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                     {(selectedCategory.package_variants || []).length} variants available
                   </p>
                 </div>
+                <Button
+                  onClick={() => setDialogs((prev) => ({ ...prev, createVariant: true }))}
+                  className="bg-heritage-dark hover:bg-heritage-dark/90 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Variant
+                </Button>
               </div>
 
               <div className="grid gap-4">
@@ -1244,9 +1237,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                             variant="outline"
                             size="sm"
                             className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
-                            onClick={() => {
-                              // implement delete level later
-                            }}
+                            onClick={() => handleDeleteLevel(level.id)}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete
@@ -1301,7 +1292,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                     <Button variant="outline" onClick={() => setDialogs((prev) => ({ ...prev, createLevel: false }))}>
                       Cancel
                     </Button>
-                    <Button className="btn-heritage-dark" onClick={() => { /* implement create/update level */ }}>
+                    <Button className="btn-heritage-dark" onClick={handleSaveLevel}>
                       {editingLevel ? "Update Level" : "Create Level"}
                     </Button>
                   </DialogFooter>
@@ -1545,6 +1536,15 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           </div>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={showVariantDeleteDialog}
+        title="Delete Variant"
+        description={pendingVariantDelete ? `Delete variant "${pendingVariantDelete.name}"? This cannot be undone.` : ''}
+        destructive
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteVariant}
+        onCancel={()=>{ setShowVariantDeleteDialog(false); setPendingVariantDelete(null) }}
+      />
     </div>
   )
 }
