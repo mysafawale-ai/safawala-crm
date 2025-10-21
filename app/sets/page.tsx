@@ -41,8 +41,8 @@ export default function PackagesPage() {
           } else {
             console.log("[v0] Categories fetched successfully:", categoriesData?.length || 0)
 
-            // Fetch variants (shown as "Packages") for each category
-            const categoriesWithPackages = await Promise.all(
+            // Fetch variants directly for each category (no packages layer)
+            const categoriesWithVariants = await Promise.all(
               (categoriesData || []).map(async (category) => {
                 // Build query with franchise filtering
                 let variantQuery = supabase
@@ -58,7 +58,7 @@ export default function PackagesPage() {
                 
                 const { data: variantsData } = await variantQuery.order("display_order", { ascending: true })
 
-                // Fetch levels (shown as "Variants") for each variant
+                // Fetch levels for each variant
                 const variantsWithLevels = await Promise.all(
                   (variantsData || []).map(async (variant) => {
                     const { data: levelsData } = await supabase
@@ -99,7 +99,7 @@ export default function PackagesPage() {
               }),
             )
 
-            setCategories(categoriesWithPackages)
+            setCategories(categoriesWithVariants)
           }
         } catch (dbError) {
           console.log("[v0] Database error:", dbError.message)
