@@ -1319,13 +1319,23 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               </div>
 
               <div className="grid gap-4">
-                {(selectedVariant.package_levels || []).map((level) => (
+                {(selectedVariant.package_levels || []).map((level) => {
+                  const variantBase = selectedVariant.base_price || 0
+                  const levelExtra = level.base_price || 0
+                  const total = variantBase + levelExtra
+                  return (
                   <Card key={level.id} className="card-heritage">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-lg font-semibold">{level.name}</h4>
-                          <Badge className="bg-gold text-brown-800 mt-2">₹{level.base_price?.toLocaleString() || "0"}</Badge>
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-brown-600">₹{variantBase.toLocaleString()} (base)</span>
+                            <span className="text-brown-400">+</span>
+                            <span className="text-sm text-brown-600">₹{levelExtra.toLocaleString()} (extra)</span>
+                            <span className="text-brown-400">=</span>
+                            <Badge className="bg-gold text-brown-800 font-semibold">₹{total.toLocaleString()}</Badge>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
@@ -1365,7 +1375,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  )
+                })}
               </div>
 
               <Dialog
@@ -1383,19 +1394,24 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                     <DialogTitle className="vintage-heading">
                       {editingLevel ? "Edit Level" : "Create New Level"}
                     </DialogTitle>
+                    <DialogDescription className="text-sm text-brown-600">
+                      {selectedVariant && (
+                        <span>Variant Base Price: ₹{selectedVariant.base_price?.toLocaleString() || "0"}</span>
+                      )}
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="level-name">Level Name</Label>
                       <Input
                         id="level-name"
-                        placeholder="e.g., Basic, Premium"
+                        placeholder="e.g., Basic, Premium, VIP"
                         value={levelForm.name}
                         onChange={(e) => setLevelForm((prev) => ({ ...prev, name: e.target.value }))}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="level-price">Base Price (₹)</Label>
+                      <Label htmlFor="level-price">Extra Price (₹) - Optional</Label>
                       <Input
                         id="level-price"
                         type="number"
@@ -1405,6 +1421,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         value={levelForm.base_price}
                         onChange={(e) => setLevelForm((prev) => ({ ...prev, base_price: e.target.value }))}
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Total = Variant Base (₹{selectedVariant?.base_price?.toLocaleString() || "0"}) + Extra (₹{levelForm.base_price || "0"})
+                        {" = ₹"}
+                        {((selectedVariant?.base_price || 0) + (Number.parseFloat(levelForm.base_price) || 0)).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                   <DialogFooter>
