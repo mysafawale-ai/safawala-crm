@@ -62,7 +62,8 @@ interface Category {
   id: string
   name: string
   description: string
-  packages: PackageType[]
+  packages?: PackageType[]
+  package_variants?: PackageVariant[]
   is_active: boolean
 }
 
@@ -920,9 +921,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         <p className="text-brown-600 mb-2">{category.description}</p>
                         <div className="flex items-center gap-3">
                           <Badge variant="secondary" className="bg-green-100 text-green-800">
-                            {(category.packages || []).length} Packages
+                            {(category.package_variants || category.packages || []).length} Variants
                           </Badge>
-                          <span className="text-sm text-brown-500">{(category.packages || []).length} packages</span>
+                          <span className="text-sm text-brown-500">{(category.package_variants || category.packages || []).length} variants</span>
                         </div>
                       </div>
                     </div>
@@ -933,11 +934,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         className="border-green-300 text-green-700 hover:bg-green-50 bg-green-50/30"
                         onClick={() => {
                           setSelectedCategory(category)
-                          setActiveTab("packages")
+                          setActiveTab("variants")
                         }}
                       >
                         <Eye className="w-4 h-4 mr-2" />
-                        View Packages
+                        View Variants
                       </Button>
                       <Button
                         variant="outline"
