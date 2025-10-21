@@ -609,6 +609,10 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         is_active: true,
         franchise_id: user?.franchise_id || null,
       }
+      
+      console.log('[Sets] Creating level with payload:', payload)
+      console.log('[Sets] Current user:', { id: user?.id, franchise_id: user?.franchise_id, role: user?.role })
+      
       let resp
       if (editingLevel) {
         resp = await supabase.from('package_levels').update({
@@ -618,6 +622,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       } else {
         resp = await supabase.from('package_levels').insert(payload)
       }
+      
+      console.log('[Sets] Supabase response:', resp)
+      
       if (resp.error) throw resp.error
       toast.success(editingLevel ? 'Level updated' : 'Level created')
       setDialogs(prev=>({...prev, createLevel:false}))
