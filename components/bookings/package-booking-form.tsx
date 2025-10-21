@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, Save, Package, User, Clock } from "lucide-react"
+import { CalendarIcon, Save, Package, User, Clock, Layers } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -415,6 +415,16 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
       return false
     }
 
+    // If variant has levels, level selection is required
+    if (selectedVariant && selectedVariantData?.package_levels && selectedVariantData.package_levels.length > 0 && !selectedLevel) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a level for this variant",
+        variant: "destructive",
+      })
+      return false
+    }
+
     if (!eventDate) {
       toast({
         title: "Validation Error",
@@ -438,6 +448,7 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
       selectedCategory: selectedCategoryData,
       selectedPackage: selectedPackageData,
       selectedVariant: selectedVariantData,
+      selectedLevel: selectedLevelData,
       selectedProducts,
       skipProductSelection,
       eventDate,
@@ -751,6 +762,110 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
                 </div>
                 <p className="text-sm text-gray-600 mt-1">Use the base package without any additional variants</p>
               </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 4: Select Level */}
+      {selectedVariant && selectedVariantData?.package_levels && selectedVariantData.package_levels.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Step 4: Select Level
+            </CardTitle>
+            <p className="text-sm text-gray-600">Choose a pricing level for {selectedVariantData.name}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              {selectedVariantData.package_levels.map((level) => {
+                const levelTotal = (selectedVariantData.base_price || 0) + (level.base_price || 0)
+                return (
+                  <div
+                    key={level.id}
+                    className={cn(
+                      "p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md",
+                      selectedLevel === level.id
+                        ? "border-purple-500 bg-purple-50"
+                        : "border-gray-200 hover:border-gray-300",
+                    )}
+                    onClick={() => setSelectedLevel(level.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">{level.name}</h3>
+                        <div className="mt-2 flex items-center gap-2 flex-wrap text-sm">
+                          <span className="text-gray-600">₹{selectedVariantData.base_price.toLocaleString()} (base)</span>
+                          <span className="text-gray-400">+</span>
+                          <span className="text-gray-600">₹{level.base_price.toLocaleString()} (additional)</span>
+                          <span className="text-gray-400">=</span>
+                          <Badge className="bg-purple-600 text-white font-semibold">₹{levelTotal.toLocaleString()}</Badge>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div
+                          className={cn(
+                            "w-5 h-5 rounded-full border-2",
+                            selectedLevel === level.id ? "bg-purple-500 border-purple-500" : "border-gray-300",
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pricing Breakdown Card */}
+      {selectedVariantData && selectedLevelData && (
+        <Card className="bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-700">
+              💰 Pricing Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">Variant Base Price:</span>
+                <span className="font-semibold text-lg">₹{selectedVariantData.base_price.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">Level Additional:</span>
+                <span className="font-semibold text-lg">₹{selectedLevelData.base_price.toLocaleString()}</span>
+              </div>
+              <div className="border-t-2 border-purple-300 pt-2 flex justify-between items-center">
+                <span className="text-gray-800 font-medium">Level Total:</span>
+                <span className="font-bold text-xl">₹{((selectedVariantData.base_price || 0) + (selectedLevelData.base_price || 0)).toLocaleString()}</span>
+              </div>
+              {distancePricingAmount > 0 && (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-blue-700">+ Distance Charge:</span>
+                    <span className="font-semibold text-lg text-blue-600">₹{distancePricingAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="border-t-2 border-purple-400 pt-3 flex justify-between items-center bg-white/50 p-3 rounded-lg">
+                    <span className="text-purple-800 font-bold text-lg">Final Price:</span>
+                    <span className="font-bold text-2xl text-purple-700">₹{calculateTotal().toLocaleString()}</span>
+                  </div>
+                </>
+              )}
+              {couponDiscount > 0 && (
+                <div className="flex justify-between items-center text-green-600">
+                  <span>Coupon Discount:</span>
+                  <span className="font-semibold">- ₹{couponDiscount.toLocaleString()}</span>
+                </div>
+              )}
+              {discountAmount > 0 && (
+                <div className="flex justify-between items-center text-green-600">
+                  <span>Additional Discount:</span>
+                  <span className="font-semibold">- ₹{discountAmount.toLocaleString()}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
