@@ -1623,13 +1623,31 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           }))
                         }
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Level Total: ₹{((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0)).toLocaleString()} 
-                        {" + Distance: ₹"}
-                        {(distancePricingForm.base_price_addition || 0).toLocaleString()}
-                        {" = Final: ₹"}
-                        {((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0) + (distancePricingForm.base_price_addition || 0)).toLocaleString()}
-                      </p>
+                      <div className="mt-2 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                        <p className="text-xs font-medium text-gray-700 mb-1">💰 Total Price Calculation:</p>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Variant Base:</span>
+                            <span className="font-semibold">₹{(selectedVariant?.base_price || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Level Additional:</span>
+                            <span className="font-semibold">₹{(selectedLevel?.base_price || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-purple-200 pt-1">
+                            <span className="text-gray-700 font-medium">Level Total:</span>
+                            <span className="font-bold">₹{((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0)).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-blue-600">+ Distance Charge:</span>
+                            <span className="font-semibold text-blue-600">₹{(distancePricingForm.base_price_addition || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between border-t-2 border-purple-300 pt-1">
+                            <span className="text-purple-700 font-bold">Final Price:</span>
+                            <span className="font-bold text-lg text-purple-700">₹{((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0) + (distancePricingForm.base_price_addition || 0)).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>
