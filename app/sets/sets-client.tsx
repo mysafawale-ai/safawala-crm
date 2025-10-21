@@ -607,6 +607,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         name: levelForm.name.trim(),
         base_price: price,
         is_active: true,
+        franchise_id: user?.franchise_id || null,
       }
       let resp
       if (editingLevel) {
