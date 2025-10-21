@@ -448,6 +448,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         category_id: selectedCategory.id,
         // For backward-compat where package_id may be NOT NULL, set to category id
         package_id: (selectedCategory as any).id,
+        // Ensure variants appear for current franchise (RLS + filtering)
+        franchise_id: user?.franchise_id || null,
         is_active: true,
         display_order: ((selectedCategory.package_variants || []).length) + 1,
       }
