@@ -15,11 +15,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Pencil, Trash2, MapPin, ArrowLeft, Crown, Palette, Eye } from "lucide-react"
+import { Plus, Pencil, Trash2, MapPin, ArrowLeft, Crown, Palette, Eye, Layers } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useRouter } from "next/navigation"
-import { Package } from "lucide-react"
+// Package icon no longer used after removing Packages tab
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -33,13 +33,22 @@ interface DistancePricing {
   base_price_addition: number
 }
 
+interface PackageLevel {
+  id: string
+  name: string
+  base_price: number
+  is_active: boolean
+  display_order: number
+  distance_pricing: DistancePricing[]
+}
+
 interface PackageVariant {
   id: string
   name: string
   description: string
   base_price: number
   inclusions?: string[]
-  distance_pricing: DistancePricing[]
+  package_levels?: PackageLevel[]
   is_active: boolean
 }
 
@@ -106,6 +115,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     createPackage: false,
     createVariant: false,
     configurePricing: false,
+    createLevel: false,
   })
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
@@ -115,6 +125,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
   const [selectedVariant, setSelectedVariant] = useState<PackageVariant | null>(null)
+  const [selectedLevel, setSelectedLevel] = useState<PackageLevel | null>(null)
+  const [editingLevel, setEditingLevel] = useState<PackageLevel | null>(null)
+  const [levelForm, setLevelForm] = useState({ name: "", base_price: "0.00" })
   const [categoryForm, setCategoryForm] = useState({ name: "", description: "" })
   const [activeTab, setActiveTab] = useState("categories")
 
@@ -144,12 +157,18 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               base_price: 35000,
               inclusions: ["21 Silk Safas", "Gold Kalgis", "Premium Jewelry Set", "Storage Box", "Setup Service"],
               is_active: true,
-              distance_pricing: [
-                { id: "1", range: "0-10 km", min_km: 0, max_km: 10, base_price_addition: 0 },
-                { id: "2", range: "11-25 km", min_km: 11, max_km: 25, base_price_addition: 2000 },
-                { id: "3", range: "26-150 km", min_km: 26, max_km: 150, base_price_addition: 5000 },
-                { id: "4", range: "151-300 km", min_km: 151, max_km: 300, base_price_addition: 8000 },
-                { id: "5", range: "300-1500 km", min_km: 301, max_km: 1500, base_price_addition: 15000 },
+              package_levels: [
+                {
+                  id: "lvl-1",
+                  name: "Basic",
+                  base_price: 35000,
+                  is_active: true,
+                  display_order: 1,
+                  distance_pricing: [
+                    { id: "1", range: "0-10 km", min_km: 0, max_km: 10, base_price_addition: 0 },
+                    { id: "2", range: "11-25 km", min_km: 11, max_km: 25, base_price_addition: 2000 },
+                  ],
+                },
               ],
             },
           ],
@@ -520,16 +539,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       toast.error("Please select a variant first")
       return
     }
-
-          <ConfirmDialog
-            open={showVariantDeleteDialog}
-            title="Delete Variant"
-            description={pendingVariantDelete ? `Delete variant "${pendingVariantDelete.name}"? This cannot be undone.` : ''}
-            destructive
-            confirmLabel="Delete"
-            onConfirm={confirmDeleteVariant}
-            onCancel={()=>{ setShowVariantDeleteDialog(false); setPendingVariantDelete(null) }}
-          />
     try {
       setIsLoading(true)
       console.log("[v0] Creating/updating distance pricing...")
@@ -797,17 +806,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-heritage-dark">
-              {categories.reduce((acc, cat) => acc + (cat.packages || []).length, 0)}
-            </div>
-            <div className="text-brown-600">Packages</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-heritage-dark">
-              {categories.reduce(
-                (acc, cat) =>
-                  acc + (cat.packages || []).reduce((pkgAcc, pkg) => pkgAcc + (pkg.variants || []).length, 0),
-                0,
-              )}
+              {categories.reduce((acc, cat) => acc + (cat.package_variants || []).length, 0)}
             </div>
             <div className="text-brown-600">Variants</div>
           </div>
@@ -815,7 +814,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-cream-100">
+  <TabsList className="grid w-full grid-cols-4 bg-cream-100">
           <TabsTrigger
             value="categories"
             className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
@@ -823,19 +822,20 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             <Crown className="w-4 h-4 mr-2" />
             Categories
           </TabsTrigger>
-          <TabsTrigger
-            value="packages"
-            className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
-          >
-            <Package className="w-4 h-4 mr-2" />
-            Packages
-          </TabsTrigger>
+          
           <TabsTrigger
             value="variants"
             className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
           >
             <Palette className="w-4 h-4 mr-2" />
             Variants
+          </TabsTrigger>
+          <TabsTrigger
+            value="levels"
+            className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
+          >
+            <Layers className="w-4 h-4 mr-2" />
+            Levels
           </TabsTrigger>
           <TabsTrigger
             value="pricing"
@@ -968,297 +968,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           </div>
         </TabsContent>
 
-        <TabsContent value="packages" className="space-y-4">
-          {!selectedCategory ? (
-            <div className="text-center py-8">
-              <Package className="w-16 h-16 mx-auto text-brown-400 mb-4" />
-              <h3 className="vintage-heading text-xl mb-2">Select a Category</h3>
-              <p className="text-brown-600 mb-4">Choose a category from the list below to view its packages</p>
-              <div className="grid gap-3 max-w-md mx-auto">
-                {categories.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant="outline"
-                    className="border-brown-300 text-brown-700 hover:bg-brown-50 justify-start bg-transparent"
-                    onClick={() => {
-                      setSelectedCategory(category)
-                      setActiveTab("packages")
-                    }}
-                  >
-                    <Crown className="w-4 h-4 mr-2" />
-                    {category.name} ({(category.packages || []).length} packages)
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedCategory(null)}
-                    className="border-brown-300 text-brown-700 hover:bg-brown-50"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Categories
-                  </Button>
-                  <div>
-                    <h3 className="vintage-heading text-lg font-semibold">{selectedCategory.name}</h3>
-                    <p className="text-sm text-brown-600">
-                      {(selectedCategory.packages || []).length} packages available
-                    </p>
-                  </div>
-                </div>
-                <Dialog
-                  open={dialogs.createPackage}
-                  onOpenChange={(open) => {
-                    setDialogs((prev) => ({ ...prev, createPackage: open }))
-                    if (!open) {
-                      setEditingPackage(null)
-                      setPackageForm({
-                        name: "",
-                        description: "",
-                        base_price: "0.00",
-                        security_deposit: "0.00",
-                        extra_safa_price: "0.00",
-                        franchise_id: "",
-                      })
-                    } else if (open && !editingPackage) {
-                      // Auto-select franchise for non-super-admins when creating new package
-                      console.log("[v0] Dialog opened, user:", user)
-                      console.log("[v0] Franchises available:", franchises)
-                      if (user?.role !== "super_admin" && user?.franchise_id) {
-                        console.log("[v0] Auto-selecting franchise:", user.franchise_id)
-                        setPackageForm((prev) => ({ ...prev, franchise_id: user.franchise_id }))
-                      }
-                    }
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button className="btn-heritage-dark" disabled={isLoading}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Package
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="heritage-container">
-                    <DialogHeader>
-                      <DialogTitle className="vintage-heading">
-                        {editingPackage ? "Edit Package" : "Create New Package"}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="packageName" className="text-sm font-medium text-gray-700">
-                          Package Name
-                        </Label>
-                        <Input
-                          id="packageName"
-                          placeholder="E.g. Royal Wedding Set"
-                          value={packageForm.name}
-                          onChange={(e) => setPackageForm((prev) => ({ ...prev, name: e.target.value }))}
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="packageDescription" className="text-sm font-medium text-gray-700">
-                          Description
-                        </Label>
-                        <Textarea
-                          id="packageDescription"
-                          placeholder="Package description..."
-                          value={packageForm.description}
-                          onChange={(e) => setPackageForm((prev) => ({ ...prev, description: e.target.value }))}
-                          className="mt-1 min-h-[80px]"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="packagePrice" className="text-sm font-medium text-gray-700">
-                          Base Price (₹)
-                        </Label>
-                        <Input
-                          id="packagePrice"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={packageForm.base_price}
-                          onChange={(e) => setPackageForm((prev) => ({ ...prev, base_price: e.target.value }))}
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="securityDeposit" className="text-sm font-medium text-gray-700">
-                          Security Deposit (₹)
-                        </Label>
-                        <Input
-                          id="securityDeposit"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={packageForm.security_deposit}
-                          onChange={(e) => setPackageForm((prev) => ({ ...prev, security_deposit: e.target.value }))}
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="extraSafaPrice" className="text-sm font-medium text-gray-700">
-                          Extra Safa Price (₹ per piece)
-                        </Label>
-                        <Input
-                          id="extraSafaPrice"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={packageForm.extra_safa_price}
-                          onChange={(e) => setPackageForm((prev) => ({ ...prev, extra_safa_price: e.target.value }))}
-                          className="mt-1"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Price for each additional safa beyond the package count
-                        </p>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="packageFranchise" className="text-sm font-medium text-gray-700">
-                          Franchise
-                        </Label>
-                        <Select
-                          value={packageForm.franchise_id}
-                          onValueChange={(value) => setPackageForm((prev) => ({ ...prev, franchise_id: value }))}
-                          disabled={user?.role !== "super_admin"}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Select Franchise">
-                              {packageForm.franchise_id && franchises?.find(f => f.id === packageForm.franchise_id)?.name}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {franchises?.map((franchise) => (
-                              <SelectItem key={franchise.id} value={franchise.id}>
-                                {franchise.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {user?.role !== "super_admin" && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Auto-selected to your franchise
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleCreatePackage}
-                      className="btn-heritage-dark"
-                      disabled={!packageForm.name.trim() || isLoading}
-                    >
-                      {isLoading ? "Saving..." : editingPackage ? "Update Package" : "Create Package"}
-                    </Button>
-                  </DialogContent>
-                </Dialog>
-              </div>
-
-              <div className="grid gap-4">
-                {(selectedCategory.packages || []).map((pkg) => (
-                  <Card key={pkg.id} className="card-heritage">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-brown-100 rounded-lg">
-                            <Package className="w-8 h-8 text-heritage-dark" />
-                          </div>
-                          <div>
-                            <h4 className="vintage-heading text-lg font-semibold">{pkg.name}</h4>
-                            <p className="text-brown-600 mb-2">{pkg.description}</p>
-                            <div className="flex items-center gap-3">
-                              <Badge
-                                variant="secondary"
-                                className={`bg-green-100 text-green-800 ${pkg.base_price === 0 ? "opacity-40" : ""}`}
-                              >
-                                ₹{pkg.base_price.toLocaleString()}
-                              </Badge>
-                              <span className="text-sm text-brown-500">{(pkg.variants || []).length} variants</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-green-300 text-green-700 hover:bg-green-50 bg-green-50/30"
-                            onClick={() => {
-                              setSelectedPackage(pkg)
-                              setActiveTab("variants")
-                            }}
-                          >
-                            <Palette className="w-4 h-4 mr-2" />
-                            See Variants
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
-                            onClick={() => {
-                              setPackageForm({
-                                name: pkg.name,
-                                description: pkg.description,
-                                base_price: pkg.base_price.toString(),
-                                security_deposit: (pkg.security_deposit || 0).toString(),
-                                extra_safa_price: (pkg.extra_safa_price || 0).toString(),
-                                franchise_id: pkg.franchise_id || "",
-                              })
-                              setEditingPackage(pkg)
-                              setDialogs((prev) => ({ ...prev, createPackage: true }))
-                            }}
-                          >
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
-                            onClick={() => handleDeletePackage(pkg.id, pkg.name)}
-                            disabled={isLoading}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {(selectedCategory.packages || []).length === 0 && (
-                <div className="text-center py-8">
-                  <Package className="w-16 h-16 mx-auto text-brown-400 mb-4" />
-                  <h3 className="vintage-heading text-xl mb-2">No packages found</h3>
-                  <p className="text-brown-600 mb-4">Create your first package for {selectedCategory.name}</p>
-                  <Button
-                    className="btn-heritage-dark"
-                    onClick={() => {
-                      // Auto-select franchise for non-super-admins before opening dialog
-                      if (user?.role !== "super_admin" && user?.franchise_id) {
-                        setPackageForm((prev) => ({ ...prev, franchise_id: user.franchise_id }))
-                      }
-                      setDialogs((prev) => ({ ...prev, createPackage: true }))
-                    }}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create First Package
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </TabsContent>
+        
 
         <TabsContent value="variants" className="space-y-4">
           {!selectedCategory ? (
@@ -1295,7 +1005,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           size="sm"
                           onClick={() => {
                             setSelectedVariant(variant)
-                            setActiveTab("distance-pricing")
+                            setActiveTab("levels")
                           }}
                         >
                           View Levels
@@ -1308,6 +1018,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             </>
           )}
         </TabsContent>
+  {/* Removed stray legacy variant card block that caused JSX mismatch
                   <Card key={variant.id} className="card-heritage">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
@@ -1385,7 +1096,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   </Card>
                 ))}
               </div>
-
               <Dialog
                 open={dialogs.createVariant}
                 onOpenChange={(open) => {
@@ -1427,20 +1137,17 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       />
                     </div>
                     <div>
-                      <Label htmlFor="variant-price">Extra Price (₹)</Label>
+                      <Label htmlFor="variant-price">Base Price (₹)</Label>
                       <Input
                         id="variant-price"
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="Additional cost on top of package base price"
+                        placeholder="Base price for this variant"
                         value={variantForm.extra_price}
                         onChange={(e) => setVariantForm((prev) => ({ ...prev, extra_price: e.target.value }))}
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        This amount will be added to the package base price (₹
-                        {selectedPackage?.base_price.toLocaleString() || "0"})
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">This is the base price for the variant.</p>
                     </div>
                     <div>
                       <Label htmlFor="variant-inclusions">Inclusions (comma-separated)</Label>
@@ -1463,20 +1170,18 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   </div>
                 </DialogContent>
               </Dialog>
-            </>
-          )}
-        </TabsContent>
+              */}
 
-        <TabsContent value="pricing" className="space-y-4">
+        <TabsContent value="levels" className="space-y-4">
           {!selectedVariant ? (
             <div className="text-center py-8">
-              <MapPin className="w-16 h-16 mx-auto text-brown-400 mb-4" />
+              <Layers className="w-16 h-16 mx-auto text-brown-400 mb-4" />
               <h3 className="vintage-heading text-xl mb-2">Select a Variant</h3>
-              <p className="text-brown-600 mb-4">Choose a variant to view and manage its distance pricing</p>
+              <p className="text-brown-600 mb-4">Choose a variant to view its levels</p>
             </div>
           ) : (
             <>
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                   <Button
                     variant="outline"
@@ -1489,6 +1194,146 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   </Button>
                   <div>
                     <h3 className="vintage-heading text-lg font-semibold">{selectedVariant.name}</h3>
+                    <p className="text-sm text-brown-600">Manage levels for this variant</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setDialogs((prev) => ({ ...prev, createLevel: true }))}
+                  className="bg-heritage-dark hover:bg-heritage-dark/90 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Level
+                </Button>
+              </div>
+
+              <div className="grid gap-4">
+                {(selectedVariant.package_levels || []).map((level) => (
+                  <Card key={level.id} className="card-heritage">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-semibold">{level.name}</h4>
+                          <Badge className="bg-gold text-brown-800 mt-2">₹{level.base_price?.toLocaleString() || "0"}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedLevel(level)
+                              setActiveTab("pricing")
+                            }}
+                          >
+                            <MapPin className="w-4 h-4 mr-2" />
+                            Distance Pricing
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
+                            onClick={() => {
+                              setEditingLevel(level)
+                              setLevelForm({ name: level.name, base_price: String(level.base_price || 0) })
+                              setDialogs((prev) => ({ ...prev, createLevel: true }))
+                            }}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
+                            onClick={() => {
+                              // implement delete level later
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <Dialog
+                open={dialogs.createLevel}
+                onOpenChange={(open) => {
+                  setDialogs((prev) => ({ ...prev, createLevel: open }))
+                  if (!open) {
+                    setEditingLevel(null)
+                    setLevelForm({ name: "", base_price: "0.00" })
+                  }
+                }}
+              >
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="vintage-heading">
+                      {editingLevel ? "Edit Level" : "Create New Level"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="level-name">Level Name</Label>
+                      <Input
+                        id="level-name"
+                        placeholder="e.g., Basic, Premium"
+                        value={levelForm.name}
+                        onChange={(e) => setLevelForm((prev) => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="level-price">Base Price (₹)</Label>
+                      <Input
+                        id="level-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={levelForm.base_price}
+                        onChange={(e) => setLevelForm((prev) => ({ ...prev, base_price: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDialogs((prev) => ({ ...prev, createLevel: false }))}>
+                      Cancel
+                    </Button>
+                    <Button className="btn-heritage-dark" onClick={() => { /* implement create/update level */ }}>
+                      {editingLevel ? "Update Level" : "Create Level"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+        </TabsContent>
+        
+
+        <TabsContent value="pricing" className="space-y-4">
+          {!selectedLevel ? (
+            <div className="text-center py-8">
+              <MapPin className="w-16 h-16 mx-auto text-brown-400 mb-4" />
+              <h3 className="vintage-heading text-xl mb-2">Select a Level</h3>
+              <p className="text-brown-600 mb-4">Choose a level to view and manage its distance pricing</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedLevel(null)}
+                    className="border-brown-300 text-brown-700 hover:bg-brown-50"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Levels
+                  </Button>
+                  <div>
+                    <h3 className="vintage-heading text-lg font-semibold">{selectedLevel.name}</h3>
                     <p className="text-sm text-brown-600">Distance-based pricing from Alkapuri, Vadodara</p>
                   </div>
                 </div>
@@ -1502,7 +1347,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               </div>
 
               <div className="grid gap-4">
-                {selectedVariant.distance_pricing.map((pricing, index) => (
+                {(selectedLevel.distance_pricing || []).map((pricing, index) => (
                   <Card key={pricing.id} className="card-heritage">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -1521,17 +1366,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                               </Badge>
                               <span className="text-sm text-brown-500">
                                 Total: ₹
-                                {selectedPackage && selectedVariant
-                                  ? (
-                                      calculatePrice(
-                                        calculateVariantTotalPrice(
-                                          selectedPackage.base_price,
-                                          selectedVariant.base_price,
-                                        ),
-                                        selectedVariant.base_price,
-                                        pricing,
-                                      )
-                                    ).toLocaleString()
+                                {(selectedLevel && selectedLevel.base_price)
+                                  ? (calculatePrice(selectedLevel.base_price, selectedLevel.base_price, pricing)).toLocaleString()
                                   : '0'}
                               </span>
                             </div>
