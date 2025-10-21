@@ -990,21 +990,32 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         <h4 className="text-lg font-semibold vintage-heading text-heritage-dark">{variant.name}</h4>
                         <p className="text-sm text-brown-600 mt-1 line-clamp-2">{variant.description}</p>
                         <div className="mt-3 flex items-center gap-2">
-                          <Badge className="bg-gold text-brown-800">₹{variant.base_price?.toLocaleString() || "0"}</Badge>
+                          <Badge className="bg-gold text-brown-800 font-semibold text-sm px-3 py-1">₹{variant.base_price?.toLocaleString() || "0"}</Badge>
                           {Array.isArray(variant.package_levels) && variant.package_levels.length > 0 && (
                             <span className="text-xs text-brown-500">{variant.package_levels.length} level(s)</span>
                           )}
                         </div>
                         {Array.isArray(variant.inclusions) && variant.inclusions.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-1">
-                            {variant.inclusions.slice(0, 4).map((inc: string, idx: number) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {inc}
-                              </Badge>
-                            ))}
-                            {variant.inclusions.length > 4 && (
-                              <Badge variant="outline" className="text-xs">+{variant.inclusions.length - 4} more</Badge>
-                            )}
+                          <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                            <h5 className="text-sm font-bold text-purple-900 mb-2 uppercase tracking-wide">✨ Inclusions</h5>
+                            <div className="flex flex-wrap gap-2">
+                              {variant.inclusions.map((inc: string, idx: number) => {
+                                const colors = [
+                                  'bg-purple-500 text-white',
+                                  'bg-blue-500 text-white',
+                                  'bg-green-500 text-white',
+                                  'bg-orange-500 text-white',
+                                  'bg-pink-500 text-white',
+                                  'bg-teal-500 text-white',
+                                ]
+                                const colorClass = colors[idx % colors.length]
+                                return (
+                                  <Badge key={idx} className={`${colorClass} font-semibold text-sm px-3 py-1.5 shadow-sm`}>
+                                    {inc}
+                                  </Badge>
+                                )
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
