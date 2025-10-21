@@ -58,17 +58,22 @@ export async function GET(
           id,
           booking_id,
           variant_id,
+          package_id,
           quantity,
           extra_safas,
           unit_price,
           total_price,
-          variant_name,
-          product:products!package_booking_items_product_id_fkey(
+          selected_products,
+          package:package_sets!package_booking_items_package_id_fkey(
             id,
             name,
-            code,
-            category,
-            image_url
+            code
+          ),
+          variant:package_variants!package_booking_items_variant_id_fkey(
+            id,
+            name,
+            size,
+            quantity_safas
           )
         `)
         .eq('booking_id', id)
@@ -82,7 +87,16 @@ export async function GET(
       // Add extra_safas to quantity for package items
       items = (data || []).map((item: any) => ({
         ...item,
-        quantity: (item.quantity || 0) + (item.extra_safas || 0)
+        quantity: (item.quantity || 0) + (item.extra_safas || 0),
+        // Map package info to product-like structure for consistent display
+        product: item.package ? {
+          id: item.package.id,
+          name: item.package.name,
+          code: item.package.code,
+          category: 'Package',
+          image_url: null
+        } : null,
+        variant_name: item.variant?.name || null
       }))
     }
     

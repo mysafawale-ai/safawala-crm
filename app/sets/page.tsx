@@ -41,60 +41,60 @@ export default function PackagesPage() {
           } else {
             console.log("[v0] Categories fetched successfully:", categoriesData?.length || 0)
 
-            // Fetch packages for each category
+            // Fetch variants (shown as "Packages") for each category
             const categoriesWithPackages = await Promise.all(
               (categoriesData || []).map(async (category) => {
                 // Build query with franchise filtering
-                let packageQuery = supabase
-                  .from("package_sets")
+                let variantQuery = supabase
+                  .from("package_variants")
                   .select("*")
                   .eq("category_id", category.id)
                   .eq("is_active", true)
                 
                 // Only filter by franchise for non-super-admins
                 if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
-                  packageQuery = packageQuery.eq("franchise_id", currentUser.franchise_id)
+                  variantQuery = variantQuery.eq("franchise_id", currentUser.franchise_id)
                 }
                 
-                const { data: packagesData } = await packageQuery.order("name", { ascending: true })
+                const { data: variantsData } = await variantQuery.order("display_order", { ascending: true })
 
-                // Fetch variants for each package
-                const packagesWithVariants = await Promise.all(
-                  (packagesData || []).map(async (pkg) => {
-                    const { data: variantsData } = await supabase
-                      .from("package_variants")
+                // Fetch levels (shown as "Variants") for each variant
+                const variantsWithLevels = await Promise.all(
+                  (variantsData || []).map(async (variant) => {
+                    const { data: levelsData } = await supabase
+                      .from("package_levels")
                       .select("*")
-                      .eq("package_id", pkg.id)
+                      .eq("variant_id", variant.id)
                       .eq("is_active", true)
-                      .order("name", { ascending: true })
+                      .order("display_order", { ascending: true })
 
-                    // Fetch distance pricing for each variant
-                    const variantsWithPricing = await Promise.all(
-                      (variantsData || []).map(async (variant) => {
+                    // Fetch distance pricing for each level
+                    const levelsWithPricing = await Promise.all(
+                      (levelsData || []).map(async (level) => {
                         const { data: pricingData } = await supabase
                           .from("distance_pricing")
                           .select("*")
-                          .eq("variant_id", variant.id)
+                          .eq("level_id", level.id)
                           .eq("is_active", true)
                           .order("min_km", { ascending: true })
 
                         return {
-                          ...variant,
+                          ...level,
                           distance_pricing: pricingData || [],
                         }
                       }),
                     )
 
                     return {
-                      ...pkg,
-                      package_variants: variantsWithPricing,
+                      ...variant,
+                      package_levels: levelsWithPricing,
                     }
                   }),
                 )
 
                 return {
                   ...category,
-                  package_sets: packagesWithVariants,
+                  package_variants: variantsWithLevels,
                 }
               }),
             )
