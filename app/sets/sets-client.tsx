@@ -1261,11 +1261,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         </TabsContent>
 
         <TabsContent value="variants" className="space-y-4">
-          {!selectedPackage ? (
+          {!selectedCategory ? (
             <div className="text-center py-8">
               <Palette className="w-16 h-16 mx-auto text-brown-400 mb-4" />
-              <h3 className="vintage-heading text-xl mb-2">Select a Package</h3>
-              <p className="text-brown-600 mb-4">Choose a package to view and manage its variants</p>
+              <h3 className="vintage-heading text-xl mb-2">Select a Category</h3>
+              <p className="text-brown-600 mb-4">Choose a category to view and manage its variants</p>
               <div className="grid gap-3 max-w-md mx-auto">
                 {categories.flatMap((cat) =>
                   (cat.packages || []).map((pkg) => (
