@@ -342,11 +342,40 @@ export default function BookingsPage() {
   // When view dialog opens, fetch barcode assignments for the selected booking
   useEffect(() => {
     const loadBarcodesForView = async () => {
-      if (!showViewDialog || !selectedBooking) return
+      if (!showViewDialog || !selectedBooking) {
+        // Reset state when dialog closes
+        setBarcodeAssignmentsForView([])
+        setBarcodeStatsByProduct({})
+        return
+      }
+      
+      // Skip if no valid ID
+      if (!selectedBooking.id) {
+        console.warn('[View] No booking ID available')
+        setBarcodeAssignmentsForView([])
+        setBarcodeStatsByProduct({})
+        return
+      }
+
       try {
         const bookingType = (selectedBooking as any).source === 'package_bookings' ? 'package' : 'product'
         const res = await fetch(`/api/bookings/${selectedBooking.id}/barcodes?type=${bookingType}`)
-        if (!res.ok) throw new Error('Failed to fetch barcodes')
+        
+        // If 404, just skip - booking might not have barcodes yet
+        if (res.status === 404) {
+          console.log('[View] No barcode data found for booking', selectedBooking.id)
+          setBarcodeAssignmentsForView([])
+          setBarcodeStatsByProduct({})
+          return
+        }
+        
+        if (!res.ok) {
+          console.warn('[View] Failed to fetch barcodes:', res.status, res.statusText)
+          setBarcodeAssignmentsForView([])
+          setBarcodeStatsByProduct({})
+          return
+        }
+        
         const data = await res.json()
         if (data.success) {
           setBarcodeAssignmentsForView(data.barcodes || [])
@@ -358,12 +387,14 @@ export default function BookingsPage() {
             else stats[pid].pending++
           })
           setBarcodeStatsByProduct(stats)
+          console.log('[View] Barcode stats loaded:', Object.keys(stats).length, 'products')
         } else {
           setBarcodeAssignmentsForView([])
           setBarcodeStatsByProduct({})
         }
       } catch (e) {
-        console.error('[View] Failed to fetch barcodes for view:', e)
+        // Silently handle errors - barcode data is optional
+        console.log('[View] Skipping barcode fetch:', e instanceof Error ? e.message : 'Unknown error')
         setBarcodeAssignmentsForView([])
         setBarcodeStatsByProduct({})
       }
