@@ -256,7 +256,7 @@ export function BarcodeManagementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Barcode className="w-5 h-5" />
@@ -264,7 +264,7 @@ export function BarcodeManagementDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs defaultValue="overview" className="w-full flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="list">Barcode List</TabsTrigger>
@@ -272,7 +272,7 @@ export function BarcodeManagementDialog({
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4">
+          <TabsContent value="overview" className="space-y-4 overflow-y-auto flex-1">
             <div className="grid grid-cols-3 gap-4">
               <Card>
                 <CardHeader className="pb-3">
@@ -391,7 +391,7 @@ export function BarcodeManagementDialog({
           </TabsContent>
 
           {/* List Tab */}
-          <TabsContent value="list" className="space-y-4">
+          <TabsContent value="list" className="space-y-4 overflow-y-auto flex-1">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -407,7 +407,7 @@ export function BarcodeManagementDialog({
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" sideOffset={5}>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="available">🟢 Available</SelectItem>
                   <SelectItem value="damaged">🟡 Damaged</SelectItem>
@@ -419,7 +419,7 @@ export function BarcodeManagementDialog({
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Badge" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" sideOffset={5}>
                   <SelectItem value="all">All Badges</SelectItem>
                   <SelectItem value="in_use">🔵 In Use</SelectItem>
                   <SelectItem value="new">✨ New</SelectItem>
@@ -562,7 +562,7 @@ export function BarcodeManagementDialog({
           </TabsContent>
 
           {/* Generate Tab */}
-          <TabsContent value="generate" className="space-y-4">
+          <TabsContent value="generate" className="space-y-4 overflow-y-auto flex-1">
             <Card>
               <CardHeader>
                 <CardTitle>Generate Additional Barcodes</CardTitle>
