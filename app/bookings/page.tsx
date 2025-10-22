@@ -40,6 +40,7 @@ import autoTable from 'jspdf-autotable'
 import { useData } from "@/hooks/use-data"
 import { useToast } from "@/hooks/use-toast"
 import { BookingCalendar } from "@/components/bookings/booking-calendar"
+import { BookingBarcodes } from "@/components/bookings/booking-barcodes"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 
@@ -1213,6 +1214,12 @@ export default function BookingsPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Assigned Barcodes */}
+              <BookingBarcodes 
+                bookingId={selectedBooking.id} 
+                bookingType={selectedBooking.source === 'package_bookings' ? 'package' : 'product'} 
+              />
 
               {/* Enhanced Financial Summary */}
               <Card>
