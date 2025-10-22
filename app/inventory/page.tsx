@@ -29,6 +29,7 @@ import {
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { ProductViewDialog } from "@/components/inventory/product-view-dialog"
 import { BulkBarcodeGenerator } from "@/components/inventory/bulk-barcode-generator"
+import { BarcodeManagementDialog } from "@/components/inventory/barcode-management-dialog"
 // import { StockMovementDialog } from "@/components/inventory/stock-movement-dialog"
 import { supabase } from "@/lib/supabase"
 
@@ -94,7 +95,9 @@ export default function InventoryPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
+  const [barcodeManagementOpen, setBarcodeManagementOpen] = useState(false)
   const [selectedProductForBarcode, setSelectedProductForBarcode] = useState<Product | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   // const [stockMovementDialogOpen, setStockMovementDialogOpen] = useState(false)
   // const [selectedProductForStock, setSelectedProductForStock] = useState<Product | null>(null)
 
@@ -121,15 +124,17 @@ export default function InventoryPage() {
       // Get current user from API
       const userRes = await fetch("/api/auth/user")
       if (!userRes.ok) throw new Error("Failed to fetch user")
-      const user: User = await userRes.json()
+      const currentUser: User = await userRes.json()
+      setUser(currentUser)
+      
       let query = supabase
         .from("products")
         .select("*")
         .eq("is_active", true)
         .order("created_at", { ascending: false })
       // Only filter by franchise for non-super-admins
-      if (user.role !== "super_admin" && user.franchise_id) {
-        query = query.eq("franchise_id", user.franchise_id)
+      if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
+        query = query.eq("franchise_id", currentUser.franchise_id)
       }
       const { data, error } = await query
       if (error) throw error
@@ -215,6 +220,11 @@ export default function InventoryPage() {
   const handleGenerateBarcodes = (product: Product) => {
     setSelectedProductForBarcode(product)
     setBarcodeDialogOpen(true)
+  }
+
+  const handleManageBarcodes = (product: Product) => {
+    setSelectedProductForBarcode(product)
+    setBarcodeManagementOpen(true)
   }
 
   const handleRefresh = async () => {
@@ -837,6 +847,11 @@ export default function InventoryPage() {
                                     View Details
                                   </DropdownMenuItem>
                                   
+                                  <DropdownMenuItem onClick={() => handleManageBarcodes(product)}>
+                                    <Barcode className="mr-2 h-4 w-4" />
+                                    Manage Barcodes
+                                  </DropdownMenuItem>
+                                  
                                   <DropdownMenuItem onClick={() => handleGenerateBarcodes(product)}>
                                     <Barcode className="mr-2 h-4 w-4" />
                                     Generate Item Barcodes
@@ -934,6 +949,18 @@ export default function InventoryPage() {
               open={barcodeDialogOpen}
               onOpenChange={setBarcodeDialogOpen}
               onItemsGenerated={fetchProductsForUser}
+            />
+          )}
+
+          {/* Barcode Management Dialog */}
+          {selectedProductForBarcode && user && (
+            <BarcodeManagementDialog
+              open={barcodeManagementOpen}
+              onOpenChange={setBarcodeManagementOpen}
+              productId={selectedProductForBarcode.id}
+              productCode={selectedProductForBarcode.product_code}
+              productName={selectedProductForBarcode.name}
+              franchiseId={user.franchise_id}
             />
           )}
         </div>

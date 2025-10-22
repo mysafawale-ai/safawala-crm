@@ -19,6 +19,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { generateBarcode } from "@/lib/barcode-generator"
+import { generateBarcodesForProduct } from "@/lib/barcode-utils"
 import Link from "next/link"
 
 interface Category {
@@ -383,6 +384,24 @@ export default function AddProductPage() {
 
       if (error) throw error
 
+      // Auto-generate barcodes for each item in stock
+      if (data && data[0] && formData.stock_total > 0) {
+        const productId = data[0].id
+        const barcodeResult = await generateBarcodesForProduct(
+          productId,
+          productCode,
+          user.franchise_id,
+          formData.stock_total
+        )
+
+        if (!barcodeResult.success) {
+          console.error("Failed to generate barcodes:", barcodeResult.error)
+          toast.error("Product created but barcode generation failed")
+        } else {
+          toast.success(`Product created with ${formData.stock_total} unique barcodes!`)
+        }
+      }
+
       // Persist gallery images (if any) into product_images table
       try {
         if (productImages.length > 0 && data && data[0] && data[0].id) {
@@ -404,7 +423,7 @@ export default function AddProductPage() {
         console.error("Error persisting gallery images:", galleryErr)
       }
 
-      toast.success(`Product "${formData.name}" has been added successfully with barcode ${productCode}!`)
+      toast.success(`Product "${formData.name}" has been added successfully!`)
       router.push("/inventory")
     } catch (error: any) {
       console.error("Error adding product:", error)
