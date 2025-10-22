@@ -91,8 +91,9 @@ export default function InventoryPage() {
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all')
   const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])  
   const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
-  const [sortField, setSortField] = useState<'name' | 'stock' | 'price' | 'rental'>('name')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [sortField, setSortField] = useState<'name' | 'stock' | 'price' | 'rental' | 'created_at'>('created_at')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [sortOption, setSortOption] = useState<'name_asc' | 'name_desc' | 'newest' | 'oldest'>('newest')
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
   const [barcodeManagementOpen, setBarcodeManagementOpen] = useState(false)
@@ -295,6 +296,10 @@ export default function InventoryPage() {
           aVal = a.rental_price
           bVal = b.rental_price
           return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+        case 'created_at':
+          aVal = new Date(a.created_at).getTime()
+          bVal = new Date(b.created_at).getTime()
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
         default:
           return 0
       }
@@ -302,6 +307,29 @@ export default function InventoryPage() {
 
     return filtered
   }, [products, debouncedSearchTerm, stockFilter, categoryFilter, subcategoryFilter, sortField, sortDirection])
+
+  // Handle sort option change
+  const handleSortChange = (value: string) => {
+    setSortOption(value as any)
+    switch (value) {
+      case 'name_asc':
+        setSortField('name')
+        setSortDirection('asc')
+        break
+      case 'name_desc':
+        setSortField('name')
+        setSortDirection('desc')
+        break
+      case 'newest':
+        setSortField('created_at')
+        setSortDirection('desc')
+        break
+      case 'oldest':
+        setSortField('created_at')
+        setSortDirection('asc')
+        break
+    }
+  }
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -551,6 +579,19 @@ export default function InventoryPage() {
                     </SelectContent>
                   </Select>
                 )}
+
+                {/* Sort By Dropdown */}
+                <Select value={sortOption} onValueChange={handleSortChange}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name_asc">Name: A to Z</SelectItem>
+                    <SelectItem value="name_desc">Name: Z to A</SelectItem>
+                    <SelectItem value="newest">Newly Added First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {/* Clear Filters Button - Only shown when filters are active */}
                 {(stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all') && (
