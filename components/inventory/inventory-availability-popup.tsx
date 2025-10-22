@@ -21,6 +21,7 @@ interface BookingConflict {
   return_date: string
   quantity: number
   customer_name: string
+  return_status?: 'returned' | 'in_progress'
 }
 
 interface AvailabilityData {
@@ -100,19 +101,55 @@ export default function InventoryAvailabilityPopup({
 
       if (conflictsError) throw conflictsError
 
+      // Get barcode status for each booking to determine return status
+      const bookingIds = bookingConflicts?.map((b: any) => b.id) || []
+      const { data: barcodeData } = await supabase
+        .from("booking_barcode_assignments")
+        .select("booking_id, status, returned_at")
+        .in("booking_id", bookingIds)
+        .eq("booking_type", "product")
+
+      // Create a map of booking_id to return status
+      const returnStatusMap = new Map<string, { returned: number; pending: number }>()
+      barcodeData?.forEach((bc) => {
+        if (!returnStatusMap.has(bc.booking_id)) {
+          returnStatusMap.set(bc.booking_id, { returned: 0, pending: 0 })
+        }
+        const stats = returnStatusMap.get(bc.booking_id)!
+        if (bc.status === "returned" || bc.status === "completed") {
+          stats.returned++
+        } else {
+          stats.pending++
+        }
+      })
+
       const availabilityResults: AvailabilityData[] =
         products?.map((product) => {
           const requiredQty = requiredQuantities[product.id] || 1
           const conflicts =
             bookingConflicts
-              ?.filter((booking) => booking.booking_items.some((item: any) => item.product_id === product.id))
-              .map((booking) => ({
-                booking_id: booking.id,
-                delivery_date: booking.delivery_date,
-                return_date: booking.return_date,
-                quantity: booking.booking_items.find((item: any) => item.product_id === product.id)?.quantity || 0,
-                customer_name: booking.customers.name,
-              })) || []
+              ?.filter((booking: any) => booking.booking_items.some((item: any) => item.product_id === product.id))
+              .map((booking: any) => {
+                // Determine return status for this booking
+                const barcodeStats = returnStatusMap.get(booking.id)
+                let returnStatus: 'returned' | 'in_progress' | undefined
+                if (barcodeStats) {
+                  if (barcodeStats.pending > 0) {
+                    returnStatus = 'in_progress'
+                  } else if (barcodeStats.returned > 0) {
+                    returnStatus = 'returned'
+                  }
+                }
+                
+                return {
+                  booking_id: booking.id,
+                  delivery_date: booking.delivery_date,
+                  return_date: booking.return_date,
+                  quantity: booking.booking_items.find((item: any) => item.product_id === product.id)?.quantity || 0,
+                  customer_name: booking.customers.name,
+                  return_status: returnStatus,
+                }
+              }) || []
 
           const totalConflictQuantity = conflicts.reduce((sum, conflict) => sum + conflict.quantity, 0)
           const availableQuantity = Math.max(0, product.stock_available - totalConflictQuantity)
@@ -219,17 +256,42 @@ export default function InventoryAvailabilityPopup({
                       <div className="space-y-2 max-h-32 overflow-y-auto">
                         {data.conflicts.map((conflict, index) => (
                           <div key={index} className="text-xs bg-red-50 p-2 rounded border-l-2 border-red-200">
-                            <div className="flex justify-between items-start">
-                              <div>
+                            <div className="flex justify-between items-start flex-wrap gap-2">
+                              <div className="flex-1">
                                 <div className="font-medium">{conflict.customer_name}</div>
                                 <div className="text-gray-600">
                                   {new Date(conflict.delivery_date).toLocaleDateString()} -{" "}
                                   {new Date(conflict.return_date).toLocaleDateString()}
                                 </div>
                               </div>
-                              <Badge variant="outline" className="text-xs">
-                                {conflict.quantity} units
-                              </Badge>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="outline" className="text-xs">
+                                  {conflict.quantity} units
+                                </Badge>
+                                
+                                {/* Return Status Badges */}
+                                {conflict.return_status === 'returned' && (
+                                  <Badge variant="default" className="bg-green-500 text-white text-[10px] px-1.5 py-0">
+                                    Returned
+                                  </Badge>
+                                )}
+                                {conflict.return_status === 'in_progress' && (
+                                  <>
+                                    <Badge variant="secondary" className="bg-orange-500 text-white text-[10px] px-1.5 py-0">
+                                      In Progress
+                                    </Badge>
+                                    <span className="text-[10px] text-orange-600 font-medium">
+                                      Return: {new Date(conflict.return_date).toLocaleString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        hour12: true 
+                                      })}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}

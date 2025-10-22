@@ -26,6 +26,7 @@ interface BookingConflict {
   delivery_date: string
   return_date: string
   quantity: number
+  return_status?: 'returned' | 'in_progress'
 }
 
 interface AvailabilityData {
@@ -119,8 +120,8 @@ export function InventoryAvailabilityPopup({
           id,
           delivery_date,
           return_date,
-          customers!inner(name),
-          booking_items!inner(product_id, quantity)
+          customers(name),
+          booking_items(product_id, quantity)
         `)
         .or(
           `delivery_date.lte.${format(checkReturnDate, "yyyy-MM-dd")},return_date.gte.${format(checkDeliveryDate, "yyyy-MM-dd")}`,
@@ -129,6 +130,28 @@ export function InventoryAvailabilityPopup({
 
       if (bookingsError) throw bookingsError
 
+      // Get barcode status for each booking to determine return status
+      const bookingIds = conflictingBookings?.map((b) => b.id) || []
+      const { data: barcodeData } = await supabase
+        .from("booking_barcode_assignments")
+        .select("booking_id, status, returned_at")
+        .in("booking_id", bookingIds)
+        .eq("booking_type", "package")
+
+      // Create a map of booking_id to return status
+      const returnStatusMap = new Map<string, { returned: number; pending: number }>()
+      barcodeData?.forEach((bc) => {
+        if (!returnStatusMap.has(bc.booking_id)) {
+          returnStatusMap.set(bc.booking_id, { returned: 0, pending: 0 })
+        }
+        const stats = returnStatusMap.get(bc.booking_id)!
+        if (bc.status === "returned" || bc.status === "completed") {
+          stats.returned++
+        } else {
+          stats.pending++
+        }
+      })
+
       // Calculate availability for each product
       const availability: AvailabilityData[] =
         products?.map((product) => {
@@ -136,16 +159,32 @@ export function InventoryAvailabilityPopup({
           const productConflicts: BookingConflict[] = []
           let bookedQuantity = 0
 
-          conflictingBookings?.forEach((booking) => {
-            booking.booking_items?.forEach((item) => {
+          conflictingBookings?.forEach((booking: any) => {
+            const customerName = Array.isArray(booking.customers) 
+              ? booking.customers[0]?.name 
+              : booking.customers?.name || "Unknown"
+            
+            // Determine return status for this booking
+            const barcodeStats = returnStatusMap.get(booking.id)
+            let returnStatus: 'returned' | 'in_progress' | undefined
+            if (barcodeStats) {
+              if (barcodeStats.pending > 0) {
+                returnStatus = 'in_progress'
+              } else if (barcodeStats.returned > 0) {
+                returnStatus = 'returned'
+              }
+            }
+
+            booking.booking_items?.forEach((item: any) => {
               if (item.product_id === product.id) {
                 bookedQuantity += item.quantity
                 productConflicts.push({
                   booking_id: booking.id,
-                  customer_name: booking.customers?.name || "Unknown",
+                  customer_name: customerName,
                   delivery_date: booking.delivery_date,
                   return_date: booking.return_date,
                   quantity: item.quantity,
+                  return_status: returnStatus,
                 })
               }
             })
@@ -300,7 +339,7 @@ export function InventoryAvailabilityPopup({
                                     {data.conflicts.map((conflict, index) => (
                                       <div
                                         key={index}
-                                        className="text-xs bg-red-50 p-2 rounded flex items-center gap-2"
+                                        className="text-xs bg-red-50 p-2 rounded flex items-center gap-2 flex-wrap"
                                       >
                                         <Calendar className="h-3 w-3" />
                                         <span>{conflict.customer_name}</span>
@@ -311,6 +350,23 @@ export function InventoryAvailabilityPopup({
                                         </span>
                                         <span>•</span>
                                         <span>{conflict.quantity} items</span>
+                                        
+                                        {/* Return Status Badges */}
+                                        {conflict.return_status === 'returned' && (
+                                          <Badge variant="default" className="bg-green-500 text-white text-[10px] px-1.5 py-0">
+                                            Returned
+                                          </Badge>
+                                        )}
+                                        {conflict.return_status === 'in_progress' && (
+                                          <>
+                                            <Badge variant="secondary" className="bg-orange-500 text-white text-[10px] px-1.5 py-0">
+                                              In Progress
+                                            </Badge>
+                                            <span className="text-[10px] text-orange-600 font-medium">
+                                              Return: {format(new Date(conflict.return_date), "MMM dd, hh:mm a")}
+                                            </span>
+                                          </>
+                                        )}
                                       </div>
                                     ))}
                                   </div>
