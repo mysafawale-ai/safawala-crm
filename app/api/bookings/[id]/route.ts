@@ -25,9 +25,10 @@ async function getUserFromSession(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = createClient()
     const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
     const type = request.nextUrl.searchParams.get('type') || 'unified'
@@ -38,14 +39,14 @@ export async function GET(
       const res = await supabase
         .from('product_orders')
         .select(`*, franchise_id, customer:customers(*)`)
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
       booking = res.data; error = res.error
     } else if (type === 'package_booking') {
       const res = await supabase
         .from('package_bookings')
         .select(`*, franchise_id, customer:customers(*)`)
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
       booking = res.data; error = res.error
     } else {
