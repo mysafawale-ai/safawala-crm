@@ -852,10 +852,6 @@ export default function InventoryPage() {
                                     Manage Barcodes
                                   </DropdownMenuItem>
                                   
-                                  <DropdownMenuItem onClick={() => handleGenerateBarcodes(product)}>
-                                    <Barcode className="mr-2 h-4 w-4" />
-                                    Generate Item Barcodes
-                                  </DropdownMenuItem>
                                   <Link href={`/inventory/edit/${product.id}`}>
                                     <DropdownMenuItem>
                                       <Edit className="mr-2 h-4 w-4" />

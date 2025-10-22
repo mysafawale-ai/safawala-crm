@@ -403,6 +403,10 @@ export function BarcodeManagementDialog({
                         <Download className="w-4 h-4 mr-1" />
                         Download
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange('available')}>
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Mark Available
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange('damaged')}>
                         <AlertTriangle className="w-4 h-4 mr-1" />
                         Mark Damaged
