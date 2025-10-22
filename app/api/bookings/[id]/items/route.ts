@@ -14,7 +14,10 @@ export async function GET(
   try {
     const { id } = await params
     const { searchParams } = new URL(request.url)
-    const source = searchParams.get('source') || 'product_order'
+    const sourceParam = searchParams.get('source') || 'product_order'
+    
+    // Normalize source to handle both singular and plural forms
+    const source = sourceParam.replace(/s$/, '') // Remove trailing 's' if present
     
     const supabase = createClient()
     
