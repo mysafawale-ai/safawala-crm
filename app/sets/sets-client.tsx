@@ -473,13 +473,13 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
 
       await refetchData()
-    } catch (error) {
-      console.error("Error creating/updating variant:", error)
-      toast.error("Failed to save variant. Please try again.")
-    } finally {
+      
       setVariantForm({ name: "", description: "", extra_price: "0.00", inclusions: "" })
       setEditingVariant(null)
       setDialogs((prev) => ({ ...prev, createVariant: false }))
+    } catch (error) {
+      console.error("Error creating/updating variant:", error)
+      toast.error("Failed to save variant. Please try again.")
     }
   }
 
@@ -564,11 +564,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       toast.success(editingDistancePricing ? 'Distance pricing updated successfully!' : 'Distance pricing created successfully!')
 
       await refetchData()
-    } catch (error) {
-      console.error("[v0] Error creating/updating distance pricing:", error)
-      toast.error("Failed to save distance pricing. Please try again.")
-    } finally {
-      setIsLoading(false)
+      
       setDialogs((prev) => ({ ...prev, configurePricing: false }))
       setEditingDistancePricing(null)
       setDistancePricingForm({
@@ -577,6 +573,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         max_km: 0,
         base_price_addition: 0,
       })
+    } catch (error) {
+      console.error("[v0] Error creating/updating distance pricing:", error)
+      toast.error("Failed to save distance pricing. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -627,10 +628,10 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       
       if (resp.error) throw resp.error
       toast.success(editingLevel ? 'Level updated' : 'Level created')
+      await refetchData()
       setDialogs(prev=>({...prev, createLevel:false}))
       setEditingLevel(null)
       setLevelForm({ name: '', base_price: '0.00' })
-      await refetchData()
     } catch (e:any) {
       toast.error(e.message || 'Failed to save level')
     }
