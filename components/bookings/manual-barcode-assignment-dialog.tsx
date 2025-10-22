@@ -16,10 +16,12 @@ import {
   Package, 
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Scan
 } from "lucide-react"
 import { toast } from "sonner"
 import { checkBarcodeAvailability } from "@/lib/barcode-assignment-utils"
+import { BarcodeScannerDialog } from "@/components/barcode-scanner-dialog"
 
 interface ManualBarcodeAssignmentDialogProps {
   open: boolean
@@ -63,6 +65,7 @@ export function ManualBarcodeAssignmentDialog({
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([])
   const [selectedToRemove, setSelectedToRemove] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'add' | 'remove'>('add')
+  const [showScanner, setShowScanner] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -74,6 +77,7 @@ export function ManualBarcodeAssignmentDialog({
       setSelectedToAdd([])
       setSelectedToRemove([])
       setActiveTab('add')
+      setShowScanner(false)
     }
   }, [open, bookingId])
 
@@ -217,7 +221,28 @@ export function ManualBarcodeAssignmentDialog({
     b.product_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const handleBarcodeScanned = async (barcodeNumber: string) => {
+    // Find the barcode in available list
+    const barcode = availableBarcodes.find(b => b.barcode_number === barcodeNumber)
+    
+    if (!barcode) {
+      toast.error(`Barcode ${barcodeNumber} not found or not available`)
+      return
+    }
+
+    // Check if already selected
+    if (selectedToAdd.includes(barcode.id)) {
+      toast.info(`Barcode ${barcodeNumber} already selected`)
+      return
+    }
+
+    // Add to selection
+    setSelectedToAdd(prev => [...prev, barcode.id])
+    toast.success(`Added ${barcodeNumber} to selection`)
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
@@ -251,6 +276,20 @@ export function ManualBarcodeAssignmentDialog({
             Remove Barcodes
           </Button>
         </div>
+
+        {/* Scanner Button */}
+        {activeTab === 'add' && (
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowScanner(true)}
+            >
+              <Scan className="h-4 w-4 mr-2" />
+              Scan Barcode
+            </Button>
+          </div>
+        )}
 
         {/* Search Bar */}
         <div className="space-y-2">
@@ -384,5 +423,15 @@ export function ManualBarcodeAssignmentDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Barcode Scanner Dialog */}
+    <BarcodeScannerDialog
+      open={showScanner}
+      onOpenChange={setShowScanner}
+      onScan={handleBarcodeScanned}
+      title="Scan Barcode to Add"
+      description="Scan or enter barcode numbers to add to this booking"
+    />
+    </>
   )
 }
