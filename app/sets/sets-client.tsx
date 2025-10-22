@@ -759,13 +759,16 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         if (updatedCategory) setSelectedCategory(updatedCategory)
       }
       if (selectedVariant && selectedCategory) {
-        const updatedVariant = (categoriesWithVariants.find((c:any)=>c.id===selectedCategory.id)?.package_variants||[])
-          .find((v:any)=>v.id===selectedVariant.id)
-        if (updatedVariant) setSelectedVariant(updatedVariant)
-      }
-      if (selectedLevel && selectedVariant) {
-        const updatedLevel = (selectedVariant.package_levels||[]).find((l:any)=>l.id===selectedLevel.id)
-        if (updatedLevel) setSelectedLevel(updatedLevel)
+        const updatedCategory = categoriesWithVariants.find((c:any)=>c.id===selectedCategory.id)
+        const updatedVariant = (updatedCategory?.package_variants||[]).find((v:any)=>v.id===selectedVariant.id)
+        if (updatedVariant) {
+          setSelectedVariant(updatedVariant)
+          // Update selected level with fresh data including distance pricing
+          if (selectedLevel) {
+            const updatedLevel = (updatedVariant.package_levels||[]).find((l:any)=>l.id===selectedLevel.id)
+            if (updatedLevel) setSelectedLevel(updatedLevel)
+          }
+        }
       }
     } catch (error) {
       console.error("[v0] Error refetching data:", error)
