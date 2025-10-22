@@ -14,7 +14,6 @@ import { ArrowLeft, Save, Package, Camera, Upload, ImageIcon, X } from "lucide-r
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
-import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface ProductFormData {
   name: string
@@ -446,7 +445,9 @@ export default function EditProductPage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <AnimatedBackButton variant="outline" size="icon" onClick={() => router.back()} />
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Edit Product</h1>
             <p className="text-muted-foreground">Update product information</p>
@@ -835,9 +836,10 @@ export default function EditProductPage() {
               </div>
 
               <div className="flex justify-end space-x-4">
-                <AnimatedBackButton variant="outline" onClick={() => router.back()}>
+                <Button variant="outline" onClick={() => router.back()}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
                   Cancel
-                </AnimatedBackButton>
+                </Button>
                 <Button type="submit" disabled={loading}>
                   <Save className="w-4 h-4 mr-2" />
                   {loading ? "Updating..." : "Update Product"}

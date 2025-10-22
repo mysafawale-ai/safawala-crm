@@ -23,7 +23,6 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
-import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface WooCommerceConfig {
   store_url: string
@@ -332,7 +331,9 @@ export default function WooCommercePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <AnimatedBackButton onClick={() => router.back()} />
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center">
               <ShoppingCart className="mr-3 h-8 w-8" />

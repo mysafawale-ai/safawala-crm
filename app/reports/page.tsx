@@ -28,7 +28,6 @@ import {
   Lock,
   Shield,
 } from "lucide-react"
-import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 import type { DateRange } from "react-day-picker"
 import { subDays, format } from "date-fns"
 import { toast } from "@/hooks/use-toast"
@@ -766,7 +765,10 @@ export default function ReportsPage() {
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex items-center justify-between space-y-2">
           <div className="flex items-center space-x-4">
-            <AnimatedBackButton variant="outline" size="sm" onClick={() => router.back()} />
+            <Button variant="outline" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
             <h2 className="text-3xl font-bold tracking-tight">Analytics & Reports</h2>
           </div>
         </div>
@@ -797,7 +799,10 @@ export default function ReportsPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <div className="flex items-center space-x-4">
-          <AnimatedBackButton variant="outline" size="sm" onClick={() => router.back()} />
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
           <h2 className="text-3xl font-bold tracking-tight">Analytics & Reports</h2>
           {usingFallbackData && (
             <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">Demo Data</div>

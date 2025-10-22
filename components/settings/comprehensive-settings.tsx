@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,10 +29,26 @@ interface ComprehensiveSettingsProps {
 const defaultFranchiseId = '00000000-0000-0000-0000-000000000001' // Default for demo
 
 export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId }: ComprehensiveSettingsProps) {
-  const [activeTab, setActiveTab] = useState('company')
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '')
+      if (['company', 'branding', 'banking', 'profile'].includes(hash)) {
+        return hash
+      }
+    }
+    return 'company'
+  }
+
+  const [activeTab, setActiveTab] = useState(getInitialTab())
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#${activeTab}`)
+    }
+  }, [activeTab])
 
   const handleBack = () => {
     router.back()

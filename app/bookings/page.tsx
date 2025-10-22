@@ -42,7 +42,7 @@ import { useToast } from "@/hooks/use-toast"
 import { BookingCalendar } from "@/components/bookings/booking-calendar"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
-import { AnimatedBackButton } from "@/components/ui/animated-back-button"
+
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
 import ManageOffersDialog from "@/components/ManageOffersDialog"
 
@@ -456,7 +456,10 @@ export default function BookingsPage() {
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <AnimatedBackButton onClick={() => router.push("/dashboard")} />
+            <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard")}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
             <div>
               <h2 className="text-3xl font-bold tracking-tight">Bookings</h2>
               <p className="text-muted-foreground">Manage your customer bookings and orders</p>
@@ -482,7 +485,13 @@ export default function BookingsPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <AnimatedBackButton onClick={() => router.push("/dashboard")} />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/dashboard")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Bookings</h2>
             <p className="text-muted-foreground">Manage your customer bookings and orders</p>

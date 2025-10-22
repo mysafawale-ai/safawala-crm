@@ -23,7 +23,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AnimatedBackButton } from "@/components/ui/animated-back-button"
+
 
 interface DistancePricing {
   id: string
@@ -142,10 +142,10 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const [categoryForm, setCategoryForm] = useState({ name: "", description: "" })
   const [activeTab, setActiveTab] = useState(getInitialTab())
 
-  // Sync tab changes to URL
+  // Sync tab changes to URL without creating history entries
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.location.hash = activeTab
+      window.history.replaceState(null, '', `#${activeTab}`)
     }
   }, [activeTab])
 
@@ -807,11 +807,15 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   return (
     <div className="heritage-container p-6 space-y-6">
       <div className="flex items-center gap-4 mb-6">
-        <AnimatedBackButton
+        <Button
           variant="outline"
+          size="sm"
           onClick={() => router.back()}
           className="border-brown-300 text-brown-700 hover:bg-brown-50"
-        />
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
         <div className="heritage-header flex-1">
           <div className="flex items-center gap-3">
             <Crown className="w-8 h-8 text-heritage-dark" />

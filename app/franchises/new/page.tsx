@@ -25,7 +25,6 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { PincodeService } from "@/lib/pincode-service"
-import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface FranchiseFormData {
   franchise_name: string
@@ -153,7 +152,9 @@ export default function NewFranchisePage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <AnimatedBackButton variant="outline" size="icon" onClick={() => router.back()} />
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
               <Building2 className="h-8 w-8 text-blue-600" />
@@ -341,9 +342,10 @@ export default function NewFranchisePage() {
 
               {/* Form Actions */}
               <div className="flex justify-end space-x-4 pt-6 border-t">
-                <AnimatedBackButton variant="outline" onClick={() => router.back()} className="h-11 px-6">
+                <Button variant="outline" onClick={() => router.back()} className="h-11 px-6">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
                   Cancel
-                </AnimatedBackButton>
+                </Button>
                 <Button
                   type="submit"
                   disabled={

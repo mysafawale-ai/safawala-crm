@@ -22,7 +22,6 @@ import {
 } from "lucide-react"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { computeDistanceAddonForVariant } from "@/lib/distance-pricing"
-import { AnimatedBackButton } from "@/components/ui/animated-back-button"
 
 interface Customer { id: string; name: string; phone: string; email?: string; pincode?: string }
 interface PackageCategory { id: string; name: string; description?: string; security_deposit?: number }
@@ -1006,7 +1005,10 @@ export default function BookPackageWizard() {
   <CustomerFormDialog open={showNewCustomer} onOpenChange={setShowNewCustomer} onCustomerCreated={handleCustomerCreated} />
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <AnimatedBackButton variant="ghost" onClick={() => router.back()} className="mb-4" />
+          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
           <h1 className="text-3xl font-bold text-green-800">
             {isEditMode ? 'Edit Package Quote' : 'Create Package Booking'}
           </h1>
@@ -1759,7 +1761,10 @@ export default function BookPackageWizard() {
             <div className="space-y-2">
               <div className="flex gap-2">
                 {currentStep > 1 && (
-                  <AnimatedBackButton variant="outline" className="flex-1" onClick={handleBack} disabled={loading} />
+                  <Button variant="outline" className="flex-1" onClick={handleBack} disabled={loading}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
                 )}
                 {currentStep < 3 && (
                   <Button className="flex-1" onClick={handleNext} disabled={!canGoNext()}>
