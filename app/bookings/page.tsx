@@ -1097,37 +1097,45 @@ export default function BookingsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {selectedBooking.delivery_date && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">📦 Delivery Date</p>
-                        <p className="font-medium">
-                          {new Date(selectedBooking.delivery_date).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                          {(selectedBooking as any).delivery_time && ` at ${(selectedBooking as any).delivery_time}`}
-                        </p>
-                      </div>
-                    )}
-                    {(selectedBooking as any).return_date && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">↩️ Return Date</p>
-                        <p className="font-medium">
-                          {new Date((selectedBooking as any).return_date).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                          {(selectedBooking as any).return_time && ` at ${(selectedBooking as any).return_time}`}
-                        </p>
-                      </div>
-                    )}
+                  <div className="space-y-4">
+                    {/* Dates Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedBooking.delivery_date && (
+                        <div className="border-l-4 border-blue-500 pl-3">
+                          <p className="text-sm text-muted-foreground">📦 Delivery Date</p>
+                          <p className="font-semibold text-lg">
+                            {new Date(selectedBooking.delivery_date).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </p>
+                          {(selectedBooking as any).delivery_time && (
+                            <p className="text-sm text-gray-600">at {(selectedBooking as any).delivery_time}</p>
+                          )}
+                        </div>
+                      )}
+                      {(selectedBooking as any).return_date && (
+                        <div className="border-l-4 border-orange-500 pl-3">
+                          <p className="text-sm text-muted-foreground">↩️ Expected Return</p>
+                          <p className="font-semibold text-lg">
+                            {new Date((selectedBooking as any).return_date).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </p>
+                          {(selectedBooking as any).return_time && (
+                            <p className="text-sm text-gray-600">at {(selectedBooking as any).return_time}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
                     {selectedBooking.special_instructions && (
-                      <div className="col-span-2">
+                      <div className="border-t pt-3">
                         <p className="text-sm text-muted-foreground">📝 Special Instructions</p>
-                        <p className="font-medium">{selectedBooking.special_instructions}</p>
+                        <p className="font-medium mt-1">{selectedBooking.special_instructions}</p>
                       </div>
                     )}
                   </div>
@@ -1218,7 +1226,7 @@ export default function BookingsPage() {
               {/* Assigned Barcodes */}
               <BookingBarcodes 
                 bookingId={selectedBooking.id} 
-                bookingType={selectedBooking.source === 'package_bookings' ? 'package' : 'product'}
+                bookingType={(selectedBooking as any).source === 'package_bookings' ? 'package' : 'product'}
                 franchiseId={currentUser?.franchise_id}
                 userId={currentUser?.id}
               />

@@ -92,22 +92,46 @@ export function BookingBarcodes({ bookingId, bookingType, franchiseId, userId }:
     }
   }, [bookingId, bookingType])
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; icon: any; label: string }> = {
-      assigned: { variant: 'secondary', icon: CheckCircle, label: 'Assigned' },
-      delivered: { variant: 'default', icon: Truck, label: 'Delivered' },
-      with_customer: { variant: 'default', icon: Package, label: 'With Customer' },
-      returned: { variant: 'outline', icon: RotateCcw, label: 'Returned' },
-      completed: { variant: 'outline', icon: CheckCircle, label: 'Completed' },
+  const getStatusBadge = (status: string, returned_at?: string) => {
+    const variants: Record<string, { variant: any; icon: any; label: string; color: string }> = {
+      assigned: { variant: 'secondary', icon: CheckCircle, label: 'Assigned', color: 'bg-gray-100 text-gray-700' },
+      delivered: { variant: 'default', icon: Truck, label: 'Delivered', color: 'bg-blue-100 text-blue-700' },
+      with_customer: { variant: 'default', icon: Package, label: 'With Customer', color: 'bg-purple-100 text-purple-700' },
+      returned: { variant: 'default', icon: RotateCcw, label: 'Returned', color: 'bg-green-100 text-green-700' },
+      completed: { variant: 'outline', icon: CheckCircle, label: 'Completed', color: 'bg-gray-100 text-gray-500' },
     }
     
-    const config = variants[status] || { variant: 'secondary', icon: AlertCircle, label: status }
+    const config = variants[status] || { variant: 'secondary', icon: AlertCircle, label: status, color: 'bg-gray-100 text-gray-700' }
     const Icon = config.icon
     
+    // Show 'Returned' badge for returned/completed status
+    if (status === 'returned' || status === 'completed') {
+      return (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-green-500 text-white text-[10px] px-2 py-0.5 h-5">
+            <RotateCcw className="h-3 w-3 mr-1" />
+            Returned
+          </Badge>
+          {returned_at && (
+            <span className="text-[10px] text-gray-500">
+              {new Date(returned_at).toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true 
+              })}
+            </span>
+          )}
+        </div>
+      )
+    }
+    
+    // Show 'In Progress' badge for other statuses
     return (
-      <Badge variant={config.variant as any} className="flex items-center gap-1 w-fit">
-        <Icon className="h-3 w-3" />
-        {config.label}
+      <Badge className="bg-orange-500 text-white text-[10px] px-2 py-0.5 h-5">
+        <Icon className="h-3 w-3 mr-1" />
+        In Progress
       </Badge>
     )
   }
@@ -263,14 +287,16 @@ export function BookingBarcodes({ bookingId, bookingType, franchiseId, userId }:
                   {group.barcodes.map((barcode) => (
                     <div 
                       key={barcode.id}
-                      className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded text-sm"
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-sm border border-gray-200 dark:border-gray-800"
                     >
-                      <div className="flex items-center gap-2 font-mono">
-                        <BarcodeIcon className="h-3 w-3" />
-                        {barcode.barcode_number}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 font-mono text-base font-semibold">
+                          <BarcodeIcon className="h-4 w-4 text-gray-500" />
+                          {barcode.barcode_number}
+                        </div>
                       </div>
                       <div>
-                        {getStatusBadge(barcode.status)}
+                        {getStatusBadge(barcode.status, barcode.returned_at)}
                       </div>
                     </div>
                   ))}
