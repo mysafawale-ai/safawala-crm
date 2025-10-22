@@ -1155,12 +1155,12 @@ export default function BookingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Delivery Information */}
+              {/* Delivery & Returns */}
               <Card>
                 <CardHeader className="bg-indigo-50 dark:bg-indigo-950">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Clock className="h-5 w-5" />
-                    🚚 Delivery & Timeline
+                    🚚 Delivery & Returns
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
@@ -1168,9 +1168,9 @@ export default function BookingsPage() {
                     {/* Dates Grid */}
                     <div className="grid grid-cols-2 gap-4">
                       {selectedBooking.delivery_date && (
-                        <div className="border-l-4 border-blue-500 pl-3">
-                          <p className="text-sm text-muted-foreground">📦 Delivery Date</p>
-                          <p className="font-semibold text-lg">
+                        <div className="border-l-4 border-blue-500 pl-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-r-lg p-3">
+                          <p className="text-sm text-muted-foreground font-medium">📦 Delivery Date</p>
+                          <p className="font-bold text-xl text-blue-700 dark:text-blue-400">
                             {new Date(selectedBooking.delivery_date).toLocaleDateString('en-IN', {
                               day: '2-digit',
                               month: 'short',
@@ -1178,14 +1178,14 @@ export default function BookingsPage() {
                             })}
                           </p>
                           {(selectedBooking as any).delivery_time && (
-                            <p className="text-sm text-gray-600">at {(selectedBooking as any).delivery_time}</p>
+                            <p className="text-sm text-blue-600 dark:text-blue-300 font-medium mt-1">🕒 {(selectedBooking as any).delivery_time}</p>
                           )}
                         </div>
                       )}
                       {(selectedBooking as any).return_date && (
-                        <div className="border-l-4 border-orange-500 pl-3">
-                          <p className="text-sm text-muted-foreground">↩️ Expected Return</p>
-                          <p className="font-semibold text-lg">
+                        <div className="border-l-4 border-orange-500 pl-3 bg-orange-50/50 dark:bg-orange-950/20 rounded-r-lg p-3">
+                          <p className="text-sm text-muted-foreground font-medium">↩️ Return Date</p>
+                          <p className="font-bold text-xl text-orange-700 dark:text-orange-400">
                             {new Date((selectedBooking as any).return_date).toLocaleDateString('en-IN', {
                               day: '2-digit',
                               month: 'short',
@@ -1193,7 +1193,7 @@ export default function BookingsPage() {
                             })}
                           </p>
                           {(selectedBooking as any).return_time && (
-                            <p className="text-sm text-gray-600">at {(selectedBooking as any).return_time}</p>
+                            <p className="text-sm text-orange-600 dark:text-orange-300 font-medium mt-1">🕒 {(selectedBooking as any).return_time}</p>
                           )}
                         </div>
                       )}
