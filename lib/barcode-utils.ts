@@ -13,6 +13,11 @@ export interface ProductBarcode {
   notes?: string
   created_at: string
   updated_at: string
+  // Extended fields for booking info
+  booking_number?: string
+  booking_type?: 'package' | 'product'
+  customer_name?: string
+  event_date?: string
 }
 
 /**
@@ -69,7 +74,7 @@ export async function generateBarcodesForProduct(
 }
 
 /**
- * Get all barcodes for a product
+ * Get all barcodes for a product with booking details
  */
 export async function getProductBarcodes(
   productId: string,
@@ -100,7 +105,64 @@ export async function getProductBarcodes(
       return { success: false, error: error.message }
     }
 
-    return { success: true, barcodes: data || [] }
+    // Fetch booking details for barcodes that are in use
+    const barcodesWithBookingInfo = await Promise.all(
+      (data || []).map(async (barcode: any) => {
+        if (barcode.status === 'in_use' && barcode.booking_id) {
+          try {
+            // First, try to get from booking_barcode_assignments to determine type
+            const { data: assignment } = await supabase
+              .from('booking_barcode_assignments')
+              .select('booking_type')
+              .eq('barcode_id', barcode.id)
+              .eq('booking_id', barcode.booking_id)
+              .single()
+
+            const bookingType = assignment?.booking_type || 'package'
+            
+            // Fetch from appropriate table
+            if (bookingType === 'package') {
+              const { data: booking } = await supabase
+                .from('package_bookings')
+                .select('package_number, event_date, customer_id, customers(name)')
+                .eq('id', barcode.booking_id)
+                .single()
+
+              if (booking) {
+                return {
+                  ...barcode,
+                  booking_number: booking.package_number,
+                  booking_type: 'package' as const,
+                  customer_name: (booking as any).customers?.name,
+                  event_date: booking.event_date
+                }
+              }
+            } else {
+              const { data: booking } = await supabase
+                .from('product_orders')
+                .select('order_number, event_date, customer_id, customers(name)')
+                .eq('id', barcode.booking_id)
+                .single()
+
+              if (booking) {
+                return {
+                  ...barcode,
+                  booking_number: booking.order_number,
+                  booking_type: 'product' as const,
+                  customer_name: (booking as any).customers?.name,
+                  event_date: booking.event_date
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching booking details:', err)
+          }
+        }
+        return barcode
+      })
+    )
+
+    return { success: true, barcodes: barcodesWithBookingInfo }
   } catch (err) {
     console.error('Exception fetching barcodes:', err)
     return { success: false, error: String(err) }

@@ -478,7 +478,7 @@ export function BarcodeManagementDialog({
               </Card>
             )}
 
-            <div className="border rounded-lg">
+            <div className="border rounded-lg overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -491,6 +491,7 @@ export function BarcodeManagementDialog({
                     <TableHead>Barcode</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Badge</TableHead>
+                    <TableHead>Booking Info</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Last Used</TableHead>
                   </TableRow>
@@ -498,13 +499,13 @@ export function BarcodeManagementDialog({
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Loading barcodes...
                       </TableCell>
                     </TableRow>
                   ) : filteredBarcodes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No barcodes found
                       </TableCell>
                     </TableRow>
@@ -517,9 +518,35 @@ export function BarcodeManagementDialog({
                             onCheckedChange={() => handleSelectBarcode(barcode.id)}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{barcode.barcode_number}</TableCell>
+                        <TableCell className="font-mono text-sm font-semibold">{barcode.barcode_number}</TableCell>
                         <TableCell>{getStatusBadge(barcode)}</TableCell>
                         <TableCell>{getUsageBadge(barcode)}</TableCell>
+                        <TableCell className="text-sm">
+                          {barcode.status === 'in_use' && barcode.booking_number ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Package className="h-3 w-3 text-blue-600" />
+                                <span className="font-medium text-blue-600">{barcode.booking_number}</span>
+                              </div>
+                              {barcode.customer_name && (
+                                <div className="text-xs text-muted-foreground">
+                                  👤 {barcode.customer_name}
+                                </div>
+                              )}
+                              {barcode.event_date && (
+                                <div className="text-xs text-muted-foreground">
+                                  📅 {new Date(barcode.event_date).toLocaleDateString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(barcode.created_at).toLocaleDateString()}
                         </TableCell>
