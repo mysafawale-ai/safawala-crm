@@ -77,6 +77,9 @@ export default function BookingsPage() {
   const [showProductDialog, setShowProductDialog] = useState(false)
   const [productDialogBooking, setProductDialogBooking] = useState<Booking | null>(null)
   const [productDialogType, setProductDialogType] = useState<'pending' | 'items'>('items')
+  // Barcode data for the currently viewed booking
+  const [barcodeAssignmentsForView, setBarcodeAssignmentsForView] = useState<any[] | null>(null)
+  const [barcodeStatsByProduct, setBarcodeStatsByProduct] = useState<Record<string, { returned: number; pending: number }>>({})
 
   useEffect(() => {
     ;(async () => {
@@ -335,6 +338,39 @@ export default function BookingsPage() {
       }
     })
   }
+
+  // When view dialog opens, fetch barcode assignments for the selected booking
+  useEffect(() => {
+    const loadBarcodesForView = async () => {
+      if (!showViewDialog || !selectedBooking) return
+      try {
+        const bookingType = (selectedBooking as any).source === 'package_bookings' ? 'package' : 'product'
+        const res = await fetch(`/api/bookings/${selectedBooking.id}/barcodes?type=${bookingType}`)
+        if (!res.ok) throw new Error('Failed to fetch barcodes')
+        const data = await res.json()
+        if (data.success) {
+          setBarcodeAssignmentsForView(data.barcodes || [])
+          const stats: Record<string, { returned: number; pending: number }> = {}
+          ;(data.barcodes || []).forEach((b: any) => {
+            const pid = b.product_id || 'unknown'
+            if (!stats[pid]) stats[pid] = { returned: 0, pending: 0 }
+            if (b.status === 'returned' || b.status === 'completed') stats[pid].returned++
+            else stats[pid].pending++
+          })
+          setBarcodeStatsByProduct(stats)
+        } else {
+          setBarcodeAssignmentsForView([])
+          setBarcodeStatsByProduct({})
+        }
+      } catch (e) {
+        console.error('[View] Failed to fetch barcodes for view:', e)
+        setBarcodeAssignmentsForView([])
+        setBarcodeStatsByProduct({})
+      }
+    }
+
+    loadBarcodesForView()
+  }, [showViewDialog, selectedBooking])
 
   const handleStatusUpdate = async (bookingId: string, newStatus: string, source?: string) => {
     try {
@@ -1166,7 +1202,33 @@ export default function BookingsPage() {
                           
                           {/* Package/Product Name */}
                           <div>
-                            <h4 className="font-bold text-lg">{item.package_name || item.product_name || 'Item'}</h4>
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-bold text-lg">{item.package_name || item.product_name || 'Item'}</h4>
+                              {/* Per-item return status summary */}
+                              {(() => {
+                                const pid = item.product_id || item.package_product_id || item.product?.id || 'unknown'
+                                const stats = barcodeStatsByProduct[pid]
+                                if (stats) {
+                                  if (stats.pending > 0) {
+                                    return (
+                                      <div className="flex items-center gap-2">
+                                        <Badge className="bg-orange-500 text-white text-[11px] px-2 py-0.5">In Progress</Badge>
+                                        <span className="text-xs text-gray-500">{stats.pending} pending</span>
+                                      </div>
+                                    )
+                                  }
+                                  if (stats.returned > 0) {
+                                    return (
+                                      <div className="flex items-center gap-2">
+                                        <Badge className="bg-green-500 text-white text-[11px] px-2 py-0.5">Returned</Badge>
+                                        <span className="text-xs text-gray-500">{stats.returned} returned</span>
+                                      </div>
+                                    )
+                                  }
+                                }
+                                return null
+                              })()}
+                            </div>
                             {item.package_description && (
                               <p className="text-sm text-muted-foreground mt-1">{item.package_description}</p>
                             )}
