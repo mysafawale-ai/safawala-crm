@@ -10,7 +10,7 @@
 DROP TABLE IF EXISTS distance_pricing CASCADE;
 
 -- Create distance_pricing table
-CREATE TABLE distance_pricing (
+CREATE TABLE IF NOT EXISTS distance_pricing (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     package_level_id UUID NOT NULL REFERENCES package_levels(id) ON DELETE CASCADE,
     distance_range TEXT NOT NULL, -- e.g., "Internal City", "0-10 km", "10-20 km"
@@ -23,6 +23,12 @@ CREATE TABLE distance_pricing (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Drop existing indexes if they exist
+DROP INDEX IF EXISTS idx_distance_pricing_level;
+DROP INDEX IF EXISTS idx_distance_pricing_franchise;
+DROP INDEX IF EXISTS idx_distance_pricing_active;
+DROP INDEX IF EXISTS idx_distance_pricing_distance_range;
 
 -- Create indexes for better query performance
 CREATE INDEX idx_distance_pricing_level ON distance_pricing(package_level_id);
