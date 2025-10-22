@@ -4,10 +4,11 @@ import * as React from "react"
 import { Calendar } from "@/components/ui/calendar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format, isBefore, startOfDay } from "date-fns"
-import { Search, CalendarIcon } from "lucide-react"
+import { Search, CalendarIcon, Package } from "lucide-react"
 
 interface BookingData {
   id: string
@@ -347,10 +348,31 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
                           <div className="text-center">
-                            <span className="text-2xl font-bold text-primary">
-                              {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
-                            </span>
-                            <div className="text-xs text-gray-500 mt-1">Total Safas</div>
+                            {(booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)) === 0 ? (
+                              <div className="space-y-2">
+                                <span className="text-2xl font-bold text-orange-500">0</span>
+                                <div className="text-xs text-gray-500">Total Safas</div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[10px] border-orange-500 text-orange-600 hover:bg-orange-50"
+                                  onClick={() => {
+                                    // Navigate to booking edit page to add products
+                                    window.location.href = `/bookings/${booking.id}/edit`
+                                  }}
+                                >
+                                  <Package className="h-3 w-3 mr-1" />
+                                  Select Products
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="text-2xl font-bold text-primary">
+                                  {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
+                                </span>
+                                <div className="text-xs text-gray-500 mt-1">Total Safas</div>
+                              </>
+                            )}
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
