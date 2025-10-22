@@ -570,12 +570,17 @@ export default function CreateProductOrderPage() {
         .map((item: any) => item.order?.id)
         .filter(Boolean)
 
+      console.log('[Availability Check] Order IDs:', orderIds)
+
       // Fetch barcode assignments to determine return status
-      const { data: barcodeData } = await supabase
+      const { data: barcodeData, error: barcodeError } = await supabase
         .from('booking_barcode_assignments')
         .select('booking_id, status, returned_at')
         .in('booking_id', orderIds)
         .eq('booking_type', 'product')
+
+      console.log('[Availability Check] Barcode data:', barcodeData)
+      console.log('[Availability Check] Barcode error:', barcodeError)
 
       // Create return status map
       const returnStatusMap = new Map<string, { returned: number; pending: number; returnDate?: string }>()
@@ -590,6 +595,8 @@ export default function CreateProductOrderPage() {
           stats.pending++
         }
       })
+
+      console.log('[Availability Check] Return status map:', Array.from(returnStatusMap.entries()))
 
       const rows: { date: string; kind: 'order' | 'package'; ref?: string; qty: number; returnStatus?: 'returned' | 'in_progress'; returnDate?: string }[] = []
       const within = (iso?: string | null) => iso ? (new Date(iso) >= new Date(startISO) && new Date(iso) <= new Date(endISO)) : false
@@ -619,6 +626,8 @@ export default function CreateProductOrderPage() {
           }
         }
         
+        console.log('[Availability Check] Order:', r.order?.order_number, 'Status:', returnStatus, 'Stats:', barcodeStats)
+        
         rows.push({ 
           date: d || r.order?.delivery_date || r.order?.return_date, 
           kind: 'order', 
@@ -629,6 +638,7 @@ export default function CreateProductOrderPage() {
         })
       }
       rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      console.log('[Availability Check] Final rows:', rows)
       setAvailabilityRows(rows)
     } catch (e) {
       setAvailabilityRows([])
@@ -1801,7 +1811,7 @@ export default function CreateProductOrderPage() {
               ) : (
                 <div className="space-y-2 max-h-60 overflow-auto">
                   {availabilityRows.map((r, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-2 text-[12px] flex-wrap">
+                    <div key={idx} className="flex items-center justify-between gap-2 text-[12px] flex-wrap bg-gray-50 p-2 rounded">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span>{new Date(r.date).toLocaleDateString()} • {r.kind === 'order' ? 'Order' : 'Package'} {r.ref || ''}</span>
                         <span className="font-medium">×{r.qty}</span>
@@ -1829,6 +1839,11 @@ export default function CreateProductOrderPage() {
                               </span>
                             )}
                           </>
+                        )}
+                        
+                        {/* Debug: Show if no barcode data */}
+                        {!r.returnStatus && (
+                          <span className="text-[9px] text-gray-400 italic">No tracking</span>
                         )}
                       </div>
                     </div>
