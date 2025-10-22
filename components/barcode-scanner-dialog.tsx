@@ -33,7 +33,7 @@ export function BarcodeScannerDialog({
   description = "Use a barcode scanner or enter manually"
 }: BarcodeScannerDialogProps) {
   const [manualBarcode, setManualBarcode] = useState("")
-  const [scanMode, setScanMode] = useState<'manual' | 'scanner'>(mode)
+  const [scanMode, setScanMode] = useState<'manual' | 'scanner'>(mode === 'auto' ? 'scanner' : mode)
   const [lastScanned, setLastScanned] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const scanBufferRef = useRef<string>("")

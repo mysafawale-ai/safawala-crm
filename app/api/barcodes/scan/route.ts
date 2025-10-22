@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { 
+    let { 
       barcode, 
       action, 
       booking_id, 
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
         action: newStatus,
         barcode,
         booking_id,
-        booking_number: bookingData?.[bookingNumberField] || null,
+        booking_number: (bookingData as any)?.[bookingNumberField] || null,
         product: barcodeRecord.products,
         new_status: newStatus
       })

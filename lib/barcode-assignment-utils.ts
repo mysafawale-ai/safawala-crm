@@ -56,14 +56,13 @@ export async function autoAssignBarcodes(
     const assignCount = Math.min(availableBarcodes.length, quantity)
 
     // Create assignments
-    const assignments = availableBarcodes.slice(0, assignCount).map(barcode => ({
+    const assignments = availableBarcodes.slice(0, assignCount).map((barcode: any) => ({
+      barcode_id: barcode.id,
       booking_id: bookingId,
       booking_type: bookingType,
-      barcode_id: barcode.id,
       product_id: productId,
-      status: 'assigned' as const,
-      assigned_by: userId || null,
-      franchise_id: franchiseId
+      status: 'assigned',
+      assigned_by: userId,
     }))
 
     const { error: insertError } = await supabase

@@ -216,80 +216,83 @@ export function BookingBarcodes({ bookingId, bookingType, franchiseId, userId }:
             </div>
           </div>
         </CardHeader>
-      </CardHeader>
-      <CardContent className="pt-4">
-        {/* Stats Overview */}
-        {stats && (
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.total_assigned}</div>
-              <div className="text-xs text-muted-foreground">Total</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.total_delivered}</div>
-              <div className="text-xs text-muted-foreground">Delivered</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{stats.total_with_customer}</div>
-              <div className="text-xs text-muted-foreground">With Customer</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{stats.total_returned}</div>
-              <div className="text-xs text-muted-foreground">Returned</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600">{stats.total_completed}</div>
-              <div className="text-xs text-muted-foreground">Completed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">{stats.total_pending}</div>
-              <div className="text-xs text-muted-foreground">Pending</div>
-            </div>
-          </div>
-        )}
-
-        {/* Grouped Barcodes by Product */}
-        <div className="space-y-4">
-          {Object.entries(groupedBarcodes).map(([productId, group]) => (
-            <div key={productId} className="border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h4 className="font-semibold">{group.product_name}</h4>
-                  <p className="text-xs text-muted-foreground">{group.product_code}</p>
-                </div>
-                <Badge variant="secondary">{group.barcodes.length} items</Badge>
+        <CardContent className="pt-4">
+          {/* Stats Overview */}
+          {stats && (
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{stats.total_assigned}</div>
+                <div className="text-xs text-muted-foreground">Total</div>
               </div>
-              
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{stats.total_delivered}</div>
+                <div className="text-xs text-muted-foreground">Delivered</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">{stats.total_with_customer}</div>
+                <div className="text-xs text-muted-foreground">With Customer</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">{stats.total_returned}</div>
+                <div className="text-xs text-muted-foreground">Returned</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-600">{stats.total_completed}</div>
+                <div className="text-xs text-muted-foreground">Completed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-600">{stats.total_pending}</div>
+                <div className="text-xs text-muted-foreground">Pending</div>
+              </div>
+            </div>
+          )}
 
-    {/* Manual Assignment Dialog */}
-    {franchiseId && (
-      <ManualBarcodeAssignmentDialog
-        open={showManualAssignment}
-        onOpenChange={setShowManualAssignment}
-        bookingId={bookingId}
-        bookingType={bookingType}
-        franchiseId={franchiseId}
-        userId={userId}
-        onSuccess={fetchBarcodes}
-      />
-    )}
-  </>
-  )
-}                   </div>
-                    <div>
-                      {getStatusBadge(barcode.status)}
-                    </div>
+          {/* Grouped Barcodes by Product */}
+          <div className="space-y-4">
+            {Object.entries(groupedBarcodes).map(([productId, group]) => (
+              <div key={productId} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="font-semibold">{group.product_name}</h4>
+                    <p className="text-xs text-muted-foreground">{group.product_code}</p>
                   </div>
-                ))}
+                  <Badge variant="secondary">{group.barcodes.length} items</Badge>
+                </div>
+                
+                <div className="grid gap-2">
+                  {group.barcodes.map((barcode) => (
+                    <div 
+                      key={barcode.id}
+                      className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded text-sm"
+                    >
+                      <div className="flex items-center gap-2 font-mono">
+                        <BarcodeIcon className="h-3 w-3" />
+                        {barcode.barcode_number}
+                      </div>
+                      <div>
+                        {getStatusBadge(barcode.status)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Manual Assignment Dialog */}
+      {franchiseId && (
+        <ManualBarcodeAssignmentDialog
+          open={showManualAssignment}
+          onOpenChange={setShowManualAssignment}
+          bookingId={bookingId}
+          bookingType={bookingType}
+          franchiseId={franchiseId}
+          userId={userId}
+          onSuccess={fetchBarcodes}
+        />
+      )}
+    </>
   )
 }
