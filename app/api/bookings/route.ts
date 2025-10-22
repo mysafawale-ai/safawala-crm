@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { autoAssignBarcodes } from "@/lib/barcode-assignment-utils"
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -269,6 +270,30 @@ export async function POST(request: NextRequest) {
     }
 
     const booking = transactionResult
+
+    // Auto-assign barcodes for booking items (if available)
+    if (booking && booking.id && booking_items && booking_items.length > 0) {
+      console.log('[Booking API] Auto-assigning barcodes for booking:', booking.id)
+      
+      for (const item of booking_items) {
+        if (item.product_id && item.quantity) {
+          const assignResult = await autoAssignBarcodes(
+            booking.id,
+            'product', // or 'package' based on booking type
+            item.product_id,
+            item.quantity,
+            franchiseId,
+            userId
+          )
+          
+          if (assignResult.success) {
+            console.log(`[Booking API] Auto-assigned ${assignResult.assigned_count} barcodes for product ${item.product_id}`)
+          } else {
+            console.warn(`[Booking API] Could not auto-assign barcodes for product ${item.product_id}:`, assignResult.error)
+          }
+        }
+      }
+    }
 
     try {
       const { NotificationService } = await import("@/lib/notification-service")

@@ -14,6 +14,7 @@ import { ArrowLeft, Save, Package, Camera, Upload, ImageIcon, X } from "lucide-r
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import { generateBarcodesForProduct, getNextSequenceNumber } from "@/lib/barcode-utils"
 
 interface ProductFormData {
   name: string
@@ -44,6 +45,9 @@ export default function EditProductPage() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imagePreview, setImagePreview] = useState<string>("")
   const [productImages, setProductImages] = useState<{ id: string; url: string; isMain: boolean; order: number }[]>([])
+  const [originalStockTotal, setOriginalStockTotal] = useState(0)
+  const [productCode, setProductCode] = useState("")
+  const [franchiseId, setFranchiseId] = useState("")
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
     description: "",
@@ -102,6 +106,11 @@ export default function EditProductPage() {
         // older rows may use category/subcategory legacy text. Prefer UUID ids when present.
         const categoryValue = data.category_id || data.category || data.category_legacy_text || ""
         const subcategoryValue = data.subcategory_id || data.subcategory || ""
+
+        // Store original stock total and product info for barcode generation
+        setOriginalStockTotal(data.stock_total || 0)
+        setProductCode(data.product_code || "")
+        setFranchiseId(user.franchise_id)
 
         setFormData({
           name: data.name || "",
@@ -371,7 +380,29 @@ export default function EditProductPage() {
       }
 
       console.log("Product updated successfully:", data)
-      toast.success("Product updated successfully!")
+      
+      // Auto-generate barcodes if stock total increased
+      const stockIncrease = formData.stock_total - originalStockTotal
+      if (stockIncrease > 0 && productCode && franchiseId) {
+        const nextSeq = await getNextSequenceNumber(productId)
+        const barcodeResult = await generateBarcodesForProduct(
+          productId,
+          productCode,
+          franchiseId,
+          stockIncrease,
+          nextSeq
+        )
+
+        if (!barcodeResult.success) {
+          console.error("Failed to generate barcodes:", barcodeResult.error)
+          toast.warning("Product updated but barcode generation failed")
+        } else {
+          toast.success(`Product updated! Generated ${stockIncrease} new barcodes.`)
+        }
+      } else {
+        toast.success("Product updated successfully!")
+      }
+      
       // Sync gallery images to product_images table (best-effort)
       try {
         const { data: existingImages } = await supabase.from("product_images").select("id, url, is_main, order").eq("product_id", productId)

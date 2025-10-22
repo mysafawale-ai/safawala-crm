@@ -22,6 +22,7 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
+  X,
   Sparkles,
   RefreshCw,
   Filter,
@@ -60,6 +61,7 @@ export function BarcodeManagementDialog({
   const [stats, setStats] = useState({ total: 0, available: 0, inUse: 0, damaged: 0, retired: 0, new: 0 })
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [badgeFilter, setBadgeFilter] = useState<string>("all")
   const [selectedBarcodes, setSelectedBarcodes] = useState<string[]>([])
   const [generateQuantity, setGenerateQuantity] = useState("10")
   const [nextSequence, setNextSequence] = useState(1)
@@ -74,7 +76,7 @@ export function BarcodeManagementDialog({
 
   useEffect(() => {
     filterBarcodes()
-  }, [barcodes, searchTerm, statusFilter])
+  }, [barcodes, searchTerm, statusFilter, badgeFilter])
 
   const fetchBarcodes = async () => {
     setLoading(true)
@@ -107,12 +109,17 @@ export function BarcodeManagementDialog({
       )
     }
 
-    // Apply status filter
+    // Apply status filter (Physical condition)
     if (statusFilter !== "all") {
-      if (statusFilter === "new") {
+      filtered = filtered.filter((b) => b.status === statusFilter)
+    }
+
+    // Apply badge filter (Usage state)
+    if (badgeFilter !== "all") {
+      if (badgeFilter === "new") {
         filtered = filtered.filter((b) => b.is_new)
-      } else {
-        filtered = filtered.filter((b) => b.status === statusFilter)
+      } else if (badgeFilter === "in_use") {
+        filtered = filtered.filter((b) => b.status === "in_use")
       }
     }
 
@@ -157,7 +164,7 @@ export function BarcodeManagementDialog({
     )
   }
 
-  const handleBulkStatusChange = async (status: 'available' | 'damaged' | 'retired') => {
+  const handleBulkStatusChange = async (status: 'available' | 'damaged' | 'retired' | 'in_use') => {
     if (selectedBarcodes.length === 0) {
       toast.error("Please select at least one barcode")
       return
@@ -167,7 +174,7 @@ export function BarcodeManagementDialog({
     const result = await bulkUpdateBarcodeStatus(selectedBarcodes, status)
     
     if (result.success) {
-      toast.success(`Updated ${selectedBarcodes.length} barcodes`)
+      toast.success(`Updated ${selectedBarcodes.length} barcodes to ${status}`)
       setSelectedBarcodes([])
       await fetchBarcodes()
       await fetchStats()
@@ -203,14 +210,11 @@ export function BarcodeManagementDialog({
   }
 
   const getStatusBadge = (barcode: ProductBarcode) => {
+    // Status represents physical condition
     switch (barcode.status) {
       case "available":
         return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
           <CheckCircle className="w-3 h-3 mr-1" /> Available
-        </Badge>
-      case "in_use":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-          <Package className="w-3 h-3 mr-1" /> In Use
         </Badge>
       case "damaged":
         return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
@@ -220,7 +224,34 @@ export function BarcodeManagementDialog({
         return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
           <XCircle className="w-3 h-3 mr-1" /> Retired
         </Badge>
+      case "in_use":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+          <Package className="w-3 h-3 mr-1" /> In Use
+        </Badge>
     }
+  }
+
+  const getUsageBadge = (barcode: ProductBarcode) => {
+    // Badge represents temporary usage state
+    const badges = []
+    
+    if (barcode.status === "in_use") {
+      badges.push(
+        <Badge key="in-use" variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+          <Package className="w-3 h-3 mr-1" /> In Use
+        </Badge>
+      )
+    }
+    
+    if (barcode.is_new) {
+      badges.push(
+        <Badge key="new" variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+          <Sparkles className="w-3 h-3 mr-1" /> NEW
+        </Badge>
+      )
+    }
+    
+    return badges.length > 0 ? <div className="flex gap-1">{badges}</div> : <span className="text-muted-foreground">-</span>
   }
 
   return (
@@ -373,20 +404,42 @@ export function BarcodeManagementDialog({
               </div>
               
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by status" />
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="in_use">In Use</SelectItem>
-                  <SelectItem value="damaged">Damaged</SelectItem>
-                  <SelectItem value="retired">Retired</SelectItem>
-                  <SelectItem value="new">New Only</SelectItem>
+                  <SelectItem value="available">🟢 Available</SelectItem>
+                  <SelectItem value="damaged">🟡 Damaged</SelectItem>
+                  <SelectItem value="retired">⚫ Retired</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Button variant="outline" size="icon" onClick={fetchBarcodes} disabled={loading}>
+              <Select value={badgeFilter} onValueChange={setBadgeFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Badge" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Badges</SelectItem>
+                  <SelectItem value="in_use">🔵 In Use</SelectItem>
+                  <SelectItem value="new">✨ New</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => {
+                  setStatusFilter("all")
+                  setBadgeFilter("all")
+                  setSearchTerm("")
+                }}
+                title="Clear all filters"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+
+              <Button variant="outline" size="icon" onClick={fetchBarcodes} disabled={loading} title="Refresh">
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
@@ -406,6 +459,10 @@ export function BarcodeManagementDialog({
                       <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange('available')}>
                         <CheckCircle className="w-4 h-4 mr-1" />
                         Mark Available
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange('in_use')}>
+                        <Package className="w-4 h-4 mr-1" />
+                        Mark In Use
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange('damaged')}>
                         <AlertTriangle className="w-4 h-4 mr-1" />
@@ -462,13 +519,7 @@ export function BarcodeManagementDialog({
                         </TableCell>
                         <TableCell className="font-mono text-sm">{barcode.barcode_number}</TableCell>
                         <TableCell>{getStatusBadge(barcode)}</TableCell>
-                        <TableCell>
-                          {barcode.is_new && (
-                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                              <Sparkles className="w-3 h-3 mr-1" /> NEW
-                            </Badge>
-                          )}
-                        </TableCell>
+                        <TableCell>{getUsageBadge(barcode)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(barcode.created_at).toLocaleDateString()}
                         </TableCell>

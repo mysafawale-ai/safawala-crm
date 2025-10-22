@@ -6,7 +6,7 @@ export interface ProductBarcode {
   franchise_id: string
   barcode_number: string
   sequence_number: number
-  status: 'available' | 'in_use' | 'damaged' | 'retired'
+  status: 'available' | 'damaged' | 'retired' | 'in_use'
   is_new: boolean
   booking_id?: string
   last_used_at?: string
@@ -149,7 +149,7 @@ export async function getBarcodeStats(productId: string): Promise<{
  */
 export async function updateBarcodeStatus(
   barcodeId: string,
-  status: 'available' | 'in_use' | 'damaged' | 'retired',
+  status: 'available' | 'damaged' | 'retired' | 'in_use',
   bookingId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -187,7 +187,7 @@ export async function updateBarcodeStatus(
  */
 export async function bulkUpdateBarcodeStatus(
   barcodeIds: string[],
-  status: 'available' | 'in_use' | 'damaged' | 'retired'
+  status: 'available' | 'damaged' | 'retired' | 'in_use'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const updateData: any = { status }
