@@ -243,25 +243,38 @@ export function BarcodeManagementDialog({
         const x = margin + currentCol * spacingX
         const y = margin + currentRow * spacingY
         
-        // Create canvas for barcode
+        // Create high-resolution canvas for barcode
         const canvas = document.createElement('canvas')
+        // Set higher resolution for better quality
+        const scale = 3 // 3x resolution for crisp barcodes
+        canvas.width = 800 * scale
+        canvas.height = 200 * scale
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.scale(scale, scale)
+        }
+        
         try {
           JsBarcode(canvas, barcode.barcode_number, {
             format: 'CODE128',
-            width: 2,
-            height: 50,
+            width: 4, // Increased from 2 for thicker, clearer bars
+            height: 120, // Increased from 50 for better scanning
             displayValue: true,
-            fontSize: 12,
-            margin: 5
+            fontSize: 28, // Increased from 12 for better readability
+            margin: 10,
+            fontOptions: 'bold',
+            textMargin: 5
           })
           
-          // Add barcode image to PDF
-          const imgData = canvas.toDataURL('image/png')
-          doc.addImage(imgData, 'PNG', x, y, barcodeWidth, barcodeHeight)
+          // Add barcode image to PDF with higher quality
+          const imgData = canvas.toDataURL('image/png', 1.0) // Maximum quality
+          doc.addImage(imgData, 'PNG', x, y, barcodeWidth, barcodeHeight, undefined, 'FAST')
           
-          // Add product name below barcode
-          doc.setFontSize(8)
+          // Add product name below barcode with better font
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'bold')
           doc.text(productName.substring(0, 25), x + barcodeWidth / 2, y + barcodeHeight + 3, { align: 'center' })
+          doc.setFont('helvetica', 'normal')
         } catch (err) {
           console.error('Error generating barcode:', err)
         }
