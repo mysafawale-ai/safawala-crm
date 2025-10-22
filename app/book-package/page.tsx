@@ -1924,7 +1924,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   const [onlyInStock, setOnlyInStock] = useState<boolean>(true)
   const [availabilityModalFor, setAvailabilityModalFor] = useState<{ id: string; name: string } | null>(null)
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
-  const [availabilityRows, setAvailabilityRows] = useState<{ date: string; kind: 'order' | 'package'; ref?: string; qty: number }[]>([])
+  const [availabilityRows, setAvailabilityRows] = useState<{ date: string; kind: 'order' | 'package'; ref?: string; qty: number; returnStatus?: 'returned' | 'in_progress'; returnDate?: string }[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -2022,10 +2022,36 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
 
       const { data: orderItems } = await supabase
         .from('product_order_items')
-        .select('product_id, quantity, order:product_orders(event_date, delivery_date, return_date, order_number, status)')
+        .select('product_id, quantity, order:product_orders(id, event_date, delivery_date, return_date, order_number, status)')
         .eq('product_id', productId)
 
-      const rows: { date: string; kind: 'order' | 'package'; ref?: string; qty: number }[] = []
+      // Get order IDs for barcode status check
+      const orderIds = (orderItems || [])
+        .map((item: any) => item.order?.id)
+        .filter(Boolean)
+
+      // Fetch barcode assignments to determine return status
+      const { data: barcodeData } = await supabase
+        .from('booking_barcode_assignments')
+        .select('booking_id, status, returned_at')
+        .in('booking_id', orderIds)
+        .eq('booking_type', 'product')
+
+      // Create return status map
+      const returnStatusMap = new Map<string, { returned: number; pending: number; returnDate?: string }>()
+      barcodeData?.forEach((bc: any) => {
+        if (!returnStatusMap.has(bc.booking_id)) {
+          returnStatusMap.set(bc.booking_id, { returned: 0, pending: 0 })
+        }
+        const stats = returnStatusMap.get(bc.booking_id)!
+        if (bc.status === 'returned' || bc.status === 'completed') {
+          stats.returned++
+        } else {
+          stats.pending++
+        }
+      })
+
+      const rows: { date: string; kind: 'order' | 'package'; ref?: string; qty: number; returnStatus?: 'returned' | 'in_progress'; returnDate?: string }[] = []
       const within = (iso?: string | null) => iso ? (new Date(iso) >= new Date(startISO) && new Date(iso) <= new Date(endISO)) : false
       const overlap = (a?: string | null, b?: string | null) => {
         const s = a ? new Date(a) : null; const e = b ? new Date(b) : null
@@ -2040,7 +2066,27 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         const d = r.order?.event_date
         const hit = d ? within(d) : overlap(r.order?.delivery_date, r.order?.return_date)
         if (!hit) continue
-        rows.push({ date: d || r.order?.delivery_date || r.order?.return_date, kind: 'order', ref: r.order?.order_number, qty: Number(r.quantity)||0 })
+        
+        // Determine return status
+        const orderId = r.order?.id
+        const barcodeStats = orderId ? returnStatusMap.get(orderId) : undefined
+        let returnStatus: 'returned' | 'in_progress' | undefined
+        if (barcodeStats) {
+          if (barcodeStats.pending > 0) {
+            returnStatus = 'in_progress'
+          } else if (barcodeStats.returned > 0) {
+            returnStatus = 'returned'
+          }
+        }
+        
+        rows.push({ 
+          date: d || r.order?.delivery_date || r.order?.return_date, 
+          kind: 'order', 
+          ref: r.order?.order_number, 
+          qty: Number(r.quantity)||0,
+          returnStatus,
+          returnDate: r.order?.return_date
+        })
       }
       rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       setAvailabilityRows(rows)
@@ -2333,9 +2379,36 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               ) : (
                 <div className="space-y-2 max-h-60 overflow-auto">
                   {availabilityRows.map((r, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-[12px]">
-                      <span>{new Date(r.date).toLocaleDateString()} • {r.kind === 'order' ? 'Order' : 'Package'} {r.ref || ''}</span>
-                      <span className="font-medium">×{r.qty}</span>
+                    <div key={idx} className="flex items-center justify-between gap-2 text-[12px] flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{new Date(r.date).toLocaleDateString()} • {r.kind === 'order' ? 'Order' : 'Package'} {r.ref || ''}</span>
+                        <span className="font-medium">×{r.qty}</span>
+                        
+                        {/* Return Status Badges */}
+                        {r.returnStatus === 'returned' && (
+                          <Badge variant="default" className="bg-green-500 text-white text-[10px] px-1.5 py-0 h-4">
+                            Returned
+                          </Badge>
+                        )}
+                        {r.returnStatus === 'in_progress' && (
+                          <>
+                            <Badge variant="secondary" className="bg-orange-500 text-white text-[10px] px-1.5 py-0 h-4">
+                              In Progress
+                            </Badge>
+                            {r.returnDate && (
+                              <span className="text-[10px] text-orange-600 font-medium">
+                                Return: {new Date(r.returnDate).toLocaleString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true 
+                                })}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
