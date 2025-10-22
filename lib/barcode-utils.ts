@@ -66,6 +66,30 @@ export async function generateBarcodesForProduct(
       return { success: false, error: error.message }
     }
 
+    // Update product stock_total and stock_available
+    // First get current stock values
+    const { data: productData, error: fetchError } = await supabase
+      .from('products')
+      .select('stock_total, stock_available')
+      .eq('id', productId)
+      .single()
+
+    if (!fetchError && productData) {
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({
+          stock_total: productData.stock_total + quantity,
+          stock_available: productData.stock_available + quantity,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId)
+
+      if (updateError) {
+        console.error('Error updating product stock:', updateError)
+        // Non-fatal: barcodes were created, just stock wasn't updated
+      }
+    }
+
     return { success: true, barcodes: data }
   } catch (err) {
     console.error('Exception generating barcodes:', err)

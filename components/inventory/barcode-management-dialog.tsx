@@ -203,10 +203,86 @@ export function BarcodeManagementDialog({
     downloadBarcodesAsPDF(filteredBarcodes)
   }
 
-  const downloadBarcodesAsPDF = (barcodesToDownload: ProductBarcode[]) => {
-    // TODO: Implement PDF generation
-    toast.info(`Downloading ${barcodesToDownload.length} barcodes... (PDF generation coming soon)`)
-    console.log("Barcodes to download:", barcodesToDownload)
+  const downloadBarcodesAsPDF = async (barcodesToDownload: ProductBarcode[]) => {
+    try {
+      // Dynamically import jsPDF
+      const { default: jsPDF } = await import('jspdf')
+      const JsBarcode = (await import('jsbarcode')).default
+      
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+      
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const margin = 10
+      const barcodeWidth = 60
+      const barcodeHeight = 25
+      const cols = 3
+      const rows = 8
+      const spacingX = (pageWidth - 2 * margin) / cols
+      const spacingY = (pageHeight - 2 * margin) / rows
+      
+      let currentPage = 0
+      let currentRow = 0
+      let currentCol = 0
+      
+      for (let i = 0; i < barcodesToDownload.length; i++) {
+        const barcode = barcodesToDownload[i]
+        
+        // Create new page if needed
+        if (i > 0 && i % (cols * rows) === 0) {
+          doc.addPage()
+          currentRow = 0
+          currentCol = 0
+        }
+        
+        // Calculate position
+        const x = margin + currentCol * spacingX
+        const y = margin + currentRow * spacingY
+        
+        // Create canvas for barcode
+        const canvas = document.createElement('canvas')
+        try {
+          JsBarcode(canvas, barcode.barcode_number, {
+            format: 'CODE128',
+            width: 2,
+            height: 50,
+            displayValue: true,
+            fontSize: 12,
+            margin: 5
+          })
+          
+          // Add barcode image to PDF
+          const imgData = canvas.toDataURL('image/png')
+          doc.addImage(imgData, 'PNG', x, y, barcodeWidth, barcodeHeight)
+          
+          // Add product name below barcode
+          doc.setFontSize(8)
+          doc.text(productName.substring(0, 25), x + barcodeWidth / 2, y + barcodeHeight + 3, { align: 'center' })
+        } catch (err) {
+          console.error('Error generating barcode:', err)
+        }
+        
+        // Move to next position
+        currentCol++
+        if (currentCol >= cols) {
+          currentCol = 0
+          currentRow++
+        }
+      }
+      
+      // Download PDF
+      const filename = `${productCode}-barcodes-${new Date().toISOString().split('T')[0]}.pdf`
+      doc.save(filename)
+      
+      toast.success(`Downloaded ${barcodesToDownload.length} barcodes as PDF`)
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      toast.error('Failed to generate PDF. Please try again.')
+    }
   }
 
   const getStatusBadge = (barcode: ProductBarcode) => {
