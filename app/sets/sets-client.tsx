@@ -18,7 +18,7 @@ import {
 import { Plus, Pencil, Trash2, MapPin, ArrowLeft, Crown, Palette, Eye, Layers } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 // Package icon no longer used after removing Packages tab
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
@@ -85,7 +85,19 @@ interface PackagesClientProps {
 
 export function PackagesClient({ user, initialCategories, franchises }: PackagesClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // Get initial tab from URL hash or default to categories
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '')
+      if (['categories', 'variants', 'levels', 'pricing'].includes(hash)) {
+        return hash
+      }
+    }
+    return 'categories'
+  }
 
   const [packageForm, setPackageForm] = useState({
     name: "",
@@ -128,7 +140,14 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const [editingLevel, setEditingLevel] = useState<PackageLevel | null>(null)
   const [levelForm, setLevelForm] = useState({ name: "", base_price: "0.00" })
   const [categoryForm, setCategoryForm] = useState({ name: "", description: "" })
-  const [activeTab, setActiveTab] = useState("categories")
+  const [activeTab, setActiveTab] = useState(getInitialTab())
+
+  // Sync tab changes to URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.location.hash = activeTab
+    }
+  }, [activeTab])
 
   const [isLoading, setIsLoading] = useState(false)
   const [showPackageDialog, setShowPackageDialog] = useState(false)
@@ -561,9 +580,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Failed to save distance pricing')
-      toast.success(editingDistancePricing ? 'Distance pricing updated successfully!' : 'Distance pricing created successfully!')
-
+      
       await refetchData()
+      toast.success(editingDistancePricing ? 'Distance pricing updated successfully!' : 'Distance pricing created successfully!')
       
       setDialogs((prev) => ({ ...prev, configurePricing: false }))
       setEditingDistancePricing(null)
