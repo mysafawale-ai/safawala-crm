@@ -12,18 +12,25 @@ import {
   RotateCcw, 
   AlertCircle,
   Barcode as BarcodeIcon,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  Edit
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { ManualBarcodeAssignmentDialog } from "./manual-barcode-assignment-dialog"
 
 interface BookingBarcodesProps {
   bookingId: string
   bookingType: 'package' | 'product'
+  franchiseId?: string
+  userId?: string
 }
 
 interface BarcodeAssignment {
   id: string
+  barcode_id: string
   barcode_number: string
+  product_id: string
   product_name: string
   product_code: string
   product_category: string
@@ -44,12 +51,13 @@ interface BarcodeStats {
   total_pending: number
 }
 
-export function BookingBarcodes({ bookingId, bookingType }: BookingBarcodesProps) {
+export function BookingBarcodes({ bookingId, bookingType, franchiseId, userId }: BookingBarcodesProps) {
   const { toast } = useToast()
   const [barcodes, setBarcodes] = useState<BarcodeAssignment[]>([])
   const [stats, setStats] = useState<BarcodeStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showManualAssignment, setShowManualAssignment] = useState(false)
 
   const fetchBarcodes = async () => {
     try {
@@ -182,19 +190,32 @@ export function BookingBarcodes({ bookingId, bookingType }: BookingBarcodesProps
     acc[key].barcodes.push(barcode)
     return acc
   }, {} as Record<string, { product_name: string; product_code: string; product_category: string; barcodes: BarcodeAssignment[] }>)
-
   return (
-    <Card>
-      <CardHeader className="bg-amber-50 dark:bg-amber-950">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <BarcodeIcon className="h-5 w-5" />
-            📊 Assigned Barcodes
-          </CardTitle>
-          <Button variant="ghost" size="sm" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
+    <>
+      <Card>
+        <CardHeader className="bg-amber-50 dark:bg-amber-950">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BarcodeIcon className="h-5 w-5" />
+              📊 Assigned Barcodes
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {franchiseId && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowManualAssignment(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Manage
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={handleRefresh}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
       </CardHeader>
       <CardContent className="pt-4">
         {/* Stats Overview */}
@@ -239,12 +260,26 @@ export function BookingBarcodes({ bookingId, bookingType }: BookingBarcodesProps
                 <Badge variant="secondary">{group.barcodes.length} items</Badge>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {group.barcodes.map((barcode) => (
-                  <div key={barcode.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded text-sm">
-                    <div className="flex-1">
-                      <code className="font-mono text-xs font-semibold">{barcode.barcode_number}</code>
-                    </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Manual Assignment Dialog */}
+    {franchiseId && (
+      <ManualBarcodeAssignmentDialog
+        open={showManualAssignment}
+        onOpenChange={setShowManualAssignment}
+        bookingId={bookingId}
+        bookingType={bookingType}
+        franchiseId={franchiseId}
+        userId={userId}
+        onSuccess={fetchBarcodes}
+      />
+    )}
+  </>
+  )
+}                   </div>
                     <div>
                       {getStatusBadge(barcode.status)}
                     </div>

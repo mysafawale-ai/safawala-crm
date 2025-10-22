@@ -1218,7 +1218,9 @@ export default function BookingsPage() {
               {/* Assigned Barcodes */}
               <BookingBarcodes 
                 bookingId={selectedBooking.id} 
-                bookingType={selectedBooking.source === 'package_bookings' ? 'package' : 'product'} 
+                bookingType={selectedBooking.source === 'package_bookings' ? 'package' : 'product'}
+                franchiseId={currentUser?.franchise_id}
+                userId={currentUser?.id}
               />
 
               {/* Enhanced Financial Summary */}
