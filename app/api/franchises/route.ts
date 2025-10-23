@@ -160,8 +160,7 @@ export async function POST(request: NextRequest) {
         state,
         pincode,
         gst_number,
-        is_active,
-        created_by: userId
+        is_active
       })
       .select()
       .single()
