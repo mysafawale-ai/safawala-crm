@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createClient as createAnonClient } from "@/lib/supabase/client"
 
 /**
  * Get user session from cookie and validate franchise access
@@ -45,15 +44,15 @@ export async function GET(request: NextRequest) {
   try {
     const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
     
-    // Use anon client to respect RLS policies
-    const supabase = createAnonClient()
+    // Use service role client but manually enforce franchise filtering
+    const supabase = createClient()
 
     console.log(`[Customers API] Fetching customers for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
 
-    // Build query - RLS will automatically filter by franchise
+    // Build query - manually apply franchise filter for non-super-admins
     let query = supabase
       .from("customers")
       .select(`
@@ -62,6 +61,14 @@ export async function GET(request: NextRequest) {
       `)
       .order("created_at", { ascending: false })
       .eq('is_active', true)
+
+    // CRITICAL: Apply franchise filter for non-super-admins
+    if (!isSuperAdmin && franchiseId) {
+      query = query.eq("franchise_id", franchiseId)
+      console.log(`[Customers API] Filtering by franchise_id: ${franchiseId}`)
+    } else {
+      console.log(`[Customers API] Super admin - no franchise filter`)
+    }
 
     // Apply search filter if provided
     if (search && search.trim()) {
@@ -72,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     // Fallback if is_active column not yet migrated
     if (error && /is_active|column .* does not exist/i.test(String(error.message))) {
-      console.warn("[Customers API] is_active column missing. Falling back to show all customers.")
+      console.warn("[Customers API] is_active column missing. Falling back without is_active filter.")
       let fallback = supabase
         .from("customers")
         .select(`
@@ -80,6 +87,11 @@ export async function GET(request: NextRequest) {
           franchise:franchises(id, name, code)
         `)
         .order("created_at", { ascending: false })
+
+      // Apply franchise filter
+      if (!isSuperAdmin && franchiseId) {
+        fallback = fallback.eq("franchise_id", franchiseId)
+      }
 
       if (search && search.trim()) {
         fallback = fallback.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
