@@ -86,7 +86,7 @@ FOR ALL USING (
   EXISTS (
     SELECT 1 FROM product_orders
     JOIN users ON users.id = auth.uid()
-    WHERE product_orders.id = product_order_items.product_order_id
+    WHERE product_orders.id = product_order_items.order_id
     AND users.franchise_id = product_orders.franchise_id
     AND users.is_active = true
   )
@@ -145,7 +145,7 @@ FOR ALL USING (
   EXISTS (
     SELECT 1 FROM package_bookings
     JOIN users ON users.id = auth.uid()
-    WHERE package_bookings.id = package_booking_items.package_booking_id
+    WHERE package_bookings.id = package_booking_items.booking_id
     AND users.franchise_id = package_bookings.franchise_id
     AND users.is_active = true
   )
