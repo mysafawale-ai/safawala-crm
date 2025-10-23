@@ -326,6 +326,20 @@ export async function POST(
       console.error("Error updating return record:", updateError)
     }
     
+    // 11. 🎯 Update booking status to 'returned' in source table (product_orders or package_bookings)
+    if (returnRecord.booking_id && returnRecord.booking_source) {
+      const bookingTable = returnRecord.booking_source === "product_order" 
+        ? "product_orders" 
+        : "package_bookings"
+      
+      await supabase
+        .from(bookingTable)
+        .update({ status: "returned" })
+        .eq("id", returnRecord.booking_id)
+      
+      console.log(`✅ Updated ${bookingTable} status to 'returned' for booking ${returnRecord.booking_id}`)
+    }
+    
     return NextResponse.json({
       success: true,
       message: "Return processed successfully",

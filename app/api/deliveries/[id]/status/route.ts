@@ -95,6 +95,26 @@ export async function PATCH(
       )
     }
     
+    // 🎯 Update booking status in source table (product_orders or package_bookings)
+    if (status === "delivered" && delivery.booking_id) {
+      const bookingTable = delivery.booking_source === "product_order" 
+        ? "product_orders" 
+        : "package_bookings"
+      
+      // For SALES: delivered = order_complete (final status)
+      // For RENTAL: delivered = intermediate status (will become 'returned' later)
+      const newBookingStatus = delivery.booking_type === "sale" 
+        ? "order_complete" 
+        : "delivered"
+      
+      await supabase
+        .from(bookingTable)
+        .update({ status: newBookingStatus })
+        .eq("id", delivery.booking_id)
+      
+      console.log(`✅ Updated ${bookingTable} status to '${newBookingStatus}' for booking ${delivery.booking_id}`)
+    }
+    
     // If status is delivered and booking_type is rental, return should be auto-created by trigger
     let returnCreated = false
     if (status === "delivered" && delivery.booking_type === "rental") {

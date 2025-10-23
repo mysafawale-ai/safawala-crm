@@ -223,8 +223,14 @@ export default function BookingsPage() {
     total: (bookings || []).length,
     // Pending Selection: bookings without items (matching table logic)
     pendingSelection: (bookings || []).filter(b => !(b as any).has_items).length,
-    // Confirmed: bookings with items and confirmed status
-    confirmed: (bookings || []).filter(b => b.status === 'confirmed' && (b as any).has_items).length,
+    pendingProductRental: (bookings || []).filter(b => !(b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'rental').length,
+    pendingProductSale: (bookings || []).filter(b => !(b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'sale').length,
+    pendingPackage: (bookings || []).filter(b => !(b as any).has_items && (b as any).source === 'package_bookings').length,
+    // Confirmed with Items Selected: bookings that have items selected (regardless of status)
+    confirmed: (bookings || []).filter(b => (b as any).has_items).length,
+    confirmedProductRental: (bookings || []).filter(b => (b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'rental').length,
+    confirmedProductSale: (bookings || []).filter(b => (b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'sale').length,
+    confirmedPackage: (bookings || []).filter(b => (b as any).has_items && (b as any).source === 'package_bookings').length,
     delivered: (bookings || []).filter(b => {
       // For SALES: Delivered is FINAL
       // For RENTAL: Delivered is intermediate step
@@ -638,23 +644,27 @@ export default function BookingsPage() {
         
         <Card className="border-orange-200 bg-orange-50/30 dark:bg-orange-950/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Selection</CardTitle>
+            <CardTitle className="text-sm font-medium">Confirmed (Selection Pending)</CardTitle>
             <Clock className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{smartStats.pendingSelection}</div>
-            <p className="text-xs text-muted-foreground">Awaiting product selection</p>
+            <p className="text-xs text-muted-foreground">
+              Product Rent: {smartStats.pendingProductRental} • Sale: {smartStats.pendingProductSale} • Package: {smartStats.pendingPackage}
+            </p>
           </CardContent>
         </Card>
         
         <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
+            <CardTitle className="text-sm font-medium">Ready for Delivery</CardTitle>
             <CalendarDays className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{smartStats.confirmed}</div>
-            <p className="text-xs text-muted-foreground">Ready for delivery</p>
+            <p className="text-xs text-muted-foreground">
+              Product Rent: {smartStats.confirmedProductRental} • Sale: {smartStats.confirmedProductSale} • Package: {smartStats.confirmedPackage}
+            </p>
           </CardContent>
         </Card>
         
@@ -1576,7 +1586,7 @@ export default function BookingsPage() {
       )}
 
       {/* Items Display Dialog - Using Reusable Component */}
-      {productDialogBooking && productDialogType === 'items' && bookingItems[productDialogBooking.id] && (
+      {productDialogBooking && productDialogType === 'items' && !itemsLoading[productDialogBooking.id] && !itemsError[productDialogBooking.id] && bookingItems[productDialogBooking.id] && (
         <ItemsDisplayDialog
           open={showProductDialog}
           onOpenChange={setShowProductDialog}
@@ -1662,16 +1672,27 @@ export default function BookingsPage() {
                 <p className="text-sm text-muted-foreground mt-2">
                   Booking: {productDialogBooking.booking_number}
                 </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4 w-full"
-                  onClick={() => {
-                    window.location.reload()
-                  }}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Page
-                </Button>
+                <div className="flex gap-2 mt-4">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => {
+                      // Close and refresh to retry
+                      setShowProductDialog(false)
+                      refresh()
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    className="flex-1"
+                    onClick={() => setShowProductDialog(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogContent>
