@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createAnonClient } from "@/lib/supabase-client"
 
 /**
  * Get user session from cookie and validate franchise access
@@ -43,14 +44,16 @@ async function getUserFromSession(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
-    const supabase = createClient()
+    
+    // Use anon client to respect RLS policies
+    const supabase = createAnonClient()
 
     console.log(`[Customers API] Fetching customers for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
 
-    // Build query with franchise filter and only show active customers
+    // Build query - RLS will automatically filter by franchise
     let query = supabase
       .from("customers")
       .select(`
@@ -59,14 +62,6 @@ export async function GET(request: NextRequest) {
       `)
       .order("created_at", { ascending: false })
       .eq('is_active', true)
-
-    // CRITICAL: Filter by franchise_id unless super admin
-    if (!isSuperAdmin && franchiseId) {
-      query = query.eq("franchise_id", franchiseId)
-      console.log(`[Customers API] Applied franchise filter: ${franchiseId}`)
-    } else {
-      console.log(`[Customers API] Super admin mode - showing all customers`)
-    }
 
     // Apply search filter if provided
     if (search && search.trim()) {
@@ -86,9 +81,6 @@ export async function GET(request: NextRequest) {
         `)
         .order("created_at", { ascending: false })
 
-      if (!isSuperAdmin && franchiseId) {
-        fallback = fallback.eq("franchise_id", franchiseId)
-      }
       if (search && search.trim()) {
         fallback = fallback.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
       }
