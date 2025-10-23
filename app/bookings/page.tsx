@@ -218,6 +218,30 @@ export default function BookingsPage() {
   const { data: statsData } = useData<any>("booking-stats")
   const stats = statsData || {}
 
+  // Calculate smart stats based on business logic
+  const smartStats = {
+    total: (bookings || []).length,
+    pendingSelection: (bookings || []).filter(b => b.status === 'pending_selection').length,
+    confirmed: (bookings || []).filter(b => b.status === 'confirmed').length,
+    delivered: (bookings || []).filter(b => {
+      // For SALES: Delivered is FINAL
+      // For RENTAL: Delivered is intermediate step
+      const isSale = (b as any).type === 'sale'
+      return b.status === 'delivered' || (isSale && b.status === 'order_complete')
+    }).length,
+    returned: (bookings || []).filter(b => {
+      // For RENTAL: Returned is FINAL
+      const isRental = (b as any).type === 'rental' || (b as any).type === 'package'
+      return isRental && b.status === 'returned'
+    }).length,
+    revenue: (bookings || []).reduce((sum, b) => sum + (b.total_amount || 0), 0),
+    // Additional insights
+    rentalCount: (bookings || []).filter(b => (b as any).type === 'rental' || (b as any).type === 'package').length,
+    saleCount: (bookings || []).filter(b => (b as any).type === 'sale').length,
+    productCount: (bookings || []).filter(b => (b as any).source === 'product_orders').length,
+    packageCount: (bookings || []).filter(b => (b as any).source === 'package_bookings').length,
+  }
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending_selection: { label: "Pending Selection", variant: "info" as const },
@@ -603,48 +627,65 @@ export default function BookingsPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
-            <p className="text-xs text-muted-foreground">All time bookings</p>
+            <div className="text-2xl font-bold">{smartStats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {smartStats.rentalCount} rental • {smartStats.saleCount} sale
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-orange-200 bg-orange-50/30 dark:bg-orange-950/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Pending Selection</CardTitle>
+            <Clock className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.confirmedBookings || 0}</div>
+            <div className="text-2xl font-bold text-orange-600">{smartStats.pendingSelection}</div>
+            <p className="text-xs text-muted-foreground">Awaiting product selection</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/30">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
+            <CalendarDays className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{smartStats.confirmed}</div>
             <p className="text-xs text-muted-foreground">Ready for delivery</p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-green-200 bg-green-50/30 dark:bg-green-950/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Delivered</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <Package className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.deliveredBookings || 0}</div>
-            <p className="text-xs text-muted-foreground">Out for events</p>
+            <div className="text-2xl font-bold text-green-600">{smartStats.delivered}</div>
+            <p className="text-xs text-muted-foreground">Sales ✓ • Rentals in use</p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-purple-200 bg-purple-50/30 dark:bg-purple-950/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Returned</CardTitle>
+            <RefreshCw className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.completedBookings || 0}</div>
-            <p className="text-xs text-muted-foreground">Successfully completed</p>
+            <div className="text-2xl font-bold text-purple-600">{smartStats.returned}</div>
+            <p className="text-xs text-muted-foreground">Rentals completed ✓</p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-emerald-200 bg-emerald-50/30 dark:bg-emerald-950/30">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{((stats?.totalRevenue as number) || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">From completed bookings</p>
+            <div className="text-2xl font-bold text-emerald-600">₹{smartStats.revenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">All bookings combined</p>
           </CardContent>
         </Card>
       </div>
