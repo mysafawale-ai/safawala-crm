@@ -93,10 +93,30 @@ export default function CustomerDetailPage() {
         customerData = retry.data as any
       }
 
-      if (customerError) throw customerError
-      if (!customerData) {
-        throw new Error('Customer not found or has been deactivated')
+      if (customerError) {
+        // RLS will return PGRST116 (no rows) if user doesn't have access
+        if (customerError.code === 'PGRST116' || !customerData) {
+          toast({
+            title: "Access Denied",
+            description: "This customer belongs to another franchise or doesn't exist.",
+            variant: "destructive",
+          })
+          router.push('/customers')
+          return
+        }
+        throw customerError
       }
+      
+      if (!customerData) {
+        toast({
+          title: "Customer Not Found",
+          description: "The customer you're looking for doesn't exist or has been deactivated.",
+          variant: "destructive",
+        })
+        router.push('/customers')
+        return
+      }
+      
       setCustomer(customerData)
 
       // Load customer bookings
