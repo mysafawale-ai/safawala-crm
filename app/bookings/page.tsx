@@ -221,8 +221,10 @@ export default function BookingsPage() {
   // Calculate smart stats based on business logic
   const smartStats = {
     total: (bookings || []).length,
-    pendingSelection: (bookings || []).filter(b => b.status === 'pending_selection').length,
-    confirmed: (bookings || []).filter(b => b.status === 'confirmed').length,
+    // Pending Selection: bookings without items (matching table logic)
+    pendingSelection: (bookings || []).filter(b => !(b as any).has_items).length,
+    // Confirmed: bookings with items and confirmed status
+    confirmed: (bookings || []).filter(b => b.status === 'confirmed' && (b as any).has_items).length,
     delivered: (bookings || []).filter(b => {
       // For SALES: Delivered is FINAL
       // For RENTAL: Delivered is intermediate step
