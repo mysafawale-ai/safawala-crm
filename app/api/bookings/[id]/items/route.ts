@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
+    const { id } = params
     const { searchParams } = new URL(request.url)
     const sourceParam = searchParams.get('source') || 'product_order'
     
@@ -31,11 +31,9 @@ export async function GET(
           id,
           order_id,
           product_id,
-          variant_id,
           quantity,
           unit_price,
           total_price,
-          variant_name,
           product:products!left(id, name, product_code, category, image_url)
         `)
         .eq('order_id', id)
