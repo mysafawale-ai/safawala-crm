@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseServer, getDefaultFranchiseId } from "@/lib/supabase-server-simple"
+import { createClient } from "@/lib/supabase-server"
 
 async function validateAuth(request: NextRequest) {
   const franchiseId = await getDefaultFranchiseId()
@@ -12,7 +13,10 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
 
-    let query = supabaseServer
+    // Use anon client to respect RLS policies
+    const supabase = createClient()
+
+    let query = supabase
       .from("deliveries")
       .select(`
         *,
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
       
       // If the error is due to an optional join (e.g., staff) or missing relationship, fall back to a simpler select
       try {
-        const { data: fallbackData, error: fallbackError } = await supabaseServer
+        const { data: fallbackData, error: fallbackError } = await supabase
           .from('deliveries')
           .select('*')
           .order('created_at', { ascending: false })
