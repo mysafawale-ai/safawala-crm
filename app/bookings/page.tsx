@@ -1458,28 +1458,21 @@ export default function BookingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Product Details Dialog */}
-      <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {productDialogType === 'pending' ? '⏳ Selection Pending' : '📦 Booking Items'}
-            </DialogTitle>
-            <DialogDescription>
-              {productDialogType === 'pending' 
-                ? 'Customer needs to select products for this booking' 
-                : 'Complete list of items in this booking'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {productDialogBooking && (
+      {/* Product Details Dialog - Using Reusable Components */}
+      {productDialogBooking && productDialogType === 'pending' && (
+        <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>⏳ Selection Pending</DialogTitle>
+              <DialogDescription>
+                Customer needs to select products for this booking
+              </DialogDescription>
+            </DialogHeader>
+            
             <div className="space-y-4">
               {/* Booking Info */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Booking Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="pt-4">
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-muted-foreground">Booking #</p>
@@ -1500,191 +1493,162 @@ export default function BookingsPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Total Amount</p>
-                      <p className="font-medium">₹{productDialogBooking.total_amount?.toLocaleString() || 0}</p>
+                      <p className="text-muted-foreground">Total Safas</p>
+                      <Badge variant="default" className="text-base px-3 py-1">
+                        {(productDialogBooking as any).total_safas || 0} Safas
+                      </Badge>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Products Section */}
-              {productDialogType === 'pending' ? (
-                <Card className="border-orange-200 bg-orange-50/50">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-orange-600" />
-                      Product Selection Pending
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      The customer hasn't selected specific products yet. This booking is waiting for product selection.
-                    </p>
-                    
-                    {(productDialogBooking as any).total_safas > 0 && (
-                      <div className="bg-white rounded-lg p-4 border">
-                        <p className="text-sm font-medium mb-2">Booking Capacity</p>
-                        <Badge variant="default" className="text-base px-3 py-1">
-                          {(productDialogBooking as any).total_safas} Safas
-                        </Badge>
-                      </div>
-                    )}
-                    
-                    <div className="pt-3 space-y-2">
-                      <p className="text-sm font-medium">Next Steps:</p>
-                      <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                        <li>Customer will select products from available inventory</li>
-                        <li>Once selected, items will appear in this booking</li>
-                        <li>You'll be able to track delivery and returns</li>
-                      </ul>
-                    </div>
-                    
-                    <Button 
-                      className="w-full mt-4" 
-                      onClick={() => {
-                        setShowProductDialog(false)
-                        router.push(`/bookings/${productDialogBooking.id}/select-products`)
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Help Customer Select Products
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Package className="h-5 w-5" />
-                      Items List ({bookingItems[productDialogBooking.id]?.length || 0})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {(() => {
-                      const bookingId = productDialogBooking.id
-                      const items = bookingItems[bookingId] || []
-                      const isLoading = itemsLoading[bookingId]
-                      const error = itemsError[bookingId]
-                      
-                      // Show loading state
-                      if (isLoading) {
-                        return (
-                          <div className="text-center py-8">
-                            <RefreshCw className="h-12 w-12 mx-auto mb-2 animate-spin text-blue-500" />
-                            <p className="font-medium">Loading items...</p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Fetching from database
-                            </p>
-                          </div>
-                        )
-                      }
-                      
-                      // Show error state
-                      if (error) {
-                        return (
-                          <div className="text-center py-8">
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                              <AlertCircle className="h-12 w-12 mx-auto mb-2 text-red-500" />
-                              <p className="font-medium text-red-700">Failed to load items</p>
-                              <p className="text-sm text-red-600 mt-1">{error}</p>
-                              <p className="text-sm text-muted-foreground mt-2">
-                                Total Safas: {(productDialogBooking as any).total_safas || 0}
-                              </p>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="mt-4"
-                                onClick={() => {
-                                  // Force refresh
-                                  window.location.reload()
-                                }}
-                              >
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Refresh Page
-                              </Button>
-                            </div>
-                          </div>
-                        )
-                      }
-                      
-                      // Show empty state
-                      if (items.length === 0) {
-                        return (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                            <p>No items loaded yet</p>
-                            <p className="text-sm mt-1">
-                              Total Safas: {(productDialogBooking as any).total_safas || 0}
-                            </p>
-                          </div>
-                        )
-                      }
-                      
-                      return (
-                        <div className="space-y-3">
-                          {items.map((item: any, idx: number) => (
-                            <div 
-                              key={idx} 
-                              className="flex items-center gap-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                              {item.product?.image_url ? (
-                                <img 
-                                  src={item.product.image_url} 
-                                  alt={item.product?.name || 'Product'}
-                                  className="w-16 h-16 rounded-lg object-cover border"
-                                />
-                              ) : (
-                                <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center">
-                                  <Package className="h-8 w-8 text-gray-400" />
-                                </div>
-                              )}
-                              
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-sm truncate">
-                                  {item.product?.name || item.package_name || item.variant_name || 'Unknown Item'}
-                                </h4>
-                                {item.variant_name && item.variant_name !== item.product?.name && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Variant: {item.variant_name}
-                                  </p>
-                                )}
-                                {item.category_name && (
-                                  <Badge variant="outline" className="text-xs mt-1">
-                                    {item.category_name}
-                                  </Badge>
-                                )}
-                              </div>
-                              
-                              <div className="text-right">
-                                <p className="font-medium">×{item.quantity || 1}</p>
-                                {item.price && (
-                                  <p className="text-sm text-muted-foreground">
-                                    ₹{item.price.toLocaleString()}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {/* Total Summary */}
-                          <div className="border-t pt-3 mt-4">
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium">Total Items</span>
-                              <span className="font-bold text-lg">
-                                {items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0)} pieces
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </CardContent>
-                </Card>
-              )}
+              <Card className="border-orange-200 bg-orange-50/50">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-5 w-5 text-orange-600" />
+                    <p className="font-medium">Product Selection Pending</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Select products from available inventory to complete this booking.
+                  </p>
+                  
+                  <Button 
+                    className="w-full" 
+                    onClick={() => {
+                      setShowProductDialog(false)
+                      // Open the selection dialog
+                      setCurrentBookingForItems(productDialogBooking)
+                      setSelectedItems([])
+                      setShowItemsSelection(true)
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Select Products Now
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Items Display Dialog - Using Reusable Component */}
+      {productDialogBooking && productDialogType === 'items' && bookingItems[productDialogBooking.id] && (
+        <ItemsDisplayDialog
+          open={showProductDialog}
+          onOpenChange={setShowProductDialog}
+          items={(() => {
+            const items = bookingItems[productDialogBooking.id] || []
+            return items.map((item: any) => {
+              if (item.package_name) {
+                return {
+                  id: item.id || `item-${Math.random()}`,
+                  package_id: item.package_id || item.id,
+                  variant_id: item.variant_id,
+                  package: {
+                    id: item.package_id || item.id,
+                    name: item.package_name,
+                    description: item.package_description,
+                  },
+                  variant: item.variant_name ? {
+                    id: item.variant_id,
+                    name: item.variant_name,
+                    variant_name: item.variant_name,
+                    base_price: item.unit_price || item.price || 0,
+                    package_id: item.package_id,
+                  } : undefined,
+                  quantity: item.quantity || 1,
+                  extra_safas: item.extra_safas || 0,
+                  variant_inclusions: item.variant_inclusions || [],
+                  unit_price: item.unit_price || item.price || 0,
+                  total_price: item.price || item.total_price || 0,
+                } as any
+              } else {
+                return {
+                  id: item.product_id || item.id || `item-${Math.random()}`,
+                  product_id: item.product_id || item.id,
+                  product: {
+                    id: item.product_id || item.id,
+                    name: item.product_name || 'Item',
+                    product_code: item.product_code,
+                    category: item.category_name,
+                    image_url: item.product?.image_url,
+                    rental_price: item.unit_price || item.price || 0,
+                    sale_price: item.unit_price || item.price || 0,
+                  },
+                  quantity: item.quantity || 1,
+                  unit_price: item.unit_price || item.price || 0,
+                  total_price: (item.unit_price || item.price || 0) * (item.quantity || 1),
+                  variant_name: item.variant_name,
+                } as any
+              }
+            })
+          })()}
+          context={{
+            bookingType: (productDialogBooking as any).source === 'package_bookings' ? 'sale' : 'rental',
+            eventDate: productDialogBooking.event_date,
+            isEditable: false,
+            showPricing: true,
+          }}
+          title={`📦 Booking Items - ${productDialogBooking.booking_number}`}
+          description={`${productDialogBooking.customer?.name} • ${new Date(productDialogBooking.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+          onQuantityChange={() => {}}
+          onRemoveItem={() => {}}
+          summaryData={{
+            subtotal: productDialogBooking.total_amount || 0,
+            discount: productDialogBooking.discount_amount || 0,
+            gst: productDialogBooking.tax_amount || 0,
+            securityDeposit: productDialogBooking.security_deposit || 0,
+            total: productDialogBooking.total_amount || 0,
+          }}
+        />
+      )}
+
+      {/* Error State Dialog */}
+      {productDialogBooking && productDialogType === 'items' && itemsError[productDialogBooking.id] && (
+        <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Failed to load items</DialogTitle>
+            </DialogHeader>
+            <div className="text-center py-8">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                <AlertCircle className="h-12 w-12 mx-auto mb-2 text-red-500" />
+                <p className="font-medium text-red-700">Error Loading Items</p>
+                <p className="text-sm text-red-600 mt-1">{itemsError[productDialogBooking.id]}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Booking: {productDialogBooking.booking_number}
+                </p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4 w-full"
+                  onClick={() => {
+                    window.location.reload()
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Page
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Loading State Dialog */}
+      {productDialogBooking && productDialogType === 'items' && itemsLoading[productDialogBooking.id] && (
+        <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
+          <DialogContent className="max-w-md">
+            <div className="text-center py-8">
+              <RefreshCw className="h-12 w-12 mx-auto mb-2 animate-spin text-blue-500" />
+              <p className="font-medium">Loading items...</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Fetching from database
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <ConfirmationDialog />
       
