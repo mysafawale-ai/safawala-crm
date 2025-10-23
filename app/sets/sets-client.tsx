@@ -249,11 +249,19 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       } else {
         // Create new category
         console.log("[v0] Attempting to create new category")
+        
+        // Get franchise_id from user
+        const franchiseId = user?.franchise_id
+        if (!franchiseId && user?.role !== 'super_admin') {
+          throw new Error("No franchise associated with your account. Please contact support.")
+        }
+        
         const { data, error } = await supabase
           .from("packages_categories")
           .insert({
             name: categoryForm.name,
             description: categoryForm.description,
+            franchise_id: franchiseId, // 🔒 FRANCHISE ISOLATION
             is_active: true,
             display_order: categories.length + 1,
             created_at: new Date().toISOString(),

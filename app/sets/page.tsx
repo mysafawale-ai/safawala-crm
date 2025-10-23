@@ -28,11 +28,18 @@ export default function PackagesPage() {
         const supabase = createClient()
 
         try {
-          // Fetch categories first
-          const { data: categoriesData, error: categoriesError } = await supabase
+          // Fetch categories first with franchise filtering
+          let categoriesQuery = supabase
             .from("packages_categories")
             .select("*")
             .eq("is_active", true)
+          
+          // 🔒 FRANCHISE ISOLATION: Filter by franchise for non-super-admins
+          if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
+            categoriesQuery = categoriesQuery.eq("franchise_id", currentUser.franchise_id)
+          }
+          
+          const { data: categoriesData, error: categoriesError } = await categoriesQuery
             .order("display_order", { ascending: true })
 
           if (categoriesError) {
