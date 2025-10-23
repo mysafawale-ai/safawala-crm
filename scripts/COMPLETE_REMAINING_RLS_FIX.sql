@@ -1,5 +1,9 @@
 -- COMPLETE FRANCHISE ISOLATION FOR REMAINING BUSINESS TABLES
--- This script covers: laundry, expenses, vendors, products, and sales
+-- This script covers: laundry, expenses, vendors, and products
+-- 
+-- ⚠️  PREREQUISITES:
+-- 1. Run ADD_VENDORS_FRANCHISE_ISOLATION.sql first (adds franchise_id to vendors table)
+-- 2. Vendors table must have franchise_id column before running this script
 
 -- ============================================================================
 -- PART 1: LAUNDRY_BATCHES TABLE
@@ -148,33 +152,10 @@ FOR ALL USING (
 );
 
 -- ============================================================================
--- PART 6: PRODUCT_CATEGORIES TABLE
+-- PART 6: PACKAGES_CATEGORIES TABLE (handled by MAKE_CATEGORIES_FRANCHISE_SPECIFIC.sql)
 -- ============================================================================
-
-DROP POLICY IF EXISTS "super_admin_all_product_categories" ON product_categories;
-DROP POLICY IF EXISTS "franchise_users_own_product_categories" ON product_categories;
-
-ALTER TABLE product_categories ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "super_admin_all_product_categories" ON product_categories
-FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.role = 'super_admin'
-    AND users.is_active = true
-  )
-);
-
-CREATE POLICY "franchise_users_own_product_categories" ON product_categories
-FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.franchise_id = product_categories.franchise_id
-    AND users.is_active = true
-  )
-);
+-- Note: This table already has its own dedicated migration script
+-- Run MAKE_CATEGORIES_FRANCHISE_SPECIFIC.sql separately if not already done
 
 -- ============================================================================
 -- VERIFICATION
@@ -190,12 +171,11 @@ WHERE tablename IN (
     'laundry_batch_items',
     'expenses',
     'vendors',
-    'products',
-    'product_categories'
+    'products'
 )
 GROUP BY tablename
 ORDER BY tablename;
 
 -- Expected: Each table should have 2 policies
 
-SELECT '✅ LAUNDRY, EXPENSES, VENDORS, PRODUCTS, AND CATEGORIES ARE NOW FULLY FRANCHISE-ISOLATED' AS status;
+SELECT '✅ LAUNDRY, EXPENSES, VENDORS, AND PRODUCTS ARE NOW FULLY FRANCHISE-ISOLATED' AS status;
