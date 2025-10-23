@@ -42,12 +42,12 @@ async function getUserFromSession(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    const { franchiseId, isSuperAdmin, role } = await getUserFromSession(request)
     
     // Use service role client but manually enforce franchise filtering
     const supabase = createClient()
 
-    console.log(`[Customers API] Fetching customers for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
+    console.log(`[Customers API] User: role=${role}, franchiseId=${franchiseId}, isSuperAdmin=${isSuperAdmin}`)
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
@@ -65,9 +65,11 @@ export async function GET(request: NextRequest) {
     // CRITICAL: Apply franchise filter for non-super-admins
     if (!isSuperAdmin && franchiseId) {
       query = query.eq("franchise_id", franchiseId)
-      console.log(`[Customers API] Filtering by franchise_id: ${franchiseId}`)
+      console.log(`[Customers API] ✅ Applied franchise filter: ${franchiseId}`)
+    } else if (isSuperAdmin) {
+      console.log(`[Customers API] ⚠️  Super admin mode - no franchise filter`)
     } else {
-      console.log(`[Customers API] Super admin - no franchise filter`)
+      console.log(`[Customers API] ❌ WARNING: No franchise_id for non-super-admin user!`)
     }
 
     // Apply search filter if provided
