@@ -291,20 +291,22 @@ export default function StaffPage() {
 
   const fetchFranchises = async () => {
     try {
-      console.log('Fetching franchises...')
-      const { data, error } = await supabase
-        .from('franchises')
-        .select('id, name, code')
-        .eq('is_active', true)
-        .order('name')
-
-      if (error) {
-        console.error('Error fetching franchises:', error)
-        throw error
+      console.log('Fetching franchises via API...')
+      const response = await fetch('/api/franchises')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch franchises')
       }
+
+      const result = await response.json()
+      const data = result.data || []
       
       console.log('Franchises fetched:', data)
-      setFranchises(data || [])
+      setFranchises(data.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        code: f.code
+      })))
     } catch (error) {
       console.error('Error fetching franchises:', error)
       // Set a default franchise for testing if none exist
