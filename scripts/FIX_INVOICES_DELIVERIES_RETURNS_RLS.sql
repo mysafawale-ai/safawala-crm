@@ -138,6 +138,42 @@ USING (
 );
 
 -- ============================================================================
+-- PART 4: RETURN_ITEMS TABLE
+-- ============================================================================
+
+-- Drop old policies
+DROP POLICY IF EXISTS "super_admin_all_return_items" ON return_items;
+DROP POLICY IF EXISTS "franchise_users_own_return_items" ON return_items;
+
+-- Enable RLS
+ALTER TABLE return_items ENABLE ROW LEVEL SECURITY;
+
+-- Policy 1: Super admins see all return_items
+CREATE POLICY "super_admin_all_return_items" ON return_items
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM users 
+    WHERE users.id = auth.uid() 
+    AND users.role = 'super_admin'
+    AND users.is_active = true
+  )
+);
+
+-- Policy 2: Franchise users see only their franchise's return_items (via returns table)
+CREATE POLICY "franchise_users_own_return_items" ON return_items
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM returns
+    JOIN users ON users.id = auth.uid()
+    WHERE returns.id = return_items.return_id
+    AND users.franchise_id = returns.franchise_id
+    AND users.is_active = true
+  )
+);
+
+-- ============================================================================
 -- VERIFICATION
 -- ============================================================================
 
@@ -150,7 +186,7 @@ SELECT
     roles,
     cmd
 FROM pg_policies
-WHERE tablename IN ('invoices', 'deliveries', 'returns')
+WHERE tablename IN ('invoices', 'deliveries', 'returns', 'return_items')
 ORDER BY tablename, policyname;
 
 -- Expected result: 2 policies per table (super_admin_all, franchise_users_own)
@@ -167,4 +203,4 @@ ORDER BY table_name;
 
 -- Expected result: 3 rows (one for each table)
 
-SELECT 'RLS FRANCHISE ISOLATION COMPLETE FOR INVOICES, DELIVERIES, AND RETURNS' AS status;
+SELECT 'RLS FRANCHISE ISOLATION COMPLETE FOR INVOICES, DELIVERIES, RETURNS, AND RETURN_ITEMS' AS status;
