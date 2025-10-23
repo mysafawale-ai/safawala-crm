@@ -128,7 +128,7 @@ FOR ALL USING (
 DROP POLICY IF EXISTS "super_admin_all_package_booking_items" ON package_booking_items;
 DROP POLICY IF EXISTS "franchise_users_own_package_booking_items" ON package_booking_items;
 
-ALTER TABLE package_booking_items ENABLE ROLS LEVEL SECURITY;
+ALTER TABLE package_booking_items ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "super_admin_all_package_booking_items" ON package_booking_items
 FOR ALL USING (
