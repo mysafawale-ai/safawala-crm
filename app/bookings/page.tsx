@@ -43,6 +43,8 @@ import { BookingCalendar } from "@/components/bookings/booking-calendar"
 import { BookingBarcodes } from "@/components/bookings/booking-barcodes"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
+import { ItemsDisplayDialog, ItemsSelectionDialog } from "@/components/shared"
+import type { SelectedItem, Product, PackageSet } from "@/components/shared/types/items"
 
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
 import ManageOffersDialog from "@/components/ManageOffersDialog"
@@ -80,6 +82,12 @@ export default function BookingsPage() {
   // Barcode data for the currently viewed booking
   const [barcodeAssignmentsForView, setBarcodeAssignmentsForView] = useState<any[] | null>(null)
   const [barcodeStatsByProduct, setBarcodeStatsByProduct] = useState<Record<string, { returned: number; pending: number }>>({})
+  
+  // New reusable dialog states
+  const [showItemsDisplay, setShowItemsDisplay] = useState(false)
+  const [showItemsSelection, setShowItemsSelection] = useState(false)
+  const [currentBookingForItems, setCurrentBookingForItems] = useState<Booking | null>(null)
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
 
   useEffect(() => {
     ;(async () => {
@@ -1209,108 +1217,70 @@ export default function BookingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Booking Items */}
+              {/* Booking Items - New Reusable Dialog */}
               {selectedBooking && bookingItems[selectedBooking.id] && bookingItems[selectedBooking.id].length > 0 && (
                 <Card>
                   <CardHeader className="bg-green-50 dark:bg-green-950">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Package className="h-5 w-5" />
-                      🛍️ Booking Items
+                      🛍️ Booking Items ({bookingItems[selectedBooking.id].length})
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <div className="space-y-4">
-                      {bookingItems[selectedBooking.id].map((item: any, index: number) => (
-                        <div key={index} className="border rounded-lg p-4 space-y-3">
-                          {/* Category Badge */}
-                          {item.category_name && (
-                            <div className="flex items-center gap-2">
-                              <Badge variant="secondary" className="text-xs font-semibold">
-                                {item.category_name}
-                              </Badge>
-                            </div>
-                          )}
-                          
-                          {/* Package/Product Name */}
-                          <div>
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-bold text-lg">{item.package_name || item.product_name || 'Item'}</h4>
-                              {/* Per-item return status summary */}
-                              {(() => {
-                                const pid = item.product_id || item.package_product_id || item.product?.id || 'unknown'
-                                const stats = barcodeStatsByProduct[pid]
-                                if (stats) {
-                                  if (stats.pending > 0) {
-                                    return (
-                                      <div className="flex items-center gap-2">
-                                        <Badge className="bg-orange-500 text-white text-[11px] px-2 py-0.5">In Progress</Badge>
-                                        <span className="text-xs text-gray-500">{stats.pending} pending</span>
-                                      </div>
-                                    )
-                                  }
-                                  if (stats.returned > 0) {
-                                    return (
-                                      <div className="flex items-center gap-2">
-                                        <Badge className="bg-green-500 text-white text-[11px] px-2 py-0.5">Returned</Badge>
-                                        <span className="text-xs text-gray-500">{stats.returned} returned</span>
-                                      </div>
-                                    )
-                                  }
-                                }
-                                return null
-                              })()}
-                            </div>
-                            {item.package_description && (
-                              <p className="text-sm text-muted-foreground mt-1">{item.package_description}</p>
-                            )}
-                          </div>
-
-                          {/* Variant Information */}
-                          {item.variant_name && (
-                            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                                  Variant: {item.variant_name}
-                                </span>
-                                {item.extra_safas > 0 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{item.extra_safas} Extra Safas
-                                  </Badge>
-                                )}
-                              </div>
-                              
-                              {/* Variant Inclusions */}
-                              {item.variant_inclusions && item.variant_inclusions.length > 0 && (
-                                <div className="mt-2">
-                                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Inclusions:</p>
-                                  <div className="grid grid-cols-2 gap-1">
-                                    {item.variant_inclusions.map((inc: any, i: number) => (
-                                      <div key={i} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
-                                        <span className="mr-1">•</span>
-                                        <span>{inc.product_name} × {inc.quantity}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Price Details */}
-                          <div className="flex justify-between items-center pt-2 border-t">
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              <span>Quantity: {item.quantity || 1}</span>
-                              {item.unit_price && (
-                                <span className="ml-3">Unit Price: ₹{item.unit_price.toLocaleString()}</span>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm text-gray-600 dark:text-gray-400">Line Total</div>
-                              <div className="font-bold text-lg">₹{(item.price || item.total_price || 0).toLocaleString()}</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        View and manage all items in this booking with detailed information.
+                      </p>
+                      <Button 
+                        onClick={() => {
+                          setCurrentBookingForItems(selectedBooking)
+                          // Convert booking items to SelectedItem format
+                          const items: SelectedItem[] = bookingItems[selectedBooking.id].map((item: any) => {
+                            if (item.package_name) {
+                              // Package item
+                              return {
+                                id: item.id || `item-${Math.random()}`,
+                                package_id: item.package_id || item.id,
+                                variant_id: item.variant_id,
+                                package: {
+                                  id: item.package_id || item.id,
+                                  name: item.package_name,
+                                  description: item.package_description,
+                                },
+                                variant: item.variant_name ? {
+                                  id: item.variant_id,
+                                  name: item.variant_name,
+                                  price: item.unit_price || item.price || 0,
+                                } : undefined,
+                                quantity: item.quantity || 1,
+                                extra_safas: item.extra_safas || 0,
+                                variant_inclusions: item.variant_inclusions || [],
+                              } as any
+                            } else {
+                              // Product item
+                              return {
+                                id: item.product_id || item.id || `item-${Math.random()}`,
+                                product_id: item.product_id || item.id,
+                                product: {
+                                  id: item.product_id || item.id,
+                                  name: item.product_name || 'Item',
+                                  product_code: item.product_code,
+                                  category: item.category_name,
+                                  image_url: item.product?.image_url,
+                                },
+                                quantity: item.quantity || 1,
+                                unit_price: item.unit_price || item.price || 0,
+                              } as any
+                            }
+                          })
+                          setSelectedItems(items)
+                          setShowItemsDisplay(true)
+                        }}
+                        className="w-full"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View All Items Details
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1717,6 +1687,95 @@ export default function BookingsPage() {
       </Dialog>
 
       <ConfirmationDialog />
+      
+      {/* Reusable Items Display Dialog */}
+      {currentBookingForItems && (
+        <ItemsDisplayDialog
+          open={showItemsDisplay}
+          onOpenChange={setShowItemsDisplay}
+          items={selectedItems}
+          context={{
+            bookingType: (currentBookingForItems as any).source === 'package_bookings' ? 'sale' : 'rental',
+            eventDate: currentBookingForItems.event_date,
+            isEditable: currentBookingForItems.status === 'pending_selection',
+            showPricing: true,
+          }}
+          onQuantityChange={(itemId, newQuantity) => {
+            // Update local state
+            setSelectedItems(prev => 
+              prev.map(item => 
+                item.id === itemId ? { ...item, quantity: newQuantity } : item
+              )
+            )
+          }}
+          onRemoveItem={(itemId) => {
+            setSelectedItems(prev => prev.filter(item => item.id !== itemId))
+          }}
+          onAddItems={() => {
+            setShowItemsDisplay(false)
+            setShowItemsSelection(true)
+          }}
+          summaryData={{
+            subtotal: selectedItems.reduce((sum, item) => {
+              const price = 'unit_price' in item ? item.unit_price : ((item as any).variant?.base_price || 0)
+              return sum + (price * item.quantity)
+            }, 0),
+            discount: currentBookingForItems.discount_amount || 0,
+            gst: currentBookingForItems.tax_amount || 0,
+            securityDeposit: currentBookingForItems.security_deposit || 0,
+            total: currentBookingForItems.total_amount || 0,
+          }}
+        />
+      )}
+      
+      {/* Reusable Items Selection Dialog */}
+      {currentBookingForItems && (
+        <ItemsSelectionDialog
+          open={showItemsSelection}
+          onOpenChange={(open) => {
+            setShowItemsSelection(open)
+            if (!open) {
+              setShowItemsDisplay(true)
+            }
+          }}
+          type={(currentBookingForItems as any).source === 'package_bookings' ? 'package' : 'product'}
+          items={[]} // Load from API in production
+          context={{
+            bookingType: (currentBookingForItems as any).source === 'package_bookings' ? 'sale' : 'rental',
+            onItemSelect: (item) => {
+              if ('variants' in item || 'package_variants' in item) {
+                // Package item
+                const newItem: SelectedItem = {
+                  id: `pkg-${item.id}-${Date.now()}`,
+                  package_id: item.id,
+                  variant_id: undefined,
+                  package: item as PackageSet,
+                  variant: undefined,
+                  quantity: 1,
+                  extra_safas: 0,
+                  variant_inclusions: [],
+                } as any
+                setSelectedItems(prev => [...prev, newItem])
+              } else {
+                // Product item
+                const prod = item as Product
+                const newItem: SelectedItem = {
+                  id: `prod-${item.id}-${Date.now()}`,
+                  product_id: item.id,
+                  product: prod,
+                  quantity: 1,
+                  unit_price: prod.rental_price || 0,
+                  total_price: prod.rental_price || 0,
+                } as any
+                setSelectedItems(prev => [...prev, newItem])
+              }
+            },
+            deliveryDate: currentBookingForItems.delivery_date,
+            returnDate: currentBookingForItems.pickup_date,
+          }}
+          selectedItems={selectedItems}
+        />
+      )}
     </div>
   )
 }

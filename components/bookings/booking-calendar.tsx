@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format, isBefore, startOfDay } from "date-fns"
-import { Search, CalendarIcon, Package } from "lucide-react"
+import { Search, CalendarIcon, Package, Eye } from "lucide-react"
+import { ItemsDisplayDialog } from "@/components/shared"
+import type { SelectedItem } from "@/components/shared/types/items"
 
 interface BookingData {
   id: string
@@ -49,6 +51,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const [dateBookings, setDateBookings] = React.useState<BookingData[]>([])
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
+  
+  // New reusable dialog states
+  const [showItemsDisplay, setShowItemsDisplay] = React.useState(false)
+  const [selectedBookingForItems, setSelectedBookingForItems] = React.useState<BookingData | null>(null)
+  const [bookingItems, setBookingItems] = React.useState<SelectedItem[]>([])
 
   React.useEffect(() => {
     fetchBookings()
@@ -366,12 +373,46 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                 </Button>
                               </div>
                             ) : (
-                              <>
+                              <div className="space-y-2">
                                 <span className="text-2xl font-bold text-primary">
                                   {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
                                 </span>
                                 <div className="text-xs text-gray-500 mt-1">Total Safas</div>
-                              </>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[10px]"
+                                  onClick={async () => {
+                                    setSelectedBookingForItems(booking)
+                                    // Fetch booking items
+                                    try {
+                                      const res = await fetch(`/api/bookings/${booking.id}/items`)
+                                      if (res.ok) {
+                                        const data = await res.json()
+                                        const items: SelectedItem[] = (data.items || []).map((item: any) => ({
+                                          id: item.product_id || item.id || `item-${Math.random()}`,
+                                          name: item.product_name || item.package_name || 'Item',
+                                          quantity: item.quantity || 1,
+                                          price: item.unit_price || item.price || 0,
+                                          category: item.category_name || 'Uncategorized',
+                                          image_url: item.product?.image_url,
+                                          type: item.package_name ? 'package' : 'product',
+                                          variant_name: item.variant_name,
+                                          extra_safas: item.extra_safas || 0,
+                                          variant_inclusions: item.variant_inclusions || [],
+                                        }))
+                                        setBookingItems(items)
+                                        setShowItemsDisplay(true)
+                                      }
+                                    } catch (e) {
+                                      console.error('Failed to fetch items:', e)
+                                    }
+                                  }}
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  View Items
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -396,6 +437,40 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Reusable Items Display Dialog */}
+      {selectedBookingForItems && (
+        <ItemsDisplayDialog
+          open={showItemsDisplay}
+          onOpenChange={setShowItemsDisplay}
+          items={bookingItems}
+          context={{
+            bookingType: 'rental',
+            eventDate: selectedBookingForItems.event_date,
+            isEditable: false,
+            showPricing: true,
+          }}
+          onQuantityChange={(itemId, newQuantity) => {
+            // Read-only mode, no changes allowed
+          }}
+          onRemoveItem={(itemId) => {
+            // Read-only mode, no changes allowed
+          }}
+          summaryData={{
+            subtotal: bookingItems.reduce((sum, item) => {
+              // Type-safe price extraction using type guards
+              const price = 'unit_price' in item 
+                ? item.unit_price 
+                : (item as any).variant?.base_price || 0
+              return sum + (price * item.quantity)
+            }, 0),
+            discount: 0,
+            gst: 0,
+            securityDeposit: 0,
+            total: selectedBookingForItems.total_amount || 0,
+          }}
+        />
+      )}
     </Card>
   )
 }

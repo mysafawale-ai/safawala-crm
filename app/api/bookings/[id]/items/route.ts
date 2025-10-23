@@ -36,13 +36,7 @@ export async function GET(
           unit_price,
           total_price,
           variant_name,
-          product:products(
-            id,
-            name,
-            code,
-            category,
-            image_url
-          )
+          product:products!left(id, name, product_code, category, image_url)
         `)
         .eq('order_id', id)
         .order('created_at', { ascending: true })
@@ -69,8 +63,7 @@ export async function GET(
           selected_products,
           package:package_sets!package_booking_items_package_id_fkey(
             id,
-            name,
-            code
+            name
           ),
           variant:package_variants!package_booking_items_variant_id_fkey(
             id,
@@ -95,7 +88,7 @@ export async function GET(
         product: item.package ? {
           id: item.package.id,
           name: item.package.name,
-          code: item.package.code,
+          product_code: null,
           category: 'Package',
           image_url: null
         } : null,
