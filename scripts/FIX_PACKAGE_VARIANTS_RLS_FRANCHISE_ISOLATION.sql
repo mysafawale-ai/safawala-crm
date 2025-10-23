@@ -94,7 +94,7 @@ USING (
     SELECT 1 FROM package_levels
     JOIN package_variants ON package_variants.id = package_levels.variant_id
     JOIN users ON users.id = auth.uid()
-    WHERE package_levels.id = distance_pricing.level_id
+    WHERE package_levels.id = distance_pricing.package_level_id
     AND users.franchise_id = package_variants.franchise_id
     AND users.is_active = true
   )
