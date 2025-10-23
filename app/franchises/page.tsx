@@ -153,34 +153,37 @@ export default function FranchisesPage() {
     setIsSubmitting(true)
 
     try {
-      console.log("[v0] Creating new franchise in database...")
+      console.log("[v0] Creating new franchise via API...")
 
-      const { data, error } = await supabase
-        .from("franchises")
-        .insert([
-          {
-            name: formData.name,
-            code: formData.name.toUpperCase().replace(/\s+/g, "_"),
-            address: formData.address,
-            city: formData.location,
-            state: formData.location,
-            pincode: formData.pincode,
-            phone: formData.phone,
-            email: formData.email,
-            owner_name: formData.contact_person,
-            manager_name: formData.contact_person,
-            gst_number: formData.gst_number || null,
-            is_active: formData.is_active,
-          },
-        ])
-        .select()
+      const response = await fetch("/api/franchises", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          code: formData.name.toUpperCase().replace(/\s+/g, "_"),
+          address: formData.address,
+          city: formData.location,
+          state: formData.location,
+          pincode: formData.pincode,
+          phone: formData.phone,
+          email: formData.email,
+          owner_name: formData.contact_person,
+          manager_name: formData.contact_person,
+          gst_number: formData.gst_number || null,
+          is_active: formData.is_active,
+        }),
+      })
 
-      if (error) {
-        console.error("[v0] Error creating franchise:", error)
-        throw error
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error("[v0] Error creating franchise:", result.error)
+        throw new Error(result.error || "Failed to create franchise")
       }
 
-      console.log("[v0] Franchise created successfully:", data)
+      console.log("[v0] Franchise created successfully:", result.data)
 
       toast({
         title: "Success",
@@ -241,11 +244,15 @@ export default function FranchisesPage() {
     setIsSubmitting(true)
 
     try {
-      console.log("[v0] Updating franchise in database...")
+      console.log("[v0] Updating franchise via API...")
 
-      const { data, error } = await supabase
-        .from("franchises")
-        .update({
+      const response = await fetch("/api/franchises", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: selectedFranchise.id,
           name: formData.name,
           code: formData.name.toUpperCase().replace(/\s+/g, "_"),
           address: formData.address,
@@ -258,16 +265,17 @@ export default function FranchisesPage() {
           manager_name: formData.contact_person,
           gst_number: formData.gst_number || null,
           is_active: formData.is_active,
-        })
-        .eq("id", selectedFranchise.id)
-        .select()
+        }),
+      })
 
-      if (error) {
-        console.error("[v0] Error updating franchise:", error)
-        throw error
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error("[v0] Error updating franchise:", result.error)
+        throw new Error(result.error || "Failed to update franchise")
       }
 
-      console.log("[v0] Franchise updated successfully:", data)
+      console.log("[v0] Franchise updated successfully:", result.data)
 
       toast({
         title: "Success",
