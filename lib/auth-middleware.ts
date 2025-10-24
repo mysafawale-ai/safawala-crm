@@ -176,14 +176,26 @@ export async function authenticateRequest(
  * Ensure user has valid permissions object with defaults based on role
  */
 function ensurePermissions(permissions: any, role: AppRole): UserPermissions {
-  const defaultPermissions = getDefaultPermissions(role);
-  
-  if (!permissions || typeof permissions !== 'object') {
-    return defaultPermissions;
+  // If user has explicit permissions in DB, use those (don't override with defaults)
+  if (permissions && typeof permissions === 'object' && Object.keys(permissions).length > 0) {
+    // Just ensure all required keys exist by filling in missing ones with false
+    const allKeys: Array<keyof UserPermissions> = [
+      'dashboard', 'bookings', 'customers', 'inventory', 'sales', 'laundry',
+      'purchases', 'expenses', 'deliveries', 'reports', 'financials',
+      'invoices', 'franchises', 'staff', 'settings'
+    ];
+    
+    const result = { ...permissions } as UserPermissions;
+    for (const key of allKeys) {
+      if (!(key in result)) {
+        result[key] = false;
+      }
+    }
+    return result;
   }
-
-  // Merge with defaults to ensure all keys exist
-  return { ...defaultPermissions, ...permissions };
+  
+  // Only use defaults if permissions is null/empty
+  return getDefaultPermissions(role);
 }
 
 /**
