@@ -152,10 +152,18 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[v0] Login successful for:", email)
+    
+    // Return session data so client can set it in Supabase client
     return NextResponse.json({
       success: true,
       message: "Login successful",
-      user
+      user,
+      session: {
+        access_token: signInData.session?.access_token,
+        refresh_token: signInData.session?.refresh_token,
+        expires_at: signInData.session?.expires_at,
+        expires_in: signInData.session?.expires_in
+      }
     })
   } catch (error) {
     console.error("[v0] Unexpected login error:", error)

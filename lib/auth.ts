@@ -1,6 +1,7 @@
 "use client"
 
 import type { User } from "./types"
+import { createClient } from "./supabase/client"
 
 export async function signIn(email: string, password: string) {
   try {
@@ -26,7 +27,7 @@ export async function signIn(email: string, password: string) {
     }
 
   const data = await response.json()
-  const { user } = data
+  const { user, session } = data
 
     // Store user data securely and wait for it to complete
     try {
@@ -39,6 +40,20 @@ export async function signIn(email: string, password: string) {
     } catch (storageError) {
       console.error("[v0] localStorage error:", storageError)
       throw new Error("Failed to save session. Please try again.")
+    }
+
+    // Set Supabase session in the client
+    if (session?.access_token && session?.refresh_token) {
+      try {
+        const supabase = createClient()
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+        console.log("[v0] Supabase session set successfully")
+      } catch (sessionError) {
+        console.error("[v0] Failed to set Supabase session:", sessionError)
+      }
     }
 
     // Warm up server session so subsequent pages can read it
