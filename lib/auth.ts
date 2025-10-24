@@ -64,9 +64,20 @@ export async function getCurrentUser(): Promise<User | null> {
     if (typeof window === "undefined") return null
 
     const storedUser = localStorage.getItem("safawala_user")
-    if (!storedUser) return null
+    if (storedUser) return JSON.parse(storedUser)
 
-    return JSON.parse(storedUser)
+    // Fallback: fetch from server using Supabase Auth session
+    try {
+      const res = await fetch('/api/auth/user', { method: 'GET' })
+      if (res.ok) {
+        const user = await res.json()
+        localStorage.setItem('safawala_user', JSON.stringify(user))
+        return user
+      }
+    } catch (e) {
+      // ignore network errors
+    }
+    return null
   } catch (error) {
     console.error("[v0] Get current user error:", error)
     return null
