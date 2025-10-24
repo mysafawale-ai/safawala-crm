@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
+import { supabase } from "@/lib/supabase-server-simple"
 import type { UserPermissions } from "@/lib/types"
 import bcrypt from "bcryptjs"
 
