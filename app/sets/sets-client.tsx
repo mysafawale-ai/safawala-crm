@@ -250,6 +250,19 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         // Create new category
         console.log("[v0] Attempting to create new category")
         
+        // Check auth session before inserting
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log("[v0] Auth session check:", {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          email: session?.user?.email,
+          accessToken: session?.access_token ? 'EXISTS' : 'MISSING'
+        })
+        
+        if (!session) {
+          throw new Error("You are not authenticated. Please log out and log back in.")
+        }
+        
         // Get franchise_id from user
         const franchiseId = user?.franchise_id
         if (!franchiseId && user?.role !== 'super_admin') {
@@ -703,10 +716,17 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const refetchData = async () => {
     try {
       console.log("[v0] Starting refetchData - fetching categories...")
-      const { data: categoriesData, error: categoriesError } = await supabase
+      
+      // Fetch categories with franchise filtering (non-super-admin only sees their franchise)
+      let categoriesQuery = supabase
         .from("packages_categories")
         .select("*")
-        .order("display_order")
+      
+      if (user?.role !== "super_admin" && user?.franchise_id) {
+        categoriesQuery = categoriesQuery.eq("franchise_id", user.franchise_id)
+      }
+      
+      const { data: categoriesData, error: categoriesError } = await categoriesQuery.order("display_order")
       if (categoriesError) throw categoriesError
 
       // Fetch variants by category_id (franchise filter for non-super-admin)

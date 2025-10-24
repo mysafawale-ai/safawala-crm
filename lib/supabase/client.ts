@@ -16,7 +16,7 @@ export function createClient() {
     {
       auth: {
         persistSession: true,
-        storageKey: 'sb-xplnyaxkusvuajtmorss-auth-token', // Must match Supabase's default
+        storageKey: 'sb-xplnyaxkusvuajtmorss-auth-token',
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
         autoRefreshToken: true,
         detectSessionInUrl: true,
@@ -24,6 +24,17 @@ export function createClient() {
       }
     }
   )
+
+  // Immediately try to restore session from storage
+  if (typeof window !== 'undefined') {
+    supabaseInstance.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        console.log('[Supabase Client] Session restored from storage')
+      } else {
+        console.warn('[Supabase Client] No session found in storage')
+      }
+    })
+  }
 
   return supabaseInstance
 }
