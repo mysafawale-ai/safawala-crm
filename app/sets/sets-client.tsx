@@ -47,6 +47,8 @@ interface PackageVariant {
   name: string
   description: string
   base_price: number
+  extra_safa_price?: number
+  missing_safa_penalty?: number
   inclusions?: string[]
   package_levels?: PackageLevel[]
   is_active: boolean
@@ -112,6 +114,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     name: "",
     description: "",
     extra_price: "0.00",
+    extra_safa_price: "0.00",
+    missing_safa_penalty: "0.00",
     inclusions: "",
   })
 
@@ -475,6 +479,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         return
       }
 
+      const extraSafaPrice = Number.parseFloat(variantForm.extra_safa_price)
+      const missingSafaPenalty = Number.parseFloat(variantForm.missing_safa_penalty)
+
       const inclusions = variantForm.inclusions
         .split(",")
         .map((item) => item.trim())
@@ -484,6 +491,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         name: variantForm.name.trim(),
         description: variantForm.description.trim(),
         base_price: basePrice,
+        extra_safa_price: isNaN(extraSafaPrice) ? 0 : extraSafaPrice,
+        missing_safa_penalty: isNaN(missingSafaPenalty) ? 0 : missingSafaPenalty,
         inclusions,
         category_id: selectedCategory.id,
         // For backward-compat where package_id may be NOT NULL, set to category id
@@ -514,7 +523,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       await refetchData()
       
-      setVariantForm({ name: "", description: "", extra_price: "0.00", inclusions: "" })
+      setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", inclusions: "" })
       setEditingVariant(null)
       setDialogs((prev) => ({ ...prev, createVariant: false }))
     } catch (error) {
@@ -529,6 +538,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       name: variant.name,
       description: variant.description,
       extra_price: variant.base_price.toString(),
+      extra_safa_price: (variant.extra_safa_price || 0).toString(),
+      missing_safa_penalty: (variant.missing_safa_penalty || 0).toString(),
       inclusions: variant.inclusions ? variant.inclusions.join(", ") : "",
     })
     setDialogs((prev) => ({ ...prev, createVariant: true }))
@@ -1130,7 +1141,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   setDialogs((prev) => ({ ...prev, createVariant: open }))
                   if (!open) {
                     setEditingVariant(null)
-                    setVariantForm({ name: "", description: "", extra_price: "0.00", inclusions: "" })
+                    setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", inclusions: "" })
                   }
                 }}
               >
@@ -1184,6 +1195,34 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         onChange={(e) => setVariantForm((prev) => ({ ...prev, inclusions: e.target.value }))}
                       />
                       <p className="text-xs text-gray-500 mt-1">Separate each inclusion with a comma</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="extra-safa-price">Extra Safa Price (₹)</Label>
+                        <Input
+                          id="extra-safa-price"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Price per extra safa"
+                          value={variantForm.extra_safa_price}
+                          onChange={(e) => setVariantForm((prev) => ({ ...prev, extra_safa_price: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Charge for additional safas</p>
+                      </div>
+                      <div>
+                        <Label htmlFor="missing-safa-penalty">Missing Safa Penalty (₹)</Label>
+                        <Input
+                          id="missing-safa-penalty"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Penalty for missing safas"
+                          value={variantForm.missing_safa_penalty}
+                          onChange={(e) => setVariantForm((prev) => ({ ...prev, missing_safa_penalty: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Charge if safas are lost/damaged</p>
+                      </div>
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 mt-6">
