@@ -162,6 +162,7 @@ const navigationItems = {
       url: "/product-archive",
       icon: Archive,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "inventory",
       description: "Manage lost, damaged, stolen, or discontinued products with detailed records",
     },
     {
@@ -169,6 +170,7 @@ const navigationItems = {
       url: "/payroll",
       icon: DollarSign,
       roles: ["super_admin", "franchise_admin"],
+      permission: "financials",
       description: "Process employee salaries, manage attendance, and handle payroll calculations",
     },
     {
@@ -176,6 +178,7 @@ const navigationItems = {
       url: "/attendance",
       icon: Clock,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "dashboard",
       description: "Track employee attendance, working hours, and leave management",
     },
   ],
@@ -185,6 +188,7 @@ const navigationItems = {
       url: "/reports",
       icon: BarChart3,
       roles: ["super_admin", "franchise_admin"],
+      permission: "reports",
       description: "Generate business reports, analytics, and performance insights",
     },
     {
@@ -192,6 +196,7 @@ const navigationItems = {
       url: "/financials",
       icon: FileText,
       roles: ["super_admin", "franchise_admin"],
+      permission: "financials",
       description: "Financial overview, revenue tracking, and profit/loss analysis",
     },
   ],
