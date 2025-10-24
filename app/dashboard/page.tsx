@@ -69,6 +69,14 @@ export default function DashboardPage() {
           router.push("/")
           return
         }
+        
+        // Check if user has dashboard permission
+        if (!currentUser.permissions?.dashboard) {
+          toast.error("You don't have permission to access the dashboard")
+          router.push("/bookings") // Redirect to first available page
+          return
+        }
+        
         setUser(currentUser)
       } catch (error) {
         router.push("/")
@@ -182,18 +190,20 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-              <Calendar className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats?.activeBookings || 0} active • {stats?.conversionRate || 0}% conversion
-              </p>
-            </CardContent>
-          </Card>
+          {user?.permissions?.bookings && (
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+                <Calendar className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  {stats?.activeBookings || 0} active • {stats?.conversionRate || 0}% conversion
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -248,18 +258,20 @@ export default function DashboardPage() {
           </Alert>
         )}
 
-        {/* Booking Calendar - Prominently Placed */}
-        <Card>
-          <CardHeader>
-            <CardTitle>📅 Booking Calendar</CardTitle>
-            <CardDescription>View all your bookings at a glance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BookingCalendar 
-              franchiseId={user?.role !== 'super_admin' ? user?.franchise_id : undefined} 
-            />
-          </CardContent>
-        </Card>
+        {/* Booking Calendar - Only show if user has bookings permission */}
+        {user?.permissions?.bookings && (
+          <Card>
+            <CardHeader>
+              <CardTitle>📅 Booking Calendar</CardTitle>
+              <CardDescription>View all your bookings at a glance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BookingCalendar 
+                franchiseId={user?.role !== 'super_admin' ? user?.franchise_id : undefined} 
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Quick Actions */}
@@ -269,30 +281,43 @@ export default function DashboardPage() {
               <CardDescription>Common tasks and shortcuts</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Link href="/create-product-order">
-                <Button className="w-full justify-start">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Product Order
-                </Button>
-              </Link>
-              <Link href="/book-package">
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Book Package
-                </Button>
-              </Link>
-              <Link href="/customers/new">
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Users className="h-4 w-4 mr-2" />
-                  Add New Customer
-                </Button>
-              </Link>
-              <Link href="/inventory">
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Package className="h-4 w-4 mr-2" />
-                  Manage Inventory
-                </Button>
-              </Link>
+              {user?.permissions?.bookings && (
+                <>
+                  <Link href="/create-product-order">
+                    <Button className="w-full justify-start">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Product Order
+                    </Button>
+                  </Link>
+                  <Link href="/book-package">
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Book Package
+                    </Button>
+                  </Link>
+                </>
+              )}
+              {user?.permissions?.customers && (
+                <Link href="/customers/new">
+                  <Button variant="outline" className="w-full justify-start bg-transparent">
+                    <Users className="h-4 w-4 mr-2" />
+                    Add New Customer
+                  </Button>
+                </Link>
+              )}
+              {user?.permissions?.inventory && (
+                <Link href="/inventory">
+                  <Button variant="outline" className="w-full justify-start bg-transparent">
+                    <Package className="h-4 w-4 mr-2" />
+                    Manage Inventory
+                  </Button>
+                </Link>
+              )}
+              {!user?.permissions?.bookings && !user?.permissions?.customers && !user?.permissions?.inventory && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No quick actions available
+                </p>
+              )}
             </CardContent>
           </Card>
 
