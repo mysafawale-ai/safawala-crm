@@ -406,7 +406,8 @@ export default function StaffPage() {
   }
 
   const handleSelectAllPermissions = (category: string, checked: boolean) => {
-    const categoryPermissions = permissionCategories[category as keyof typeof permissionCategories].permissions
+    const visibleCategories = getVisibleCategories(currentUser?.role || 'staff')
+    const categoryPermissions = visibleCategories[category as keyof typeof visibleCategories].permissions
     setNewUserData(prev => {
       const updatedPermissions = { ...prev.permissions }
       categoryPermissions.forEach(permission => {
@@ -884,7 +885,7 @@ export default function StaffPage() {
                     Select which sections this staff member can access. Default permissions are set based on their role.
                   </div>
                   
-                  {Object.entries(permissionCategories).map(([categoryKey, category]) => (
+                  {Object.entries(getVisibleCategories(currentUser?.role || 'staff')).map(([categoryKey, category]) => (
                     <Card key={categoryKey}>
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
@@ -1353,7 +1354,7 @@ export default function StaffPage() {
                   Customize which sections this staff member can access.
                 </div>
                 
-                {Object.entries(permissionCategories).map(([categoryKey, category]) => (
+                {Object.entries(getVisibleCategories(currentUser?.role || 'staff')).map(([categoryKey, category]) => (
                   <Card key={categoryKey}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">

@@ -248,7 +248,7 @@ function getDefaultPermissions(role: AppRole): UserPermissions {
         financials: true,
         franchises: false, // Only super_admin
         staff: true,
-        integrations: true,
+        integrations: false, // Only super_admin
         settings: true,
       };
     
