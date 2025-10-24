@@ -180,9 +180,10 @@ function ensurePermissions(permissions: any, role: AppRole): UserPermissions {
   if (permissions && typeof permissions === 'object' && Object.keys(permissions).length > 0) {
     // Just ensure all required keys exist by filling in missing ones with false
     const allKeys: Array<keyof UserPermissions> = [
-      'dashboard', 'bookings', 'customers', 'inventory', 'sales', 'laundry',
-      'purchases', 'expenses', 'deliveries', 'reports', 'financials',
-      'invoices', 'franchises', 'staff', 'settings'
+      'dashboard', 'bookings', 'customers', 'inventory', 'packages', 'vendors',
+      'quotes', 'invoices', 'laundry', 'expenses', 'deliveries', 'productArchive',
+      'payroll', 'attendance', 'reports', 'financials', 'franchises', 'staff',
+      'integrations', 'settings'
     ];
     
     const result = { ...permissions } as UserPermissions;
