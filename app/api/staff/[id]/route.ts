@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import type { UserPermissions } from "@/lib/types"
 import bcrypt from "bcryptjs"
 
 // Ensure dynamic rendering for Vercel edge caching behavior
@@ -12,6 +13,40 @@ export const runtime = 'nodejs'
 async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10)
   return bcrypt.hash(password, salt)
+}
+
+function defaultPermissionsForRole(role: string): UserPermissions {
+  const all: UserPermissions = {
+    dashboard: true, bookings: true, customers: true, inventory: true, sales: true, laundry: true,
+    purchases: true, expenses: true, deliveries: true, reports: true, financials: true, invoices: true,
+    franchises: true, staff: true, settings: true,
+  }
+  const staff: UserPermissions = {
+    dashboard: true, bookings: true, customers: true, inventory: true, sales: true, laundry: true,
+    purchases: false, expenses: false, deliveries: true, reports: false, financials: false, invoices: true,
+    franchises: false, staff: false, settings: false,
+  }
+  const readonly: UserPermissions = {
+    dashboard: true, bookings: false, customers: true, inventory: false, sales: false, laundry: false,
+    purchases: false, expenses: false, deliveries: false, reports: true, financials: false, invoices: false,
+    franchises: false, staff: false, settings: false,
+  }
+  if (role === 'super_admin' || role === 'franchise_admin') return all
+  if (role === 'readonly') return readonly
+  return staff
+}
+
+function sanitizePermissions(input: any, role: string): UserPermissions {
+  const base = defaultPermissionsForRole(role)
+  const out: any = { ...base }
+  if (input && typeof input === 'object') {
+    for (const key of Object.keys(base) as (keyof UserPermissions)[]) {
+      const v = (input as any)[key]
+      if (typeof v === 'boolean') out[key] = v
+      else if (v !== undefined && v !== null) out[key] = Boolean(v)
+    }
+  }
+  return out as UserPermissions
 }
 
 /**
@@ -120,8 +155,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Staff ID is required" }, { status: 400 })
     }
     
-    const body = await request.json()
-    const { name, email, password, role, franchise_id, permissions, is_active } = body
+  const body = await request.json()
+  const { name, email, password, role, franchise_id, permissions, is_active } = body
     
     // 🔒 RBAC: Franchise admins cannot set role to super_admin
     if (!isSuperAdmin && role === 'super_admin') {
@@ -146,7 +181,16 @@ export async function PATCH(
     if (email !== undefined) updateData.email = email
     if (role !== undefined) updateData.role = role
     if (franchise_id !== undefined) updateData.franchise_id = franchise_id
-    if (permissions !== undefined) updateData.permissions = permissions
+    if (permissions !== undefined) {
+      const roleForPerms = typeof role === 'string' ? role : undefined
+      let currentRole = roleForPerms
+      if (!currentRole) {
+        const supabaseRole = createClient()
+        const { data: existing } = await supabaseRole.from('users').select('role').eq('id', id).single()
+        currentRole = existing?.role || 'staff'
+      }
+      updateData.permissions = sanitizePermissions(permissions, currentRole)
+    }
     if (is_active !== undefined) updateData.is_active = is_active
     
     // Hash password if provided (with validation)

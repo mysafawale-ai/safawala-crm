@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import type { UserPermissions } from "@/lib/types"
 import bcrypt from "bcryptjs"
 
 /**
@@ -47,6 +48,82 @@ async function getUserFromSession(request: NextRequest) {
   } catch (error) {
     throw new Error("Authentication required")
   }
+}
+
+/**
+ * Build default permissions by role
+ */
+function defaultPermissionsForRole(role: string): UserPermissions {
+  const all: UserPermissions = {
+    dashboard: true,
+    bookings: true,
+    customers: true,
+    inventory: true,
+    sales: true,
+    laundry: true,
+    purchases: true,
+    expenses: true,
+    deliveries: true,
+    reports: true,
+    financials: true,
+    invoices: true,
+    franchises: true,
+    staff: true,
+    settings: true,
+  }
+  const staff: UserPermissions = {
+    dashboard: true,
+    bookings: true,
+    customers: true,
+    inventory: true,
+    sales: true,
+    laundry: true,
+    purchases: false,
+    expenses: false,
+    deliveries: true,
+    reports: false,
+    financials: false,
+    invoices: true,
+    franchises: false,
+    staff: false,
+    settings: false,
+  }
+  const readonly: UserPermissions = {
+    dashboard: true,
+    bookings: false,
+    customers: true,
+    inventory: false,
+    sales: false,
+    laundry: false,
+    purchases: false,
+    expenses: false,
+    deliveries: false,
+    reports: true,
+    financials: false,
+    invoices: false,
+    franchises: false,
+    staff: false,
+    settings: false,
+  }
+  if (role === 'super_admin' || role === 'franchise_admin') return all
+  if (role === 'readonly') return readonly
+  return staff
+}
+
+/**
+ * Sanitize incoming permissions against the known shape and coerce to booleans
+ */
+function sanitizePermissions(input: any, role: string): UserPermissions {
+  const base = defaultPermissionsForRole(role)
+  const out: any = { ...base }
+  if (input && typeof input === 'object') {
+    for (const key of Object.keys(base) as (keyof UserPermissions)[]) {
+      const v = (input as any)[key]
+      if (typeof v === 'boolean') out[key] = v
+      else if (v !== undefined && v !== null) out[key] = Boolean(v)
+    }
+  }
+  return out as UserPermissions
 }
 
 /**
@@ -118,8 +195,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { name, email, password, role, permissions, is_active = true } = body
+  const body = await request.json()
+  const { name, email, password, role, permissions, is_active = true } = body
     
     // 🔒 RBAC: Franchise admins cannot create super admins
     if (!isSuperAdmin && role === 'super_admin') {
@@ -174,6 +251,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already exists" }, { status: 409 })
     }
     
+    // Build permissions safely (defaults by role, then override with provided)
+    const safePermissions = sanitizePermissions(permissions, role)
+
     // Insert new user
     const { data, error } = await supabase
       .from("users")
@@ -183,7 +263,7 @@ export async function POST(request: NextRequest) {
         password_hash,
         role,
         franchise_id: staffFranchiseId,
-        permissions,
+        permissions: safePermissions,
         is_active
       }])
       .select(`
@@ -247,9 +327,22 @@ export async function PUT(request: NextRequest) {
         delete updateData.password
       }
       
+      // If updating permissions, sanitize using existing role if not provided
+      let effectiveUpdate = { ...updateData }
+      if (updateData && Object.prototype.hasOwnProperty.call(updateData, 'permissions')) {
+        const roleToUse = typeof updateData.role === 'string' ? updateData.role : undefined
+        // Fetch current role if not provided in payload
+        let currentRole = roleToUse
+        if (!currentRole) {
+          const { data: existing } = await supabase.from('users').select('role').eq('id', id).single()
+          currentRole = existing?.role
+        }
+        effectiveUpdate.permissions = sanitizePermissions(updateData.permissions, currentRole || 'staff')
+      }
+
       const { data, error } = await supabase
         .from("users")
-        .update(updateData)
+        .update(effectiveUpdate)
         .eq("id", id)
         .select()
       
