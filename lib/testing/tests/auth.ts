@@ -37,7 +37,64 @@ export const authSessionTest: TestCase = {
   },
 };
 
+export const authPermissionsTest: TestCase = {
+  id: 'auth.permissions',
+  name: 'Auth: user permissions are correctly loaded',
+  async run(ctx: TestContext): Promise<TestResult> {
+    const start = Date.now();
+    try {
+      const res = await relativeFetch<{ email?: string; permissions?: any }>(ctx, '/api/auth/user');
+      const durationMs = Date.now() - start;
+      
+      if (res.status !== 200) {
+        return {
+          id: 'auth.permissions',
+          name: 'Auth: user permissions are correctly loaded',
+          status: 'fail',
+          durationMs,
+          error: `Expected 200 from /api/auth/user but got ${res.status}`,
+        };
+      }
+
+      const permissions = res.data?.permissions;
+      if (!permissions || typeof permissions !== 'object') {
+        return {
+          id: 'auth.permissions',
+          name: 'Auth: user permissions are correctly loaded',
+          status: 'fail',
+          durationMs,
+          error: 'User has no permissions object',
+        };
+      }
+
+      // Count enabled permissions
+      const enabled = Object.entries(permissions).filter(([_, v]) => v === true).map(([k]) => k);
+      const disabled = Object.entries(permissions).filter(([_, v]) => v === false).map(([k]) => k);
+
+      return {
+        id: 'auth.permissions',
+        name: 'Auth: user permissions are correctly loaded',
+        status: 'pass',
+        durationMs,
+        details: {
+          enabled: enabled.join(', '),
+          disabled: disabled.join(', '),
+          total: Object.keys(permissions).length,
+        },
+      };
+    } catch (err: any) {
+      return {
+        id: 'auth.permissions',
+        name: 'Auth: user permissions are correctly loaded',
+        status: 'fail',
+        durationMs: Date.now() - start,
+        error: err?.message || String(err),
+      };
+    }
+  },
+};
+
 export const authSuite = {
   name: 'auth',
-  cases: [authSessionTest],
+  cases: [authSessionTest, authPermissionsTest],
 };
