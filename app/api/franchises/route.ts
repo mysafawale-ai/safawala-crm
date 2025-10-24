@@ -62,17 +62,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 🔒 SECURITY: Authenticate user
-    const { isSuperAdmin, userId } = await getUserFromSession(request)
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Only super admin can create franchises
-    if (!isSuperAdmin) {
-      return NextResponse.json({ 
-        error: "Forbidden: Only super admin can create franchises" 
-      }, { status: 403 })
+    const auth = await authenticateRequest(request, { minRole: 'super_admin' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
 
     const body = await request.json()
@@ -152,17 +144,9 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // 🔒 SECURITY: Authenticate user
-    const { isSuperAdmin, userId } = await getUserFromSession(request)
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Only super admin can update franchises
-    if (!isSuperAdmin) {
-      return NextResponse.json({ 
-        error: "Forbidden: Only super admin can update franchises" 
-      }, { status: 403 })
+    const auth = await authenticateRequest(request, { minRole: 'super_admin' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
 
     const body = await request.json()
