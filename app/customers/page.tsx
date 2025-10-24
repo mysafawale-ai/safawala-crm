@@ -48,6 +48,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import type { User, Customer } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
+import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 
 export default function CustomersPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -56,6 +57,8 @@ export default function CustomersPage() {
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const router = useRouter()
@@ -111,6 +114,17 @@ export default function CustomersPage() {
   const handleViewCustomer = (customer: Customer) => {
     setSelectedCustomer(customer)
     setViewDialogOpen(true)
+  }
+
+  const handleEditCustomer = (customer: Customer) => {
+    setCustomerToEdit(customer)
+    setEditDialogOpen(true)
+  }
+
+  const handleCustomerUpdated = (updatedCustomer: any) => {
+    // Refresh the customer list
+    refresh()
+    setCustomerToEdit(null)
   }
 
   const handleDeleteClick = (customer: Customer) => {
@@ -435,12 +449,15 @@ export default function CustomersPage() {
                       <Eye className="h-4 w-4 mr-1" />
                       View
                     </Button>
-                    <Link href={`/customers/${customer.id}/edit`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full bg-transparent">
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                    </Link>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 bg-transparent"
+                      onClick={() => handleEditCustomer(customer)}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
                     {customer.whatsapp && (
                       <Button
                         variant="outline"
@@ -666,7 +683,7 @@ export default function CustomersPage() {
                   <div>
                     <h3 className="text-sm font-semibold mb-2">Notes</h3>
                     <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">
-                      {selectedCustomer.notes}
+                      {typeof selectedCustomer.notes === 'string' ? selectedCustomer.notes : JSON.stringify(selectedCustomer.notes)}
                     </p>
                   </div>
                 )}
@@ -675,13 +692,13 @@ export default function CustomersPage() {
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t">
                   <div className="text-center">
                     <p className="text-2xl font-bold">
-                      {bookings.filter((b: any) => b.customer_id === selectedCustomer.id).length}
+                      {Array.isArray(bookings) ? bookings.filter((b: any) => b.customer_id === selectedCustomer.id).length : 0}
                     </p>
                     <p className="text-xs text-muted-foreground">Total Bookings</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-600">
-                      {selectedCustomer.is_active ? 'Active' : 'Inactive'}
+                      {(selectedCustomer as any).is_active !== false ? 'Active' : 'Inactive'}
                     </p>
                     <p className="text-xs text-muted-foreground">Status</p>
                   </div>
@@ -695,12 +712,17 @@ export default function CustomersPage() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2 pt-4 border-t">
-                  <Link href={`/customers/${selectedCustomer.id}/edit`} className="flex-1">
-                    <Button className="w-full" variant="default">
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Customer
-                    </Button>
-                  </Link>
+                  <Button 
+                    className="flex-1" 
+                    variant="default"
+                    onClick={() => {
+                      setViewDialogOpen(false)
+                      handleEditCustomer(selectedCustomer)
+                    }}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Customer
+                  </Button>
                   <Button 
                     className="flex-1" 
                     variant="outline"
@@ -714,6 +736,15 @@ export default function CustomersPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Edit Customer Dialog */}
+        <CustomerFormDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onCustomerCreated={handleCustomerUpdated}
+          mode="edit"
+          customer={customerToEdit}
+        />
       </div>
     </DashboardLayout>
   )

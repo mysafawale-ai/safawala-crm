@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,8 @@ interface CustomerFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCustomerCreated?: (customer: any) => void
+  mode?: "create" | "edit"
+  customer?: any
 }
 
 interface CustomerFormData {
@@ -28,7 +30,7 @@ interface CustomerFormData {
   pincode: string
 }
 
-export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated }: CustomerFormDialogProps) {
+export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode = "create", customer }: CustomerFormDialogProps) {
   const [loading, setLoading] = useState(false)
   const [pincodeLoading, setPincodeLoading] = useState(false)
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "valid" | "invalid">("idle")
@@ -43,6 +45,39 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated }: Cu
     state: "",
     pincode: "",
   })
+
+  // Pre-fill form data when in edit mode
+  useEffect(() => {
+    if (mode === "edit" && customer && open) {
+      setFormData({
+        name: customer.name || "",
+        email: customer.email || "",
+        phone: customer.phone || "",
+        whatsapp: customer.whatsapp || customer.phone || "",
+        address: customer.address || "",
+        city: customer.city || "",
+        state: customer.state || "",
+        pincode: customer.pincode || "",
+      })
+      // Set pincode status if valid
+      if (customer.pincode && /^\d{6}$/.test(customer.pincode) && customer.city && customer.state) {
+        setPincodeStatus("valid")
+      }
+    } else if (mode === "create" && !open) {
+      // Reset form when dialog closes in create mode
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        whatsapp: "",
+        address: "",
+        city: "",
+        state: "",
+        pincode: "",
+      })
+      setPincodeStatus("idle")
+    }
+  }, [mode, customer, open])
 
   const handleInputChange = (field: keyof CustomerFormData, value: string) => {
     setFormData((prev) => ({
@@ -118,43 +153,74 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated }: Cu
         throw new Error("Please enter a valid email address")
       }
 
-      // Create customer via Supabase directly
-      const { data, error } = await supabase
-        .from("customers")
-        .insert({
-          ...formData,
-          customer_code: `CUST${Date.now().toString().slice(-6)}`,
-          franchise_id: "00000000-0000-0000-0000-000000000001", // Default franchise
-        })
-        .select()
-        .single()
+      if (mode === "edit" && customer) {
+        // Update existing customer
+        const { data, error } = await supabase
+          .from("customers")
+          .update({
+            name: formData.name,
+            phone: formData.phone,
+            whatsapp: formData.whatsapp || null,
+            email: formData.email || null,
+            address: formData.address || null,
+            city: formData.city || null,
+            state: formData.state || null,
+            pincode: formData.pincode || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", customer.id)
+          .select()
+          .single()
 
-      if (error) throw error
+        if (error) throw error
 
-      toast.success("Customer created successfully!")
-      
-      // Call callback with new customer
-      if (onCustomerCreated) {
-        onCustomerCreated(data)
+        toast.success("Customer updated successfully!")
+        
+        // Call callback with updated customer
+        if (onCustomerCreated) {
+          onCustomerCreated(data)
+        }
+      } else {
+        // Create new customer
+        const { data, error } = await supabase
+          .from("customers")
+          .insert({
+            ...formData,
+            customer_code: `CUST${Date.now().toString().slice(-6)}`,
+            franchise_id: "00000000-0000-0000-0000-000000000001", // Default franchise
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        toast.success("Customer created successfully!")
+        
+        // Call callback with new customer
+        if (onCustomerCreated) {
+          onCustomerCreated(data)
+        }
       }
 
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        whatsapp: "",
-        address: "",
-        city: "",
-        state: "",
-        pincode: "",
-      })
-      setPincodeStatus("idle")
+      // Reset form only in create mode
+      if (mode === "create") {
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          whatsapp: "",
+          address: "",
+          city: "",
+          state: "",
+          pincode: "",
+        })
+        setPincodeStatus("idle")
+      }
 
       // Close dialog
       onOpenChange(false)
     } catch (error) {
-      console.error("Error creating customer:", error)
+      console.error(`Error ${mode === "edit" ? "updating" : "creating"} customer:`, error)
       toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setLoading(false)
@@ -172,7 +238,9 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated }: Cu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader className="border-b pb-4">
-          <DialogTitle className="text-xl font-semibold">Add New Customer</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">
+            {mode === "edit" ? "Edit Customer" : "Add New Customer"}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 pt-4">
@@ -307,10 +375,10 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated }: Cu
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  {mode === "edit" ? "Updating..." : "Saving..."}
                 </>
               ) : (
-                "Save Customer"
+                mode === "edit" ? "Update Customer" : "Save Customer"
               )}
             </Button>
           </div>
