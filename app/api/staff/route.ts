@@ -98,12 +98,12 @@ function sanitizePermissions(input: any, role: string): UserPermissions {
 export async function GET(request: NextRequest) {
   try {
     // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await authenticateRequest(request, { minRole: 'franchise_admin', requirePermission: 'staff' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
-
+    const { user } = auth
+    
     const searchParams = request.nextUrl.searchParams
     const role = searchParams.get("role")
     const search = searchParams.get("search")
@@ -120,8 +120,8 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
     
     // 🔒 FRANCHISE ISOLATION: Super admin sees all, others see only their franchise
-    if (!isSuperAdmin && franchiseId) {
-      query = query.eq("franchise_id", franchiseId)
+    if (!user!.is_super_admin && user!.franchise_id) {
+      query = query.eq("franchise_id", user!.franchise_id)
     }
     
     // Apply filters if they exist
@@ -154,17 +154,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await authenticateRequest(request, { minRole: 'franchise_admin', requirePermission: 'staff' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+    const { user } = auth
 
   const body = await request.json()
   const { name, email, password, role, permissions, is_active = true } = body
     
     // 🔒 RBAC: Franchise admins cannot create super admins
-    if (!isSuperAdmin && role === 'super_admin') {
+    if (!user!.is_super_admin && role === 'super_admin') {
       return NextResponse.json(
         { error: "Unauthorized: Franchise admins cannot create super admin accounts" }, 
         { status: 403 }
