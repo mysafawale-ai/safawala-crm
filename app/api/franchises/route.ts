@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     console.log("[Franchises API] GET request received")
     
     // 🔒 SECURITY: Authenticate user and get franchise context
-    const auth = await authenticateRequest(request, { minRole: 'viewer' })
+    const auth = await authenticateRequest(request, { minRole: 'readonly' })
     if (!auth.authorized) {
       console.error("[Franchises API] Unauthorized")
       return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
