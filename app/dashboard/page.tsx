@@ -321,16 +321,17 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Recent Activity Timeline */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest booking updates and events</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentBookings && recentBookings.length > 0 ? (
-                  recentBookings.slice(0, 5).map((booking) => (
+          {/* Recent Activity Timeline - Only show if user has bookings permission */}
+          {user?.permissions?.bookings && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest booking updates and events</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {recentBookings && recentBookings.length > 0 ? (
+                    recentBookings.slice(0, 5).map((booking) => (
                     <div key={booking.id} className="flex items-start gap-4 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex-shrink-0 mt-1">
                         {booking.status === 'confirmed' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
@@ -383,6 +384,7 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+          )}
         </div>
         </>
         )}
