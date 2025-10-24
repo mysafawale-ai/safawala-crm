@@ -40,8 +40,7 @@ SELECT
   u.email,
   u.role,
   u.franchise_id,
-  f.name as franchise_name,
-  f.branch_name
+  f.name as franchise_name
 FROM users u
 LEFT JOIN franchises f ON u.franchise_id = f.id
 WHERE u.email = 'surat@safawala.com';
