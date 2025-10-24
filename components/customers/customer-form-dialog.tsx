@@ -179,26 +179,40 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           updateData.is_active = formData.is_active
         }
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("customers")
           .update(updateData)
           .eq("id", customer.id)
           .select("*")
-          .single()
 
         console.log("[CustomerFormDialog] Update result:", { data, error, customerId: customer.id })
 
+        // If no rows returned, the update might have failed
+        if (!error && (!data || (Array.isArray(data) && data.length === 0))) {
+          console.warn("[CustomerFormDialog] No rows returned, possibly due to is_active column")
+          error = { message: "is_active column issue" } as any
+        }
+
+        // Extract single row if array returned
+        if (data && Array.isArray(data) && data.length > 0) {
+          data = data[0]
+        }
+
         // Handle is_active column not existing yet
-        if (error && error.message?.includes("is_active")) {
+        if (error && (error.message?.includes("is_active") || error.message?.includes("column"))) {
           console.warn("is_active column not found, retrying without it...")
           delete updateData.is_active
           
-          const retryResult = await supabase
+          let retryResult = await supabase
             .from("customers")
             .update(updateData)
             .eq("id", customer.id)
             .select("*")
-            .maybeSingle()
+          
+          // Extract single row if array
+          if (retryResult.data && Array.isArray(retryResult.data) && retryResult.data.length > 0) {
+            retryResult.data = retryResult.data[0]
+          }
           
           if (retryResult.error) throw retryResult.error
           
@@ -244,22 +258,30 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         // Try to include is_active for new customers
         insertData.is_active = true
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("customers")
           .insert(insertData)
           .select("*")
-          .single()
+        
+        // Extract single row if array returned
+        if (data && Array.isArray(data) && data.length > 0) {
+          data = data[0]
+        }
 
         // Handle is_active column not existing yet
         if (error && error.message?.includes("is_active")) {
           console.warn("is_active column not found, retrying without it...")
           delete insertData.is_active
           
-          const retryResult = await supabase
+          let retryResult = await supabase
             .from("customers")
             .insert(insertData)
             .select("*")
-            .single()
+          
+          // Extract single row if array
+          if (retryResult.data && Array.isArray(retryResult.data) && retryResult.data.length > 0) {
+            retryResult.data = retryResult.data[0]
+          }
           
           if (retryResult.error) throw retryResult.error
           
