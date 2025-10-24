@@ -25,8 +25,8 @@ export async function signIn(email: string, password: string) {
       throw new Error(errorMessage)
     }
 
-    const data = await response.json()
-    const { user } = data
+  const data = await response.json()
+  const { user } = data
 
     // Store user data securely and wait for it to complete
     try {
@@ -40,6 +40,11 @@ export async function signIn(email: string, password: string) {
       console.error("[v0] localStorage error:", storageError)
       throw new Error("Failed to save session. Please try again.")
     }
+
+    // Warm up server session so subsequent pages can read it
+    try {
+      await ensureServerSession()
+    } catch {}
 
     return { user, userData: user }
   } catch (error) {
@@ -82,6 +87,18 @@ export async function getCurrentUser(): Promise<User | null> {
     console.error("[v0] Get current user error:", error)
     return null
   }
+}
+
+// Ensure the Supabase Auth session cookie is readable by API routes
+export async function ensureServerSession(retries = 3, delayMs = 200): Promise<boolean> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch('/api/auth/user', { method: 'GET', cache: 'no-store' })
+      if (res.ok) return true
+    } catch {}
+    await new Promise((r) => setTimeout(r, delayMs))
+  }
+  return false
 }
 
 export function hasPermission(userRole: string, requiredRole: string): boolean {
