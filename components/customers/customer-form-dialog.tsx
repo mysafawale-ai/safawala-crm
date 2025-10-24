@@ -173,11 +173,8 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           updated_at: new Date().toISOString(),
         }
 
-        // Only include is_active if it exists in the schema
-        // This provides graceful degradation if column not yet migrated
-        if (mode === "edit") {
-          updateData.is_active = formData.is_active
-        }
+        // Include is_active in update (column now exists)
+        updateData.is_active = formData.is_active
 
         let { data, error } = await supabase
           .from("customers")
@@ -187,18 +184,12 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
 
         console.log("[CustomerFormDialog] Update result:", { data, error, customerId: customer.id })
 
-        // If no rows returned, the update might have failed
-        if (!error && (!data || (Array.isArray(data) && data.length === 0))) {
-          console.warn("[CustomerFormDialog] No rows returned, possibly due to is_active column")
-          error = { message: "is_active column issue" } as any
-        }
-
         // Extract single row if array returned
         if (data && Array.isArray(data) && data.length > 0) {
           data = data[0]
         }
 
-        // Handle is_active column not existing yet
+        // Handle is_active column not existing yet (graceful fallback)
         if (error && (error.message?.includes("is_active") || error.message?.includes("column"))) {
           console.warn("is_active column not found, retrying without it...")
           delete updateData.is_active
