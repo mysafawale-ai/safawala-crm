@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import type { UserPermissions } from "@/lib/types"
 import bcrypt from "bcryptjs"
+import { authenticateRequest } from "@/lib/auth-middleware"
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,45 +13,6 @@ export const dynamic = 'force-dynamic'
 async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10)
   return bcrypt.hash(password, salt)
-}
-
-/**
- * Get user session from cookie and validate franchise access
- */
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    // Use service role to fetch user details
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
-  }
 }
 
 /**
