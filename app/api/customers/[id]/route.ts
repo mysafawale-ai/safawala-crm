@@ -4,6 +4,9 @@ import { ApiResponseBuilder } from "@/lib/api-response"
 import AuditLogger from "@/lib/audit-logger"
 import { requireAuth, AuthMiddleware } from "@/lib/auth-middleware"
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 interface RouteParams {
   params: {
     id: string
