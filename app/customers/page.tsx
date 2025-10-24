@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -34,6 +41,8 @@ import {
   Users,
   Calendar,
   TrendingUp,
+  Building2,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -45,6 +54,8 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const router = useRouter()
@@ -95,6 +106,11 @@ export default function CustomersPage() {
     const message = `Hello ${customer.name}, thank you for choosing Safawala Wedding Accessories!`
     const whatsappUrl = `https://wa.me/${phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
+  }
+
+  const handleViewCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setViewDialogOpen(true)
   }
 
   const handleDeleteClick = (customer: Customer) => {
@@ -410,12 +426,15 @@ export default function CustomersPage() {
                   </div>
 
                   <div className="flex space-x-1 pt-3">
-                    <Link href={`/customers/${customer.id}`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full bg-transparent">
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </Link>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 bg-transparent"
+                      onClick={() => handleViewCustomer(customer)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View
+                    </Button>
                     <Link href={`/customers/${customer.id}/edit`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full bg-transparent">
                         <Edit className="h-4 w-4 mr-1" />
@@ -544,6 +563,157 @@ export default function CustomersPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* View Customer Dialog */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                <Users className="h-6 w-6" />
+                Customer Details
+              </DialogTitle>
+              <DialogDescription>
+                Complete information about {selectedCustomer?.name}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedCustomer && (
+              <div className="space-y-6 py-4">
+                {/* Basic Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Customer Name</label>
+                    <p className="text-base font-semibold mt-1">{selectedCustomer.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Customer Code</label>
+                    <p className="text-base font-mono mt-1">{selectedCustomer.customer_code || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Contact Information */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Contact Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                      <p className="text-base mt-1 flex items-center gap-2">
+                        {selectedCustomer.phone || 'N/A'}
+                        {selectedCustomer.phone && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2"
+                            onClick={() => window.open(`tel:${selectedCustomer.phone}`)}
+                          >
+                            <Phone className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">WhatsApp</label>
+                      <p className="text-base mt-1 flex items-center gap-2">
+                        {selectedCustomer.whatsapp || selectedCustomer.phone || 'N/A'}
+                        {(selectedCustomer.whatsapp || selectedCustomer.phone) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-green-600"
+                            onClick={() => handleWhatsApp(selectedCustomer)}
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium text-muted-foreground">Email</label>
+                      <p className="text-base mt-1">{selectedCustomer.email || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Address
+                  </h3>
+                  <p className="text-base bg-muted p-3 rounded-md">
+                    {selectedCustomer.address || 'No address provided'}
+                  </p>
+                </div>
+
+                {/* Franchise Info */}
+                {selectedCustomer.franchise && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Franchise
+                    </h3>
+                    <Badge variant="secondary" className="text-sm">
+                      {selectedCustomer.franchise.name}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {selectedCustomer.notes && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Notes</h3>
+                    <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">
+                      {selectedCustomer.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">
+                      {bookings.filter((b: any) => b.customer_id === selectedCustomer.id).length}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Total Bookings</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">
+                      {selectedCustomer.is_active ? 'Active' : 'Inactive'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Status</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold">
+                      {selectedCustomer.created_at ? new Date(selectedCustomer.created_at).toLocaleDateString() : 'N/A'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Member Since</p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4 border-t">
+                  <Link href={`/customers/${selectedCustomer.id}/edit`} className="flex-1">
+                    <Button className="w-full" variant="default">
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Customer
+                    </Button>
+                  </Link>
+                  <Button 
+                    className="flex-1" 
+                    variant="outline"
+                    onClick={() => setViewDialogOpen(false)}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )
