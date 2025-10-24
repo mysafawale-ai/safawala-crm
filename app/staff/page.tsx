@@ -76,40 +76,28 @@ interface NewUserData {
 const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff' | 'readonly'): UserPermissions => {
   switch (role) {
     case 'super_admin':
-      return {
-        dashboard: true,
-        bookings: true,
-        customers: true,
-        inventory: true,
-        sales: true,
-        laundry: true,
-        purchases: true,
-        expenses: true,
-        deliveries: true,
-        reports: true,
-        financials: true,
-        invoices: true,
-        franchises: true,
-        staff: true,
-        settings: true
-      }
     case 'franchise_admin':
       return {
         dashboard: true,
         bookings: true,
         customers: true,
         inventory: true,
-        sales: true,
+        packages: true,
+        vendors: true,
+        quotes: true,
+        invoices: true,
         laundry: true,
-        purchases: true,
         expenses: true,
         deliveries: true,
+        productArchive: true,
+        payroll: true,
+        attendance: true,
         reports: true,
         financials: true,
-        invoices: true,
-        franchises: false,
+        franchises: role === 'super_admin', // Only super_admin gets franchises
         staff: true,
-        settings: false
+        integrations: true,
+        settings: true
       }
     case 'staff':
       return {
@@ -117,34 +105,44 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         bookings: true,
         customers: true,
         inventory: true,
-        sales: false,
+        packages: false,
+        vendors: false,
+        quotes: true,
+        invoices: true,
         laundry: true,
-        purchases: false,
         expenses: false,
         deliveries: true,
+        productArchive: false,
+        payroll: false,
+        attendance: true,
         reports: false,
         financials: false,
-        invoices: true,
         franchises: false,
         staff: false,
+        integrations: false,
         settings: false
       }
     default: // readonly
       return {
         dashboard: true,
         bookings: false,
-        customers: false,
+        customers: true,
         inventory: false,
-        sales: false,
+        packages: false,
+        vendors: false,
+        quotes: false,
+        invoices: false,
         laundry: false,
-        purchases: false,
         expenses: false,
         deliveries: false,
-        reports: false,
+        productArchive: false,
+        payroll: false,
+        attendance: true,
+        reports: true,
         financials: false,
-        invoices: false,
         franchises: false,
         staff: false,
+        integrations: false,
         settings: false
       }
   }
@@ -152,41 +150,46 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
 
 // Permission categories for better organization
 const permissionCategories = {
-  core: {
-    title: 'Core Operations',
-    permissions: ['dashboard', 'bookings', 'customers', 'inventory']
+  main: {
+    title: 'Main Navigation',
+    permissions: ['dashboard', 'bookings', 'customers', 'inventory', 'packages', 'vendors']
   },
   business: {
     title: 'Business Operations',
-    permissions: ['sales', 'laundry', 'purchases', 'expenses', 'deliveries']
+    permissions: ['quotes', 'invoices', 'laundry', 'expenses', 'deliveries', 'productArchive', 'payroll', 'attendance']
   },
   analytics: {
     title: 'Analytics & Reports',
-    permissions: ['reports', 'financials', 'invoices']
+    permissions: ['reports', 'financials']
   },
   admin: {
     title: 'Administration',
-    permissions: ['franchises', 'staff', 'settings']
+    permissions: ['franchises', 'staff', 'integrations', 'settings']
   }
 }
 
 // Permission labels
 const permissionLabels: Record<keyof UserPermissions, string> = {
   dashboard: 'Dashboard',
-  bookings: 'Bookings Management',
-  customers: 'Customer Management',
-  inventory: 'Inventory Management',
-  sales: 'Sales Management',
-  laundry: 'Laundry Management',
-  purchases: 'Purchase Management',
-  expenses: 'Expense Management',
-  deliveries: 'Delivery Management',
-  reports: 'Reports & Analytics',
-  financials: 'Financial Management',
-  invoices: 'Invoice Management',
-  franchises: 'Franchise Management',
-  staff: 'Staff Management',
-  settings: 'System Settings'
+  bookings: 'Bookings',
+  customers: 'Customers',
+  inventory: 'Inventory',
+  packages: 'Packages',
+  vendors: 'Vendors',
+  quotes: 'Quotes',
+  invoices: 'Invoices',
+  laundry: 'Laundry',
+  expenses: 'Expenses',
+  deliveries: 'Deliveries & Returns',
+  productArchive: 'Product Archive',
+  payroll: 'Payroll',
+  attendance: 'Attendance',
+  reports: 'Reports',
+  financials: 'Financials',
+  franchises: 'Franchises',
+  staff: 'Staff',
+  integrations: 'Integrations',
+  settings: 'Settings'
 }
 
 // Role labels for display
