@@ -153,6 +153,7 @@ export async function PATCH(
     }
     
     const { user } = auth
+    // user is guaranteed to exist here since auth.authorized is true
     
     const id = params.id
     
@@ -164,7 +165,7 @@ export async function PATCH(
   const { name, email, password, role, franchise_id, permissions, is_active } = body
     
     // 🔒 RBAC: Franchise admins cannot set role to super_admin
-    if (user.role !== 'super_admin' && role === 'super_admin') {
+    if (user!.role !== 'super_admin' && role === 'super_admin') {
       return NextResponse.json(
         { error: "Unauthorized: Franchise admins cannot create or modify super admin accounts" }, 
         { status: 403 }
@@ -172,7 +173,7 @@ export async function PATCH(
     }
     
     // 🔒 RBAC: Franchise admins can only update staff in their own franchise
-    if (user.role !== 'super_admin' && franchise_id && franchise_id !== user.franchise_id) {
+    if (user!.role !== 'super_admin' && franchise_id && franchise_id !== user!.franchise_id) {
       return NextResponse.json(
         { error: "Unauthorized: Can only modify staff in your own franchise" }, 
         { status: 403 }
@@ -257,12 +258,19 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // 🔒 SECURITY: Authenticate user and get franchise context
-    const { userId, franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    // 🔒 SECURITY: Authenticate user with franchise_admin role + staff permission
+    const auth = await authenticateRequest(request, {
+      minRole: 'franchise_admin',
+      requirePermission: 'staff'
+    })
     
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!auth.authorized) {
+      console.error("[Staff API] Unauthorized")
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+    
+    const { user } = auth
+    // user is guaranteed to exist here since auth.authorized is true
     
     const id = params.id
     
@@ -271,17 +279,15 @@ export async function DELETE(
     }
     
     // 🔒 PREVENT SELF-DELETION
-    if (id === userId) {
+    if (id === user!.id) {
       return NextResponse.json(
         { error: "Cannot delete your own account. Please ask another admin to remove your account." }, 
         { status: 403 }
       )
     }
     
-    const supabase = createClient()
-    
     // Check if user exists and get their details
-    const { data: existingUser, error: fetchError } = await supabase
+    const { data: existingUser, error: fetchError } = await supabaseServer
       .from("users")
       .select("id, franchise_id, role, is_active")
       .eq("id", id)
@@ -293,7 +299,7 @@ export async function DELETE(
     
     // 🔒 PREVENT DELETING LAST ACTIVE ADMIN IN FRANCHISE
     if (existingUser.role === 'franchise_admin' && existingUser.is_active) {
-      const { data: adminCount } = await supabase
+      const { data: adminCount } = await supabaseServer
         .from("users")
         .select("id")
         .eq("franchise_id", existingUser.franchise_id)
@@ -309,7 +315,7 @@ export async function DELETE(
     }
     
     // 🔒 FRANCHISE ISOLATION: Non-super-admins can only delete staff in their franchise
-    if (!isSuperAdmin && existingUser.franchise_id !== franchiseId) {
+    if (user!.role !== 'super_admin' && existingUser.franchise_id !== user!.franchise_id) {
       return NextResponse.json(
         { error: "Unauthorized: Can only delete staff in your own franchise" }, 
         { status: 403 }
@@ -317,7 +323,7 @@ export async function DELETE(
     }
     
     // Delete user
-    const { error } = await supabase
+    const { error } = await supabaseServer
       .from("users")
       .delete()
       .eq("id", id)
