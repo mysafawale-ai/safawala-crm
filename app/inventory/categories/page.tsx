@@ -103,7 +103,7 @@ export default function CategoriesPage() {
 
       // Get product counts separately for main categories
       const categoryCounts = await Promise.all(
-        (categoriesData || []).map(async (category) => {
+        (categoriesData || []).map(async (category: any) => {
           let countQuery = supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
@@ -140,7 +140,7 @@ export default function CategoriesPage() {
 
       // Get product counts separately for subcategories
       const subCategoryCounts = await Promise.all(
-        (subCategoriesData || []).map(async (category) => {
+        (subCategoriesData || []).map(async (category: any) => {
           let countQuery = supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
@@ -206,7 +206,15 @@ export default function CategoriesPage() {
     if (!selectedCategory) return
 
     try {
-      const { error } = await supabase
+      // Get current user for franchise validation
+      const userRes = await fetch('/api/auth/user')
+      if (!userRes.ok) throw new Error('Failed to fetch user')
+      const user = await userRes.json()
+      const isSuperAdmin = user?.role === 'super_admin'
+      const franchiseId = user?.franchise_id
+
+      // Build update query with franchise isolation
+      let updateQuery = supabase
         .from('product_categories')
         .update({
           name: formData.name,
@@ -214,6 +222,13 @@ export default function CategoriesPage() {
           is_active: formData.is_active
         })
         .eq('id', selectedCategory.id)
+      
+      // Non-super-admins can only update their own franchise categories or global categories
+      if (!isSuperAdmin && franchiseId) {
+        updateQuery = updateQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+      }
+
+      const { error } = await updateQuery
 
       if (error) throw error
 
