@@ -91,12 +91,19 @@ export default function DashboardPage() {
 
   const handleRefresh = useCallback(async () => {
     try {
-      await Promise.all([refreshStats(), refreshBookings(), refreshCalendar()])
+      const refreshPromises = [refreshStats()]
+      
+      // Only refresh bookings data if user has bookings permission
+      if (user?.permissions?.bookings) {
+        refreshPromises.push(refreshBookings(), refreshCalendar())
+      }
+      
+      await Promise.all(refreshPromises)
       toast.success("Dashboard refreshed successfully")
     } catch (error) {
-      toast.error("Failed to refresh dashboard")
+      // Silent fail - don't show error toast
     }
-  }, [refreshStats, refreshBookings, refreshCalendar])
+  }, [refreshStats, refreshBookings, refreshCalendar, user?.permissions?.bookings])
 
   const navigateMonth = useCallback((direction: "prev" | "next") => {
     setCurrentDate((prevDate) => {
