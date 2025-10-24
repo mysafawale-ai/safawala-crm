@@ -352,8 +352,38 @@ export default function CustomersPage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">+{Array.isArray(customers) ? customers.length : 0}</div>
+              <div className="text-2xl font-bold">
+                +{Array.isArray(customers) 
+                  ? customers.filter(c => {
+                      const createdDate = new Date(c.created_at)
+                      const now = new Date()
+                      return createdDate.getMonth() === now.getMonth() && 
+                             createdDate.getFullYear() === now.getFullYear()
+                    }).length 
+                  : 0}
+              </div>
               <p className="text-xs text-muted-foreground">New customers</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
+              <UserPlus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {Array.isArray(bookings) && Array.isArray(customers)
+                  ? new Set(
+                      bookings
+                        .filter((b: any) => 
+                          b.payment_status === 'pending' || b.payment_status === 'partial'
+                        )
+                        .map((b: any) => b.customer_id)
+                    ).size
+                  : 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Customers to follow up</p>
             </CardContent>
           </Card>
         </div>
