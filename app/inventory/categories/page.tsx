@@ -172,13 +172,22 @@ export default function CategoriesPage() {
 
   const handleAddCategory = async () => {
     try {
+      // Get current user for franchise_id
+      const userRes = await fetch('/api/auth/user')
+      if (!userRes.ok) throw new Error('Failed to fetch user')
+      const user = await userRes.json()
+      const isSuperAdmin = user?.role === 'super_admin'
+      const franchiseId = user?.franchise_id
+
       const { error } = await supabase
         .from('product_categories')
         .insert([{
           name: formData.name,
           description: formData.description,
           parent_id: formData.parent_id || null,
-          is_active: formData.is_active
+          is_active: formData.is_active,
+          // Set franchise_id for non-super-admins, null for super_admin (global categories)
+          franchise_id: !isSuperAdmin && franchiseId ? franchiseId : null
         }])
 
       if (error) throw error
@@ -228,10 +237,25 @@ export default function CategoriesPage() {
       variant: 'destructive',
       onConfirm: async () => {
         try {
-          const { error } = await supabase
+          // Get current user for franchise validation
+          const userRes = await fetch('/api/auth/user')
+          if (!userRes.ok) throw new Error('Failed to fetch user')
+          const user = await userRes.json()
+          const isSuperAdmin = user?.role === 'super_admin'
+          const franchiseId = user?.franchise_id
+
+          // Build delete query with franchise isolation
+          let deleteQuery = supabase
             .from('product_categories')
             .delete()
             .eq('id', id)
+          
+          // Non-super-admins can only delete their own franchise categories
+          if (!isSuperAdmin && franchiseId) {
+            deleteQuery = deleteQuery.eq('franchise_id', franchiseId)
+          }
+
+          const { error } = await deleteQuery
 
           if (error) throw error
 
