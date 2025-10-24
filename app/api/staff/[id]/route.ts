@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateRequest } from "@/lib/auth-middleware"
-import { supabase } from "@/lib/supabase-server-simple"
+import { supabaseServer } from "@/lib/supabase-server-simple"
 import type { UserPermissions } from "@/lib/types"
 import bcrypt from "bcryptjs"
 
@@ -104,9 +104,7 @@ export async function GET(
       return NextResponse.json({ error: "Staff ID is required" }, { status: 400 })
     }
     
-    const supabase = createClient()
-    
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from("users")
       .select(`
         *,
@@ -143,12 +141,18 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
+    // 🔒 SECURITY: Authenticate user with franchise_admin role + staff permission
+    const auth = await authenticateRequest(request, {
+      minRole: 'franchise_admin',
+      requirePermission: 'staff'
+    })
     
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!auth.authorized) {
+      console.error("[Staff API] Unauthorized")
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+    
+    const { user } = auth
     
     const id = params.id
     
@@ -160,7 +164,7 @@ export async function PATCH(
   const { name, email, password, role, franchise_id, permissions, is_active } = body
     
     // 🔒 RBAC: Franchise admins cannot set role to super_admin
-    if (!isSuperAdmin && role === 'super_admin') {
+    if (user.role !== 'super_admin' && role === 'super_admin') {
       return NextResponse.json(
         { error: "Unauthorized: Franchise admins cannot create or modify super admin accounts" }, 
         { status: 403 }
@@ -168,7 +172,7 @@ export async function PATCH(
     }
     
     // 🔒 RBAC: Franchise admins can only update staff in their own franchise
-    if (!isSuperAdmin && franchise_id && franchise_id !== franchiseId) {
+    if (user.role !== 'super_admin' && franchise_id && franchise_id !== user.franchise_id) {
       return NextResponse.json(
         { error: "Unauthorized: Can only modify staff in your own franchise" }, 
         { status: 403 }
@@ -186,11 +190,10 @@ export async function PATCH(
       const roleForPerms = typeof role === 'string' ? role : undefined
       let currentRole = roleForPerms
       if (!currentRole) {
-        const supabaseRole = createClient()
-        const { data: existing } = await supabaseRole.from('users').select('role').eq('id', id).single()
+        const { data: existing } = await supabaseServer.from('users').select('role').eq('id', id).single()
         currentRole = existing?.role || 'staff'
       }
-      updateData.permissions = sanitizePermissions(permissions, currentRole)
+      updateData.permissions = sanitizePermissions(permissions, currentRole || 'staff')
     }
     if (is_active !== undefined) updateData.is_active = is_active
     
@@ -205,11 +208,9 @@ export async function PATCH(
       updateData.password_hash = await hashPassword(password)
     }
     
-    const supabase = createClient()
-    
     // Check if email is unique if it's being changed
     if (email) {
-      const { data: existingUser } = await supabase
+      const { data: existingUser } = await supabaseServer
         .from("users")
         .select("id")
         .eq("email", email)
@@ -222,7 +223,7 @@ export async function PATCH(
     }
     
     // Update user
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from("users")
       .update(updateData)
       .eq("id", id)
