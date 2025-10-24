@@ -160,23 +160,55 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
 
       if (mode === "edit" && customer) {
         // Update existing customer
+        // Build update object conditionally
+        const updateData: any = {
+          name: formData.name,
+          phone: formData.phone,
+          whatsapp: formData.whatsapp || null,
+          email: formData.email || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          pincode: formData.pincode || null,
+          updated_at: new Date().toISOString(),
+        }
+
+        // Only include is_active if it exists in the schema
+        // This provides graceful degradation if column not yet migrated
+        if (mode === "edit") {
+          updateData.is_active = formData.is_active
+        }
+
         const { data, error } = await supabase
           .from("customers")
-          .update({
-            name: formData.name,
-            phone: formData.phone,
-            whatsapp: formData.whatsapp || null,
-            email: formData.email || null,
-            address: formData.address || null,
-            city: formData.city || null,
-            state: formData.state || null,
-            pincode: formData.pincode || null,
-            is_active: formData.is_active,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq("id", customer.id)
           .select("*")
           .maybeSingle()
+
+        // Handle is_active column not existing yet
+        if (error && error.message?.includes("is_active")) {
+          console.warn("is_active column not found, retrying without it...")
+          delete updateData.is_active
+          
+          const retryResult = await supabase
+            .from("customers")
+            .update(updateData)
+            .eq("id", customer.id)
+            .select("*")
+            .maybeSingle()
+          
+          if (retryResult.error) throw retryResult.error
+          
+          toast.success("Customer updated successfully! (Note: Please run database migration to enable status toggle)")
+          
+          if (onCustomerCreated) {
+            onCustomerCreated(retryResult.data)
+          }
+          
+          onOpenChange(false)
+          return
+        }
 
         if (error) throw error
 
@@ -188,16 +220,63 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         }
       } else {
         // Create new customer
+        const insertData: any = {
+          name: formData.name,
+          phone: formData.phone,
+          whatsapp: formData.whatsapp || null,
+          email: formData.email || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          pincode: formData.pincode || null,
+          customer_code: `CUST${Date.now().toString().slice(-6)}`,
+          franchise_id: "00000000-0000-0000-0000-000000000001", // Default franchise
+        }
+
+        // Try to include is_active for new customers
+        insertData.is_active = true
+
         const { data, error } = await supabase
           .from("customers")
-          .insert({
-            ...formData,
-            customer_code: `CUST${Date.now().toString().slice(-6)}`,
-            franchise_id: "00000000-0000-0000-0000-000000000001", // Default franchise
-            is_active: true,
-          })
+          .insert(insertData)
           .select("*")
           .single()
+
+        // Handle is_active column not existing yet
+        if (error && error.message?.includes("is_active")) {
+          console.warn("is_active column not found, retrying without it...")
+          delete insertData.is_active
+          
+          const retryResult = await supabase
+            .from("customers")
+            .insert(insertData)
+            .select("*")
+            .single()
+          
+          if (retryResult.error) throw retryResult.error
+          
+          toast.success("Customer created successfully! (Note: Please run database migration to enable status toggle)")
+          
+          if (onCustomerCreated) {
+            onCustomerCreated(retryResult.data)
+          }
+          
+          setFormData({
+            name: "",
+            email: "",
+            phone: "",
+            whatsapp: "",
+            address: "",
+            city: "",
+            state: "",
+            pincode: "",
+            is_active: true,
+          })
+          setPincodeStatus("idle")
+          
+          onOpenChange(false)
+          return
+        }
 
         if (error) throw error
 
