@@ -121,10 +121,23 @@ export default function CustomersPage() {
     setEditDialogOpen(true)
   }
 
-  const handleCustomerUpdated = (updatedCustomer: any) => {
-    // Refresh the customer list
-    refresh()
+  const handleCustomerUpdated = async (updatedCustomer: any) => {
+    console.log('[CustomersPage] handleCustomerUpdated called with:', updatedCustomer)
+    
+    // Refresh the customer list immediately
+    console.log('[CustomersPage] Calling refresh...')
+    await refresh()
+    console.log('[CustomersPage] Refresh completed')
+    
+    // Update the selected customer in view dialog if it's open
+    if (selectedCustomer && updatedCustomer && selectedCustomer.id === updatedCustomer.id) {
+      console.log('[CustomersPage] Updating selectedCustomer in view dialog')
+      setSelectedCustomer(updatedCustomer)
+    }
+    
+    // Clear edit state
     setCustomerToEdit(null)
+    console.log('[CustomersPage] handleCustomerUpdated completed')
   }
 
   const handleDeleteClick = (customer: Customer) => {

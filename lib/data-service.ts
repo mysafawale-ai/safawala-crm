@@ -28,6 +28,15 @@ class DataService {
     this.cache.lastFetch[key] = Date.now()
   }
 
+  // Public method to clear cache (useful after updates)
+  public clearCache(key?: string) {
+    if (key) {
+      delete this.cache.lastFetch[key]
+    } else {
+      this.cache.lastFetch = {}
+    }
+  }
+
   async getCustomers(forceRefresh = false, params: Record<string, any> = {}): Promise<Customer[]> {
     if (!forceRefresh && this.isCacheValid("customers") && Object.keys(params).length === 0) {
       return this.cache.customers
@@ -178,15 +187,6 @@ class DataService {
       end: booking.event_date,
       status: booking.status
     }))
-  }
-
-  clearCache() {
-    this.cache = {
-      customers: [],
-      bookings: [],
-      lastFetch: {},
-      cachedData: {},
-    }
   }
 }
 

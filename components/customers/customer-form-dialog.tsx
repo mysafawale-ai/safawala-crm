@@ -184,7 +184,9 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           .update(updateData)
           .eq("id", customer.id)
           .select("*")
-          .maybeSingle()
+          .single()
+
+        console.log("[CustomerFormDialog] Update result:", { data, error, customerId: customer.id })
 
         // Handle is_active column not existing yet
         if (error && error.message?.includes("is_active")) {
@@ -212,10 +214,16 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
 
         if (error) throw error
 
+        if (!data) {
+          throw new Error("No data returned from update")
+        }
+
+        console.log("[CustomerFormDialog] Customer updated successfully:", data)
         toast.success("Customer updated successfully!")
         
         // Call callback with updated customer
         if (onCustomerCreated) {
+          console.log("[CustomerFormDialog] Calling onCustomerCreated with:", data)
           onCustomerCreated(data)
         }
       } else {
