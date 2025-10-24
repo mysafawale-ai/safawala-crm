@@ -60,7 +60,7 @@ export class AuthMiddleware {
         return null;
       }
 
-      // Look up role/franchise from our users table (service role client)
+      // Look up role/franchise from our users table (service role client) using email mapping
       const { data: user, error } = await supabaseServer
         .from('users')
         .select(`
@@ -72,7 +72,7 @@ export class AuthMiddleware {
           last_name,
           is_active
         `)
-        .eq('id', authUser.id)
+        .eq('email', authUser.email as string)
         .eq('is_active', true)
         .single();
 

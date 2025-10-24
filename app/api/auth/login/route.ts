@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,14 +55,61 @@ export async function POST(request: NextRequest) {
     }
 
     // Authenticate with Supabase Auth (secure password check by Supabase)
-    const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
+    let { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
       email,
       password
     })
 
+    // Fallback: if user isn't in Supabase Auth yet, verify against legacy users table
     if (signInError || !signInData?.user) {
-      console.log("[v0] Supabase Auth sign-in failed:", signInError?.message)
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      console.log("[v0] Supabase Auth sign-in failed, attempting legacy auth fallback:", signInError?.message)
+
+      // Fetch legacy user with hashed password
+      const serviceAdminForLegacy = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+
+      const { data: legacyUser, error: legacyError } = await serviceAdminForLegacy
+        .from("users")
+        .select("id, email, password_hash, is_active")
+        .eq("email", email)
+        .single()
+
+      if (legacyError || !legacyUser || !legacyUser.is_active) {
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
+
+      // Compare bcrypt hash
+      const passwordOk = await bcrypt.compare(password, legacyUser.password_hash || "")
+      if (!passwordOk) {
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
+
+      // Create Supabase Auth user via Admin API (first-time migration)
+      try {
+        await serviceAdminForLegacy.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { legacy_user_id: legacyUser.id }
+        })
+      } catch (createErr: any) {
+        // If user already exists, ignore; else log error
+        const msg = createErr?.message || String(createErr)
+        if (!/User already registered/i.test(msg)) {
+          console.error("[v0] Failed to create Supabase Auth user during migration:", createErr)
+        }
+      }
+
+      // Try Supabase Auth sign-in again now that user should exist
+      const retry = await authClient.auth.signInWithPassword({ email, password })
+      signInData = retry.data
+      signInError = retry.error
+
+      if (signInError || !signInData?.user) {
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
     }
 
     // Fetch user profile (role, franchise, permissions) using service role client
@@ -80,7 +128,7 @@ export async function POST(request: NextRequest) {
           code
         )
       `)
-      .eq("id", signInData.user.id)
+      .eq("email", email)
       .eq("is_active", true)
       .single()
 
