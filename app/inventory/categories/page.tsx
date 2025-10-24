@@ -86,11 +86,18 @@ export default function CategoriesPage() {
       const franchiseId = user?.franchise_id
       
       // Fetch categories with product counts
-      const { data: categoriesData, error: categoriesError } = await supabase
+      let categoriesQuery = supabase
         .from('product_categories')
         .select('*')
         .is('parent_id', null)
         .order('name')
+      
+      // Apply franchise isolation for non-super-admins
+      if (!isSuperAdmin && franchiseId) {
+        categoriesQuery = categoriesQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+      }
+      
+      const { data: categoriesData, error: categoriesError } = await categoriesQuery
 
       if (categoriesError) throw categoriesError
 
@@ -116,11 +123,18 @@ export default function CategoriesPage() {
       )
 
       // Fetch subcategories
-      const { data: subCategoriesData, error: subCategoriesError } = await supabase
+      let subCategoriesQuery = supabase
         .from('product_categories')
         .select('*')
         .not('parent_id', 'is', null)
         .order('name')
+      
+      // Apply franchise isolation for non-super-admins
+      if (!isSuperAdmin && franchiseId) {
+        subCategoriesQuery = subCategoriesQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+      }
+      
+      const { data: subCategoriesData, error: subCategoriesError } = await subCategoriesQuery
 
       if (subCategoriesError) throw subCategoriesError
 
