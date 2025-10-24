@@ -13,20 +13,32 @@ export interface User {
 }
 
 export interface UserPermissions {
+  // Main Navigation
   dashboard: boolean
   bookings: boolean
   customers: boolean
   inventory: boolean
-  sales: boolean
+  packages: boolean
+  vendors: boolean
+  
+  // Business Operations
+  quotes: boolean
+  invoices: boolean
   laundry: boolean
-  purchases: boolean
   expenses: boolean
   deliveries: boolean
+  productArchive: boolean
+  payroll: boolean
+  attendance: boolean
+  
+  // Analytics & Reports
   reports: boolean
   financials: boolean
-  invoices: boolean
+  
+  // Administration
   franchises: boolean
   staff: boolean
+  integrations: boolean
   settings: boolean
 }
 
