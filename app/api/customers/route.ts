@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
     const { userId, franchiseId } = await getUserFromSession(request)
     const supabase = createClient()
 
-    const body = await request.json()
-    const { name, phone, whatsapp, email, address, city, state, pincode, notes } = body
+  const body = await request.json()
+  const { name, phone, whatsapp, email, address, city, state, pincode, notes } = body
 
     // Validation
     if (!name || name.trim().length === 0) {
@@ -154,21 +154,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert new customer with franchise_id
+    // Build insert payload conditionally to avoid referencing dropped columns (e.g., notes)
+    const insertPayload: any = {
+      name: name.trim(),
+      phone: phone.trim(),
+      whatsapp: whatsapp?.trim() || null,
+      email: email?.trim() || null,
+      address: address?.trim() || null,
+      city: city?.trim() || null,
+      state: state?.trim() || null,
+      pincode: pincode?.trim() || null,
+      franchise_id: franchiseId,
+      created_by: userId,
+    }
+    if (typeof notes !== 'undefined') {
+      insertPayload.notes = typeof notes === 'string' ? notes.trim() : notes ?? null
+    }
+
     const { data: newCustomer, error: insertError } = await supabase
       .from("customers")
-      .insert({
-        name: name.trim(),
-        phone: phone.trim(),
-        whatsapp: whatsapp?.trim() || null,  // FIX: Save WhatsApp field
-        email: email?.trim() || null,
-        address: address?.trim() || null,
-        city: city?.trim() || null,
-        state: state?.trim() || null,
-        pincode: pincode?.trim() || null,
-        notes: notes?.trim() || null,
-        franchise_id: franchiseId,
-        created_by: userId,
-      })
+      .insert(insertPayload)
       .select()
       .single()
 
@@ -232,9 +237,12 @@ export async function PUT(request: NextRequest) {
       city: city?.trim() || null,
       state: state?.trim() || null,
       pincode: pincode?.trim() || null,
-      notes: typeof notes === 'string' ? notes.trim() : notes ?? null,
       updated_by: userId,
       updated_at: new Date().toISOString(),
+    }
+    // Only include notes if explicitly provided to avoid column-not-found errors
+    if (typeof notes !== 'undefined') {
+      updateData.notes = typeof notes === 'string' ? notes.trim() : notes ?? null
     }
 
     const { data: updated, error: updateError } = await supabase
