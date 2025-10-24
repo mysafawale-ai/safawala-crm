@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 /**
  * Get user session from cookie and validate franchise access
  */
@@ -60,7 +63,7 @@ export async function GET(request: NextRequest) {
         franchise:franchises(id, name, code)
       `)
       .order("created_at", { ascending: false })
-      .eq('is_active', true)
+      // avoid filtering on removed columns; rely on franchise isolation
 
     // CRITICAL: Apply franchise filter for non-super-admins
     if (!isSuperAdmin && franchiseId) {
@@ -79,38 +82,39 @@ export async function GET(request: NextRequest) {
 
     let { data, error } = await query
 
-    // Fallback if is_active column not yet migrated
-    if (error && /is_active|column .* does not exist/i.test(String(error.message))) {
-      console.warn("[Customers API] is_active column missing. Falling back without is_active filter.")
-      let fallback = supabase
-        .from("customers")
-        .select(`
-          *,
-          franchise:franchises(id, name, code)
-        `)
-        .order("created_at", { ascending: false })
-
-      // Apply franchise filter
-      if (!isSuperAdmin && franchiseId) {
-        fallback = fallback.eq("franchise_id", franchiseId)
-      }
-
-      if (search && search.trim()) {
-        fallback = fallback.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
-      }
-
-      const res = await fallback
-      data = res.data as any
-      error = res.error as any
-    }
-
     if (error) {
       console.error("[Customers API] Error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Build a simple ETag for the list response based on the latest updated_at, count, franchise and search
+    const latestUpdatedAt = (data || [])
+      .map((c: any) => c.updated_at || c.created_at)
+      .filter(Boolean)
+      .sort()
+      .slice(-1)[0] || ''
+    const variant = `${franchiseId}|${isSuperAdmin ? 'super' : 'fr'}|${search || ''}`
+    const etag = `W/"list:${variant}:${data?.length || 0}:${latestUpdatedAt}"`
+    const ifNoneMatch = request.headers.get('if-none-match')
+    if (ifNoneMatch && etag && ifNoneMatch === etag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          'Cache-Control': 'private, must-revalidate, max-age=0',
+          Vary: 'Cookie'
+        }
+      })
+    }
+
     console.log(`[Customers API] Returning ${data?.length || 0} customers`)
-    return NextResponse.json({ success: true, data: data || [] })
+    return NextResponse.json({ success: true, data: data || [] }, {
+      headers: {
+        ETag: etag,
+        'Cache-Control': 'private, must-revalidate, max-age=0',
+        Vary: 'Cookie'
+      }
+    })
   } catch (error) {
     console.error("[Customers API] Error:", error)
     if (error instanceof Error && error.message === "Authentication required") {
@@ -181,5 +185,76 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { userId, franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    const supabase = createClient()
+
+    const body = await request.json()
+    const { id, name, phone, whatsapp, email, address, city, state, pincode, notes } = body || {}
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json({ error: "Valid customer ID is required" }, { status: 400 })
+    }
+
+    if (!name || name.trim().length === 0) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 })
+    }
+
+    if (!phone || phone.trim().length < 10) {
+      return NextResponse.json({ error: "Valid phone number is required" }, { status: 400 })
+    }
+
+    // Fetch existing to verify and enforce franchise isolation
+    const { data: existing, error: fetchError } = await supabase
+      .from('customers')
+      .select('id, franchise_id')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !existing) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    }
+
+    if (!isSuperAdmin && existing.franchise_id !== franchiseId) {
+      return NextResponse.json({ error: 'Access denied to this franchise' }, { status: 403 })
+    }
+
+    const updateData: any = {
+      name: name.trim(),
+      phone: phone.trim(),
+      whatsapp: whatsapp?.trim() || null,
+      email: email?.trim() || null,
+      address: address?.trim() || null,
+      city: city?.trim() || null,
+      state: state?.trim() || null,
+      pincode: pincode?.trim() || null,
+      notes: typeof notes === 'string' ? notes.trim() : notes ?? null,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('customers')
+      .update(updateData)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (updateError) {
+      console.error('[Customers API] Update error:', updateError)
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, data: updated })
+  } catch (error) {
+    console.error('[Customers API] PUT Error:', error)
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

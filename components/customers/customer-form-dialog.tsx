@@ -170,13 +170,13 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
 
         console.log("[CustomerFormDialog] Updating customer via API:", { customerId: customer.id, payload: updatePayload })
 
-        const response = await fetch(`/api/customers/${customer.id}`, {
+        const response = await fetch(`/api/customers`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          body: JSON.stringify(updatePayload),
+          body: JSON.stringify({ id: customer.id, ...updatePayload }),
         })
 
         console.log("[CustomerFormDialog] API response status:", response.status)

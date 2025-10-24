@@ -13,6 +13,14 @@ interface RouteParams {
   }
 }
 
+// Utility: Build a weak ETag from id + updated_at (falls back to created_at)
+function buildEtag(record: { id?: string; updated_at?: string; created_at?: string }) {
+  const stamp = record?.updated_at || record?.created_at || ''
+  const id = record?.id || ''
+  // Simple, deterministic weak etag; sufficient for client-side revalidation
+  return `W/"${id}:${stamp}"`
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Authentication check
@@ -41,25 +49,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 1) Fetch by ID only (no franchise filter) to avoid false 404s
-    let { data: customer, error } = await supabaseServer
+    // Fetch by ID only (no franchise filter). Avoid filtering on removed columns.
+    const { data: customer, error } = await supabaseServer
       .from("customers")
       .select("*")
       .eq("id", id)
-      .eq('is_active', true)
       .single()
-
-    // Fallback if is_active column not yet migrated
-    if (error && /is_active|column .* does not exist/i.test(String((error as any).message))) {
-      console.warn('[Customer GET] is_active missing. Retrying without filter.')
-      const retry = await supabaseServer
-        .from('customers')
-        .select('*')
-        .eq('id', id)
-        .single()
-      customer = retry.data as any
-      error = retry.error as any
-    }
 
     if (error) {
       if (error.code === "PGRST116") {
@@ -94,8 +89,31 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       // Don't fail the main operation due to audit logging issues
     }
 
+    // Conditional ETag handling
+    const etag = buildEtag(customer)
+    const ifNoneMatch = request.headers.get('if-none-match')
+    if (ifNoneMatch && etag && ifNoneMatch === etag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          'Cache-Control': 'private, must-revalidate, max-age=0',
+          // Authenticated responses vary by cookie/session
+          Vary: 'Cookie'
+        }
+      })
+    }
+
+    // Success with cache-aware headers
     return NextResponse.json(
-      ApiResponseBuilder.success(customer, "Customer retrieved successfully")
+      ApiResponseBuilder.success(customer, "Customer retrieved successfully"),
+      {
+        headers: {
+          ETag: etag,
+          'Cache-Control': 'private, must-revalidate, max-age=0',
+          Vary: 'Cookie'
+        }
+      }
     )
   } catch (error) {
     console.error("[v0] Customer GET error:", error)
