@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { Loader2, MapPin, CheckCircle, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { PincodeService } from "@/lib/pincode-service"
@@ -28,6 +29,7 @@ interface CustomerFormData {
   city: string
   state: string
   pincode: string
+  is_active: boolean
 }
 
 export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode = "create", customer }: CustomerFormDialogProps) {
@@ -44,6 +46,7 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
     city: "",
     state: "",
     pincode: "",
+    is_active: true,
   })
 
   // Pre-fill form data when in edit mode
@@ -58,6 +61,7 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         city: customer.city || "",
         state: customer.state || "",
         pincode: customer.pincode || "",
+        is_active: customer.is_active !== false,
       })
       // Set pincode status if valid
       if (customer.pincode && /^\d{6}$/.test(customer.pincode) && customer.city && customer.state) {
@@ -74,6 +78,7 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         city: "",
         state: "",
         pincode: "",
+        is_active: true,
       })
       setPincodeStatus("idle")
     }
@@ -166,11 +171,12 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
             city: formData.city || null,
             state: formData.state || null,
             pincode: formData.pincode || null,
+            is_active: formData.is_active,
             updated_at: new Date().toISOString(),
           })
           .eq("id", customer.id)
-          .select()
-          .single()
+          .select("*")
+          .maybeSingle()
 
         if (error) throw error
 
@@ -188,8 +194,9 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
             ...formData,
             customer_code: `CUST${Date.now().toString().slice(-6)}`,
             franchise_id: "00000000-0000-0000-0000-000000000001", // Default franchise
+            is_active: true,
           })
-          .select()
+          .select("*")
           .single()
 
         if (error) throw error
@@ -213,6 +220,7 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           city: "",
           state: "",
           pincode: "",
+          is_active: true,
         })
         setPincodeStatus("idle")
       }
@@ -355,6 +363,25 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
               />
             </div>
           </div>
+
+          {/* Active/Inactive Toggle - Only show in edit mode */}
+          {mode === "edit" && (
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+              <div className="space-y-0.5">
+                <Label htmlFor="is_active" className="text-sm font-medium">
+                  Customer Status
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {formData.is_active ? "This customer is currently active" : "This customer is currently inactive"}
+                </p>
+              </div>
+              <Switch
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+              />
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-6 border-t">
