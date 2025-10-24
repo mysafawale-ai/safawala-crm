@@ -1,47 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { requireAuth } from "@/lib/auth-middleware"
 
-/**
- * Get user session from cookie
- */
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
-  }
-}
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'viewer')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const franchiseId = authContext!.user.franchise_id
+    const isSuperAdmin = authContext!.user.role === 'super_admin'
     const supabase = createClient()
 
     console.log(`[Dashboard Stats API] Fetching stats for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)

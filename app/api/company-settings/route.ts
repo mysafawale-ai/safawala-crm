@@ -1,48 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
+import { requireAuth } from "@/lib/auth-middleware"
 
-/**
- * Get user session from cookie and validate franchise access
- */
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    // Use service role to fetch user details
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
-  }
-}
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
     // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, userId } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'viewer')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const franchiseId = authContext!.user.franchise_id
+    const userId = authContext!.user.id
     
     if (!userId || !franchiseId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -114,7 +86,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, userId } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'franchise_admin')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const franchiseId = authContext!.user.franchise_id
+    const userId = authContext!.user.id
     
     if (!userId || !franchiseId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

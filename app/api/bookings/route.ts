@@ -1,52 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { autoAssignBarcodes } from "@/lib/barcode-assignment-utils"
+import { requireAuth } from "@/lib/auth-middleware"
+import { supabaseServer } from "@/lib/supabase-server-simple"
+import type { UserPermissions } from "@/lib/types"
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/**
- * Get user session from cookie and validate franchise access
- */
-async function getUserFromSession(request: NextRequest) {
+async function getUserPermissions(userId: string): Promise<UserPermissions | null> {
   try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    // Use service role to fetch user details (bypasses RLS for user lookup only)
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
+    const { data, error } = await supabaseServer
+      .from('users')
+      .select('permissions')
+      .eq('id', userId)
       .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
+    if (error) return null
+    return (data?.permissions as UserPermissions) || null
+  } catch {
+    return null
   }
+}
+
+function hasModuleAccess(perms: UserPermissions | null, key: keyof UserPermissions) {
+  if (!perms) return false
+  return Boolean(perms[key])
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'viewer')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'bookings')) {
+      return NextResponse.json(
+        { error: 'You do not have permission to view bookings' },
+        { status: 403 }
+      )
+    }
+
+    const franchiseId = authContext!.user.franchise_id
+    const isSuperAdmin = authContext!.user.role === 'super_admin'
     const supabase = createClient()
 
     console.log(`[Bookings API] Fetching bookings for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
@@ -183,16 +180,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error("[Bookings API] Error:", error)
-    if (error instanceof Error && error.message === "Authentication required") {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, franchiseId } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'staff')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'bookings')) {
+      return NextResponse.json(
+        { error: 'You do not have permission to create bookings' },
+        { status: 403 }
+      )
+    }
+
+    const userId = authContext!.user.id
+    const franchiseId = authContext!.user.franchise_id
+    if (!franchiseId) {
+      return NextResponse.json({ error: "User has no franchise assigned" }, { status: 403 })
+    }
     const supabase = createClient()
 
     const body = await request.json()
