@@ -1,44 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
+import { supabaseServer } from "@/lib/supabase-server-simple"
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-// Reuse the same session helper used in other staff APIs
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
-  }
-}
 
 /**
  * POST /api/staff/toggle-status
@@ -47,17 +12,19 @@ async function getUserFromSession(request: NextRequest) {
 export async function POST(request: NextRequest) {
   console.log('[Toggle Status Fallback] === REQUEST RECEIVED ===')
   try {
-    // Authenticate
-    let auth
-    try {
-      auth = await getUserFromSession(request)
-      console.log('[Toggle Status Fallback] Auth OK for user:', auth.userId)
-    } catch (authErr) {
-      console.error('[Toggle Status Fallback] Auth failed:', authErr)
-      return NextResponse.json({ error: 'Authentication required. Please login again.' }, { status: 401 })
+    // 🔒 SECURITY: Authenticate user with franchise_admin role + staff permission
+    const auth = await authenticateRequest(request, {
+      minRole: 'franchise_admin',
+      requirePermission: 'staff'
+    })
+    
+    if (!auth.authorized) {
+      console.error('[Toggle Status Fallback] Auth failed')
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
 
-    const { franchiseId, isSuperAdmin } = auth
+    const { user } = auth
+    console.log('[Toggle Status Fallback] Auth OK for user:', user!.id)
 
     // Parse body
     const body = await request.json().catch(() => null as any)
@@ -67,10 +34,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Staff ID is required' }, { status: 400 })
     }
 
-    const supabase = createClient()
-
     // Load target user and verify franchise
-    const { data: targetUser, error: fetchError } = await supabase
+    const { data: targetUser, error: fetchError } = await supabaseServer
       .from('users')
       .select('id, is_active, franchise_id')
       .eq('id', id)
@@ -84,14 +49,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch staff member' }, { status: 500 })
     }
 
-    if (!isSuperAdmin && targetUser.franchise_id !== franchiseId) {
+    if (user!.role !== 'super_admin' && targetUser.franchise_id !== user!.franchise_id) {
       return NextResponse.json({ error: 'Unauthorized: Can only toggle staff in your own franchise' }, { status: 403 })
     }
 
     // Toggle
     const newStatus = !targetUser.is_active
 
-    const { data, error: updateError } = await supabase
+    const { data, error: updateError } = await supabaseServer
       .from('users')
       .update({ is_active: newStatus, updated_at: new Date().toISOString() })
       .eq('id', id)
