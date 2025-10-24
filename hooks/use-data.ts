@@ -22,6 +22,14 @@ export function useData<T>(key: string) {
 
   const loadData = useCallback(
     async (forceRefresh = false) => {
+      // Skip data loading if key is "skip" (used for conditional permissions)
+      if (key === "skip") {
+        setLoading(false)
+        setData(null)
+        setError(null)
+        return
+      }
+
       try {
         setLoading(true)
         setError(null)
@@ -66,11 +74,19 @@ export function useData<T>(key: string) {
       } catch (err) {
           const errorMessage = formatError(err) || `Failed to load ${key}`
           setError(errorMessage)
-          toast({
-            title: "Error",
-            description: errorMessage,
-            variant: "destructive",
-          })
+          
+          // Don't show error toast for permission-related errors
+          const isPermissionError = errorMessage.toLowerCase().includes('permission') || 
+                                   errorMessage.toLowerCase().includes('unauthorized') ||
+                                   errorMessage.toLowerCase().includes('forbidden')
+          
+          if (!isPermissionError) {
+            toast({
+              title: "Error",
+              description: errorMessage,
+              variant: "destructive",
+            })
+          }
       } finally {
         setLoading(false)
       }
