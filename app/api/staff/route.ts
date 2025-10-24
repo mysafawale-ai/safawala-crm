@@ -314,14 +314,14 @@ export async function PUT(request: NextRequest) {
         effectiveUpdate.permissions = sanitizePermissions(updateData.permissions, currentRole || 'staff')
 
         // RBAC: Non-super-admins cannot escalate role to super_admin
-        if (!isSuperAdmin && typeof effectiveUpdate.role === 'string' && effectiveUpdate.role === 'super_admin') {
+        if (!user!.is_super_admin && typeof effectiveUpdate.role === 'string' && effectiveUpdate.role === 'super_admin') {
           results.push({ success: false, error: 'Unauthorized to assign role super_admin', id })
           continue
         }
 
         // Franchise isolation: Non-super-admins can only update within their franchise
         const targetFranchise = typeof effectiveUpdate.franchise_id === 'string' ? effectiveUpdate.franchise_id : (currentFranchise || '')
-        if (!isSuperAdmin && targetFranchise && targetFranchise !== franchiseId) {
+        if (!user!.is_super_admin && targetFranchise && targetFranchise !== user!.franchise_id) {
           results.push({ success: false, error: 'Unauthorized: different franchise', id })
           continue
         }
