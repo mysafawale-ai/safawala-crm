@@ -48,6 +48,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { signOut } from "@/lib/auth"
 import Link from "next/link"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import type { UserPermissions } from "@/lib/types"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   userRole?: string
@@ -70,6 +71,7 @@ const navigationItems = {
       url: "/dashboard",
       icon: Home,
       roles: ["super_admin", "franchise_admin", "staff", "readonly"],
+      permission: "dashboard",
       description: "Overview of your business metrics, recent activities, and key performance indicators",
     },
     {
@@ -77,6 +79,7 @@ const navigationItems = {
       url: "/bookings",
       icon: Calendar,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "bookings",
       description: "Manage wedding bookings, event schedules, and customer appointments",
     },
     {
@@ -84,6 +87,7 @@ const navigationItems = {
       url: "/customers",
       icon: Users,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "customers",
       description: "Customer database with contact information, booking history, and preferences",
     },
     {
@@ -91,6 +95,7 @@ const navigationItems = {
       url: "/inventory",
       icon: Package,
       roles: ["super_admin", "franchise_admin"],
+      permission: "inventory",
       description: "Track wedding accessories, manage stock levels, and monitor product availability",
     },
     {
@@ -98,6 +103,7 @@ const navigationItems = {
       url: "/sets",
       icon: Layers,
       roles: ["super_admin", "franchise_admin"],
+      permission: "inventory",
       description:
         "Manage categories, variants, levels, and distance-based pricing",
     },
@@ -106,6 +112,7 @@ const navigationItems = {
       url: "/vendors",
       icon: Store,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "purchases",
       description: "Manage supplier relationships, vendor contacts, and procurement processes",
     },
   ],
@@ -115,6 +122,7 @@ const navigationItems = {
       url: "/quotes",
       icon: FileText,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "sales",
       description: "Generate price quotes, proposals, and estimates for wedding services",
     },
     {
@@ -122,6 +130,7 @@ const navigationItems = {
       url: "/invoices",
       icon: FileCheck,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "invoices",
       description: "View and manage invoices for confirmed bookings and orders",
     },
     {
@@ -129,6 +138,7 @@ const navigationItems = {
       url: "/laundry",
       icon: Shirt,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "laundry",
       description: "Track laundry batches, vendor relationships, and cleaning schedules",
     },
     {
@@ -136,6 +146,7 @@ const navigationItems = {
       url: "/expenses",
       icon: Receipt,
       roles: ["super_admin", "franchise_admin"],
+      permission: "expenses",
       description: "Record business expenses, categorize costs, and track spending patterns",
     },
     {
@@ -143,6 +154,7 @@ const navigationItems = {
       url: "/deliveries",
       icon: Truck,
       roles: ["super_admin", "franchise_admin", "staff"],
+      permission: "deliveries",
       description: "Manage delivery schedules, track shipments, coordinate logistics, and handle product returns",
     },
     {
@@ -189,6 +201,7 @@ const navigationItems = {
       url: "/franchises",
       icon: Building2,
       roles: ["super_admin"],
+      permission: "franchises",
       description: "Manage franchise locations, permissions, and organizational structure",
     },
     {
@@ -196,6 +209,7 @@ const navigationItems = {
       url: "/staff",
       icon: UserCheck,
       roles: ["super_admin", "franchise_admin"],
+      permission: "staff",
       description: "Employee management, role assignments, and staff administration",
     },
     {
@@ -203,6 +217,7 @@ const navigationItems = {
       url: "/integrations",
       icon: Zap,
       roles: ["super_admin", "franchise_admin"],
+      permission: "settings",
       description: "Connect third-party services, APIs, and external tools",
     },
     {
@@ -210,6 +225,7 @@ const navigationItems = {
       url: "/settings",
       icon: Settings,
       roles: ["super_admin", "franchise_admin"],
+      permission: "settings",
       description: "System configuration, preferences, and application settings",
     },
   ],
@@ -278,7 +294,29 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
   }
 
   const filterItemsByRole = (items: any[]) => {
-    return items.filter((item) => item.roles.includes(userRole))
+    // Get user permissions from localStorage
+    const userPermissions = currentUser?.permissions as UserPermissions | undefined
+    
+    return items.filter((item) => {
+      // Always check role first (fallback for super_admin)
+      const hasRole = item.roles.includes(userRole)
+      
+      // If no permission field, use role-based filtering (backward compatible)
+      if (!item.permission) {
+        return hasRole
+      }
+      
+      // Check if user has the required permission
+      const hasPermission = userPermissions?.[item.permission as keyof UserPermissions] === true
+      
+      // Super admins bypass permission checks
+      if (userRole === 'super_admin') {
+        return hasRole
+      }
+      
+      // For other roles, require both role AND permission
+      return hasRole && hasPermission
+    })
   }
 
   const isActiveItem = (url: string) => {
