@@ -302,25 +302,19 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
     // Get user permissions from localStorage
     const userPermissions = currentUser?.permissions as UserPermissions | undefined
     
+    // If no permissions loaded yet, show nothing (except for loading state)
+    if (!userPermissions) {
+      return []
+    }
+    
     return items.filter((item) => {
-      // Always check role first (fallback for super_admin)
-      const hasRole = item.roles.includes(userRole)
-      
-      // If no permission field, use role-based filtering (backward compatible)
+      // If no permission field, skip this item (should not happen)
       if (!item.permission) {
-        return hasRole
+        return false
       }
       
-      // Check if user has the required permission
-      const hasPermission = userPermissions?.[item.permission as keyof UserPermissions] === true
-      
-      // Super admins bypass permission checks
-      if (userRole === 'super_admin') {
-        return hasRole
-      }
-      
-      // For other roles, require both role AND permission
-      return hasRole && hasPermission
+      // PERMISSION-ONLY CHECK: Show item if user has the permission enabled
+      return userPermissions[item.permission as keyof UserPermissions] === true
     })
   }
 
