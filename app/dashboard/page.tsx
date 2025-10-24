@@ -50,16 +50,19 @@ export default function DashboardPage() {
   const router = useRouter()
 
   const { data: stats, loading: statsLoading, refresh: refreshStats } = useData<DashboardStats>("dashboard-stats")
+  
+  // Only fetch bookings data if user has bookings permission
+  const shouldFetchBookings = user?.permissions?.bookings ?? false
   const {
     data: recentBookings,
     loading: bookingsLoading,
     refresh: refreshBookings,
-  } = useData<Booking[]>("recent-bookings")
+  } = useData<Booking[]>(shouldFetchBookings ? "recent-bookings" : "skip")
   const {
     data: calendarBookings,
     loading: calendarLoading,
     refresh: refreshCalendar,
-  } = useData<any[]>("calendar-bookings")
+  } = useData<any[]>(shouldFetchBookings ? "calendar-bookings" : "skip")
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -72,7 +75,7 @@ export default function DashboardPage() {
         
         // Check if user has dashboard permission
         if (!currentUser.permissions?.dashboard) {
-          toast.error("You don't have permission to access the dashboard")
+          // Silent redirect - no error toast
           router.push("/bookings") // Redirect to first available page
           return
         }
