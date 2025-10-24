@@ -1,45 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
+import { authenticateRequest } from "@/lib/auth-middleware"
 
-// Supabase client is lazy-initialized via supabaseServer to avoid build-time env access
-
-/**
- * Get user session from cookie and validate franchise access
- */
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    // Use service role to fetch user details
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
-  }
-}
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 /**
  * GET /api/franchises
@@ -50,14 +14,14 @@ export async function GET(request: NextRequest) {
     console.log("[Franchises API] GET request received")
     
     // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
-    
-    if (!userId) {
-      console.error("[Franchises API] Unauthorized - no userId")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await authenticateRequest(request, { minRole: 'viewer' })
+    if (!auth.authorized) {
+      console.error("[Franchises API] Unauthorized")
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+    const { user } = auth
 
-    console.log(`[Franchises API] User: ${userId}, Super Admin: ${isSuperAdmin}, Franchise: ${franchiseId}`)
+    console.log(`[Franchises API] User: ${user!.id}, Super Admin: ${user!.is_super_admin}, Franchise: ${user!.franchise_id}`)
 
     let query = supabase
       .from("franchises")
@@ -65,9 +29,9 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     // 🔒 FRANCHISE ISOLATION: Super admin sees all, others see only their franchise
-    if (!isSuperAdmin && franchiseId) {
-      console.log(`[Franchises API] Filtering by franchise: ${franchiseId}`)
-      query = query.eq("id", franchiseId)
+    if (!user!.is_super_admin && user!.franchise_id) {
+      console.log(`[Franchises API] Filtering by franchise: ${user!.franchise_id}`)
+      query = query.eq("id", user!.franchise_id)
     } else {
       console.log("[Franchises API] Super admin - returning all franchises")
     }
