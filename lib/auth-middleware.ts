@@ -1,206 +1,340 @@
 /**
- * Authentication Middleware
+ * UNIFIED AUTHENTICATION SYSTEM v2
  * 
- * Provides authentication verification for API routes.
- * Can be easily enabled/disabled by setting AUTH_ENABLED environment variable.
+ * Supabase Auth + App-level RBAC + Module Permissions + Franchise Isolation
+ * 
+ * Role Hierarchy:
+ * - super_admin (4): Full access across all franchises
+ * - franchise_admin (3): Full access within their franchise
+ * - staff (2): Limited access within their franchise based on permissions
+ * - readonly (1): Read-only access based on permissions
+ * 
+ * Usage:
+ *   const auth = await authenticateRequest(request, { minRole: 'staff', requirePermission: 'bookings' })
+ *   if (!auth.authorized) return NextResponse.json(auth.error, { status: auth.statusCode })
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { supabaseServer } from './supabase-server-simple';
+import type { UserPermissions } from './types';
 
-export interface AuthUser {
+// Role hierarchy levels
+const ROLE_LEVELS = {
+  readonly: 1,
+  staff: 2,
+  franchise_admin: 3,
+  super_admin: 4,
+} as const;
+
+export type AppRole = keyof typeof ROLE_LEVELS;
+
+export interface AuthenticatedUser {
   id: string;
   email: string;
-  role: string;
+  name: string;
+  role: AppRole;
   franchise_id?: string;
-  name?: string;
+  franchise_name?: string;
+  franchise_code?: string;
+  permissions: UserPermissions;
+  is_super_admin: boolean;
 }
 
-export interface AuthContext {
-  user: AuthUser;
-  isAuthenticated: boolean;
+export interface AuthenticationResult {
+  authorized: boolean;
+  user?: AuthenticatedUser;
+  error?: { error: string; message?: string };
+  statusCode?: number;
 }
 
-export class AuthMiddleware {
-  
-  /**
-   * Check if authentication is enabled
-   */
-  static isEnabled(): boolean {
-    return process.env.AUTH_ENABLED === 'true';
-  }
+export interface AuthOptions {
+  minRole?: AppRole;
+  requirePermission?: keyof UserPermissions;
+  allowSuperAdminOverride?: boolean; // Super admin bypasses permission checks
+}
 
-  /**
-   * Verify user session from request headers
-   */
-  static async verifySession(request: NextRequest): Promise<AuthContext | null> {
-    try {
-      // If auth is disabled, return a default admin context
-      if (!this.isEnabled()) {
+/**
+ * Main authentication function - validates Supabase Auth session + app permissions
+ */
+export async function authenticateRequest(
+  request: NextRequest,
+  options: AuthOptions = {}
+): Promise<AuthenticationResult> {
+  const {
+    minRole = 'readonly',
+    requirePermission,
+    allowSuperAdminOverride = true,
+  } = options;
+
+  try {
+    // 1. Validate Supabase Auth session
+    const cookieStore = cookies();
+    const authClient = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data: { user: authUser }, error: authError } = await authClient.auth.getUser();
+
+    if (authError || !authUser?.email) {
+      return {
+        authorized: false,
+        error: { error: 'Unauthorized', message: 'Authentication required' },
+        statusCode: 401,
+      };
+    }
+
+    // 2. Fetch app user profile with permissions (case-insensitive email match)
+    const { data: appUser, error: profileError } = await supabaseServer
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        role,
+        franchise_id,
+        is_active,
+        permissions,
+        franchises!left (
+          id,
+          name,
+          code
+        )
+      `)
+      .ilike('email', authUser.email)
+      .eq('is_active', true)
+      .single();
+
+    if (profileError || !appUser) {
+      return {
+        authorized: false,
+        error: { error: 'Forbidden', message: 'User profile not found or inactive' },
+        statusCode: 403,
+      };
+    }
+
+    const franchise = Array.isArray(appUser.franchises) ? appUser.franchises[0] : appUser.franchises;
+
+    // Build authenticated user object
+    const user: AuthenticatedUser = {
+      id: appUser.id,
+      email: appUser.email,
+      name: appUser.name,
+      role: appUser.role as AppRole,
+      franchise_id: appUser.franchise_id,
+      franchise_name: franchise?.name,
+      franchise_code: franchise?.code,
+      permissions: ensurePermissions(appUser.permissions, appUser.role as AppRole),
+      is_super_admin: appUser.role === 'super_admin',
+    };
+
+    // 3. Check role hierarchy
+    const userLevel = ROLE_LEVELS[user.role] || 0;
+    const requiredLevel = ROLE_LEVELS[minRole] || 0;
+
+    if (userLevel < requiredLevel) {
+      return {
+        authorized: false,
+        error: {
+          error: 'Forbidden',
+          message: `This action requires ${minRole} role or higher`,
+        },
+        statusCode: 403,
+      };
+    }
+
+    // 4. Check module permission if required
+    if (requirePermission) {
+      const hasPermission = user.permissions[requirePermission];
+      const isSuperAdmin = user.is_super_admin && allowSuperAdminOverride;
+
+      if (!hasPermission && !isSuperAdmin) {
         return {
-          user: {
-            id: 'system',
-            email: 'system@safawala.com',
-            role: 'super_admin',
-            name: 'System User'
+          authorized: false,
+          error: {
+            error: 'Forbidden',
+            message: `You do not have permission to access ${requirePermission}`,
           },
-          isAuthenticated: true
+          statusCode: 403,
         };
       }
-
-      // Use Supabase Auth cookies to validate session
-      const cookieStore = cookies();
-      const auth = createRouteHandlerClient({ cookies: () => cookieStore });
-
-      const { data: { user: authUser }, error: authError } = await auth.auth.getUser();
-
-      if (authError || !authUser) {
-        return null;
-      }
-
-      // Look up role/franchise from our users table (service role client) using email mapping
-      const { data: user, error } = await supabaseServer
-        .from('users')
-        .select(`
-          id,
-          email,
-          role,
-          franchise_id,
-          first_name,
-          last_name,
-          is_active
-        `)
-        .ilike('email', authUser.email as string)
-        .eq('is_active', true)
-        .single();
-
-      if (error || !user) {
-        console.warn('Authentication failed - profile not found or inactive:', authUser.id);
-        return null;
-      }
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          franchise_id: user.franchise_id,
-          name: `${user.first_name} ${user.last_name}`.trim()
-        },
-        isAuthenticated: true
-      };
-    } catch (error) {
-      console.error('Authentication verification error:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Check if user has required role permissions
-   */
-  static hasPermission(userRole: string, requiredRole: string): boolean {
-    const roleHierarchy = {
-      'super_admin': 4,
-      'franchise_admin': 3,
-      'staff': 2,
-      'viewer': 1
-    };
-
-    const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0;
-    const requiredLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0;
-
-    return userLevel >= requiredLevel;
-  }
-
-  /**
-   * Check if user can access records for a specific franchise
-   */
-  static canAccessFranchise(user: AuthUser, targetFranchiseId: string): boolean {
-    // Super admins can access any franchise
-    if (user.role === 'super_admin') {
-      return true;
     }
 
-    // Other users can only access their own franchise
-    return user.franchise_id === targetFranchiseId;
-  }
-
-  /**
-   * Extract user context for audit logging
-   */
-  static extractAuditContext(authContext: AuthContext | null, request: NextRequest) {
     return {
-      userId: authContext?.user?.id,
-      userEmail: authContext?.user?.email,
-      ipAddress: request.headers.get('x-forwarded-for') || 
-                request.headers.get('x-real-ip') || 
-                'unknown',
-      userAgent: request.headers.get('user-agent') || 'unknown',
-      sessionId: request.headers.get('X-Session-ID') // Optional session tracking
+      authorized: true,
+      user,
     };
-  }
-
-  /**
-   * Create authentication response for unauthorized access
-   */
-  static createUnauthorizedResponse(message = 'Authentication required') {
+  } catch (error) {
+    console.error('[Auth] Unexpected error:', error);
     return {
-      success: false,
-      error: 'UNAUTHORIZED',
-      message,
-      data: null
-    };
-  }
-
-  /**
-   * Create forbidden response for insufficient permissions
-   */
-  static createForbiddenResponse(message = 'Insufficient permissions') {
-    return {
-      success: false,
-      error: 'FORBIDDEN', 
-      message,
-      data: null
+      authorized: false,
+      error: { error: 'Internal Server Error', message: 'Authentication failed' },
+      statusCode: 500,
     };
   }
 }
 
 /**
- * Authentication decorator for API routes
- * Usage: const authResult = await requireAuth(request, 'staff');
+ * Ensure user has valid permissions object with defaults based on role
  */
-export async function requireAuth(
-  request: NextRequest, 
-  requiredRole?: string
-): Promise<{
-  success: boolean;
-  authContext?: AuthContext;
-  response?: any;
-}> {
-  const authContext = await AuthMiddleware.verifySession(request);
+function ensurePermissions(permissions: any, role: AppRole): UserPermissions {
+  const defaultPermissions = getDefaultPermissions(role);
   
-  if (!authContext) {
-    return {
-      success: false,
-      response: AuthMiddleware.createUnauthorizedResponse()
-    };
+  if (!permissions || typeof permissions !== 'object') {
+    return defaultPermissions;
   }
 
-  if (requiredRole && !AuthMiddleware.hasPermission(authContext.user.role, requiredRole)) {
+  // Merge with defaults to ensure all keys exist
+  return { ...defaultPermissions, ...permissions };
+}
+
+/**
+ * Get default permissions based on role
+ */
+function getDefaultPermissions(role: AppRole): UserPermissions {
+  switch (role) {
+    case 'super_admin':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        sales: true,
+        laundry: true,
+        purchases: true,
+        expenses: true,
+        deliveries: true,
+        reports: true,
+        financials: true,
+        invoices: true,
+        franchises: true,
+        staff: true,
+        settings: true,
+      };
+    
+    case 'franchise_admin':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        sales: true,
+        laundry: true,
+        purchases: true,
+        expenses: true,
+        deliveries: true,
+        reports: true,
+        financials: true,
+        invoices: true,
+        franchises: false, // Only super_admin
+        staff: true,
+        settings: true,
+      };
+    
+    case 'staff':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        sales: true,
+        laundry: true,
+        purchases: false,
+        expenses: false,
+        deliveries: true,
+        reports: false,
+        financials: false,
+        invoices: true,
+        franchises: false,
+        staff: false,
+        settings: false,
+      };
+    
+    case 'readonly':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        sales: false,
+        laundry: false,
+        purchases: false,
+        expenses: false,
+        deliveries: true,
+        reports: true,
+        financials: false,
+        invoices: false,
+        franchises: false,
+        staff: false,
+        settings: false,
+      };
+    
+    default:
+      // Minimal permissions for unknown roles
+      return {
+        dashboard: true,
+        bookings: false,
+        customers: false,
+        inventory: false,
+        sales: false,
+        laundry: false,
+        purchases: false,
+        expenses: false,
+        deliveries: false,
+        reports: false,
+        financials: false,
+        invoices: false,
+        franchises: false,
+        staff: false,
+        settings: false,
+      };
+  }
+}
+
+/**
+ * Check if user can access a specific franchise's data
+ */
+export function canAccessFranchise(user: AuthenticatedUser, targetFranchiseId?: string): boolean {
+  if (user.is_super_admin) return true;
+  if (!targetFranchiseId) return true; // No franchise restriction
+  return user.franchise_id === targetFranchiseId;
+}
+
+/**
+ * Legacy compatibility - maps to new system
+ */
+export async function requireAuth(
+  request: NextRequest,
+  minRole: AppRole = 'readonly'
+): Promise<{
+  success: boolean;
+  authContext?: { user: AuthenticatedUser; isAuthenticated: boolean };
+  response?: any;
+}> {
+  const result = await authenticateRequest(request, { minRole });
+
+  if (!result.authorized) {
     return {
       success: false,
-      response: AuthMiddleware.createForbiddenResponse(
-        `This action requires ${requiredRole} role or higher`
-      )
+      response: result.error,
     };
   }
 
   return {
     success: true,
-    authContext
+    authContext: {
+      user: result.user!,
+      isAuthenticated: true,
+    },
   };
 }
 
-export default AuthMiddleware;
+// Export legacy AuthMiddleware for backward compatibility
+export const AuthMiddleware = {
+  canAccessFranchise,
+  extractAuditContext: (authContext: any, request: NextRequest) => ({
+    userId: authContext?.user?.id,
+    userEmail: authContext?.user?.email,
+    ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+    userAgent: request.headers.get('user-agent') || 'unknown',
+    sessionId: request.headers.get('X-Session-ID'),
+  }),
+};
