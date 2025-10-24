@@ -18,12 +18,7 @@ class ApiClient {
         ...options,
         headers: {
           "Content-Type": "application/json",
-          // Send authentication headers that match our middleware
-          ...(userData && {
-            "X-User-ID": userData.id,
-            "X-User-Email": userData.email,
-            "X-Session-ID": `session-${Date.now()}`
-          }),
+          // Auth now relies on Supabase Auth cookies; no custom headers
           ...options.headers,
         },
       })

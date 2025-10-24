@@ -6,6 +6,8 @@
  */
 
 import { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { supabaseServer } from './supabase-server-simple';
 
 export interface AuthUser {
@@ -48,15 +50,17 @@ export class AuthMiddleware {
         };
       }
 
-      // Extract user information from custom header (set by client)
-      const userHeader = request.headers.get('X-User-ID');
-      const emailHeader = request.headers.get('X-User-Email');
-      
-      if (!userHeader || !emailHeader) {
+      // Use Supabase Auth cookies to validate session
+      const cookieStore = cookies();
+      const auth = createRouteHandlerClient({ cookies: () => cookieStore });
+
+      const { data: { user: authUser }, error: authError } = await auth.auth.getUser();
+
+      if (authError || !authUser) {
         return null;
       }
 
-      // Verify the user exists in the database
+      // Look up role/franchise from our users table (service role client)
       const { data: user, error } = await supabaseServer
         .from('users')
         .select(`
@@ -68,13 +72,12 @@ export class AuthMiddleware {
           last_name,
           is_active
         `)
-        .eq('id', userHeader)
-        .eq('email', emailHeader)
+        .eq('id', authUser.id)
         .eq('is_active', true)
         .single();
 
       if (error || !user) {
-        console.warn('Authentication failed - user not found or inactive:', userHeader);
+        console.warn('Authentication failed - profile not found or inactive:', authUser.id);
         return null;
       }
 

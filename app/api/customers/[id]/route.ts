@@ -3,6 +3,7 @@ import { supabaseServer, getDefaultFranchiseId } from "@/lib/supabase-server-sim
 import { ApiResponseBuilder } from "@/lib/api-response"
 import AuditLogger from "@/lib/audit-logger"
 import { requireAuth, AuthMiddleware } from "@/lib/auth-middleware"
+import type { UserPermissions } from "@/lib/types"
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,12 +14,44 @@ interface RouteParams {
   }
 }
 
+// Copilot, optimize this Next.js API route like Lee Robinson from Vercel would.
+// Focus areas:
+// - Enforce explicit permissions (module-level) and franchise isolation (field-level access)
+// - Keep payloads lean (select only needed columns) to reduce TTFB
+// - Strong, consistent error responses (401/403/404)
+// - Cache-aware responses with ETag and appropriate Vary headers
+
 // Utility: Build a weak ETag from id + updated_at (falls back to created_at)
 function buildEtag(record: { id?: string; updated_at?: string; created_at?: string }) {
   const stamp = record?.updated_at || record?.created_at || ''
   const id = record?.id || ''
   // Simple, deterministic weak etag; sufficient for client-side revalidation
   return `W/"${id}:${stamp}"`
+}
+
+// Lightweight permission fetcher (service-key client → enforce app-side rules here)
+async function getUserPermissions(userId: string): Promise<UserPermissions | null> {
+  try {
+    const { data, error } = await supabaseServer
+      .from('users')
+      .select('permissions')
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      console.error('[permissions] fetch failed:', error)
+      return null
+    }
+    return (data?.permissions as UserPermissions) || null
+  } catch (e) {
+    console.error('[permissions] unexpected error:', e)
+    return null
+  }
+}
+
+function hasModuleAccess(perms: UserPermissions | null, key: keyof UserPermissions) {
+  if (!perms) return false
+  return Boolean(perms[key])
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -29,6 +62,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(authResult.response, { status: 401 });
     }
     const { authContext } = authResult;
+    // Module permission: require "customers" access even for readers
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'customers')) {
+      return NextResponse.json(
+        ApiResponseBuilder.forbiddenError('You do not have permission to view customers'),
+        { status: 403 }
+      )
+    }
 
     const { id } = params
     const defaultFranchiseId = await getDefaultFranchiseId()
@@ -49,10 +90,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Fetch by ID only (no franchise filter). Avoid filtering on removed columns.
+    // Fetch by ID only (no franchise filter). Keep payload lean.
     const { data: customer, error } = await supabaseServer
       .from("customers")
-      .select("*")
+      .select("id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, franchise_id, status, created_at, updated_at")
       .eq("id", id)
       .single()
 
@@ -68,6 +109,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         ApiResponseBuilder.serverError("Failed to fetch customer", error.message),
         { status: 500 }
       )
+    }
+
+    // Franchise isolation: ensure requester can access this customer's franchise
+    if (customer?.franchise_id) {
+      const allowed = AuthMiddleware.canAccessFranchise(authContext!.user, customer.franchise_id)
+      if (!allowed) {
+        return NextResponse.json(
+          ApiResponseBuilder.forbiddenError('Access denied to this franchise'),
+          { status: 403 }
+        )
+      }
     }
 
     // Log customer access for audit trail
@@ -98,8 +150,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         headers: {
           ETag: etag,
           'Cache-Control': 'private, must-revalidate, max-age=0',
-          // Authenticated responses vary by cookie/session
-          Vary: 'Cookie'
+          // Authenticated responses vary by cookie/session and our custom auth headers
+          Vary: 'Cookie, X-User-ID, X-User-Email'
         }
       })
     }
@@ -111,7 +163,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         headers: {
           ETag: etag,
           'Cache-Control': 'private, must-revalidate, max-age=0',
-          Vary: 'Cookie'
+          Vary: 'Cookie, X-User-ID, X-User-Email'
         }
       }
     )
@@ -129,6 +181,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(authResult.response, { status: 401 });
     }
     const { authContext } = authResult;
+    // Module permission: require "customers" access for update
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'customers')) {
+      return NextResponse.json(
+        ApiResponseBuilder.forbiddenError('You do not have permission to update customers'),
+        { status: 403 }
+      )
+    }
 
     const { id } = params
     const defaultFranchiseId = await getDefaultFranchiseId()
@@ -206,7 +266,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const allowed = AuthMiddleware.canAccessFranchise(authContext!.user, existingCustomer.franchise_id)
       if (!allowed) {
         return NextResponse.json(
-          ApiResponseBuilder.validationError("Access denied to this franchise"),
+          ApiResponseBuilder.forbiddenError("Access denied to this franchise"),
           { status: 403 }
         )
       }
@@ -346,6 +406,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(authResult.response, { status: 401 });
     }
     const { authContext } = authResult;
+    // Module permission: require "customers" access for delete
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'customers')) {
+      return NextResponse.json(
+        ApiResponseBuilder.forbiddenError('You do not have permission to delete customers'),
+        { status: 403 }
+      )
+    }
 
     const { id } = params
     console.log('[DELETE] Processing delete for customer ID:', id);
@@ -392,7 +460,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       const allowed = AuthMiddleware.canAccessFranchise(authContext!.user, existingCustomer.franchise_id)
       if (!allowed) {
         return NextResponse.json(
-          ApiResponseBuilder.validationError("Access denied to this franchise"),
+          ApiResponseBuilder.forbiddenError("Access denied to this franchise"),
           { status: 403 }
         )
       }
@@ -485,6 +553,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(authResult.response, { status: 401 });
     }
     const { authContext } = authResult;
+    // Module permission: require "customers" access for patch
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'customers')) {
+      return NextResponse.json(
+        ApiResponseBuilder.forbiddenError('You do not have permission to update customers'),
+        { status: 403 }
+      )
+    }
 
     const { id } = params
 
@@ -526,7 +602,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Fetch existing customer to verify it exists
     const { data: existingCustomer, error: fetchError } = await supabaseServer
       .from("customers")
-      .select("*")
+      .select("id, franchise_id")
       .eq("id", id)
       .single()
 
@@ -535,6 +611,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ApiResponseBuilder.validationError("Customer not found", "id"),
         { status: 404 }
       )
+    }
+
+    // Franchise isolation for PATCH
+    if (existingCustomer?.franchise_id) {
+      const allowed = AuthMiddleware.canAccessFranchise(authContext!.user, existingCustomer.franchise_id)
+      if (!allowed) {
+        return NextResponse.json(
+          ApiResponseBuilder.forbiddenError('Access denied to this franchise'),
+          { status: 403 }
+        )
+      }
     }
 
     // Update customer
@@ -559,7 +646,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from("customers")
       .update(updateData)
       .eq("id", id)
-      .select("*")
+      .select("id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, franchise_id, status, created_at, updated_at")
       .single()
 
     if (updateError) {

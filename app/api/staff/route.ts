@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import type { UserPermissions } from "@/lib/types"
 import bcrypt from "bcryptjs"
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 /**
  * Hash password using bcrypt
  */
@@ -293,6 +296,12 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
+    // 🔒 SECURITY: Authenticate user and get franchise context
+    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
     const { users } = body
     
@@ -331,13 +340,28 @@ export async function PUT(request: NextRequest) {
       let effectiveUpdate = { ...updateData }
       if (updateData && Object.prototype.hasOwnProperty.call(updateData, 'permissions')) {
         const roleToUse = typeof updateData.role === 'string' ? updateData.role : undefined
-        // Fetch current role if not provided in payload
+        // Fetch current role and franchise if not provided in payload
         let currentRole = roleToUse
+        let currentFranchise: string | undefined
         if (!currentRole) {
-          const { data: existing } = await supabase.from('users').select('role').eq('id', id).single()
+          const { data: existing } = await supabase.from('users').select('role, franchise_id').eq('id', id).single()
           currentRole = existing?.role
+          currentFranchise = existing?.franchise_id
         }
         effectiveUpdate.permissions = sanitizePermissions(updateData.permissions, currentRole || 'staff')
+
+        // RBAC: Non-super-admins cannot escalate role to super_admin
+        if (!isSuperAdmin && typeof effectiveUpdate.role === 'string' && effectiveUpdate.role === 'super_admin') {
+          results.push({ success: false, error: 'Unauthorized to assign role super_admin', id })
+          continue
+        }
+
+        // Franchise isolation: Non-super-admins can only update within their franchise
+        const targetFranchise = typeof effectiveUpdate.franchise_id === 'string' ? effectiveUpdate.franchise_id : (currentFranchise || '')
+        if (!isSuperAdmin && targetFranchise && targetFranchise !== franchiseId) {
+          results.push({ success: false, error: 'Unauthorized: different franchise', id })
+          continue
+        }
       }
 
       const { data, error } = await supabase

@@ -1,14 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { cookies } from "next/headers"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createClient as createServiceClient } from "@supabase/supabase-js"
 
 export async function POST(request: NextRequest) {
   try {
     console.log("[v0] Login API called")
 
-    // Check Supabase configuration first
-    let supabase
+    // Initialize clients
+    let authClient
+    let service
     try {
-      supabase = createClient()
+      const cookieStore = cookies()
+      authClient = createRouteHandlerClient({ cookies: () => cookieStore })
+      service = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! // Used for auth methods only
+      )
     } catch (configError) {
       console.error("[v0] Supabase configuration error:", configError)
       return NextResponse.json({ 
@@ -26,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = body
-    console.log("[v0] Login attempt for email:", email)
+  console.log("[v0] Login attempt for email:", email)
 
     if (!email || !password) {
       console.log("[v0] Missing email or password")
@@ -45,52 +53,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
-    const clientIP = request.headers.get("x-forwarded-for") || "unknown"
-    console.log("[v0] Login attempt from IP:", clientIP)
+    // Authenticate with Supabase Auth (secure password check by Supabase)
+    const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
+      email,
+      password
+    })
 
-    if (password.length < 3) {
-      console.log("[v0] Password too short")
+    if (signInError || !signInData?.user) {
+      console.log("[v0] Supabase Auth sign-in failed:", signInError?.message)
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
-    let userProfile
-    try {
-      console.log("[v0] Querying database for user:", email)
-      const { data, error: profileError } = await supabase
-        .from("users")
-        .select(`
-          *,
-          franchises (
-            id,
-            name,
-            code
-          )
-        `)
-        .eq("email", email)
-        .eq("is_active", true)
-        .single()
+    // Fetch user profile (role, franchise, permissions) using service role client
+    const serviceAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-      if (profileError) {
-        console.error("[v0] Database query error:", profileError)
-        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
-      }
+    const { data: userProfile, error: profileError } = await serviceAdmin
+      .from("users")
+      .select(`
+        *,
+        franchises (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("id", signInData.user.id)
+      .eq("is_active", true)
+      .single()
 
-      userProfile = data
-    } catch (dbError) {
-      console.error("[v0] Database connection error:", dbError)
-      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+    if (profileError || !userProfile) {
+      console.error("[v0] Profile fetch failed after auth:", profileError)
+      // Also sign out to clear any partial session
+      await authClient.auth.signOut()
+      return NextResponse.json({ error: "Account is inactive or missing profile" }, { status: 401 })
     }
-
-    if (!userProfile) {
-      console.log("[v0] User not found:", email)
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
-    }
-
-    console.log("[v0] User found:", userProfile.name)
-
-    // Create a simple session identifier
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
-    console.log("[v0] Session created successfully")
 
     const user = {
       id: userProfile.id,
@@ -106,38 +105,12 @@ export async function POST(request: NextRequest) {
       updated_at: userProfile.updated_at,
     }
 
-    console.log("[v0] Creating response for user:", user.name, "franchise:", user.franchise_id)
-
-    const response = NextResponse.json({
+    console.log("[v0] Login successful for:", email)
+    return NextResponse.json({
       success: true,
       message: "Login successful",
       user
     })
-
-    try {
-      // Store user session data in a cookie
-      const sessionData = {
-        id: userProfile.id,
-        email: userProfile.email,
-        role: userProfile.role,
-        sessionId: sessionId
-      }
-      
-      response.cookies.set("safawala_session", JSON.stringify(sessionData), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 24 * 60 * 60, // 24 hours
-        path: "/",
-      })
-      console.log("[v0] Session cookie set successfully")
-    } catch (cookieError) {
-      console.error("[v0] Cookie setting error:", cookieError)
-      // Don't fail the request if cookie setting fails
-    }
-
-    console.log("[v0] Login successful for:", email)
-    return response
   } catch (error) {
     console.error("[v0] Unexpected login error:", error)
     console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
