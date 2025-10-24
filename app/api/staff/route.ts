@@ -172,12 +172,12 @@ export async function POST(request: NextRequest) {
     }
     
     // 🔒 FRANCHISE ISOLATION: Auto-assign franchise_id from session (super admin can override)
-    const staffFranchiseId = isSuperAdmin && body.franchise_id 
+    const staffFranchiseId = user!.is_super_admin && body.franchise_id 
       ? body.franchise_id 
-      : franchiseId
+      : user!.franchise_id
     
     // 🔒 RBAC: Franchise admins can only create staff in their own franchise
-    if (!isSuperAdmin && body.franchise_id && body.franchise_id !== franchiseId) {
+    if (!user!.is_super_admin && body.franchise_id && body.franchise_id !== user!.franchise_id) {
       return NextResponse.json(
         { error: "Unauthorized: Can only create staff in your own franchise" }, 
         { status: 403 }
@@ -259,10 +259,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await authenticateRequest(request, { minRole: 'franchise_admin', requirePermission: 'staff' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+    const { user } = auth
 
     const body = await request.json()
     const { users } = body
@@ -275,8 +276,8 @@ export async function PUT(request: NextRequest) {
     const results = []
     
     // Process each user update
-    for (const user of users) {
-      const { id, ...updateData } = user
+    for (const userUpdate of users) {
+      const { id, ...updateData } = userUpdate
       
       if (!id) {
         results.push({ success: false, error: "Missing user ID", user })
