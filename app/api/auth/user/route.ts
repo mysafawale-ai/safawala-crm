@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 
 // Supabase client is lazy via supabaseServer
@@ -9,23 +11,13 @@ import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get session cookie
-    const cookieHeader = request.cookies.get("safawala_session")
-    
-    if (!cookieHeader?.value) {
-      return NextResponse.json(
-        { error: "Not authenticated" }, 
-        { status: 401 }
-      )
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    
-    if (!sessionData.id) {
-      return NextResponse.json(
-        { error: "Invalid session" }, 
-        { status: 401 }
-      )
+    // Validate Supabase Auth session
+    const cookieStore = cookies()
+    const auth = createRouteHandlerClient({ cookies: () => cookieStore })
+    const { data: { user: authUser }, error: authError } = await auth.auth.getUser()
+
+    if (authError || !authUser?.email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     // Fetch fresh user data from database
@@ -48,7 +40,7 @@ export async function GET(request: NextRequest) {
           city
         )
       `)
-      .eq("id", sessionData.id)
+  .eq("email", authUser.email as string)
       .eq("is_active", true)
       .single()
 
@@ -60,11 +52,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Franchises is an array, get the first one
-    const franchise = Array.isArray(user.franchises) ? user.franchises[0] : user.franchises
+  const franchise = Array.isArray(user.franchises) ? user.franchises[0] : user.franchises
 
     // Return user with franchise info
     return NextResponse.json({
-      id: user.id,
+  id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
