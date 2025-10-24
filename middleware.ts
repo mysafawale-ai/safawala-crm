@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 
+function isAuthDisabled() {
+  return process.env.AUTH_ENABLED !== "true"
+}
+
+function hasSupabaseSessionCookie(request: NextRequest): boolean {
+  // Supabase sets cookies prefixed with 'sb-'
+  const cookies = request.cookies.getAll()
+  return cookies.some((c) => c.name.startsWith("sb-"))
+}
+
 export function middleware(request: NextRequest) {
   const { pathname, hostname } = request.nextUrl
 
@@ -10,10 +20,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for session cookie
-  const session = request.cookies.get("safawala_session")?.value
+  // If auth is disabled, allow all
+  if (isAuthDisabled()) {
+    return NextResponse.next()
+  }
 
-  if (!session) {
+  // Check for session cookie
+  const legacySession = request.cookies.get("safawala_session")?.value
+  const hasSupabase = hasSupabaseSessionCookie(request)
+
+  if (!legacySession && !hasSupabase) {
     // Redirect to login with original URL as redirect param
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1"
     
@@ -28,21 +44,24 @@ export function middleware(request: NextRequest) {
   }
 
   // Optional: Validate session cookie content
-  try {
-    const sessionData = JSON.parse(session)
-    if (!sessionData.id || !sessionData.email) {
-      throw new Error("Invalid session data")
+  // Keep legacy validation only if that cookie exists
+  if (legacySession) {
+    try {
+      const sessionData = JSON.parse(legacySession)
+      if (!sessionData.id || !sessionData.email) {
+        throw new Error("Invalid session data")
+      }
+    } catch (error) {
+      // Invalid session → Clear cookie and redirect to login
+      console.error("[Middleware] Invalid legacy session cookie:", error)
+      const loginUrl = new URL("/auth/login", request.url)
+      const response = NextResponse.redirect(loginUrl)
+      response.cookies.set("safawala_session", "", { 
+        maxAge: 0,
+        path: "/" 
+      })
+      return response
     }
-  } catch (error) {
-    // Invalid session → Clear cookie and redirect to login
-    console.error("[Middleware] Invalid session cookie:", error)
-    const loginUrl = new URL("/auth/login", request.url)
-    const response = NextResponse.redirect(loginUrl)
-    response.cookies.set("safawala_session", "", { 
-      maxAge: 0,
-      path: "/" 
-    })
-    return response
   }
 
   return NextResponse.next()
