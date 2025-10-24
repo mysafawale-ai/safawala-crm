@@ -72,7 +72,7 @@ export class AuthMiddleware {
           last_name,
           is_active
         `)
-        .eq('email', authUser.email as string)
+        .ilike('email', authUser.email as string)
         .eq('is_active', true)
         .single();
 

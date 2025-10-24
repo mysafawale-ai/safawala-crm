@@ -3,6 +3,9 @@ import { cookies } from "next/headers"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // Supabase client is lazy via supabaseServer
 
 /**
@@ -33,14 +36,14 @@ export async function GET(request: NextRequest) {
         permissions,
         created_at,
         updated_at,
-        franchises!inner (
+        franchises!left (
           id,
           name,
           code,
           city
         )
       `)
-  .eq("email", authUser.email as string)
+      .ilike("email", authUser.email as string)
       .eq("is_active", true)
       .single()
 

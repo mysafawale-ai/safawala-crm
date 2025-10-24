@@ -4,20 +4,18 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import bcrypt from "bcryptjs"
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     console.log("[v0] Login API called")
 
     // Initialize clients
     let authClient
-    let service
     try {
       const cookieStore = cookies()
       authClient = createRouteHandlerClient({ cookies: () => cookieStore })
-      service = createServiceClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! // Used for auth methods only
-      )
     } catch (configError) {
       console.error("[v0] Supabase configuration error:", configError)
       return NextResponse.json({ 
@@ -73,7 +71,7 @@ export async function POST(request: NextRequest) {
       const { data: legacyUser, error: legacyError } = await serviceAdminForLegacy
         .from("users")
         .select("id, email, password_hash, is_active")
-        .eq("email", email)
+        .ilike("email", email)
         .single()
 
       if (legacyError || !legacyUser || !legacyUser.is_active) {
@@ -128,7 +126,7 @@ export async function POST(request: NextRequest) {
           code
         )
       `)
-      .eq("email", email)
+      .ilike("email", email)
       .eq("is_active", true)
       .single()
 
