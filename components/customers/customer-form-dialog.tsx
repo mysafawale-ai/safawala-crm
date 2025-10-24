@@ -10,7 +10,6 @@ import { Switch } from "@/components/ui/switch"
 import { Loader2, MapPin, CheckCircle, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { PincodeService } from "@/lib/pincode-service"
-import { supabase } from "@/lib/supabase"
 
 interface CustomerFormDialogProps {
   open: boolean
@@ -159,9 +158,8 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
       }
 
       if (mode === "edit" && customer) {
-        // Update existing customer
-        // Build update object conditionally
-        const updateData: any = {
+        // Update existing customer via API
+        const updatePayload = {
           name: formData.name,
           phone: formData.phone,
           whatsapp: formData.whatsapp || null,
@@ -170,58 +168,36 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           city: formData.city || null,
           state: formData.state || null,
           pincode: formData.pincode || null,
-          updated_at: new Date().toISOString(),
+          is_active: formData.is_active,
         }
 
-        // Include is_active in update (column now exists)
-        updateData.is_active = formData.is_active
+        console.log("[CustomerFormDialog] Updating customer via API:", { customerId: customer.id, payload: updatePayload })
 
-        let { data, error } = await supabase
-          .from("customers")
-          .update(updateData)
-          .eq("id", customer.id)
-          .select("*")
+        const response = await fetch(`/api/customers/${customer.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(updatePayload),
+        })
 
-        console.log("[CustomerFormDialog] Update result:", { data, error, customerId: customer.id })
+        console.log("[CustomerFormDialog] API response status:", response.status)
 
-        // Extract single row if array returned
-        if (data && Array.isArray(data) && data.length > 0) {
-          data = data[0]
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+          console.error("[CustomerFormDialog] API error:", errorData)
+          throw new Error(errorData.error || `Failed to update customer (${response.status})`)
         }
 
-        // Handle is_active column not existing yet (graceful fallback)
-        if (error && (error.message?.includes("is_active") || error.message?.includes("column"))) {
-          console.warn("is_active column not found, retrying without it...")
-          delete updateData.is_active
-          
-          let retryResult = await supabase
-            .from("customers")
-            .update(updateData)
-            .eq("id", customer.id)
-            .select("*")
-          
-          // Extract single row if array
-          if (retryResult.data && Array.isArray(retryResult.data) && retryResult.data.length > 0) {
-            retryResult.data = retryResult.data[0]
-          }
-          
-          if (retryResult.error) throw retryResult.error
-          
-          toast.success("Customer updated successfully! (Note: Please run database migration to enable status toggle)")
-          
-          if (onCustomerCreated) {
-            onCustomerCreated(retryResult.data)
-          }
-          
-          onOpenChange(false)
-          return
+        const result = await response.json()
+        console.log("[CustomerFormDialog] API result:", result)
+
+        if (!result.success || !result.data) {
+          throw new Error(result.error || "No data returned from update")
         }
 
-        if (error) throw error
-
-        if (!data) {
-          throw new Error("No data returned from update")
-        }
+        const data = result.data
 
         console.log("[CustomerFormDialog] Customer updated successfully:", data)
         toast.success("Customer updated successfully!")
@@ -232,8 +208,8 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           onCustomerCreated(data)
         }
       } else {
-        // Create new customer
-        const insertData: any = {
+        // Create new customer via API
+        const createPayload = {
           name: formData.name,
           phone: formData.phone,
           whatsapp: formData.whatsapp || null,
@@ -242,64 +218,35 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           city: formData.city || null,
           state: formData.state || null,
           pincode: formData.pincode || null,
-          customer_code: `CUST${Date.now().toString().slice(-6)}`,
-          franchise_id: "00000000-0000-0000-0000-000000000001", // Default franchise
         }
 
-        // Try to include is_active for new customers
-        insertData.is_active = true
+        console.log("[CustomerFormDialog] Creating customer via API:", createPayload)
 
-        let { data, error } = await supabase
-          .from("customers")
-          .insert(insertData)
-          .select("*")
-        
-        // Extract single row if array returned
-        if (data && Array.isArray(data) && data.length > 0) {
-          data = data[0]
+        const response = await fetch("/api/customers", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(createPayload),
+        })
+
+        console.log("[CustomerFormDialog] API response status:", response.status)
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+          console.error("[CustomerFormDialog] API error:", errorData)
+          throw new Error(errorData.error || `Failed to create customer (${response.status})`)
         }
 
-        // Handle is_active column not existing yet
-        if (error && error.message?.includes("is_active")) {
-          console.warn("is_active column not found, retrying without it...")
-          delete insertData.is_active
-          
-          let retryResult = await supabase
-            .from("customers")
-            .insert(insertData)
-            .select("*")
-          
-          // Extract single row if array
-          if (retryResult.data && Array.isArray(retryResult.data) && retryResult.data.length > 0) {
-            retryResult.data = retryResult.data[0]
-          }
-          
-          if (retryResult.error) throw retryResult.error
-          
-          toast.success("Customer created successfully! (Note: Please run database migration to enable status toggle)")
-          
-          if (onCustomerCreated) {
-            onCustomerCreated(retryResult.data)
-          }
-          
-          setFormData({
-            name: "",
-            email: "",
-            phone: "",
-            whatsapp: "",
-            address: "",
-            city: "",
-            state: "",
-            pincode: "",
-            is_active: true,
-          })
-          setPincodeStatus("idle")
-          
-          onOpenChange(false)
-          return
+        const result = await response.json()
+        console.log("[CustomerFormDialog] API result:", result)
+
+        if (!result.success || !result.data) {
+          throw new Error(result.error || "No data returned from create")
         }
 
-        if (error) throw error
+        const data = result.data
 
         toast.success("Customer created successfully!")
         

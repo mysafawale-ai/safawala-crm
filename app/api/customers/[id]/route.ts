@@ -454,3 +454,110 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(ApiResponseBuilder.serverError(), { status: 500 })
   }
 }
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    // Authentication check
+    const authResult = await requireAuth(request, 'editor');
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 });
+    }
+    const { authContext } = authResult;
+
+    const { id } = params
+
+    if (!id || typeof id !== "string") {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Valid customer ID is required", "id"),
+        { status: 400 }
+      )
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(id)) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Invalid customer ID format", "id"),
+        { status: 400 }
+      )
+    }
+
+    // Parse request body
+    const body = await request.json()
+    const { name, phone, whatsapp, email, address, city, state, pincode, is_active } = body
+
+    // Validation
+    if (!name || name.trim().length === 0) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Name is required", "name"),
+        { status: 400 }
+      )
+    }
+
+    if (!phone || phone.trim().length < 10) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Valid phone number is required", "phone"),
+        { status: 400 }
+      )
+    }
+
+    // Fetch existing customer to verify it exists
+    const { data: existingCustomer, error: fetchError } = await supabaseServer
+      .from("customers")
+      .select("*")
+      .eq("id", id)
+      .single()
+
+    if (fetchError || !existingCustomer) {
+      return NextResponse.json(
+        ApiResponseBuilder.validationError("Customer not found", "id"),
+        { status: 404 }
+      )
+    }
+
+    // Update customer
+    const updateData: any = {
+      name: name.trim(),
+      phone: phone.trim(),
+      whatsapp: whatsapp?.trim() || null,
+      email: email?.trim() || null,
+      address: address?.trim() || null,
+      city: city?.trim() || null,
+      state: state?.trim() || null,
+      pincode: pincode?.trim() || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    // Only include is_active if provided
+    if (typeof is_active === 'boolean') {
+      updateData.is_active = is_active
+    }
+
+    const { data: updatedCustomer, error: updateError } = await supabaseServer
+      .from("customers")
+      .update(updateData)
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (updateError) {
+      console.error("[v0] Customer update error:", updateError)
+      return NextResponse.json(
+        ApiResponseBuilder.serverError(`Failed to update customer: ${updateError.message}`),
+        { status: 500 }
+      )
+    }
+
+    console.log("[v0] Customer updated successfully:", updatedCustomer)
+
+    return NextResponse.json(
+      ApiResponseBuilder.success(
+        updatedCustomer,
+        `Customer "${updatedCustomer.name}" updated successfully`
+      )
+    )
+  } catch (error) {
+    console.error("[v0] Customer PATCH error:", error)
+    return NextResponse.json(ApiResponseBuilder.serverError(), { status: 500 })
+  }
+}
