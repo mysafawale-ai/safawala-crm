@@ -76,6 +76,28 @@ interface NewUserData {
 const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff' | 'readonly'): UserPermissions => {
   switch (role) {
     case 'super_admin':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        packages: true,
+        vendors: true,
+        quotes: true,
+        invoices: true,
+        laundry: true,
+        expenses: true,
+        deliveries: true,
+        productArchive: true,
+        payroll: true,
+        attendance: true,
+        reports: true,
+        financials: true,
+        franchises: true,
+        staff: true,
+        integrations: true,
+        settings: true
+      }
     case 'franchise_admin':
       return {
         dashboard: true,
@@ -94,9 +116,9 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         attendance: true,
         reports: true,
         financials: true,
-        franchises: role === 'super_admin', // Only super_admin gets franchises
+        franchises: false, // Only super_admin
         staff: true,
-        integrations: true,
+        integrations: false, // Only super_admin
         settings: true
       }
     case 'staff':
@@ -117,9 +139,9 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         attendance: true,
         reports: false,
         financials: false,
-        franchises: false,
+        franchises: false, // Only super_admin
         staff: false,
-        integrations: false,
+        integrations: false, // Only super_admin
         settings: false
       }
     default: // readonly
@@ -140,9 +162,9 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         attendance: true,
         reports: true,
         financials: false,
-        franchises: false,
+        franchises: false, // Only super_admin
         staff: false,
-        integrations: false,
+        integrations: false, // Only super_admin
         settings: false
       }
   }
@@ -190,6 +212,31 @@ const permissionLabels: Record<keyof UserPermissions, string> = {
   staff: 'Staff',
   integrations: 'Integrations',
   settings: 'Settings'
+}
+
+// Get visible categories based on current user role
+const getVisibleCategories = (currentUserRole: string) => {
+  const baseCategories = {
+    main: {
+      title: 'Main Navigation',
+      permissions: ['dashboard', 'bookings', 'customers', 'inventory', 'packages', 'vendors']
+    },
+    business: {
+      title: 'Business Operations',
+      permissions: ['quotes', 'invoices', 'laundry', 'expenses', 'deliveries', 'productArchive', 'payroll', 'attendance']
+    },
+    analytics: {
+      title: 'Analytics & Reports',
+      permissions: ['reports', 'financials']
+    },
+    admin: {
+      title: 'Administration',
+      permissions: currentUserRole === 'super_admin' 
+        ? ['franchises', 'staff', 'integrations', 'settings']
+        : ['staff', 'settings'] // Hide franchises & integrations from non-super-admins
+    }
+  }
+  return baseCategories
 }
 
 // Role labels for display
