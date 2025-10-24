@@ -129,7 +129,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { name, email, phone, whatsapp, address, city, state, pincode, notes } = body
+    const { name, email, phone, whatsapp, address, city, state, pincode, notes, is_active } = body
 
     // Validation
     if (name !== undefined && (typeof name !== "string" || name.trim().length === 0)) {
@@ -266,6 +266,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (state !== undefined) updateData.state = state ? state.replace(/<[^>]*>/g, "").trim() : null
     if (pincode !== undefined) updateData.pincode = pincode.replace(/<[^>]*>/g, "").trim()
     if (notes !== undefined) updateData.notes = notes ? notes.replace(/<[^>]*>/g, "").trim() : null
+    if (is_active !== undefined) updateData.is_active = Boolean(is_active)
 
     // Update the customer
     const { data: updatedCustomer, error: updateError } = await supabaseServer
