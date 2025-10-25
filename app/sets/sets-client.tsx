@@ -27,19 +27,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 interface DistancePricing {
   id: string
-  range: string
-  min_km: number
-  max_km: number
-  base_price_addition: number
-}
-
-interface PackageLevel {
-  id: string
-  name: string
-  base_price: number
+  package_variant_id: string
+  distance_range: string
+  min_distance_km: number
+  max_distance_km: number
+  additional_price: number
   is_active: boolean
-  display_order: number
-  distance_pricing: DistancePricing[]
 }
 
 interface PackageVariant {
@@ -50,7 +43,7 @@ interface PackageVariant {
   extra_safa_price?: number
   missing_safa_penalty?: number
   inclusions?: string[]
-  package_levels?: PackageLevel[]
+  distance_pricing?: DistancePricing[]
   is_active: boolean
 }
 
@@ -94,7 +87,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const getInitialTab = () => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '')
-      if (['categories', 'variants', 'levels', 'pricing'].includes(hash)) {
+      if (['categories', 'variants', 'pricing'].includes(hash)) {
         return hash
       }
     }
@@ -131,7 +124,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     createPackage: false,
     createVariant: false,
     configurePricing: false,
-    createLevel: false,
   })
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
@@ -140,9 +132,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const [editingDistancePricing, setEditingDistancePricing] = useState<DistancePricing | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [selectedVariant, setSelectedVariant] = useState<PackageVariant | null>(null)
-  const [selectedLevel, setSelectedLevel] = useState<PackageLevel | null>(null)
-  const [editingLevel, setEditingLevel] = useState<PackageLevel | null>(null)
-  const [levelForm, setLevelForm] = useState({ name: "", base_price: "0.00" })
   const [categoryForm, setCategoryForm] = useState({ name: "", description: "" })
   const [activeTab, setActiveTab] = useState(getInitialTab())
 
@@ -179,18 +168,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               base_price: 35000,
               inclusions: ["21 Silk Safas", "Gold Kalgis", "Premium Jewelry Set", "Storage Box", "Setup Service"],
               is_active: true,
-              package_levels: [
-                {
-                  id: "lvl-1",
-                  name: "Basic",
-                  base_price: 35000,
-                  is_active: true,
-                  display_order: 1,
-                  distance_pricing: [
-                    { id: "1", range: "0-10 km", min_km: 0, max_km: 10, base_price_addition: 0 },
-                    { id: "2", range: "11-25 km", min_km: 11, max_km: 25, base_price_addition: 2000 },
-                  ],
-                },
+              distance_pricing: [
+                { id: "1", package_variant_id: "1-1-1", distance_range: "0-10 km", min_distance_km: 0, max_distance_km: 10, additional_price: 500, is_active: true },
+                { id: "2", package_variant_id: "1-1-1", distance_range: "11-50 km", min_distance_km: 11, max_distance_km: 50, additional_price: 1000, is_active: true },
+                { id: "3", package_variant_id: "1-1-1", distance_range: "51-250 km", min_distance_km: 51, max_distance_km: 250, additional_price: 2000, is_active: true },
+                { id: "4", package_variant_id: "1-1-1", distance_range: "251-1500 km", min_distance_km: 251, max_distance_km: 1500, additional_price: 3000, is_active: true },
               ],
             },
           ],
@@ -603,8 +585,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   }
 
   const handleCreateDistancePricing = async () => {
-    if (!selectedLevel || !selectedVariant) {
-      toast.error("Please select a level first")
+    if (!selectedVariant) {
+      toast.error("Please select a variant first")
       return
     }
     try {
@@ -626,7 +608,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
 
       const payload: any = {
-        package_level_id: selectedLevel.id,
+        package_variant_id: selectedVariant.id,
         distance_range: distancePricingForm.range.trim(),
         min_distance_km: distancePricingForm.min_km,
         max_distance_km: distancePricingForm.max_km,
@@ -667,10 +649,10 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const handleEditDistancePricing = (distancePricing: DistancePricing) => {
     setEditingDistancePricing(distancePricing)
     setDistancePricingForm({
-      range: distancePricing.range,
-      min_km: distancePricing.min_km,
-      max_km: distancePricing.max_km,
-      base_price_addition: distancePricing.base_price_addition,
+      range: distancePricing.distance_range,
+      min_km: distancePricing.min_distance_km,
+      max_km: distancePricing.max_distance_km,
+      base_price_addition: distancePricing.additional_price,
     })
     setDialogs((prev) => ({ ...prev, configurePricing: true }))
   }
@@ -681,55 +663,17 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         toast.error("Select a variant first")
         return
       }
-      const price = Number.parseFloat(levelForm.base_price)
-      if (isNaN(price) || price < 0) {
-        toast.error("Enter a valid base price")
-        return
-      }
-      const payload: any = {
-        variant_id: selectedVariant.id,
-        name: levelForm.name.trim(),
-        base_price: price,
-        is_active: true,
-        franchise_id: user?.franchise_id || null,
-      }
       
-      console.log('[Sets] Creating level with payload:', payload)
-      console.log('[Sets] Current user:', { id: user?.id, franchise_id: user?.franchise_id, role: user?.role })
-      
-      let resp
-      if (editingLevel) {
-        resp = await supabase.from('package_levels').update({
-          ...payload,
-          updated_at: new Date().toISOString(),
-        }).eq('id', editingLevel.id)
-      } else {
-        resp = await supabase.from('package_levels').insert(payload)
-      }
-      
-      console.log('[Sets] Supabase response:', resp)
-      
-      if (resp.error) throw resp.error
-      toast.success(editingLevel ? 'Level updated' : 'Level created')
-      await refetchData()
-      setDialogs(prev=>({...prev, createLevel:false}))
-      setEditingLevel(null)
-      setLevelForm({ name: '', base_price: '0.00' })
+      console.log('[Sets] Attempting to save distance pricing, but handleCreateLevel should not be called anymore')
+      toast.error("This function is deprecated - use distance pricing tab instead")
     } catch (e:any) {
       toast.error(e.message || 'Failed to save level')
     }
   }
 
   const handleDeleteLevel = async (levelId: string) => {
-    try {
-      const resp = await supabase.from('package_levels').delete().eq('id', levelId)
-      if (resp.error) throw resp.error
-      toast.success('Level deleted')
-      if (selectedLevel?.id === levelId) setSelectedLevel(null)
-      await refetchData()
-    } catch (e:any) {
-      toast.error(e.message || 'Failed to delete level')
-    }
+    console.log('[Sets] handleDeleteLevel called but levels are removed from system')
+    toast.error("Levels have been removed - manage distance pricing directly on variants")
   }
 
   const handleDeleteDistancePricing = async (distancePricingId: string) => {
@@ -780,47 +724,32 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       const { data: allVariants, error: variantsError } = await variantsQuery.order("display_order")
       if (variantsError) throw variantsError
 
+      // Fetch distance pricing directly for all variants (no more levels)
       const variantIds = (allVariants || []).map((v: any) => v.id)
-      let levelsData: any[] = []
-      if (variantIds.length > 0) {
-        const { data: lvlData, error: levelsError } = await supabase
-          .from("package_levels")
-          .select("*")
-          .in("variant_id", variantIds)
-          .order("display_order")
-        if (levelsError) throw levelsError
-        levelsData = lvlData || []
-      }
-
-      const levelIds = levelsData.map((l: any) => l.id)
       let pricingData: any[] = []
-      if (levelIds.length > 0) {
+      if (variantIds.length > 0) {
         const { data: dpData, error: dpError } = await supabase
           .from("distance_pricing")
           .select("*")
-          .in("package_level_id", levelIds)
+          .in("package_variant_id", variantIds)
           .order("min_distance_km")
         if (dpError) throw dpError
-  pricingData = (dpData || []).map((dp:any) => ({ 
-    ...dp, 
-    range: dp.range ?? dp.range_name ?? dp.distance_range ?? '',
-    min_km: dp.min_km ?? dp.min_distance_km ?? 0,
-    max_km: dp.max_km ?? dp.max_distance_km ?? 0,
-    base_price_addition: dp.base_price_addition ?? dp.additional_price ?? 0
-  }))
+        pricingData = (dpData || []).map((dp:any) => ({ 
+          ...dp, 
+          distance_range: dp.distance_range ?? dp.range ?? '',
+          min_distance_km: dp.min_distance_km ?? dp.min_km ?? 0,
+          max_distance_km: dp.max_distance_km ?? dp.max_km ?? 0,
+          additional_price: dp.additional_price ?? dp.base_price_addition ?? 0
+        }))
       }
 
       const categoriesWithVariants = (categoriesData || []).map((category:any) => {
         const variants = (allVariants || []).filter((v:any) => v.category_id === category.id)
-        const variantsWithLevels = variants.map((v:any) => {
-          const vLevels = levelsData.filter((l:any) => l.variant_id === v.id)
-          const vLevelsWithPricing = vLevels.map((lvl:any) => ({
-            ...lvl,
-            distance_pricing: pricingData.filter((dp:any) => dp.package_level_id === lvl.id || dp.level_id === lvl.id),
-          }))
-          return { ...v, package_levels: vLevelsWithPricing }
-        })
-        return { ...category, package_variants: variantsWithLevels }
+        const variantsWithPricing = variants.map((v:any) => ({
+          ...v,
+          distance_pricing: pricingData.filter((dp:any) => dp.package_variant_id === v.id),
+        }))
+        return { ...category, package_variants: variantsWithPricing }
       })
 
       setCategories(categoriesWithVariants)
@@ -834,11 +763,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         const updatedVariant = (updatedCategory?.package_variants||[]).find((v:any)=>v.id===selectedVariant.id)
         if (updatedVariant) {
           setSelectedVariant(updatedVariant)
-          // Update selected level with fresh data including distance pricing
-          if (selectedLevel) {
-            const updatedLevel = (updatedVariant.package_levels||[]).find((l:any)=>l.id===selectedLevel.id)
-            if (updatedLevel) setSelectedLevel(updatedLevel)
-          }
         }
       }
     } catch (error) {
@@ -857,7 +781,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     variantBaseExtra: number,
     distancePricing: DistancePricing,
   ) => {
-    return variantTotalPrice + distancePricing.base_price_addition
+    return variantTotalPrice + distancePricing.additional_price
   }
 
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -913,17 +837,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             <div className="text-2xl font-bold text-heritage-dark">
               {categories.reduce((acc, cat) => 
                 acc + (cat.package_variants || []).reduce((vAcc, variant) => 
-                  vAcc + (variant.package_levels || []).length, 0), 0
-              )}
-            </div>
-            <div className="text-brown-600">Levels</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-heritage-dark">
-              {categories.reduce((acc, cat) => 
-                acc + (cat.package_variants || []).reduce((vAcc, variant) => 
-                  vAcc + (variant.package_levels || []).reduce((lAcc, level) => 
-                    lAcc + (level.distance_pricing || []).length, 0), 0), 0
+                  vAcc + (variant.distance_pricing || []).length, 0), 0
               )}
             </div>
             <div className="text-brown-600">Distance Tiers</div>
@@ -932,7 +846,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-  <TabsList className="grid w-full grid-cols-4 bg-cream-100">
+        <TabsList className="grid w-full grid-cols-3 bg-cream-100">
           <TabsTrigger
             value="categories"
             className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
@@ -947,13 +861,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           >
             <Palette className="w-4 h-4 mr-2" />
             Variants
-          </TabsTrigger>
-          <TabsTrigger
-            value="levels"
-            className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
-          >
-            <Layers className="w-4 h-4 mr-2" />
-            Levels
           </TabsTrigger>
           <TabsTrigger
             value="pricing"
@@ -1122,8 +1029,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         <p className="text-sm text-brown-600 mt-1 line-clamp-2">{variant.description}</p>
                         <div className="mt-3 flex items-center gap-2">
                           <Badge className="bg-gold text-brown-800 font-semibold text-sm px-3 py-1">₹{variant.base_price?.toLocaleString() || "0"}</Badge>
-                          {Array.isArray(variant.package_levels) && variant.package_levels.length > 0 && (
-                            <span className="text-xs text-brown-500">{variant.package_levels.length} level(s)</span>
+                          {Array.isArray(variant.distance_pricing) && variant.distance_pricing.length > 0 && (
+                            <span className="text-xs text-brown-500">{variant.distance_pricing.length} distance tier(s)</span>
                           )}
                         </div>
                         {Array.isArray(variant.inclusions) && variant.inclusions.length > 0 && (
@@ -1156,10 +1063,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           size="sm"
                           onClick={() => {
                             setSelectedVariant(variant)
-                            setActiveTab("levels")
+                            setActiveTab("pricing")
                           }}
                         >
-                          View Levels
+                          <MapPin className="w-4 h-4 mr-2" />
+                          Distance Pricing
                         </Button>
                         <div className="flex items-center gap-2">
                           <Button
@@ -1443,16 +1351,16 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               </Dialog>
               */}
 
-        <TabsContent value="levels" className="space-y-4">
+        <TabsContent value="pricing" className="space-y-4">
           {!selectedVariant ? (
             <div className="text-center py-8">
-              <Layers className="w-16 h-16 mx-auto text-brown-400 mb-4" />
+              <MapPin className="w-16 h-16 mx-auto text-brown-400 mb-4" />
               <h3 className="vintage-heading text-xl mb-2">Select a Variant</h3>
-              <p className="text-brown-600 mb-4">Choose a variant to view its levels</p>
+              <p className="text-brown-600 mb-4">Choose a variant to view and manage its distance pricing</p>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
                   <Button
                     variant="outline"
@@ -1465,169 +1373,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   </Button>
                   <div>
                     <h3 className="vintage-heading text-lg font-semibold">{selectedVariant.name}</h3>
-                    <p className="text-sm text-brown-600">Manage levels for this variant</p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => setDialogs((prev) => ({ ...prev, createLevel: true }))}
-                  className="bg-heritage-dark hover:bg-heritage-dark/90 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Level
-                </Button>
-              </div>
-
-              <div className="grid gap-4">
-                {(selectedVariant.package_levels || []).map((level) => {
-                  const variantBase = selectedVariant.base_price || 0
-                  const levelExtra = level.base_price || 0
-                  const total = variantBase + levelExtra
-                  return (
-                  <Card key={level.id} className="card-heritage">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-lg font-semibold">{level.name}</h4>
-                          <div className="mt-2 flex items-center gap-2 flex-wrap">
-                            <span className="text-sm text-brown-600">₹{variantBase.toLocaleString()} (base)</span>
-                            <span className="text-brown-400">+</span>
-                            <span className="text-sm text-brown-600">₹{levelExtra.toLocaleString()} (additional)</span>
-                            <span className="text-brown-400">=</span>
-                            <Badge className="bg-gold text-brown-800 font-semibold">₹{total.toLocaleString()}</Badge>
-                            <span className="text-brown-400">•</span>
-                            <Badge variant="outline" className="text-xs">
-                              {(level.distance_pricing || []).length} distance tiers
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedLevel(level)
-                              setActiveTab("pricing")
-                            }}
-                          >
-                            <MapPin className="w-4 h-4 mr-2" />
-                            Distance Pricing
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
-                            onClick={() => {
-                              setEditingLevel(level)
-                              setLevelForm({ name: level.name, base_price: String(level.base_price || 0) })
-                              setDialogs((prev) => ({ ...prev, createLevel: true }))
-                            }}
-                          >
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
-                            onClick={() => handleDeleteLevel(level.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  )
-                })}
-              </div>
-
-              <Dialog
-                open={dialogs.createLevel}
-                onOpenChange={(open) => {
-                  setDialogs((prev) => ({ ...prev, createLevel: open }))
-                  if (!open) {
-                    setEditingLevel(null)
-                    setLevelForm({ name: "", base_price: "0.00" })
-                  }
-                }}
-              >
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="vintage-heading">
-                      {editingLevel ? "Edit Level" : "Create New Level"}
-                    </DialogTitle>
-                    <DialogDescription className="text-sm text-brown-600">
-                      {selectedVariant && (
-                        <span>Variant Base Price: ₹{selectedVariant.base_price?.toLocaleString() || "0"}</span>
-                      )}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="level-name">Level Name</Label>
-                      <Input
-                        id="level-name"
-                        placeholder="e.g., Basic, Premium, VIP"
-                        value={levelForm.name}
-                        onChange={(e) => setLevelForm((prev) => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="level-price">Additional Price (₹) - Optional</Label>
-                      <Input
-                        id="level-price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={levelForm.base_price}
-                        onChange={(e) => setLevelForm((prev) => ({ ...prev, base_price: e.target.value }))}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Total = Variant Base (₹{selectedVariant?.base_price?.toLocaleString() || "0"}) + Additional (₹{levelForm.base_price || "0"})
-                        {" = ₹"}
-                        {((selectedVariant?.base_price || 0) + (Number.parseFloat(levelForm.base_price) || 0)).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDialogs((prev) => ({ ...prev, createLevel: false }))}>
-                      Cancel
-                    </Button>
-                    <Button className="btn-heritage-dark" onClick={handleSaveLevel}>
-                      {editingLevel ? "Update Level" : "Create Level"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </>
-          )}
-        </TabsContent>
-        
-
-        <TabsContent value="pricing" className="space-y-4">
-          {!selectedLevel ? (
-            <div className="text-center py-8">
-              <MapPin className="w-16 h-16 mx-auto text-brown-400 mb-4" />
-              <h3 className="vintage-heading text-xl mb-2">Select a Level</h3>
-              <p className="text-brown-600 mb-4">Choose a level to view and manage its distance pricing</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedLevel(null)}
-                    className="border-brown-300 text-brown-700 hover:bg-brown-50"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Levels
-                  </Button>
-                  <div>
-                    <h3 className="vintage-heading text-lg font-semibold">{selectedLevel.name}</h3>
                     <p className="text-sm text-brown-600">Distance-based pricing from Alkapuri, Vadodara</p>
                   </div>
                 </div>
@@ -1641,7 +1386,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               </div>
 
               <div className="grid gap-4">
-                {(selectedLevel.distance_pricing || []).map((pricing, index) => (
+                {(selectedVariant.distance_pricing || []).map((pricing, index) => (
                   <Card key={pricing.id} className="card-heritage">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -1650,19 +1395,17 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                             <MapPin className="w-6 h-6 text-heritage-dark" />
                           </div>
                           <div>
-                            <h4 className="vintage-heading font-semibold">{pricing.range}</h4>
+                            <h4 className="vintage-heading font-semibold">{pricing.distance_range}</h4>
                             <p className="text-sm text-brown-600">
-                              {pricing.min_km} - {pricing.max_km} kilometers from Alkapuri
+                              {pricing.min_distance_km} - {pricing.max_distance_km} kilometers from Alkapuri
                             </p>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                Base Price + ₹{pricing.base_price_addition.toLocaleString()} Extra
+                                Base Price + ₹{pricing.additional_price?.toLocaleString() || '0'} Extra
                               </Badge>
                               <span className="text-sm text-brown-500">
                                 Total: ₹
-                                {(selectedLevel && selectedLevel.base_price)
-                                  ? (calculatePrice(selectedLevel.base_price, selectedLevel.base_price, pricing)).toLocaleString()
-                                  : '0'}
+                                {((selectedVariant.base_price || 0) + (pricing.additional_price || 0)).toLocaleString()}
                               </span>
                             </div>
                           </div>
@@ -1780,20 +1523,12 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                             <span className="font-semibold">₹{(selectedVariant?.base_price || 0).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Level Additional:</span>
-                            <span className="font-semibold">₹{(selectedLevel?.base_price || 0).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between border-t border-purple-200 pt-1">
-                            <span className="text-gray-700 font-medium">Level Total:</span>
-                            <span className="font-bold">₹{((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0)).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
                             <span className="text-blue-600">+ Distance Charge:</span>
                             <span className="font-semibold text-blue-600">₹{(distancePricingForm.base_price_addition || 0).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between border-t-2 border-purple-300 pt-1">
                             <span className="text-purple-700 font-bold">Final Price:</span>
-                            <span className="font-bold text-lg text-purple-700">₹{((selectedVariant?.base_price || 0) + (selectedLevel?.base_price || 0) + (distancePricingForm.base_price_addition || 0)).toLocaleString()}</span>
+                            <span className="font-bold text-lg text-purple-700">₹{((selectedVariant?.base_price || 0) + (distancePricingForm.base_price_addition || 0)).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
