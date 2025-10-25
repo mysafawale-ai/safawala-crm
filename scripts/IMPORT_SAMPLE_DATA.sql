@@ -59,20 +59,20 @@ VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not incl
   ARRAY['Classic Style', '3 VIP Family Safas', 'Groom Safa not included'], true)
 RETURNING id INTO v_var_id;
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'Premium', 4000, ARRAY['Standard quality', 'Basic accessories'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'Premium', 4000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VIP', 4500, ARRAY['Premium quality', 'Enhanced accessories'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VIP', 4500, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VVIP', 5000, ARRAY['Luxury quality', 'Premium accessories'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VVIP', 5000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
@@ -85,20 +85,20 @@ VALUES ('Bollywood Styles', 'Bollywood Styles, All VIP Safas, Groom Maharaja Saf
   ARRAY['Bollywood Styles', 'All VIP Safas', 'Groom Maharaja Safa', 'Premium brooches', 'Jewellery'], true)
 RETURNING id INTO v_var_id;
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'Premium', 7000, ARRAY['Bollywood design', 'Premium jewellery'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'Premium', 7000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VIP', 7500, ARRAY['Premium Bollywood', 'Enhanced jewellery'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VIP', 7500, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VVIP', 8000, ARRAY['Luxury Bollywood', 'Premium jewellery'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VVIP', 8000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
@@ -111,20 +111,20 @@ VALUES ('Royal Heritage Special', 'Royal Heritage Special, All VVIP Theme Safas,
   ARRAY['Royal Heritage Special', 'All VVIP Theme Safas', 'Groom Maharaja Safa', 'Premium jewellery'], true)
 RETURNING id INTO v_var_id;
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'Premium', 12000, ARRAY['Royal heritage', 'Ultra premium jewellery'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'Premium', 12000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VIP', 12500, ARRAY['Premium royal heritage', 'Exclusive accessories'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VIP', 12500, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VVIP', 13000, ARRAY['Ultra royal heritage', 'Diamond accessories'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VVIP', 13000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
@@ -140,20 +140,20 @@ VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not incl
   ARRAY['Classic Style', '3 VIP Family Safas'], true)
 RETURNING id INTO v_var_id;
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'Premium', 5000, ARRAY['Standard quality'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'Premium', 5000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VIP', 5500, ARRAY['Premium quality'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VIP', 5500, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VVIP', 6000, ARRAY['Luxury quality'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VVIP', 6000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
@@ -169,20 +169,20 @@ VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not incl
   ARRAY['Classic Style', '3 VIP Family Safas'], true)
 RETURNING id INTO v_var_id;
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'Premium', 6000, ARRAY['Standard quality'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'Premium', 6000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VIP', 6500, ARRAY['Premium quality'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VIP', 6500, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
-INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active) VALUES 
-  (v_var_id, 'VVIP', 7000, ARRAY['Luxury quality'], true) RETURNING id INTO v_lvl_id;
+INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
+  (v_var_id, 'VVIP', 7000, true) RETURNING id INTO v_lvl_id;
 INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
@@ -208,13 +208,13 @@ SELECT
   v.base_price as "Base Price",
   v.extra_safa_price as "Extra Safa (₹)",
   v.missing_safa_penalty as "Missing Penalty (₹)",
-  l.level_name as level,
-  l.level_price as "Level Price",
+  l.name as level,
+  l.base_price as "Level Price",
   COUNT(d.id) as "Distance Tiers"
 FROM packages_categories c
 JOIN package_variants v ON c.id = v.category_id
 JOIN package_levels l ON v.id = l.variant_id
 LEFT JOIN distance_pricing d ON l.id = d.level_id
 WHERE c.franchise_id = '1a518dde-85b7-44ef-8bc4-092f53ddfd99'
-GROUP BY c.name, v.name, v.base_price, v.extra_safa_price, v.missing_safa_penalty, l.level_name, l.level_price
-ORDER BY c.name, v.base_price, l.level_price;
+GROUP BY c.name, v.name, v.base_price, v.extra_safa_price, v.missing_safa_penalty, l.name, l.base_price
+ORDER BY c.name, v.base_price, l.base_price;

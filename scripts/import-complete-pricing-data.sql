@@ -68,7 +68,7 @@ BEGIN
   RETURNING id INTO v_variant_id;
   
   -- Premium Level
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'Premium', 4000.00, ARRAY['Standard quality', 'Basic accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -81,7 +81,7 @@ BEGIN
     (v_level_id, 501, 2000, 5000.00, true);
   
   -- VIP Level
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VIP', 4500.00, ARRAY['Premium quality', 'Enhanced accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -94,7 +94,7 @@ BEGIN
     (v_level_id, 501, 2000, 5000.00, true);
   
   -- VVIP Level
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VVIP', 5000.00, ARRAY['Luxury quality', 'Premium accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -123,7 +123,7 @@ BEGIN
   RETURNING id INTO v_variant_id;
   
   -- Premium Level
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'Premium', 5000.00, ARRAY['Rajputana design', 'Designer safa included'], true)
   RETURNING id INTO v_level_id;
   
@@ -135,7 +135,7 @@ BEGIN
     (v_level_id, 501, 2000, 5000.00, true);
   
   -- VIP Level
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VIP', 5500.00, ARRAY['Premium Rajputana', 'Enhanced accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -147,7 +147,7 @@ BEGIN
     (v_level_id, 501, 2000, 5000.00, true);
   
   -- VVIP Level
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VVIP', 6000.00, ARRAY['Luxury Rajputana', 'Premium accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -175,7 +175,7 @@ BEGIN
   RETURNING id INTO v_variant_id;
   
   -- Premium, VIP, VVIP levels with distance pricing
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'Premium', 6000.00, ARRAY['Floral design', 'Premium accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -184,7 +184,7 @@ BEGIN
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VIP', 6500.00, ARRAY['Premium floral', 'Enhanced accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -193,7 +193,7 @@ BEGIN
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VVIP', 7000.00, ARRAY['Luxury floral', 'Premium accessories'], true)
   RETURNING id INTO v_level_id;
   
@@ -218,7 +218,7 @@ BEGIN
   )
   RETURNING id INTO v_variant_id;
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'Premium', 7000.00, ARRAY['Bollywood design', 'Premium jewellery'], true)
   RETURNING id INTO v_level_id;
   
@@ -227,7 +227,7 @@ BEGIN
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VIP', 7500.00, ARRAY['Premium Bollywood', 'Enhanced jewellery'], true)
   RETURNING id INTO v_level_id;
   
@@ -236,7 +236,7 @@ BEGIN
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VVIP', 8000.00, ARRAY['Luxury Bollywood', 'Premium jewellery'], true)
   RETURNING id INTO v_level_id;
   
@@ -261,7 +261,7 @@ BEGIN
   )
   RETURNING id INTO v_variant_id;
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'Premium', 8000.00, ARRAY['Luxury design', 'Exclusive jewellery'], true)
   RETURNING id INTO v_level_id;
   
@@ -270,7 +270,7 @@ BEGIN
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VIP', 8500.00, ARRAY['Premium luxury', 'Enhanced jewellery'], true)
   RETURNING id INTO v_level_id;
   
@@ -279,7 +279,7 @@ BEGIN
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
   
-  INSERT INTO package_levels (variant_id, level_name, level_price, features, is_active)
+  INSERT INTO package_levels (variant_id, name, base_price, is_active)
   VALUES (v_variant_id, 'VVIP', 9000.00, ARRAY['Ultra luxury', 'Premium jewellery'], true)
   RETURNING id INTO v_level_id;
   
