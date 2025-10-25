@@ -9,18 +9,34 @@ DECLARE
   v_franchise_id UUID := '1a518dde-85b7-44ef-8bc4-092f53ddfd99';
   v_variant RECORD;
   v_level_count INT := 0;
+  v_variant_count INT := 0;
 BEGIN
 
-RAISE NOTICE '🚀 Creating levels...';
+RAISE NOTICE '🚀 Starting level creation...';
+
+-- First check how many variants exist
+SELECT COUNT(*) INTO v_variant_count
+FROM package_variants v
+JOIN packages_categories c ON v.category_id = c.id
+WHERE c.franchise_id = v_franchise_id;
+
+IF v_variant_count = 0 THEN
+  RAISE EXCEPTION 'No variants found for franchise! Please run STEP_2 first.';
+END IF;
+
+RAISE NOTICE '✅ Found % variants under franchise ID: %', v_variant_count, v_franchise_id;
+RAISE NOTICE '📦 Creating 3 levels for each variant...';
+RAISE NOTICE '';
 
 -- Loop through all variants for this franchise
 FOR v_variant IN 
-  SELECT v.id, v.name, v.base_price
+  SELECT v.id, v.name, v.base_price, c.name as category_name
   FROM package_variants v
   JOIN packages_categories c ON v.category_id = c.id
   WHERE c.franchise_id = v_franchise_id
+  ORDER BY c.name, v.base_price
 LOOP
-  RAISE NOTICE 'Creating levels for: % (Base: ₹%)', v_variant.name, v_variant.base_price;
+  RAISE NOTICE '  📝 %: % (Base: ₹%)', v_variant.category_name, v_variant.name, v_variant.base_price;
   
   -- Premium Level (base price)
   INSERT INTO package_levels (
@@ -67,10 +83,16 @@ LOOP
   );
   v_level_count := v_level_count + 1;
   
-  RAISE NOTICE '  ✅ Created 3 levels for %', v_variant.name;
+  RAISE NOTICE '     ✅ Premium: ₹%, VIP: ₹%, VVIP: ₹%', 
+    v_variant.base_price, 
+    v_variant.base_price + 500, 
+    v_variant.base_price + 1000;
 END LOOP;
 
-RAISE NOTICE '✅ Successfully created % levels total!', v_level_count;
+RAISE NOTICE '';
+RAISE NOTICE '🎉 SUCCESS: Created % levels for % variants!', v_level_count, v_variant_count;
+RAISE NOTICE 'Expected: % levels (% variants × 3 levels)', v_variant_count * 3, v_variant_count;
+RAISE NOTICE 'Next step: Run STEP_4_CREATE_DISTANCE_PRICING.sql';
 
 END $$;
 

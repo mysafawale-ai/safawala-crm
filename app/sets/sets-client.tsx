@@ -458,6 +458,8 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
   const handleCreateVariant = async () => {
     try {
+      setIsLoading(true)
+      
       if (!selectedCategory) {
         toast.error("Please select a category first")
         return
@@ -482,6 +484,16 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       const extraSafaPrice = Number.parseFloat(variantForm.extra_safa_price)
       const missingSafaPenalty = Number.parseFloat(variantForm.missing_safa_penalty)
 
+      if (isNaN(extraSafaPrice) || extraSafaPrice < 0) {
+        toast.error("Please enter a valid extra safa price")
+        return
+      }
+
+      if (isNaN(missingSafaPenalty) || missingSafaPenalty < 0) {
+        toast.error("Please enter a valid missing safa penalty")
+        return
+      }
+
       const inclusions = variantForm.inclusions
         .split(",")
         .map((item) => item.trim())
@@ -491,33 +503,41 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         name: variantForm.name.trim(),
         description: variantForm.description.trim(),
         base_price: basePrice,
-        extra_safa_price: isNaN(extraSafaPrice) ? 0 : extraSafaPrice,
-        missing_safa_penalty: isNaN(missingSafaPenalty) ? 0 : missingSafaPenalty,
+        extra_safa_price: extraSafaPrice,
+        missing_safa_penalty: missingSafaPenalty,
         inclusions,
         category_id: selectedCategory.id,
-        // For backward-compat where package_id may be NOT NULL, set to category id
-        package_id: (selectedCategory as any).id,
-        // Ensure variants appear for current franchise (RLS + filtering)
+        package_id: selectedCategory.id,
         franchise_id: user?.franchise_id || null,
         is_active: true,
         display_order: ((selectedCategory.package_variants || []).length) + 1,
       }
 
-      let result
       if (editingVariant) {
-        result = await supabase
-          .from("package_variants")
-          .update({
-            ...payload,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingVariant.id)
-          .select()
-        if (result.error) throw result.error
+        // Update variant via API
+        console.log("[v0] Updating variant via API:", editingVariant.id)
+        const res = await fetch('/api/packages/variants', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ id: editingVariant.id, ...payload }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.error || 'Failed to update variant')
+        console.log("[v0] Variant updated successfully via API")
         toast.success("Variant updated successfully!")
       } else {
-        result = await supabase.from("package_variants").insert([payload]).select()
-        if (result.error) throw result.error
+        // Create variant via API
+        console.log("[v0] Creating variant via API")
+        const res = await fetch('/api/packages/variants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.error || 'Failed to create variant')
+        console.log("[v0] Variant created successfully via API:", json?.data)
         toast.success("Variant created successfully!")
       }
 
@@ -527,8 +547,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       setEditingVariant(null)
       setDialogs((prev) => ({ ...prev, createVariant: false }))
     } catch (error) {
-      console.error("Error creating/updating variant:", error)
-      toast.error("Failed to save variant. Please try again.")
+      console.error("[v0] Error creating/updating variant:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to save variant. Please try again."
+      toast.error(errorMessage)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -558,13 +581,22 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const confirmDeleteVariant = async () => {
     if (!pendingVariantDelete) return
     try {
-      const { error } = await supabase.from('package_variants').delete().eq('id', pendingVariantDelete.id)
-      if (error) throw error
+      setIsLoading(true)
+      console.log("[v0] Deleting variant via API:", pendingVariantDelete.id)
+      const res = await fetch(`/api/packages/variants?id=${pendingVariantDelete.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to delete variant')
+      console.log("[v0] Variant deleted successfully via API")
       toast.success('Variant deleted successfully!')
       await refetchData()
-    } catch (e:any) {
+    } catch (e: any) {
+      console.error("[v0] Error deleting variant:", e)
       toast.error(e.message || 'Failed to delete variant')
     } finally {
+      setIsLoading(false)
       setShowVariantDeleteDialog(false)
       setPendingVariantDelete(null)
     }
@@ -876,6 +908,25 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               {categories.reduce((acc, cat) => acc + (cat.package_variants || []).length, 0)}
             </div>
             <div className="text-brown-600">Variants</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-heritage-dark">
+              {categories.reduce((acc, cat) => 
+                acc + (cat.package_variants || []).reduce((vAcc, variant) => 
+                  vAcc + (variant.package_levels || []).length, 0), 0
+              )}
+            </div>
+            <div className="text-brown-600">Levels</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-heritage-dark">
+              {categories.reduce((acc, cat) => 
+                acc + (cat.package_variants || []).reduce((vAcc, variant) => 
+                  vAcc + (variant.package_levels || []).reduce((lAcc, level) => 
+                    lAcc + (level.distance_pricing || []).length, 0), 0), 0
+              )}
+            </div>
+            <div className="text-brown-600">Distance Tiers</div>
           </div>
         </div>
       </div>
@@ -1443,6 +1494,10 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                             <span className="text-sm text-brown-600">₹{levelExtra.toLocaleString()} (additional)</span>
                             <span className="text-brown-400">=</span>
                             <Badge className="bg-gold text-brown-800 font-semibold">₹{total.toLocaleString()}</Badge>
+                            <span className="text-brown-400">•</span>
+                            <Badge variant="outline" className="text-xs">
+                              {(level.distance_pricing || []).length} distance tiers
+                            </Badge>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
