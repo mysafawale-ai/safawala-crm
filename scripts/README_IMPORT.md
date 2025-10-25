@@ -34,6 +34,9 @@ ADD COLUMN IF NOT EXISTS extra_safa_price NUMERIC(10,2) DEFAULT 0;
 
 ALTER TABLE package_variants 
 ADD COLUMN IF NOT EXISTS missing_safa_penalty NUMERIC(10,2) DEFAULT 0;
+
+-- Note: package_id is required (NOT NULL constraint)
+-- Scripts automatically set package_id = category_id for compatibility
 ```
 
 ### Step 2: Import Sample Data
