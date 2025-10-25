@@ -54,7 +54,7 @@ BEGIN
   RAISE NOTICE '✅ Created Category: 21 Safas (ID: %)', v_category_id;
   
   -- Variant 1: Classic Style
-  INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+  INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
   VALUES (
     'Classic Style',
     'Classic Style, 3 VIP Family Safas, Groom Safa not included',
@@ -109,7 +109,7 @@ BEGIN
   RAISE NOTICE '  ✅ Created Variant: Classic Style with 3 levels';
   
   -- Variant 2: Rajputana Rajwada Styles
-  INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+  INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
   VALUES (
     'Rajputana Rajwada Styles',
     'Rajputana Rajwada Styles, 6 VIP Family Safas + 1 Groom Designer Safa',
@@ -161,7 +161,7 @@ BEGIN
   RAISE NOTICE '  ✅ Created Variant: Rajputana Rajwada Styles with 3 levels';
   
   -- Variant 3: Floral Design
-  INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+  INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
   VALUES (
     'Floral Design',
     'Floral Design, 10 VIP + 1 Groom Safa with premium accessories',
@@ -205,7 +205,7 @@ BEGIN
   RAISE NOTICE '  ✅ Created Variant: Floral Design with 3 levels';
   
   -- Variant 4: Bollywood Styles
-  INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+  INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
   VALUES (
     'Bollywood Styles',
     'Bollywood Styles, All VIP Safas, Groom Maharaja Safa with premium brooches & jewellery',
@@ -248,7 +248,7 @@ BEGIN
   RAISE NOTICE '  ✅ Created Variant: Bollywood Styles with 3 levels';
   
   -- Variant 5: Adani's Wedding Safa
-  INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+  INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
   VALUES (
     'Adani''s Wedding Safa',
     'Adani''s Wedding Safa, 5 VVIP Family Safas, Premium Maharaja Groom Safa with exclusive jewellery',

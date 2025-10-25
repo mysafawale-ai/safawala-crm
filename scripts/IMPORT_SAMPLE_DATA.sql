@@ -54,8 +54,8 @@ SELECT id INTO v_cat_41 FROM packages_categories WHERE name = '41 Safas' AND fra
 -- ============================================================================
 
 -- Sample 1: Classic Style (Budget)
-INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
-VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not included', v_cat_21, 4000, 100, 450,
+INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not included', v_cat_21, v_cat_21, 4000, 100, 450,
   ARRAY['Classic Style', '3 VIP Family Safas', 'Groom Safa not included'], true)
 RETURNING id INTO v_var_id;
 
@@ -80,8 +80,8 @@ INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km
 RAISE NOTICE '  ✅ Classic Style: ₹4,000-5,000 (Extra: ₹100, Missing: ₹450)';
 
 -- Sample 2: Bollywood Styles (Mid-Range)
-INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
-VALUES ('Bollywood Styles', 'Bollywood Styles, All VIP Safas, Groom Maharaja Safa with premium brooches & jewellery', v_cat_21, 7000, 200, 650,
+INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+VALUES ('Bollywood Styles', 'Bollywood Styles, All VIP Safas, Groom Maharaja Safa with premium brooches & jewellery', v_cat_21, v_cat_21, 7000, 200, 650,
   ARRAY['Bollywood Styles', 'All VIP Safas', 'Groom Maharaja Safa', 'Premium brooches', 'Jewellery'], true)
 RETURNING id INTO v_var_id;
 
@@ -106,8 +106,8 @@ INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km
 RAISE NOTICE '  ✅ Bollywood Styles: ₹7,000-8,000 (Extra: ₹200, Missing: ₹650)';
 
 -- Sample 3: Royal Heritage Special (Premium)
-INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
-VALUES ('Royal Heritage Special', 'Royal Heritage Special, All VVIP Theme Safas, Groom Maharaja Safa with premium jewellery', v_cat_21, 12000, 450, 1150,
+INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+VALUES ('Royal Heritage Special', 'Royal Heritage Special, All VVIP Theme Safas, Groom Maharaja Safa with premium jewellery', v_cat_21, v_cat_21, 12000, 450, 1150,
   ARRAY['Royal Heritage Special', 'All VVIP Theme Safas', 'Groom Maharaja Safa', 'Premium jewellery'], true)
 RETURNING id INTO v_var_id;
 
@@ -135,8 +135,8 @@ RAISE NOTICE '  ✅ Royal Heritage Special: ₹12,000-13,000 (Extra: ₹450, Mis
 -- STEP 5: Add samples for 31 Safas (showing price increase pattern)
 -- ============================================================================
 
-INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
-VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not included', v_cat_31, 5000, 100, 450,
+INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not included', v_cat_31, v_cat_31, 5000, 100, 450,
   ARRAY['Classic Style', '3 VIP Family Safas'], true)
 RETURNING id INTO v_var_id;
 
@@ -164,8 +164,8 @@ RAISE NOTICE '  ✅ 31 Safas - Classic Style: ₹5,000-6,000';
 -- STEP 6: Add sample for 41 Safas
 -- ============================================================================
 
-INSERT INTO package_variants (name, description, category_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
-VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not included', v_cat_41, 6000, 100, 450,
+INSERT INTO package_variants (name, description, category_id, package_id, base_price, extra_safa_price, missing_safa_penalty, inclusions, is_active)
+VALUES ('Classic Style', 'Classic Style, 3 VIP Family Safas, Groom Safa not included', v_cat_41, v_cat_41, 6000, 100, 450,
   ARRAY['Classic Style', '3 VIP Family Safas'], true)
 RETURNING id INTO v_var_id;
 
