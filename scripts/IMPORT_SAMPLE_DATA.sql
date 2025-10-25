@@ -61,19 +61,19 @@ RETURNING id INTO v_var_id;
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'Premium', 4000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VIP', 4500, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VVIP', 5000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
@@ -87,19 +87,19 @@ RETURNING id INTO v_var_id;
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'Premium', 7000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VIP', 7500, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VVIP', 8000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
@@ -113,19 +113,19 @@ RETURNING id INTO v_var_id;
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'Premium', 12000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VIP', 12500, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VVIP', 13000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
@@ -142,19 +142,19 @@ RETURNING id INTO v_var_id;
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'Premium', 5000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VIP', 5500, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VVIP', 6000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
@@ -171,19 +171,19 @@ RETURNING id INTO v_var_id;
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'Premium', 6000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VIP', 6500, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
 INSERT INTO package_levels (variant_id, name, base_price, is_active) VALUES 
   (v_var_id, 'VVIP', 7000, true) RETURNING id INTO v_lvl_id;
-INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
   (v_lvl_id, 0, 10, 500, true), (v_lvl_id, 11, 50, 1000, true), (v_lvl_id, 51, 250, 2000, true),
   (v_lvl_id, 251, 500, 3000, true), (v_lvl_id, 501, 2000, 5000, true);
 
@@ -214,7 +214,7 @@ SELECT
 FROM packages_categories c
 JOIN package_variants v ON c.id = v.category_id
 JOIN package_levels l ON v.id = l.variant_id
-LEFT JOIN distance_pricing d ON l.id = d.level_id
+LEFT JOIN distance_pricing d ON l.id = d.package_level_id
 WHERE c.franchise_id = '1a518dde-85b7-44ef-8bc4-092f53ddfd99'
 GROUP BY c.name, v.name, v.base_price, v.extra_safa_price, v.missing_safa_penalty, l.name, l.base_price
 ORDER BY c.name, v.base_price, l.base_price;

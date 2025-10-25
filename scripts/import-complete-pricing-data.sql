@@ -73,7 +73,7 @@ BEGIN
   RETURNING id INTO v_level_id;
   
   -- Distance pricing for Premium
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true),
     (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true),
@@ -86,7 +86,7 @@ BEGIN
   RETURNING id INTO v_level_id;
   
   -- Distance pricing for VIP
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true),
     (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true),
@@ -99,7 +99,7 @@ BEGIN
   RETURNING id INTO v_level_id;
   
   -- Distance pricing for VVIP
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true),
     (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true),
@@ -127,7 +127,7 @@ BEGIN
   VALUES (v_variant_id, 'Premium', 5000.00, ARRAY['Rajputana design', 'Designer safa included'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true),
     (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true),
@@ -139,7 +139,7 @@ BEGIN
   VALUES (v_variant_id, 'VIP', 5500.00, ARRAY['Premium Rajputana', 'Enhanced accessories'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true),
     (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true),
@@ -151,7 +151,7 @@ BEGIN
   VALUES (v_variant_id, 'VVIP', 6000.00, ARRAY['Luxury Rajputana', 'Premium accessories'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true),
     (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true),
@@ -179,7 +179,7 @@ BEGIN
   VALUES (v_variant_id, 'Premium', 6000.00, ARRAY['Floral design', 'Premium accessories'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -188,7 +188,7 @@ BEGIN
   VALUES (v_variant_id, 'VIP', 6500.00, ARRAY['Premium floral', 'Enhanced accessories'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -197,7 +197,7 @@ BEGIN
   VALUES (v_variant_id, 'VVIP', 7000.00, ARRAY['Luxury floral', 'Premium accessories'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -222,7 +222,7 @@ BEGIN
   VALUES (v_variant_id, 'Premium', 7000.00, ARRAY['Bollywood design', 'Premium jewellery'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -231,7 +231,7 @@ BEGIN
   VALUES (v_variant_id, 'VIP', 7500.00, ARRAY['Premium Bollywood', 'Enhanced jewellery'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -240,7 +240,7 @@ BEGIN
   VALUES (v_variant_id, 'VVIP', 8000.00, ARRAY['Luxury Bollywood', 'Premium jewellery'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -265,7 +265,7 @@ BEGIN
   VALUES (v_variant_id, 'Premium', 8000.00, ARRAY['Luxury design', 'Exclusive jewellery'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -274,7 +274,7 @@ BEGIN
   VALUES (v_variant_id, 'VIP', 8500.00, ARRAY['Premium luxury', 'Enhanced jewellery'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
@@ -283,7 +283,7 @@ BEGIN
   VALUES (v_variant_id, 'VVIP', 9000.00, ARRAY['Ultra luxury', 'Premium jewellery'], true)
   RETURNING id INTO v_level_id;
   
-  INSERT INTO distance_pricing (level_id, distance_from, distance_to, price_per_km, is_active) VALUES
+  INSERT INTO distance_pricing (package_level_id, min_distance_km, max_distance_km, additional_price, is_active) VALUES
     (v_level_id, 0, 10, 500.00, true), (v_level_id, 11, 50, 1000.00, true),
     (v_level_id, 51, 250, 2000.00, true), (v_level_id, 251, 500, 3000.00, true),
     (v_level_id, 501, 2000, 5000.00, true);
