@@ -1,51 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { requireAuth } from "@/lib/auth-middleware"
+import { supabaseServer } from "@/lib/supabase-server-simple"
+import type { UserPermissions } from "@/lib/types"
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-/**
- * Get user session from cookie and validate franchise access
- */
-async function getUserFromSession(request: NextRequest) {
+async function getUserPermissions(userId: string): Promise<UserPermissions | null> {
   try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    // Use service role to fetch user details
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
+    const { data, error } = await supabaseServer
+      .from('users')
+      .select('permissions')
+      .eq('id', userId)
       .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
+    if (error) return null
+    return (data?.permissions as UserPermissions) || null
+  } catch {
+    return null
   }
+}
+
+function hasModuleAccess(perms: UserPermissions | null, key: keyof UserPermissions) {
+  if (!perms) return false
+  return Boolean(perms[key])
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { franchiseId, isSuperAdmin, role } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'viewer')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'customers')) {
+      return NextResponse.json(
+        { error: 'You do not have permission to view customers' },
+        { status: 403 }
+      )
+    }
+
+    const franchiseId = authContext!.user.franchise_id
+    const isSuperAdmin = authContext!.user.role === 'super_admin'
+    const role = authContext!.user.role
     
     // Use service role client but manually enforce franchise filtering
     const supabase = createClient()
@@ -126,7 +124,21 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, franchiseId } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'viewer')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const permissions = await getUserPermissions(authContext!.user.id)
+    if (!hasModuleAccess(permissions, 'customers')) {
+      return NextResponse.json(
+        { error: 'You do not have permission to create customers' },
+        { status: 403 }
+      )
+    }
+
+    const franchiseId = authContext!.user.franchise_id
+    const isSuperAdmin = authContext!.user.role === 'super_admin'
     const supabase = createClient()
 
   const body = await request.json()
