@@ -2340,6 +2340,9 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   const [showCustomProductDialog, setShowCustomProductDialog] = useState(false)
   const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '' })
   const [creatingProduct, setCreatingProduct] = useState(false)
+  const [showCameraDialog, setShowCameraDialog] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   // Helpers: label cleanup and unwanted filters
   const toTitle = (s?: string | null) => {
@@ -2639,6 +2642,50 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
     } finally {
       setCreatingProduct(false)
     }
+  }
+
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      })
+      streamRef.current = stream
+      setShowCameraDialog(true)
+      
+      // Wait for video element to be ready
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Camera access error:', error)
+      toast.error('Could not access camera. Please check permissions.')
+    }
+  }
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas')
+      canvas.width = videoRef.current.videoWidth
+      canvas.height = videoRef.current.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0)
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.8)
+        setCustomProductData(prev => ({ ...prev, image_url: imageUrl }))
+        closeCamera()
+        toast.success('Photo captured!')
+      }
+    }
+  }
+
+  const closeCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    setShowCameraDialog(false)
   }
 
   const variantInclusions: string[] = (context.customInclusions && context.customInclusions.length > 0)
@@ -3018,28 +3065,15 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               
               {/* Image Upload Options */}
               <div className="mt-2 flex gap-2">
-                <label className="flex-1 cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="user"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) {
-                        const reader = new FileReader()
-                        reader.onloadend = () => {
-                          setCustomProductData(prev => ({ ...prev, image_url: reader.result as string }))
-                        }
-                        reader.readAsDataURL(file)
-                      }
-                    }}
-                  />
-                  <div className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                    <Camera className="w-4 h-4" />
-                    <span className="text-sm">Take Photo</span>
-                  </div>
-                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={openCamera}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Take Photo
+                </Button>
                 
                 <label className="flex-1 cursor-pointer">
                   <input
@@ -3114,6 +3148,33 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                 disabled={creatingProduct || !customProductData.name.trim() || !customProductData.category_id}
               >
                 {creatingProduct ? 'Creating...' : 'Create Product'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Camera Dialog */}
+      <Dialog open={showCameraDialog} onOpenChange={(open) => !open && closeCamera()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Take Photo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <video 
+              ref={videoRef}
+              autoPlay 
+              playsInline
+              className="w-full rounded-lg bg-black"
+              style={{ maxHeight: '60vh' }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeCamera}>
+                Cancel
+              </Button>
+              <Button onClick={capturePhoto}>
+                <Camera className="w-4 h-4 mr-2" />
+                Capture
               </Button>
             </div>
           </div>
