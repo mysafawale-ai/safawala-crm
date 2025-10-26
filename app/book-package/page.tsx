@@ -999,8 +999,9 @@ export default function BookPackageWizard() {
         discount_amount: formData.discount_amount || 0,
       }
 
-      // Resilient insert: handle unknown columns and duplicate package_number conflicts
-      const safeInsert = async (payload: any) => {
+  // Resilient insert: handle unknown columns and duplicate package_number conflicts
+  const regenPrefix = asQuote ? 'QT' : 'PKG'
+  const safeInsert = async (payload: any) => {
         let attemptPayload = { ...payload }
         const tried = new Set<string>()
         for (let i = 0; i < 8; i++) {
@@ -1031,7 +1032,7 @@ export default function BookPackageWizard() {
             const uniq = `${Date.now()}-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`
             attemptPayload = {
               ...attemptPayload,
-              package_number: `PKG-${uniq}`
+              package_number: `${regenPrefix}-${uniq}`
             }
             continue
           }

@@ -645,13 +645,40 @@ export default function StaffPage() {
     if (!selectedUser) return
 
     try {
-      const response = await fetch(`/api/staff/${selectedUser.id}`, {
-        method: 'DELETE'
+      let response = await fetch(`/api/staff/${selectedUser.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to delete staff member')
+        // If response is HTML (e.g., 404 page), fallback to stable endpoint
+        const contentType = response.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json') || response.status === 404) {
+          try {
+            const html = await response.text()
+            console.error('[Staff] Delete got HTML instead of JSON (likely 404):', html.substring(0, 200))
+          } catch {}
+          // Fallback to stable endpoint
+          response = await fetch('/api/staff/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ id: selectedUser.id })
+          })
+        }
+      }
+
+      if (!response.ok) {
+        const ct = response.headers.get('content-type')
+        if (ct && ct.includes('application/json')) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to delete staff member')
+        } else {
+          const html = await response.text().catch(() => '')
+          console.error('[Staff] Delete error (non-JSON):', html.substring(0, 200))
+          throw new Error('Server error: Invalid response format. Please refresh and try again.')
+        }
       }
 
       setUsers(prev => prev.filter(user => user.id !== selectedUser.id))
