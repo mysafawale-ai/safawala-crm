@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   ArrowLeft, ArrowRight, User, Package, FileText, Search, X, Plus,
-  CalendarIcon, Gift, ShoppingCart, Loader2, CheckCircle
+  CalendarIcon, Gift, ShoppingCart, Loader2, CheckCircle, Camera, ImageIcon
 } from "lucide-react"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { computeDistanceAddonForVariant } from "@/lib/distance-pricing"
@@ -3014,15 +3014,71 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             </div>
 
             <div>
-              <label className="text-sm font-medium">Image URL (optional)</label>
+              <label className="text-sm font-medium">Product Image (optional)</label>
+              
+              {/* Image Upload Options */}
+              <div className="mt-2 flex gap-2">
+                <label className="flex-1 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onloadend = () => {
+                          setCustomProductData(prev => ({ ...prev, image_url: reader.result as string }))
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    <Camera className="w-4 h-4" />
+                    <span className="text-sm">Take Photo</span>
+                  </div>
+                </label>
+                
+                <label className="flex-1 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onloadend = () => {
+                          setCustomProductData(prev => ({ ...prev, image_url: reader.result as string }))
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    <ImageIcon className="w-4 h-4" />
+                    <span className="text-sm">Choose Image</span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Or divider */}
+              <div className="flex items-center gap-2 my-3">
+                <div className="flex-1 border-t border-gray-300"></div>
+                <span className="text-xs text-gray-500">or paste URL</span>
+                <div className="flex-1 border-t border-gray-300"></div>
+              </div>
+
               <Input
                 placeholder="https://example.com/image.jpg"
                 value={customProductData.image_url}
                 onChange={(e) => setCustomProductData(prev => ({ ...prev, image_url: e.target.value }))}
-                className="mt-1"
               />
+              
               {customProductData.image_url && (
-                <div className="mt-2 border rounded-md overflow-hidden">
+                <div className="mt-2 border rounded-md overflow-hidden relative">
                   <img 
                     src={customProductData.image_url} 
                     alt="Preview" 
@@ -3031,6 +3087,13 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                       e.currentTarget.src = '/placeholder-product.png'
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setCustomProductData(prev => ({ ...prev, image_url: '' }))}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               )}
             </div>
