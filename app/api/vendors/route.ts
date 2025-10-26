@@ -1,55 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/**
- * Get user session from cookie and validate franchise access
- */
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    // Use service role to fetch user details
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
-  }
-}
+// Auth note: We use the unified authenticateRequest to rely on Supabase Auth cookies
 
 /**
  * GET /api/vendors - List vendors with franchise isolation
  */
 export async function GET(request: NextRequest) {
   try {
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    const auth = await authenticateRequest(request, { minRole: 'staff', requirePermission: 'vendors' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
+    const isSuperAdmin = auth.user!.role === 'super_admin'
+    const franchiseId = auth.user!.franchise_id
     const supabase = createClient()
 
     console.log(`[Vendors API] Fetching vendors for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
@@ -127,7 +96,7 @@ export async function GET(request: NextRequest) {
     console.error("[Vendors API] GET error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to fetch vendors" },
-      { status: error.message === "Authentication required" ? 401 : 500 }
+      { status: error.statusCode || (error.message === "Authentication required" ? 401 : 500) }
     )
   }
 }
@@ -137,20 +106,17 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseId, userId, role } = await getUserFromSession(request)
-    
-    // Only allow staff and above to create vendors
-    if (!["super_admin", "franchise_admin", "staff"].includes(role)) {
-      return NextResponse.json(
-        { error: "Insufficient permissions to create vendors" },
-        { status: 403 }
-      )
+    const auth = await authenticateRequest(request, { minRole: 'staff', requirePermission: 'vendors' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+    const franchiseId = auth.user!.franchise_id
+    const userId = auth.user!.id
 
     const body = await request.json()
     const supabase = createClient()
 
-    console.log(`[Vendors API] Creating vendor for franchise: ${franchiseId}, user: ${userId}`)
+  console.log(`[Vendors API] Creating vendor for franchise: ${franchiseId}, user: ${userId}`)
 
     // Validate required fields
     if (!body.name) {
@@ -287,7 +253,7 @@ export async function POST(request: NextRequest) {
     console.error("[Vendors API] POST error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to create vendor" },
-      { status: error.message === "Authentication required" ? 401 : 500 }
+      { status: error.statusCode || (error.message === "Authentication required" ? 401 : 500) }
     )
   }
 }
