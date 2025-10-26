@@ -2608,12 +2608,51 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
     
     setCreatingProduct(true)
     try {
+      let imageUrl: string | null = customProductData.image_url
+
+      // Upload image to storage if it's a base64 string
+      if (imageUrl && imageUrl.startsWith('data:image')) {
+        try {
+          // Convert base64 to blob
+          const response = await fetch(imageUrl)
+          const blob = await response.blob()
+          
+          // Generate unique filename
+          const timestamp = Date.now()
+          const randomStr = Math.random().toString(36).substring(7)
+          const fileExt = blob.type.split('/')[1] || 'jpg'
+          const fileName = `product-${timestamp}-${randomStr}.${fileExt}`
+          
+          // Upload to Supabase storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('product-images')
+            .upload(fileName, blob, {
+              contentType: blob.type,
+              cacheControl: '3600',
+              upsert: false
+            })
+          
+          if (uploadError) throw uploadError
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(fileName)
+          
+          imageUrl = publicUrl
+        } catch (uploadError: any) {
+          console.error('Image upload failed:', uploadError)
+          toast.error('Image upload failed, creating product without image')
+          imageUrl = null
+        }
+      }
+
       const { data: product, error } = await supabase
         .from('products')
         .insert({
           name: customProductData.name.trim(),
           category_id: customProductData.category_id,
-          image_url: customProductData.image_url || null,
+          image_url: imageUrl || null,
           rental_price: 0,
           sale_price: 0,
           security_deposit: 0,
