@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
 
 // Force dynamic rendering and Node runtime
 export const dynamic = 'force-dynamic'
@@ -27,43 +28,20 @@ function normalizeEntity(entity: string): SupportedEntity | null {
   return ENTITY_TABLE_MAP[key] ? key : null
 }
 
-async function getUserFromSession(request: NextRequest) {
-  const cookieHeader = request.cookies.get("safawala_session")
-  if (!cookieHeader?.value) throw new Error("Authentication required")
-
-  let sessionData: any
-  try {
-    sessionData = JSON.parse(cookieHeader.value)
-  } catch {
-    throw new Error("Authentication required")
-  }
-  if (!sessionData?.id) throw new Error("Authentication required")
-
-  const supabase = createClient()
-  const { data: user, error } = await supabase
-    .from("users")
-    .select("id, franchise_id, role, is_active")
-    .eq("id", sessionData.id)
-    .single()
-
-  if (error || !user || user.is_active === false) throw new Error("Authentication required")
-
-  return {
-    userId: user.id as string,
-    franchiseId: user.franchise_id as string | null,
-    role: user.role as string,
-    isSuperAdmin: user.role === "super_admin",
-  }
+// Map entity to required permission for delete operations
+const ENTITY_PERMISSION: Record<SupportedEntity, keyof import("@/lib/types").UserPermissions> = {
+  vendor: "vendors",
+  vendors: "vendors",
+  customer: "customers",
+  customers: "customers",
+  booking: "bookings",
+  bookings: "bookings",
+  expense: "expenses",
+  expenses: "expenses",
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseId, isSuperAdmin, role } = await getUserFromSession(request)
-    // Only allow staff and above
-    if (!["super_admin", "franchise_admin", "staff"].includes(role)) {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
-    }
-
     const body = await request.json().catch(() => ({}))
     const { entity, id, hard } = body || {}
 
@@ -71,6 +49,18 @@ export async function POST(request: NextRequest) {
     if (!normalized) {
       return NextResponse.json({ error: "Unsupported entity type" }, { status: 400 })
     }
+
+    // Authenticate using unified auth with permission per entity
+    const auth = await authenticateRequest(request, {
+      minRole: hard ? 'franchise_admin' : 'staff',
+      requirePermission: ENTITY_PERMISSION[normalized],
+    })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
+    const franchiseId = auth.user!.franchise_id
+    const isSuperAdmin = auth.user!.role === 'super_admin'
+    const role = auth.user!.role
 
     if (!id || typeof id !== "string") {
       return NextResponse.json({ error: "Valid id is required" }, { status: 400 })
@@ -81,7 +71,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid id format" }, { status: 400 })
     }
 
-    const table = ENTITY_TABLE_MAP[normalized]
+  const table = ENTITY_TABLE_MAP[normalized]
     const supabase = createClient()
 
     // 1) Fetch existing record first
@@ -231,7 +221,7 @@ export async function POST(request: NextRequest) {
     console.error("[Delete API] Error:", error)
     return NextResponse.json(
       { error: error?.message || "Failed to delete" },
-      { status: error?.message === "Authentication required" ? 401 : 500 }
+      { status: error?.statusCode || (error?.message === "Authentication required" ? 401 : 500) }
     )
   }
 }
