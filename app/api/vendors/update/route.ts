@@ -1,56 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
-  }
-}
-
 // POST /api/vendors/update - Update vendor by id (body contains id + fields)
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseId, role, isSuperAdmin } = await getUserFromSession(request)
-
-    if (!["super_admin", "franchise_admin", "staff"].includes(role)) {
-      return NextResponse.json(
-        { error: "Insufficient permissions to update vendors" },
-        { status: 403 }
-      )
+    const auth = await authenticateRequest(request, { minRole: 'staff', requirePermission: 'vendors' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+    const franchiseId = auth.user!.franchise_id
+    const isSuperAdmin = auth.user!.role === 'super_admin'
 
     const body = await request.json()
     const { id } = body
@@ -174,7 +138,7 @@ export async function POST(request: NextRequest) {
     console.error("[Vendors API] UPDATE error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to update vendor" },
-      { status: error.message === "Authentication required" ? 401 : 500 }
+      { status: error.statusCode || (error.message === "Authentication required" ? 401 : 500) }
     )
   }
 }
