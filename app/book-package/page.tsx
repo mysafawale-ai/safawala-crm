@@ -3022,7 +3022,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
+                    capture="user"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
