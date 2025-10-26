@@ -22,6 +22,18 @@
 			}
 		},
 		{
+			"label": "Push Once to GitHub",
+			"type": "shell",
+			"command": "bash",
+			"args": ["-lc", "SINGLE_RUN=1 ./scripts/auto-push.sh"],
+			"isBackground": false,
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
 			"label": "typecheck",
 			"type": "shell",
 			"command": "pnpm",

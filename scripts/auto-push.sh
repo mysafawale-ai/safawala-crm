@@ -3,11 +3,14 @@
 # Auto Git Push Script
 # This script watches for file changes and automatically commits & pushes to GitHub
 
-# SAFETY GUARD: Disabled by default. Set ENABLE_AUTO_PUSH=1 to run.
-if [[ -z "${ENABLE_AUTO_PUSH}" || "${ENABLE_AUTO_PUSH}" != "1" ]]; then
-    echo "⛔ Auto Push is disabled. Set ENABLE_AUTO_PUSH=1 to enable it for this session."
-    echo "   Example: ENABLE_AUTO_PUSH=1 ./scripts/auto-push.sh"
-    exit 0
+# SAFETY GUARD: Disabled by default unless SINGLE_RUN is set.
+if [[ "${SINGLE_RUN}" != "1" ]]; then
+    if [[ -z "${ENABLE_AUTO_PUSH}" || "${ENABLE_AUTO_PUSH}" != "1" ]]; then
+        echo "⛔ Auto Push is disabled. Set ENABLE_AUTO_PUSH=1 to enable it for this session."
+        echo "   Example: ENABLE_AUTO_PUSH=1 ./scripts/auto-push.sh"
+        echo "   Or run a one-off push with: SINGLE_RUN=1 ./scripts/auto-push.sh"
+        exit 0
+    fi
 fi
 
 echo "🚀 Auto Git Push - Starting..."
@@ -53,5 +56,9 @@ auto_commit_push() {
 # Main loop - check every 30 seconds
 while true; do
     auto_commit_push
+    # If running as a one-off, exit after a single attempt
+    if [[ "${SINGLE_RUN}" == "1" ]]; then
+        exit 0
+    fi
     sleep 30
 done
