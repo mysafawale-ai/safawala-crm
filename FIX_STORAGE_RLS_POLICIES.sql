@@ -21,10 +21,7 @@ CREATE POLICY "Authenticated users can upload product images"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'product-images'
-  AND (
-    auth.uid() IS NOT NULL
-    OR auth.role() = 'authenticated'
-  )
+  AND auth.uid() IS NOT NULL
 );
 
 -- 3. Authenticated users can update
@@ -53,14 +50,8 @@ COMMIT;
 SELECT 
   policyname, 
   cmd,
-  CASE 
-    WHEN qual IS NOT NULL THEN 'USING: ' || pg_get_expr(qual, 'storage.objects'::regclass)
-    ELSE 'No USING clause'
-  END as using_clause,
-  CASE 
-    WHEN with_check IS NOT NULL THEN 'WITH CHECK: ' || pg_get_expr(with_check, 'storage.objects'::regclass)
-    ELSE 'No WITH CHECK clause'
-  END as with_check_clause
+  permissive,
+  roles
 FROM pg_policies
 WHERE schemaname = 'storage' 
 AND tablename = 'objects'

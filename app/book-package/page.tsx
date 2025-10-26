@@ -2651,21 +2651,61 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         }
       }
 
-      const { data: product, error } = await supabase
-        .from('products')
-        .insert({
-          name: customProductData.name.trim(),
-          category_id: customProductData.category_id,
-          image_url: imageUrl || null,
-          rental_price: 10,
-          price: 10,
-          security_deposit: 0,
-          stock_available: 100,
-          is_active: true,
-          description: 'Custom product'
-        })
-        .select()
-        .single()
+      // Generate a safe product_code to satisfy NOT NULL/UNIQUE constraints
+      const productCode = `PRD-${Date.now().toString(36).toUpperCase()}-${Math.random()
+        .toString(36)
+        .slice(2, 6)
+        .toUpperCase()}`
+
+      // Try to get franchise_id (if present, include it; else omit)
+      let createdByFranchiseId: string | null = null
+      try {
+        const ures = await fetch('/api/auth/user', { cache: 'no-store' })
+        if (ures.ok) {
+          const ujson = await ures.json()
+          createdByFranchiseId = ujson?.franchise_id || null
+        }
+      } catch {}
+
+      // Build base payload (use minimal fields to avoid schema mismatch)
+      const basePayload: any = {
+        name: customProductData.name.trim(),
+        category_id: customProductData.category_id,
+        image_url: imageUrl || null,
+        rental_price: 10, // demo price per request
+        price: 10,        // demo price per request
+        security_deposit: 0,
+        stock_available: 100,
+        is_active: true,
+        product_code: productCode,
+        description: 'Custom product'
+      }
+      if (createdByFranchiseId) basePayload.franchise_id = createdByFranchiseId
+
+      // Safe insert with auto-removal of unknown columns
+      const insertProductSafely = async (payload: any) => {
+        let attempt = { ...payload }
+        const dropped = new Set<string>()
+        for (let i = 0; i < 6; i++) {
+          const { data, error } = await supabase.from('products').insert(attempt).select().single()
+          if (!error) return { data, error: null as any }
+          const msg: string = (error as any)?.message || ''
+          // If PostgREST tells us a column is missing, drop it and retry
+          const m = msg.match(/Could not find the '(.*?)' column of 'products'/)
+          if (m && m[1] && !dropped.has(m[1])) {
+            const col = m[1]
+            dropped.add(col)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { [col]: _, ...rest } = attempt
+            attempt = rest
+            continue
+          }
+          return { data: null as any, error }
+        }
+        return { data: null as any, error: new Error('Failed to insert product after resolving columns') }
+      }
+
+      const { data: product, error } = await insertProductSafely(basePayload)
       
       if (error) throw error
       
