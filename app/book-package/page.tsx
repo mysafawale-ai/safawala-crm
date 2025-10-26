@@ -2335,6 +2335,11 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [availabilityRows, setAvailabilityRows] = useState<{ date: string; kind: 'order' | 'package'; ref?: string; qty: number; returnStatus?: 'returned' | 'in_progress'; returnDate?: string }[]>([])
   const subcatsRef = useRef<HTMLDivElement | null>(null)
+  
+  // Custom product creation
+  const [showCustomProductDialog, setShowCustomProductDialog] = useState(false)
+  const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '' })
+  const [creatingProduct, setCreatingProduct] = useState(false)
 
   // Helpers: label cleanup and unwanted filters
   const toTitle = (s?: string | null) => {
@@ -2588,6 +2593,54 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
     }
   }
 
+  const handleCreateCustomProduct = async () => {
+    if (!customProductData.name.trim()) {
+      toast.error("Product name is required")
+      return
+    }
+    if (!customProductData.category_id) {
+      toast.error("Please select a category")
+      return
+    }
+    
+    setCreatingProduct(true)
+    try {
+      const { data: product, error } = await supabase
+        .from('products')
+        .insert({
+          name: customProductData.name.trim(),
+          category_id: customProductData.category_id,
+          image_url: customProductData.image_url || null,
+          rental_price: 0,
+          sale_price: 0,
+          security_deposit: 0,
+          stock_available: 100,
+          is_active: true
+        })
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      // Add to products list
+      setProducts(prev => [...prev, product as any])
+      
+      // Auto-select the new product
+      setSelection(prev => ({ ...prev, [product.id]: 1 }))
+      
+      toast.success(`Product "${product.name}" created and added!`)
+      
+      // Reset form and close dialog
+      setCustomProductData({ name: '', category_id: '', image_url: '' })
+      setShowCustomProductDialog(false)
+    } catch (e: any) {
+      console.error('Failed to create product:', e)
+      toast.error(e.message || "Failed to create product")
+    } finally {
+      setCreatingProduct(false)
+    }
+  }
+
   const variantInclusions: string[] = (context.customInclusions && context.customInclusions.length > 0)
     ? context.customInclusions
     : (Array.isArray((context.variant as any).inclusions)
@@ -2665,6 +2718,15 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                   })}
                 </div>
                 <div className="ml-auto flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowCustomProductDialog(true)}
+                    className="h-8 text-xs"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Custom Product
+                  </Button>
                   <label className="flex items-center gap-2 text-xs text-gray-600 select-none">
                     <input type="checkbox" className="accent-black" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
                     Only in stock
@@ -2917,6 +2979,83 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Custom Product Creation Dialog */}
+      <Dialog open={showCustomProductDialog} onOpenChange={setShowCustomProductDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom Product</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Product Name *</label>
+              <Input
+                placeholder="Enter product name"
+                value={customProductData.name}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, name: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Category *</label>
+              <select
+                value={customProductData.category_id}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, category_id: e.target.value }))}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a category</option>
+                {categoryOptions.map(cat => (
+                  <option key={cat.key} value={cat.key}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Image URL (optional)</label>
+              <Input
+                placeholder="https://example.com/image.jpg"
+                value={customProductData.image_url}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, image_url: e.target.value }))}
+                className="mt-1"
+              />
+              {customProductData.image_url && (
+                <div className="mt-2 border rounded-md overflow-hidden">
+                  <img 
+                    src={customProductData.image_url} 
+                    alt="Preview" 
+                    className="w-full h-32 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = '/placeholder-product.png'
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowCustomProductDialog(false)
+                  setCustomProductData({ name: '', category_id: '', image_url: '' })
+                }}
+                disabled={creatingProduct}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreateCustomProduct}
+                disabled={creatingProduct || !customProductData.name.trim() || !customProductData.category_id}
+              >
+                {creatingProduct ? 'Creating...' : 'Create Product'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
