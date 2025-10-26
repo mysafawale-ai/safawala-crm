@@ -933,9 +933,16 @@ export default function BookPackageWizard() {
       // Generate number (quote vs booking)
       let numberStr = ''
       if (asQuote) {
-        const { data: qn, error: qnErr } = await supabase.rpc('generate_quote_number')
-        if (qnErr) throw qnErr
-        numberStr = (qn as any) || `QT-${Date.now()}`
+        // Try server-side generator; gracefully fallback if missing
+        let qn: any = null
+        try {
+          const res = await supabase.rpc('generate_quote_number')
+          qn = res.data
+        } catch (e) {
+          console.warn('generate_quote_number RPC not available, using fallback')
+        }
+        const uniq = `${Date.now()}-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`
+        numberStr = (qn as any) || `QT-${uniq}`
       } else {
         // Reuse booking number generator as a unique string for package_number
         const { data: bn } = await supabase.rpc('generate_booking_number')
