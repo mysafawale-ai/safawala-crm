@@ -3,6 +3,13 @@
 # Auto Git Push Script
 # This script watches for file changes and automatically commits & pushes to GitHub
 
+# SAFETY GUARD: Disabled by default. Set ENABLE_AUTO_PUSH=1 to run.
+if [[ -z "${ENABLE_AUTO_PUSH}" || "${ENABLE_AUTO_PUSH}" != "1" ]]; then
+    echo "⛔ Auto Push is disabled. Set ENABLE_AUTO_PUSH=1 to enable it for this session."
+    echo "   Example: ENABLE_AUTO_PUSH=1 ./scripts/auto-push.sh"
+    exit 0
+fi
+
 echo "🚀 Auto Git Push - Starting..."
 echo "📁 Watching directory: $(pwd)"
 echo "🔄 Will auto-commit and push changes every 30 seconds"
