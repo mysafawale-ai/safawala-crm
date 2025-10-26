@@ -57,7 +57,7 @@ export async function computeDistanceAddonForVariant(variantId: string, km: numb
     const { data: dpRows, error: dpErr } = await supabase
       .from("distance_pricing")
       .select("*")
-      .eq("variant_id", variantId)
+      .eq("package_variant_id", variantId)
 
     if (!dpErr && Array.isArray(dpRows) && dpRows.length > 0) {
       // Prefer active rows if the column exists; otherwise accept all

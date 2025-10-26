@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
@@ -24,10 +24,24 @@ import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { computeDistanceAddonForVariant } from "@/lib/distance-pricing"
 
 interface Customer { id: string; name: string; phone: string; email?: string; pincode?: string }
-interface PackageCategory { id: string; name: string; description?: string; security_deposit?: number }
-interface PackageVariant { id: string; package_id: string; name: string; variant_name?: string; base_price: number; security_deposit?: number; inclusions?: string[] | string }
-interface PackageSet { id: string; category_id: string; name: string; base_price: number; extra_safa_price: number; security_deposit?: number; package_variants: PackageVariant[] }
-interface BookingItem { id: string; pkg: PackageSet; variant: PackageVariant; quantity: number; unit_price: number; total_price: number; extra_safas: number; distance_addon?: number; security_deposit?: number; products_pending?: boolean }
+interface PackageCategory { id: string; name: string; description?: string; security_deposit?: number; display_order?: number }
+interface PackageVariant { id: string; category_id: string; name: string; variant_name?: string; base_price: number; extra_safa_price: number; missing_safa_penalty?: number; security_deposit?: number; inclusions?: string[] | string; is_active?: boolean }
+interface DistancePricing { id: string; package_variant_id: string; distance_range: string; min_distance_km: number; max_distance_km: number; additional_price: number }
+interface BookingItem {
+  id: string
+  category: PackageCategory
+  variant: PackageVariant
+  quantity: number
+  unit_price: number
+  total_price: number
+  extra_safas: number
+  distance_addon?: number
+  security_deposit?: number
+  products_pending?: boolean
+  // Reserved products selected for this booking item (UI/summary only)
+  selected_products?: Array<{ id: string; name: string; qty: number; image_url?: string }>
+  custom_inclusions?: string[]
+}
 interface StaffMember { id: string; name: string; email: string; role: string; franchise_id: string }
 
 // Currency formatter for Indian Rupees
@@ -52,7 +66,9 @@ export default function BookPackageWizard() {
   const [basePincode, setBasePincode] = useState<string>('390007') // Default fallback
   const [customers, setCustomers] = useState<Customer[]>([])
   const [categories, setCategories] = useState<PackageCategory[]>([])
-  const [packages, setPackages] = useState<PackageSet[]>([])
+  const [variantsForCategory, setVariantsForCategory] = useState<PackageVariant[]>([])
+  const [allVariants, setAllVariants] = useState<PackageVariant[]>([])
+  const [variantCounts, setVariantCounts] = useState<Record<string, number>>({})
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [selectedStaff, setSelectedStaff] = useState<string>("")
   const [selectedCategory, setSelectedCategory] = useState<PackageCategory | null>(null)
@@ -68,7 +84,6 @@ export default function BookPackageWizard() {
   const [useCustomPricing, setUseCustomPricing] = useState(false)
   const [customPricing, setCustomPricing] = useState({
     package_price: 0,
-    deposit: 0,
   })
   const [formData, setFormData] = useState({
     event_type: "Wedding",
@@ -93,10 +108,11 @@ export default function BookPackageWizard() {
     coupon_code: "",
     coupon_discount: 0
   })
-  const [variantDialogOpen, setVariantDialogOpen] = useState(false)
-  const [selectedPackageForVariants, setSelectedPackageForVariants] = useState<PackageSet | null>(null)
+  const [variantSelectionOpen, setVariantSelectionOpen] = useState(false)
   const [couponValidating, setCouponValidating] = useState(false)
   const [couponError, setCouponError] = useState("")
+  // Feature flag: render variant grid under categories (we'll open dialog instead)
+  const SHOW_VARIANT_GRID = false
 
   // Deposit policy: where to collect refundable security deposit
   // booking: collect now; delivery: collect later; none: do not collect
@@ -107,16 +123,16 @@ export default function BookPackageWizard() {
   
   // Product selection dialog state
   const [productDialogOpen, setProductDialogOpen] = useState(false)
-  const [productDialogContext, setProductDialogContext] = useState<{ pkg: PackageSet; variant: PackageVariant; eventDate?: string; itemId?: string; distanceKm?: number; pincode?: string } | null>(null)
+  const [productDialogContext, setProductDialogContext] = useState<{ category: PackageCategory; variant: PackageVariant; eventDate?: string; itemId?: string; distanceKm?: number; pincode?: string; customInclusions?: string[] } | null>(null)
 
   useEffect(() => { loadData() }, [])
 
   // Load quote data for editing
   useEffect(() => {
-    if (editQuoteId && !loadingQuoteData && customers.length > 0 && packages.length > 0) {
+    if (editQuoteId && !loadingQuoteData && customers.length > 0 && allVariants.length > 0) {
       loadQuoteForEdit(editQuoteId)
     }
-  }, [editQuoteId, customers, packages])
+  }, [editQuoteId, customers, allVariants])
 
   const loadData = async () => {
     setCustomersLoading(true)
@@ -150,51 +166,35 @@ export default function BookPackageWizard() {
         }
       }
       
-      // Fetch staff members - filter by franchise for non-super-admins
-      console.log("Fetching staff members...")
-      let staffQuery = supabase
-        .from("users")
-        .select("id,name,email,role,franchise_id")
-        .in("role", ["staff", "franchise_admin"])
-        .order("name")
-      
-      // Add franchise filter for non-super-admins
-      if (userData.role !== "super_admin" && userData.franchise_id) {
-        console.log("Filtering staff by franchise_id:", userData.franchise_id)
-        staffQuery = staffQuery.eq("franchise_id", userData.franchise_id)
-      } else {
-        console.log("Super admin - showing all staff")
-      }
-      
-      console.log("Staff query:", staffQuery)
-      const staffRes = await staffQuery
-      
-      console.log("Staff query result:", {
-        data: staffRes.data,
-        error: staffRes.error,
-        count: staffRes.data?.length
-      })
+      // Fetch staff members via API (server-side supabase) to avoid client env issues
+      console.log("Fetching staff members via API...")
+      const staffResp = await fetch('/api/staff', { cache: 'no-store' })
+      const staffJson = staffResp.ok ? await staffResp.json() : { staff: [] }
+      const staffRes = { data: (staffJson?.staff || []).filter((s: any) => ['staff','franchise_admin'].includes(s.role)), error: staffResp.ok ? null : new Error('Failed to load staff') }
       
       // Prepare customer query with franchise filter
-      let customersQuery = supabase
-        .from("customers")
-        .select("id,name,phone,email,pincode")
-        .order("name")
-      
-      // Apply franchise filter for non-super-admins
-      if (userData.role !== "super_admin" && userData.franchise_id) {
-        console.log("Filtering customers by franchise_id:", userData.franchise_id)
-        customersQuery = customersQuery.eq("franchise_id", userData.franchise_id)
+  console.log("Fetching customers via API (basic mode)...")
+  const customersResponse = await fetch('/api/customers?basic=1', { cache: 'no-store' })
+      let customersData: Customer[] = []
+      if (customersResponse.ok) {
+        const result = await customersResponse.json()
+        customersData = result.data || [] // API returns { success: true, data: [...] }
+        console.log("✅ Customers loaded from API:", customersData.length)
       } else {
-        console.log("Super admin - showing all customers")
+        console.error("Error loading customers from API:", customersResponse.status)
       }
       
-      const [custRes, catRes, pkgRes, variantRes] = await Promise.all([
-        customersQuery,
-        supabase.from("packages_categories").select("*").eq("is_active", true).order("display_order"),
-        supabase.from("package_sets").select("*").eq("is_active", true).order("name"),
-        supabase.from("package_variants").select("*").eq("is_active", true),
+      // Fetch categories and variants via API (server-side supabase)
+      const [catHttp, variantHttp] = await Promise.all([
+        fetch('/api/packages/categories', { cache: 'no-store' }),
+        fetch('/api/packages/variants', { cache: 'no-store' }),
       ])
+      const catJson = catHttp.ok ? await catHttp.json() : { data: [] }
+      const variantJson = variantHttp.ok ? await variantHttp.json() : { data: [] }
+      const catRes = { data: catJson?.data || [], error: catHttp.ok ? null : new Error('Failed to load categories') }
+      const variantRes = { data: variantJson?.data || [], error: variantHttp.ok ? null : new Error('Failed to load variants') }
+      
+      const custRes = { data: customersData, error: null }
       
       if (custRes.error) {
         console.error("Error loading customers:", custRes.error)
@@ -202,33 +202,34 @@ export default function BookPackageWizard() {
       if (catRes.error) {
         console.error("Error loading categories:", catRes.error)
       }
-      if (pkgRes.error) {
-        console.error("Error loading packages:", pkgRes.error)
-      }
       if (variantRes.error) {
         console.error("Error loading variants:", variantRes.error)
       }
+      
+      // 🔍 DEBUG: Log variant fetch results
+      console.log("📦 VARIANTS FETCH DEBUG:")
+      console.log("  Total variants fetched:", variantRes.data?.length || 0)
+      if (variantRes.data && variantRes.data.length > 0) {
+        const firstVariant = variantRes.data[0]
+        console.log("  Columns:", Object.keys(firstVariant).join(", "))
+        console.log("  Has category_id:", "category_id" in firstVariant)
+        console.log("  Has package_id:", "package_id" in firstVariant)
+        console.log("  Sample variant:", firstVariant.name || firstVariant.variant_name)
+      }
       if (staffRes.error) {
         console.error("Error loading staff - Full error object:", JSON.stringify(staffRes.error, null, 2))
-        console.error("Error code:", staffRes.error.code)
-        console.error("Error message:", staffRes.error.message)
-        console.error("Error details:", staffRes.error.details)
-        toast.error(`Failed to load staff members: ${staffRes.error.message}`)
+        toast.error(`Failed to load staff members`)
       } else {
         console.log("✅ Staff members loaded successfully:", staffRes.data?.length || 0)
         console.table(staffRes.data)
       }
       
-      if (custRes.error || catRes.error || pkgRes.error || variantRes.error) throw new Error("Error loading data")
+      if (custRes.error || catRes.error || variantRes.error) throw new Error("Error loading data")
       
-      const packagesWithVariants: PackageSet[] = (pkgRes.data || []).map((p: any) => ({
-        ...p,
-        package_variants: (variantRes.data || []).filter((v: any) => v.package_id === p.id),
-      }))
       setCustomers(custRes.data || [])
-      setCategories(catRes.data || [])
-      setPackages(packagesWithVariants)
-      setStaffMembers(staffRes.data || [])
+  setCategories(catRes.data || [])
+  setAllVariants(variantRes.data || [])
+  setStaffMembers(staffRes.data || [])
       
       console.log("Final staffMembers state:", staffRes.data || [])
       
@@ -315,18 +316,28 @@ export default function BookPackageWizard() {
         notes: quote.notes || "",
       })
 
+      // Prefill custom pricing if present
+      if (typeof quote.use_custom_pricing === 'boolean') {
+        setUseCustomPricing(!!quote.use_custom_pricing)
+      }
+      if (quote.custom_package_price != null) {
+        setCustomPricing({
+          package_price: Number(quote.custom_package_price || 0),
+        })
+      }
+
       // Pre-fill booking items - reconstruct BookingItem[]
       const loadedItems: BookingItem[] = []
       for (const item of items) {
-        // Find package
-        const pkg = packages.find(p => p.id === item.package_id)
-        if (pkg) {
+        // Find category
+        const category = categories.find(c => c.id === item.category_id)
+        if (category) {
           // Find variant
-          const variant = pkg.package_variants.find(v => v.id === item.variant_id)
+          const variant = allVariants.find(v => v.id === item.variant_id)
           if (variant) {
             loadedItems.push({
               id: Math.random().toString(36).substr(2, 9),
-              pkg,
+              category,
               variant,
               quantity: item.quantity,
               unit_price: item.unit_price,
@@ -335,6 +346,7 @@ export default function BookPackageWizard() {
               distance_addon: item.distance_addon || 0,
               security_deposit: item.security_deposit || 0,
               products_pending: false,
+              custom_inclusions: item.variant_inclusions || variant.inclusions,
             })
           }
         }
@@ -362,19 +374,91 @@ export default function BookPackageWizard() {
     return customers.filter(c => c.name.toLowerCase().includes(search) || c.phone.includes(search))
   }, [customers, customerSearch])
 
-  const filteredPackages = useMemo(() => {
-    let filtered = packages
-    if (selectedCategory) filtered = filtered.filter(p => p.category_id === selectedCategory.id)
-    if (packageSearch) filtered = filtered.filter(p => p.name.toLowerCase().includes(packageSearch.toLowerCase()))
-    return filtered
-  }, [packages, selectedCategory, packageSearch])
+  // Only show categories that actually have variants (>0) for this user/franchise
+  const displayCategories = useMemo(() => {
+    if (!categories || categories.length === 0) return []
+    if (!allVariants || allVariants.length === 0) return categories
+    const allowed = new Set([21,31,41,51,61,71,81,91,101])
+    const withVariants = categories.filter(c => (variantCounts[c.id] ?? 0) > 0)
+    const filtered = withVariants.filter(c => {
+      const m = (c.name || '').match(/(\d{2,3})/)
+      const n = m ? Number(m[1]) : NaN
+      return Number.isFinite(n) && allowed.has(n as any)
+    })
+    // Sort by the number (21→101)
+    return filtered.sort((a,b) => {
+      const na = Number(((a.name||'').match(/(\d{2,3})/)||[])[1]||0)
+      const nb = Number(((b.name||'').match(/(\d{2,3})/)||[])[1]||0)
+      return na - nb
+    })
+  }, [categories, allVariants, variantCounts])
 
-  // Auto-select the first category when categories load
-  useEffect(() => {
-    if (!selectedCategory && categories.length > 0) {
-      setSelectedCategory(categories[0])
+  // Filter variants by selected category and search
+  const filteredVariants = useMemo(() => {
+    if (!selectedCategory) return []
+    // Try both column names: category_id (new) and package_id (legacy)
+    let filtered = allVariants.filter(v => 
+      v.category_id === selectedCategory.id || 
+      (v as any).package_id === selectedCategory.id
+    )
+    
+    // 🔍 DEBUG: Log filter results
+    console.log("🔍 FILTER DEBUG:")
+    console.log("  Selected category:", selectedCategory.name, selectedCategory.id)
+    console.log("  Total variants in state:", allVariants.length)
+    console.log("  Filtered variants:", filtered.length)
+    if (allVariants.length > 0 && filtered.length === 0) {
+      console.log("  ⚠️ No match! Checking first variant:")
+      const v = allVariants[0]
+      console.log("    variant.category_id:", v.category_id)
+      console.log("    variant.package_id:", (v as any).package_id)
+      console.log("    selectedCategory.id:", selectedCategory.id)
     }
-  }, [categories, selectedCategory])
+    
+    if (packageSearch) filtered = filtered.filter(v => (v.name || v.variant_name || '').toLowerCase().includes(packageSearch.toLowerCase()))
+    return filtered
+  }, [allVariants, selectedCategory, packageSearch])
+
+  // No auto-selection on load; open dialog when a category is clicked
+
+  // If current category becomes invisible (0 variants), move selection to first visible
+  useEffect(() => {
+    if (!selectedCategory) return
+    const count = variantCounts[selectedCategory.id] ?? 0
+    if (allVariants.length > 0 && count === 0) {
+      const visible = displayCategories
+      if (visible.length > 0) {
+        const prefer21 = visible.find(c => /(^|\s)21\s*Safa/i.test(c.name))
+        setSelectedCategory(prefer21 || visible[0])
+      } else {
+        setSelectedCategory(null)
+      }
+    }
+  }, [variantCounts, allVariants, displayCategories, selectedCategory])
+
+  // Update variantsForCategory when selectedCategory changes
+  useEffect(() => {
+    if (selectedCategory) {
+      const variants = allVariants.filter(v => 
+        v.category_id === selectedCategory.id || (v as any).package_id === selectedCategory.id
+      )
+      setVariantsForCategory(variants)
+    } else {
+      setVariantsForCategory([])
+    }
+  }, [selectedCategory, allVariants])
+
+  // Compute counts per category for UI badges
+  useEffect(() => {
+    if (!allVariants || allVariants.length === 0) { setVariantCounts({}); return }
+    const counts: Record<string, number> = {}
+    for (const v of allVariants) {
+      const key = (v as any).category_id || (v as any).package_id
+      if (!key) continue
+      counts[key] = (counts[key] || 0) + 1
+    }
+    setVariantCounts(counts)
+  }, [allVariants])
 
   const totals = useMemo(() => {
     // If custom pricing is enabled, use custom values
@@ -382,10 +466,12 @@ export default function BookPackageWizard() {
       const packagePrice = customPricing.package_price || 0
       const gst = packagePrice * 0.05
       const grand = packagePrice + gst
-      // Advance/partial aren't used in custom mode; treat deposit field as upfront payment if entered
-      const advanceDue = customPricing.deposit || 0
-      const payable = advanceDue
-      const remaining = grand - advanceDue
+  // Use regular payment_type rules for payable/remaining in custom mode
+  let payable = grand
+  const advanceDue = formData.payment_type === "advance" ? grand * 0.5 : 0
+  if (formData.payment_type === "advance") payable = advanceDue
+  else if (formData.payment_type === "partial") payable = Math.min(grand, Math.max(0, formData.custom_amount))
+  const remaining = grand - payable
       const securityDeposit = bookingItems.reduce((s, i) => s + (i.security_deposit || 0) * i.quantity, 0)
       const depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
       const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
@@ -471,21 +557,32 @@ export default function BookPackageWizard() {
   }, [bookingItems, formData, useCustomPricing, customPricing])
 
   const computeDistanceAddon = async (variantId: string, km: number, baseAmount: number): Promise<number> => {
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams({ variant_id: variantId, km: String(km || 0), base: String(baseAmount || 0) })
+        const res = await fetch(`/api/distance-pricing/compute?${params.toString()}`)
+        if (res.ok) {
+          const body = await res.json()
+          if (body && body.ok === true && typeof body.addon === 'number') return body.addon
+          // Some older handlers might return { success: true }
+          if (body && body.success === true && typeof body.addon === 'number') return body.addon
+        }
+      }
+    } catch {}
+    // Fallback to client-side computation (may return 0 if client env is missing)
     return computeDistanceAddonForVariant(variantId, km, baseAmount)
   }
 
-  const addPackageItem = async (pkg: PackageSet, variant: PackageVariant, extraSafas: number): Promise<BookingItem> => {
-    const baseUnit = pkg.base_price + variant.base_price + extraSafas * (pkg.extra_safa_price || 0)
+  const addPackageItem = async (category: PackageCategory, variant: PackageVariant, extraSafas: number, customInclusions: string[]): Promise<BookingItem> => {
+    const baseUnit = variant.base_price + extraSafas * (variant.extra_safa_price || 0)
     const distanceAddon = await computeDistanceAddon(variant.id, Number(distanceKm) || 0, baseUnit)
     const unit = baseUnit + distanceAddon
-    // Determine security deposit precedence: variant > package > category
-    const catDeposit = categories.find(c => c.id === pkg.category_id)?.security_deposit || 0
+    // Determine security deposit precedence: variant > category
     const secDepositUnit = (typeof variant.security_deposit === 'number' ? variant.security_deposit : undefined)
-      ?? (typeof pkg.security_deposit === 'number' ? pkg.security_deposit : undefined)
-      ?? catDeposit
+      ?? (typeof category.security_deposit === 'number' ? category.security_deposit : 0)
     const item: BookingItem = {
-      id: `pkg-${pkg.id}-${variant.id}-${Date.now()}`,
-      pkg,
+      id: `pkg-${category.id}-${variant.id}-${Date.now()}`,
+      category,
       variant,
       quantity: 1,
       unit_price: unit,
@@ -494,10 +591,11 @@ export default function BookPackageWizard() {
       distance_addon: distanceAddon,
       security_deposit: secDepositUnit || 0,
       products_pending: false,
+      custom_inclusions: customInclusions,
     }
     setBookingItems(prev => [...prev, item])
     const vName = (variant?.name || variant?.variant_name || '').trim()
-    toast.success(vName ? `Added ${pkg.name} – ${vName}` : `Added ${pkg.name}`)
+    toast.success(vName ? `Added ${category.name} – ${vName}` : `Added ${category.name}`)
     return item
   }
 
@@ -559,6 +657,18 @@ export default function BookPackageWizard() {
     }
     window.addEventListener('pkg-products-skipped', handler as any)
     return () => window.removeEventListener('pkg-products-skipped', handler as any)
+  }, [])
+
+  // Listen for reserved products and attach them to the matching booking item
+  useEffect(() => {
+    const handler = (e: any) => {
+      const id = e?.detail?.itemId as string | undefined
+      const products = e?.detail?.products as Array<{ id: string; name: string; qty: number; image_url?: string }>
+      if (!id || !Array.isArray(products)) return
+      setBookingItems(prev => prev.map(i => i.id === id ? { ...i, selected_products: products, products_pending: false } : i))
+    }
+    window.addEventListener('pkg-products-selected', handler as any)
+    return () => window.removeEventListener('pkg-products-selected', handler as any)
   }, [])
 
   // Resolve effective km from selected customer's pincode using optional mapping tables
@@ -761,7 +871,6 @@ export default function BookPackageWizard() {
             sales_closed_by_id: selectedStaff || null,
             use_custom_pricing: useCustomPricing || false,
             custom_package_price: useCustomPricing ? customPricing.package_price : null,
-            custom_deposit: useCustomPricing ? customPricing.deposit : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editQuoteId)
@@ -779,16 +888,17 @@ export default function BookPackageWizard() {
         // 3. Insert updated items
         const itemRows = bookingItems.map((itm) => ({
           booking_id: editQuoteId,
-          package_id: itm.pkg.id,
+          category_id: itm.category.id,
           variant_id: itm.variant.id,
           variant_name: itm.variant.variant_name || itm.variant.name,
-          variant_inclusions: itm.variant.inclusions || [],
+          variant_inclusions: itm.custom_inclusions || itm.variant.inclusions || [],
           quantity: itm.quantity,
           unit_price: itm.unit_price,
           total_price: itm.total_price,
           security_deposit: itm.security_deposit,
           extra_safas: itm.extra_safas || 0,
           distance_addon: itm.distance_addon || 0,
+          reserved_products: itm.selected_products || [],
         }))
 
         const { error: itemsErr } = await supabase
@@ -873,7 +983,6 @@ export default function BookPackageWizard() {
         sales_closed_by_id: selectedStaff || null,
         use_custom_pricing: useCustomPricing || false,
         custom_package_price: useCustomPricing ? customPricing.package_price : null,
-        custom_deposit: useCustomPricing ? customPricing.deposit : null,
         coupon_code: formData.coupon_code || null,
         coupon_discount: formData.coupon_discount || 0,
         discount_amount: formData.discount_amount || 0,
@@ -927,16 +1036,35 @@ export default function BookPackageWizard() {
 
       const itemsData = bookingItems.map(item => ({
         booking_id: booking.id,
-        package_id: item.pkg.id,
+        category_id: item.category.id,
         variant_id: item.variant.id,
+        variant_name: (item.variant.variant_name || item.variant.name) ?? null,
+        variant_inclusions: (item.custom_inclusions && item.custom_inclusions.length > 0)
+          ? item.custom_inclusions
+          : (Array.isArray(item.variant.inclusions)
+              ? item.variant.inclusions
+              : (typeof item.variant.inclusions === 'string'
+                  ? item.variant.inclusions.split(',').map(s => s.trim()).filter(Boolean)
+                  : [])),
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
-        extra_safas: item.extra_safas
+        extra_safas: item.extra_safas,
+        reserved_products: item.selected_products || []
       }))
 
-      const { error: itemsError } = await supabase.from("package_booking_items").insert(itemsData)
-      if (itemsError) throw itemsError
+      let { error: itemsError } = await supabase.from("package_booking_items").insert(itemsData)
+      if (itemsError) {
+        const msg = (itemsError as any)?.message || ''
+        // Fallback: strip snapshot columns if migration not yet applied
+        if (/Could not find the '(variant_inclusions|variant_name|reserved_products)' column/i.test(msg)) {
+          const stripped = itemsData.map(({ variant_inclusions, variant_name, reserved_products, ...rest }) => rest)
+          const retry = await supabase.from("package_booking_items").insert(stripped)
+          if (retry.error) throw retry.error
+        } else {
+          throw itemsError
+        }
+      }
 
       // Track coupon usage if coupon was applied
       if (formData.coupon_code && formData.coupon_discount > 0 && !asQuote) {
@@ -1044,64 +1172,114 @@ export default function BookPackageWizard() {
           <div className="lg:col-span-2">
             {currentStep === 2 && (
               <div className="space-y-6">
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(cat => (
-                    <Button
-                      key={cat.id}
-                      size="sm"
-                      variant={selectedCategory?.id === cat.id ? "default" : "outline"}
-                      onClick={() => setSelectedCategory(cat)}
-                    >
-                      {cat.name}
-                    </Button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      placeholder="Search packages..."
-                      value={packageSearch}
-                      onChange={e => setPackageSearch(e.target.value)}
-                      className="pl-8"
-                    />
+                {/* Category Selection */}
+                <div>
+                  <h3 className="text-sm font-medium mb-3">Select Category</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {displayCategories.map(cat => (
+                      <Card
+                        key={cat.id}
+                        className={`cursor-pointer transition-all hover:shadow-md ${
+                          selectedCategory?.id === cat.id ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:border-blue-300'
+                        }`}
+                        onClick={() => {
+                          setSelectedCategory(cat)
+                          const variants = allVariants.filter(v => 
+                            v.category_id === cat.id || (v as any).package_id === cat.id
+                          )
+                          setVariantsForCategory(variants)
+                          setVariantSelectionOpen(true)
+                        }}
+                      >
+                        <CardContent className="p-4 text-center">
+                          <div className="text-lg font-semibold text-gray-900 leading-snug whitespace-normal break-words min-h-[40px]">
+                            {cat.name}
+                          </div>
+                          {/* Show count badge, hide description */}
+                          <div className="mt-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] border bg-gray-50 text-gray-700">
+                            {(variantCounts[cat.id] ?? 0)} packages
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {filteredPackages.length === 0 && (
-                    <div className="col-span-2 text-center text-sm text-gray-500 py-8 border rounded">No packages found.</div>
-                  )}
-                  {filteredPackages.map(pkg => (
-                    <Card key={pkg.id} className="border hover:shadow-sm transition group">
-                      <button
-                        type="button"
-                        className="w-full text-left"
-                        onClick={() => { setSelectedPackageForVariants(pkg); setVariantDialogOpen(true) }}
-                      >
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base flex items-center justify-between">
-                            <span className="font-semibold group-hover:text-blue-600 transition-colors">{pkg.name}</span>
-                            <div className="flex items-center gap-2">
-                              {/* Show chip if any booking item for this pkg has products pending */}
-                              {bookingItems.some(b => b.pkg.id === pkg.id && b.products_pending) && (
-                                <Badge className="bg-amber-100 text-amber-800 border-amber-200">Products pending</Badge>
+
+                {/* Variant Selection (disabled; we open the dialog instead) */}
+                {SHOW_VARIANT_GRID && selectedCategory && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium">Select Variant</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <Input
+                          placeholder="Search variants..."
+                          value={packageSearch}
+                          onChange={e => setPackageSearch(e.target.value)}
+                          className="pl-8"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredVariants.length === 0 && (
+                        <div className="col-span-3 text-center text-sm text-gray-500 py-8 border rounded">
+                          No variants found for this category.
+                        </div>
+                      )}
+                      {filteredVariants.map(variant => {
+                        const inclusions: string[] = Array.isArray(variant.inclusions)
+                          ? variant.inclusions
+                          : typeof variant.inclusions === 'string'
+                            ? variant.inclusions.split(',').map(s => s.trim()).filter(Boolean)
+                            : []
+                        return (
+                          <Card 
+                            key={variant.id} 
+                            className="border hover:shadow-md transition cursor-pointer hover:border-green-500"
+                            onClick={() => setVariantSelectionOpen(true)}
+                          >
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="font-semibold text-green-800">{variant.name || variant.variant_name}</div>
+                                  <div className="text-xs text-gray-500 font-normal mt-1">Base: {formatCurrency(variant.base_price)}</div>
+                                </div>
+                                <Badge variant="secondary" className="ml-2">{formatCurrency(variant.base_price)}</Badge>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              {inclusions.length > 0 && (
+                                <div>
+                                  <div className="text-[10px] text-gray-500 font-medium mb-1">Includes:</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {inclusions.slice(0, 4).map((inc, idx) => (
+                                      <span key={idx} className="px-2 py-0.5 border rounded text-[10px] bg-gray-50 truncate max-w-[140px]" title={inc}>
+                                        {inc}
+                                      </span>
+                                    ))}
+                                    {inclusions.length > 4 && (
+                                      <span className="px-2 py-0.5 text-[10px] text-gray-500">+{inclusions.length - 4} more</span>
+                                    )}
+                                  </div>
+                                </div>
                               )}
-                              <Badge variant="secondary">{formatCurrency(pkg.base_price)}</Badge>
-                            </div>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-xs text-gray-500">
-                          {pkg.package_variants.length > 0 ? (
-                            <span>{pkg.package_variants.length} variants</span>
-                          ) : (
-                            <span>No variants</span>
-                          )}
-                          <div className="mt-2 text-green-700 text-[11px] font-medium">Click to view details & variants</div>
-                        </CardContent>
-                      </button>
-                    </Card>
-                  ))}
-                </div>
+                              <div className="pt-2 border-t">
+                                <div className="text-xs text-gray-600">
+                                  <div className="flex justify-between">
+                                    <span>Extra Safa Price:</span>
+                                    <span className="font-medium">{formatCurrency(variant.extra_safa_price || 0)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1379,21 +1557,14 @@ export default function BookPackageWizard() {
                     </thead>
                     <tbody>
                       {bookingItems.map(i => {
-                        // Get category name
-                        const category = categories.find(c => c.id === i.pkg.category_id)
                         return (
                         <tr key={i.id} className="border-t">
                           <td className="p-2">
                             <div className="space-y-2">
                               {/* Category name in green badge */}
-                              {category && (
-                                <div className="text-xs font-semibold text-green-800 bg-green-50 px-2 py-1 rounded inline-block border border-green-200">
-                                  {category.name}
-                                </div>
-                              )}
-                              
-                              {/* Package name */}
-                              <div className="font-bold text-base text-gray-900">{i.pkg.name}</div>
+                              <div className="text-xs font-semibold text-green-800 bg-green-50 px-2 py-1 rounded inline-block border border-green-200">
+                                {i.category.name}
+                              </div>
                               
                               {/* Variant and inclusions */}
                               {(i.variant?.name || i.variant?.variant_name) && (
@@ -1401,13 +1572,15 @@ export default function BookPackageWizard() {
                                   <div className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded inline-block border border-blue-200">
                                     ◆ {i.variant.name || i.variant.variant_name}
                                   </div>
-                                  {/* Show variant inclusions */}
+                                  {/* Show inclusions (prefer custom edits) */}
                                   {(() => {
-                                    const inclusions: string[] = Array.isArray(i.variant?.inclusions)
-                                      ? i.variant.inclusions
-                                      : typeof i.variant?.inclusions === 'string'
-                                        ? JSON.parse(i.variant.inclusions)
-                                        : []
+                                    const inclusions: string[] = (i.custom_inclusions && i.custom_inclusions.length > 0)
+                                      ? i.custom_inclusions
+                                      : (Array.isArray(i.variant?.inclusions)
+                                          ? i.variant.inclusions
+                                          : typeof i.variant?.inclusions === 'string'
+                                            ? (() => { try { const parsed = JSON.parse(i.variant.inclusions as any); return Array.isArray(parsed) ? parsed : (i.variant.inclusions as string).split(',').map(s => s.trim()).filter(Boolean) } catch { return (i.variant.inclusions as string).split(',').map(s => s.trim()).filter(Boolean) } })()
+                                            : [])
                                     if (inclusions.length > 0) {
                                       return (
                                         <div className="flex flex-wrap gap-1 mt-1">
@@ -1430,10 +1603,24 @@ export default function BookPackageWizard() {
                                 </div>
                               )}
                               
+                              {/* Reserved products (if any) */}
+                              {Array.isArray(i.selected_products) && i.selected_products.length > 0 && (
+                                <div className="mt-1">
+                                  <div className="text-[10px] text-purple-700 font-medium bg-purple-50 px-2 py-0.5 rounded inline-block border border-purple-200">Reserved Products</div>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {i.selected_products.map(sp => (
+                                      <span key={sp.id} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200" title={sp.name}>
+                                        {sp.name} × {sp.qty}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Extra safas calculation */}
                               {i.extra_safas > 0 && (
                                 <div className="text-xs text-gray-700 font-medium bg-orange-50 px-2 py-1 rounded border border-orange-200">
-                                  + Extra Safas: <span className="font-semibold">{i.extra_safas}</span> × {formatCurrency(i.pkg.extra_safa_price)} = <span className="font-bold text-orange-700">{formatCurrency(i.extra_safas * i.pkg.extra_safa_price)}</span>
+                                  + Extra Safas: <span className="font-semibold">{i.extra_safas}</span> × {formatCurrency(i.variant.extra_safa_price || 0)} = <span className="font-bold text-orange-700">{formatCurrency(i.extra_safas * (i.variant.extra_safa_price || 0))}</span>
                                 </div>
                               )}
                             </div>
@@ -1457,21 +1644,19 @@ export default function BookPackageWizard() {
                 <div className="space-y-3 max-h-72 overflow-auto pr-1">
                   {bookingItems.length === 0 && <div className="text-xs text-gray-500">No items added.</div>}
                   {bookingItems.map(i => {
-                    // Get category name for sidebar
-                    const category = categories.find(c => c.id === i.pkg.category_id)
                     return (
                     <div key={i.id} className="border rounded p-3 space-y-2 text-xs relative">
                       <button onClick={() => removeItem(i.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500" aria-label="Remove"><X className="h-4 w-4" /></button>
                       <div className="space-y-1.5 pr-6">
                         {/* Category badge */}
-                        {category && (
+                        {i.category && (
                           <div className="text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded inline-block border border-green-200">
-                            {category.name}
+                            {i.category.name}
                           </div>
                         )}
                         
-                        {/* Package name */}
-                        <div className="font-bold text-sm text-gray-900">{i.pkg.name}</div>
+                        {/* Variant name */}
+                        <div className="font-bold text-sm text-gray-900">{i.variant?.name || i.variant?.variant_name || "Package"}</div>
                         
                         {/* Variant and inclusions */}
                         {(i.variant?.name || i.variant?.variant_name) && (
@@ -1479,26 +1664,23 @@ export default function BookPackageWizard() {
                             <div className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded inline-block border border-blue-200">
                               ◆ {i.variant.name || i.variant.variant_name}
                             </div>
-                            {/* Show variant inclusions in sidebar */}
+                            {/* Show inclusions in sidebar (prefer custom edits) */}
                             {(() => {
-                              const inclusions: string[] = Array.isArray(i.variant?.inclusions)
-                                ? i.variant.inclusions
-                                : typeof i.variant?.inclusions === 'string'
-                                  ? JSON.parse(i.variant.inclusions)
-                                  : []
+                              const inclusions: string[] = (i.custom_inclusions && i.custom_inclusions.length > 0)
+                                ? i.custom_inclusions
+                                : (Array.isArray(i.variant?.inclusions)
+                                    ? i.variant.inclusions
+                                    : typeof i.variant?.inclusions === 'string'
+                                      ? (() => { try { const parsed = JSON.parse(i.variant.inclusions as any); return Array.isArray(parsed) ? parsed : (i.variant.inclusions as string).split(',').map(s => s.trim()).filter(Boolean) } catch { return (i.variant.inclusions as string).split(',').map(s => s.trim()).filter(Boolean) } })()
+                                      : [])
                               if (inclusions.length > 0) {
                                 return (
                                   <div className="flex flex-wrap gap-0.5 mt-1">
-                                    {inclusions.slice(0, 2).map((inc, idx) => (
+                                    {inclusions.map((inc, idx) => (
                                       <span key={idx} className="text-[8px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
                                         ✓ {inc}
                                       </span>
                                     ))}
-                                    {inclusions.length > 2 && (
-                                      <span className="text-[8px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
-                                        +{inclusions.length - 2} more
-                                      </span>
-                                    )}
                                   </div>
                                 )
                               } else {
@@ -1514,10 +1696,20 @@ export default function BookPackageWizard() {
                         {i.products_pending && (
                           <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[9px]">Products pending</Badge>
                         )}
+                        {/* Reserved products preview */}
+                        {Array.isArray(i.selected_products) && i.selected_products.length > 0 && (
+                          <div className="flex flex-wrap gap-0.5 mt-1">
+                            {i.selected_products.map(sp => (
+                              <span key={sp.id} className="text-[8px] px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded" title={sp.name}>
+                                {sp.name} × {sp.qty}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {/* Extra safas with calculation */}
                         {i.extra_safas > 0 && (
                           <div className="text-[9px] text-orange-700 font-medium bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
-                            + {i.extra_safas} Extra × {formatCurrency(i.pkg.extra_safa_price)} = <span className="font-bold">{formatCurrency(i.extra_safas * i.pkg.extra_safa_price)}</span>
+                            + {i.extra_safas} Extra × {formatCurrency(i.variant.extra_safa_price || 0)} = <span className="font-bold">{formatCurrency(i.extra_safas * (i.variant.extra_safa_price || 0))}</span>
                           </div>
                         )}
                       </div>
@@ -1549,6 +1741,7 @@ export default function BookPackageWizard() {
                     </div>
                   )}
                   <div className="flex justify-between"><span>Items Subtotal</span><span>{formatCurrency(totals.subtotal)}</span></div>
+                  
                   
                   {!useCustomPricing && totals.manualDiscount > 0 && (
                     <div className="flex justify-between text-green-600">
@@ -1608,6 +1801,32 @@ export default function BookPackageWizard() {
                 
                 {/* Discount & Coupon Section */}
                 <div className="space-y-4 pt-3 border-t">
+                    {/* Custom Price (before GST) */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">Custom Price (before GST)</Label>
+                        <Button size="sm" type="button" variant={useCustomPricing ? 'default' : 'outline'} onClick={() => setUseCustomPricing(v => !v)}>
+                          {useCustomPricing ? 'On' : 'Off'}
+                        </Button>
+                      </div>
+                      {useCustomPricing && (
+                        <div className="grid grid-cols-1 gap-2">
+                          <div>
+                            <Label className="text-[11px]">Amount (before GST)</Label>
+                            <Input
+                              type="number"
+                              value={customPricing.package_price || ''}
+                              onChange={(e) => setCustomPricing(cp => ({ ...cp, package_price: Number(e.target.value) || 0 }))}
+                              placeholder="Enter final package price (pre-GST)"
+                              min={0}
+                            />
+                          </div>
+                          <p className="text-[11px] text-amber-700">
+                            GST 5% will be added on top. Discounts and coupons are ignored in custom price mode.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                     {/* Manual Discount */}
                     <div className="space-y-2">
                       <Label className="text-xs font-medium">Discount (Optional)</Label>
@@ -1615,6 +1834,7 @@ export default function BookPackageWizard() {
                         <Select 
                           value={formData.discount_type} 
                           onValueChange={(v: "flat" | "percentage") => setFormData(f => ({ ...f, discount_type: v }))}
+                          disabled={useCustomPricing}
                         >
                           <SelectTrigger className="w-32">
                             <SelectValue />
@@ -1631,6 +1851,7 @@ export default function BookPackageWizard() {
                           placeholder={formData.discount_type === "flat" ? "Enter amount" : "Enter percentage"}
                           min={0}
                           max={formData.discount_type === "percentage" ? 100 : undefined}
+                          disabled={useCustomPricing}
                         />
                       </div>
                       {formData.discount_amount > 0 && (
@@ -1653,7 +1874,7 @@ export default function BookPackageWizard() {
                           }}
                           placeholder="Enter coupon code"
                           maxLength={50}
-                          disabled={formData.coupon_discount > 0}
+                          disabled={formData.coupon_discount > 0 || useCustomPricing}
                         />
                         {formData.coupon_discount > 0 ? (
                           <Button
@@ -1661,6 +1882,7 @@ export default function BookPackageWizard() {
                             variant="outline"
                             onClick={handleRemoveCoupon}
                             className="whitespace-nowrap"
+                            disabled={useCustomPricing}
                           >
                             Remove
                           </Button>
@@ -1668,7 +1890,7 @@ export default function BookPackageWizard() {
                           <Button
                             type="button"
                             onClick={handleApplyCoupon}
-                            disabled={couponValidating || !formData.coupon_code.trim()}
+                            disabled={couponValidating || !formData.coupon_code.trim() || useCustomPricing}
                             className="whitespace-nowrap"
                           >
                             {couponValidating ? "Validating..." : "Apply"}
@@ -1791,27 +2013,28 @@ export default function BookPackageWizard() {
         </div>
       </div>
       {/* Variant selection dialog (portal-like simple overlay) */}
-      {variantDialogOpen && selectedPackageForVariants && (
+      {variantSelectionOpen && selectedCategory && (
         <VariantDialog
-          pkg={selectedPackageForVariants!}
-          onClose={() => { setVariantDialogOpen(false); setSelectedPackageForVariants(null) }}
-          onAdd={(variant, extraSafas) => {
-            if (selectedPackageForVariants) {
-              addPackageItem(selectedPackageForVariants, variant, extraSafas).then((created) => {
-                // Open product selection dialog after adding a variant
-                setProductDialogContext({
-                  pkg: selectedPackageForVariants,
-                  variant,
-                  eventDate: formData.event_date,
-                  itemId: created.id,
-                  distanceKm: Number(distanceKm) || 0,
-                  pincode: selectedCustomer?.pincode
-                })
-                setProductDialogOpen(true)
+          category={selectedCategory}
+          variants={variantsForCategory}
+          customerPincode={selectedCustomer?.pincode}
+          distanceKm={Number(distanceKm) || 0}
+          onClose={() => setVariantSelectionOpen(false)}
+          onAdd={(variant, extraSafas, customInclusions) => {
+            addPackageItem(selectedCategory, variant, extraSafas, customInclusions).then((created) => {
+              // Open product selection dialog after adding a variant
+              setProductDialogContext({
+                category: selectedCategory,
+                variant,
+                eventDate: formData.event_date,
+                itemId: created.id,
+                distanceKm: Number(distanceKm) || 0,
+                pincode: selectedCustomer?.pincode,
+                customInclusions
               })
-            }
-            setVariantDialogOpen(false)
-            setSelectedPackageForVariants(null)
+              setProductDialogOpen(true)
+            })
+            setVariantSelectionOpen(false)
           }}
         />
       )}
@@ -1828,50 +2051,235 @@ export default function BookPackageWizard() {
   )
 }
 
-interface VariantDialogProps { pkg: PackageSet; onClose: () => void; onAdd: (variant: PackageVariant, extraSafas: number) => void }
-function VariantDialog({ pkg, onClose, onAdd }: VariantDialogProps) {
+interface VariantDialogProps { 
+  category: PackageCategory
+  variants: PackageVariant[]
+  customerPincode?: string
+  distanceKm: number
+  onClose: () => void
+  onAdd: (variant: PackageVariant, extraSafas: number, customInclusions: string[]) => void
+}
+
+function VariantDialog({ category, variants, customerPincode, distanceKm, onClose, onAdd }: VariantDialogProps) {
   const [extraSafas, setExtraSafas] = useState<Record<string, number>>({})
+  const [editingInclusions, setEditingInclusions] = useState<string | null>(null)
+  const [customInclusions, setCustomInclusions] = useState<Record<string, string[]>>({})
+  const [distancePricing, setDistancePricing] = useState<Record<string, number>>({})
+  const [newInclusionInput, setNewInclusionInput] = useState<Record<string, string>>({})
+
+  // Fetch distance pricing for all variants
+  useEffect(() => {
+    const fetchDistancePricing = async () => {
+      const variantIds = variants.map(v => v.id)
+      if (variantIds.length === 0) return
+
+      const { data } = await supabase
+        .from('distance_pricing')
+        .select('*')
+        .in('package_variant_id', variantIds)
+        .order('min_distance_km')
+
+      if (data) {
+        const pricingMap: Record<string, number> = {}
+        variants.forEach(v => {
+          const tiers = data.filter((d: any) => d.package_variant_id === v.id)
+          const tier = tiers.find((t: any) => distanceKm >= t.min_distance_km && distanceKm <= t.max_distance_km)
+          pricingMap[v.id] = tier?.additional_price || 0
+        })
+        setDistancePricing(pricingMap)
+      }
+    }
+    fetchDistancePricing()
+  }, [variants, distanceKm])
+
+  // Initialize custom inclusions from variant defaults
+  useEffect(() => {
+    const initialInclusions: Record<string, string[]> = {}
+    variants.forEach(v => {
+      const inclusions: string[] = Array.isArray(v.inclusions)
+        ? v.inclusions
+        : typeof v.inclusions === 'string'
+          ? v.inclusions.split(',').map(s => s.trim()).filter(Boolean)
+          : []
+      initialInclusions[v.id] = [...inclusions]
+    })
+    setCustomInclusions(initialInclusions)
+  }, [variants])
+
+  const toggleInclusion = (variantId: string, inclusion: string) => {
+    setCustomInclusions(prev => {
+      const current = prev[variantId] || []
+      if (current.includes(inclusion)) {
+        return { ...prev, [variantId]: current.filter(i => i !== inclusion) }
+      } else {
+        return { ...prev, [variantId]: [...current, inclusion] }
+      }
+    })
+  }
+
+  const addCustomInclusion = (variantId: string) => {
+    const value = newInclusionInput[variantId]?.trim()
+    if (!value) return
+    setCustomInclusions(prev => ({
+      ...prev,
+      [variantId]: [...(prev[variantId] || []), value]
+    }))
+    setNewInclusionInput(prev => ({ ...prev, [variantId]: '' }))
+  }
+
+  const removeCustomInclusion = (variantId: string, value: string) => {
+    setCustomInclusions(prev => ({
+      ...prev,
+      [variantId]: (prev[variantId] || []).filter(v => v !== value)
+    }))
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl border">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl border my-8">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
-            <h2 className="text-lg font-semibold">{pkg.name}</h2>
-            <p className="text-xs text-gray-500 mt-1">Base Price: {formatCurrency(pkg.base_price)} • Extra Safa: {formatCurrency(pkg.extra_safa_price)}</p>
+            <h2 className="text-lg font-semibold">{category.name}</h2>
+            <p className="text-xs text-gray-500 mt-1">Select variant and customize details</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         <div className="p-6 space-y-6">
-          {pkg.package_variants.length === 0 && (
+          {variants.length === 0 && (
             <div className="text-sm text-gray-500">No variants available.</div>
           )}
           <div className="grid sm:grid-cols-2 gap-4">
-            {pkg.package_variants.map(v => {
+            {variants.map(v => {
               const safas = extraSafas[v.id] || 0
-              const inclusions: string[] = Array.isArray((v as any).inclusions)
-                ? ((v as any).inclusions as string[])
-                : typeof (v as any).inclusions === 'string'
-                  ? ((v as any).inclusions as string).split(',').map(s => s.trim()).filter(Boolean)
+              const distanceAddon = distancePricing[v.id] || 0
+              const defaultInclusions: string[] = Array.isArray(v.inclusions)
+                ? v.inclusions
+                : typeof v.inclusions === 'string'
+                  ? v.inclusions.split(',').map(s => s.trim()).filter(Boolean)
                   : []
+              const currentInclusions = customInclusions[v.id] || defaultInclusions
+              const isEditingThis = editingInclusions === v.id
+              const extraSafasCost = safas * (v.extra_safa_price || 0)
+              const totalPrice = v.base_price + extraSafasCost + distanceAddon
+
               return (
                 <div key={v.id} className="border rounded-lg p-4 space-y-3 hover:shadow-sm transition">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <div className="font-semibold text-base text-green-800">{v.name || v.variant_name}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Variant Price: {formatCurrency(v.base_price)}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Base: {formatCurrency(v.base_price)}</div>
                     </div>
-                    <Badge variant="outline" className="text-sm font-medium">{formatCurrency(pkg.base_price + v.base_price)}</Badge>
+                    <Badge variant="outline" className="text-sm font-medium">{formatCurrency(totalPrice)}</Badge>
                   </div>
-                  {inclusions.length > 0 && (
-                    <div>
-                      <div className="text-[10px] text-gray-500 font-medium mb-1">Includes:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {inclusions.map((inc, idx) => (
-                          <span key={idx} className="px-2 py-0.5 border rounded text-[10px] bg-gray-50 truncate max-w-[180px]" title={inc}>{inc}</span>
-                        ))}
-                      </div>
+
+                  {/* Price Breakdown */}
+                  <div className="text-[10px] space-y-0.5 text-gray-600 bg-gray-50 p-2 rounded">
+                    <div className="flex justify-between">
+                      <span>Base Price:</span>
+                      <span>{formatCurrency(v.base_price)}</span>
                     </div>
-                  )}
+                    {extraSafasCost > 0 && (
+                      <div className="flex justify-between text-blue-600">
+                        <span>Extra Safas ({safas} × {formatCurrency(v.extra_safa_price || 0)}):</span>
+                        <span>+ {formatCurrency(extraSafasCost)}</span>
+                      </div>
+                    )}
+                    {distanceAddon > 0 && (
+                      <div className="flex justify-between text-orange-600">
+                        <span>Distance Addon ({distanceKm}km):</span>
+                        <span>+ {formatCurrency(distanceAddon)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-medium border-t pt-0.5 mt-1">
+                      <span>Total:</span>
+                      <span>{formatCurrency(totalPrice)}</span>
+                    </div>
+                  </div>
+
+                  {/* Inclusions */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-[10px] text-gray-500 font-medium">Inclusions:</div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-[10px]"
+                        onClick={() => setEditingInclusions(isEditingThis ? null : v.id)}
+                      >
+                        {isEditingThis ? 'Done' : 'Edit'}
+                      </Button>
+                    </div>
+                    {isEditingThis ? (
+                      <div className="space-y-3 border rounded p-2 bg-blue-50">
+                        {/* Default inclusions with checkboxes */}
+                        <ul className="space-y-1">
+                          {defaultInclusions.map((inc, idx) => (
+                            <li key={idx} className="flex items-center gap-2 text-[11px]">
+                              <input
+                                type="checkbox"
+                                checked={currentInclusions.includes(inc)}
+                                onChange={() => toggleInclusion(v.id, inc)}
+                                className="rounded"
+                              />
+                              <span className={!currentInclusions.includes(inc) ? 'line-through text-gray-400' : 'text-gray-800'}>
+                                {inc}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        {/* Custom inclusions with remove buttons */}
+                        {(currentInclusions.filter(ci => !defaultInclusions.includes(ci))).length > 0 && (
+                          <div>
+                            <div className="text-[10px] text-gray-600 font-medium mb-1">Custom items</div>
+                            <ul className="space-y-1">
+                              {currentInclusions.filter(ci => !defaultInclusions.includes(ci)).map((ci, idx) => (
+                                <li key={idx} className="flex items-center justify-between gap-2 bg-white/70 rounded px-2 py-1">
+                                  <span className="text-[11px] text-gray-800 break-words whitespace-normal">{ci}</span>
+                                  <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-red-600" onClick={() => removeCustomInclusion(v.id, ci)}>Remove</Button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div className="flex gap-1 mt-1">
+                          <Input
+                            type="text"
+                            placeholder="Add custom item..."
+                            value={newInclusionInput[v.id] || ''}
+                            onChange={e => setNewInclusionInput(prev => ({ ...prev, [v.id]: e.target.value }))}
+                            onKeyDown={e => e.key === 'Enter' && addCustomInclusion(v.id)}
+                            className="h-8 text-[12px]"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="default"
+                            className="h-8 px-3"
+                            onClick={() => addCustomInclusion(v.id)}
+                            title="Add inclusion"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="space-y-1">
+                        {currentInclusions.map((inc, idx) => (
+                          <li key={idx} className="text-[11px] text-gray-800 break-words whitespace-normal border rounded px-2 py-1 bg-gray-50">
+                            {inc}
+                          </li>
+                        ))}
+                        {currentInclusions.length === 0 && (
+                          <li className="text-[11px] text-gray-500 italic">No inclusions listed</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Extra Safas */}
                   <div className="flex items-center gap-2 text-[11px]">
                     <Input
                       type="number"
@@ -1885,9 +2293,10 @@ function VariantDialog({ pkg, onClose, onAdd }: VariantDialogProps) {
                       <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 10 }))}>+10</Button>
                       <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 20 }))}>+20</Button>
                     </div>
-                    {pkg.extra_safa_price > 0 && <span className="text-gray-500">{formatCurrency(pkg.extra_safa_price)} per extra safa</span>}
+                    {(v.extra_safa_price || 0) > 0 && <span className="text-gray-500">{formatCurrency(v.extra_safa_price || 0)}/safa</span>}
                   </div>
-                  <Button size="sm" className="w-full" onClick={() => onAdd(v, safas)}>
+
+                  <Button size="sm" className="w-full" onClick={() => onAdd(v, safas, currentInclusions)}>
                     <Plus className="h-4 w-4 mr-1" /> Add Variant
                   </Button>
                 </div>
@@ -1907,7 +2316,7 @@ function VariantDialog({ pkg, onClose, onAdd }: VariantDialogProps) {
 interface ProductSelectionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  context: { pkg: PackageSet; variant: PackageVariant; eventDate?: string; itemId?: string; distanceKm?: number; pincode?: string } | null
+  context: { category: PackageCategory; variant: PackageVariant; eventDate?: string; itemId?: string; distanceKm?: number; pincode?: string; customInclusions?: string[] } | null
 }
 
 function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectionDialogProps) {
@@ -1925,6 +2334,19 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   const [availabilityModalFor, setAvailabilityModalFor] = useState<{ id: string; name: string } | null>(null)
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [availabilityRows, setAvailabilityRows] = useState<{ date: string; kind: 'order' | 'package'; ref?: string; qty: number; returnStatus?: 'returned' | 'in_progress'; returnDate?: string }[]>([])
+  const subcatsRef = useRef<HTMLDivElement | null>(null)
+
+  // Helpers: label cleanup and unwanted filters
+  const toTitle = (s?: string | null) => {
+    if (!s) return ''
+    return s
+      .replace(/[_-]+/g, ' ')
+      .toLowerCase()
+      .replace(/\b(vip)\b/gi, 'VIP')
+      .replace(/\b(\w)/g, m => m.toUpperCase())
+      .trim()
+  }
+  const isUnwantedCategory = (label: string) => /demo/i.test(label)
 
   useEffect(() => {
     const load = async () => {
@@ -1974,8 +2396,8 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         seen.add(k)
         return true
       }).sort((a, b) => a.label.localeCompare(b.label))
-      setCategoryOptions(options)
-      if (options.length > 0 && !selectedCategoryKey) setSelectedCategoryKey(options[0].key)
+  setCategoryOptions(options)
+  if (options.length > 0 && !selectedCategoryKey) setSelectedCategoryKey(options[0].key)
 
       // Build subcategory options for current category
       const subSet = new Set<string>()
@@ -2151,10 +2573,13 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
     if (totalSelected === 0) { onOpenChange(false); return }
     setSaving(true)
     try {
-      // NOTE: Inventory update is temporarily disabled here
-      // TODO: Implement proper product-booking linkage and only update inventory for confirmed bookings
-      // For now, products are informational only and don't affect inventory
-      toast.success("Products selected successfully (inventory not affected)")
+      // Dispatch selection to parent so sidebar + review can show reserved products for this booking item
+      if (context?.itemId) {
+        const ev = new CustomEvent('pkg-products-selected', { detail: { itemId: context.itemId, products: selectedList } })
+        window.dispatchEvent(ev)
+      }
+      // Inventory is not deducted at this step; it's informational selection
+      toast.success("Products selected successfully")
       onOpenChange(false)
     } catch (e: any) {
       toast.error(e.message || "Unable to save selection")
@@ -2163,18 +2588,20 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
     }
   }
 
-  const variantInclusions: string[] = Array.isArray((context.variant as any).inclusions)
-    ? ((context.variant as any).inclusions as string[])
-    : typeof (context.variant as any).inclusions === "string"
-      ? ((context.variant as any).inclusions as string).split(",").map((s: string) => s.trim()).filter(Boolean)
-      : []
+  const variantInclusions: string[] = (context.customInclusions && context.customInclusions.length > 0)
+    ? context.customInclusions
+    : (Array.isArray((context.variant as any).inclusions)
+        ? ((context.variant as any).inclusions as string[])
+        : typeof (context.variant as any).inclusions === "string"
+          ? ((context.variant as any).inclusions as string).split(",").map((s: string) => s.trim()).filter(Boolean)
+          : [])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[98vw] max-w-[1400px]">
         <DialogHeader>
           <DialogTitle>
-            {`Select Products for ${context.pkg.name}${(context.variant as any)?.name || (context.variant as any)?.variant_name ? ` – ${(context.variant as any).name || (context.variant as any).variant_name}` : ''}`}
+            {`Select Products for ${context.category.name}${(context.variant as any)?.name || (context.variant as any)?.variant_name ? ` – ${(context.variant as any).name || (context.variant as any).variant_name}` : ''}`}
             {context.eventDate ? (
               <span className="ml-2 text-xs text-gray-500">Availability window: {new Date(new Date(context.eventDate).setDate(new Date(context.eventDate).getDate()-2)).toLocaleDateString()} → {new Date(new Date(context.eventDate).setDate(new Date(context.eventDate).getDate()+2)).toLocaleDateString()}</span>
             ) : (
@@ -2197,7 +2624,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             {/* Toolbar */}
             <div className="sticky top-0 z-10 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border rounded-md p-3 mb-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2 overflow-x-auto">
+                <div className="flex items-center gap-2 flex-wrap">
                   {categoryOptions.map(opt => {
                     const count = products.filter(p => {
                       if (opt.key.startsWith('legacy:')) {
@@ -2207,11 +2634,33 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                       const cid = (p.category_id || (typeof p.category === 'string' && /^[0-9a-fA-F\-]{32,36}$/.test(p.category) ? p.category : ''))
                       return cid === opt.key
                     }).length
+                    if (count === 0) return null
+                    const shown = toTitle(opt.label)
+                    if (isUnwantedCategory(shown)) return null
                     return (
-                      <Button key={opt.key} size="sm" variant={selectedCategoryKey === opt.key ? "default" : "outline"} onClick={() => setSelectedCategoryKey(opt.key)}>
-                        {opt.label}
-                        <span className="ml-1 text-[10px] px-1 rounded bg-gray-100 text-gray-700">{count}</span>
-                      </Button>
+                      <button
+                        key={opt.key}
+                        className={`inline-flex items-start gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border text-left max-w-[260px] whitespace-normal ${
+                          selectedCategoryKey === opt.key
+                            ? 'bg-black text-white border-black'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        }`}
+                        onClick={() => {
+                          setSelectedCategoryKey(opt.key)
+                          setSelectedSubCategory(null) // open subcategory strip
+                          // Scroll into view to make it obvious
+                          setTimeout(() => subcatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0)
+                        }}
+                        title={shown}
+                      >
+                        <span
+                          className="leading-tight break-words whitespace-normal text-left block max-w-[220px]"
+                          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' as const }}
+                        >
+                          {shown}
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold">{count}</span>
+                      </button>
                     )
                   })}
                 </div>
@@ -2244,10 +2693,41 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                 </div>
               </div>
               {subCategoryOptions.length > 0 && (
-                <div className="mt-3 flex items-center gap-2 overflow-x-auto">
-                  <Button size="sm" variant={!selectedSubCategory ? 'default' : 'outline'} onClick={() => setSelectedSubCategory(null)}>All Subcategories</Button>
+                <div ref={subcatsRef} className="mt-3 flex items-center gap-2 flex-wrap">
+                  <button
+                    className={`inline-flex items-start px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border text-left max-w-[240px] whitespace-normal ${
+                      !selectedSubCategory
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    }`}
+                    onClick={() => setSelectedSubCategory(null)}
+                    title="All Subcategories"
+                  >
+                    <span
+                      className="leading-tight break-words whitespace-normal text-left block max-w-[200px]"
+                      style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' as const }}
+                    >
+                      All Subcategories
+                    </span>
+                  </button>
                   {subCategoryOptions.map(sc => (
-                    <Button key={sc} size="sm" variant={selectedSubCategory === sc ? 'default' : 'outline'} onClick={() => setSelectedSubCategory(sc)}>{sc}</Button>
+                    <button
+                      key={sc}
+                      className={`inline-flex items-start px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border text-left max-w-[240px] whitespace-normal ${
+                        selectedSubCategory === sc
+                          ? 'bg-black text-white border-black'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                      }`}
+                      onClick={() => setSelectedSubCategory(sc)}
+                      title={toTitle(sc)}
+                    >
+                      <span
+                        className="leading-tight break-words whitespace-normal text-left block max-w-[200px]"
+                        style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' as const }}
+                      >
+                        {toTitle(sc)}
+                      </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -2302,11 +2782,13 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               </CardHeader>
               <CardContent className="space-y-2">
                 {variantInclusions.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
+                  <ul className="space-y-1 max-h-56 overflow-auto pr-1">
                     {variantInclusions.map((inc, idx) => (
-                      <span key={idx} className="px-2 py-1 border rounded text-xs bg-gray-50">{inc}</span>
+                      <li key={idx} className="text-xs text-gray-800 break-words whitespace-normal border rounded px-2 py-1 bg-gray-50">
+                        {inc}
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
                   <div className="text-xs text-gray-500">No inclusions listed for this variant.</div>
                 )}

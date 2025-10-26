@@ -187,8 +187,18 @@ export default function CreateProductOrderPage() {
           }
         }
 
-        // Base queries
-        let customersQuery = supabase.from("customers").select("*").order("name")
+        // Fetch customers via API (server-side supabase)
+        console.log("Fetching customers via API (basic mode)...")
+        const customersResponse = await fetch('/api/customers?basic=1', { cache: 'no-store' })
+        let customersData: Customer[] = []
+        if (customersResponse.ok) {
+          const result = await customersResponse.json()
+          customersData = result.customers || []
+        } else {
+          console.error('Failed to fetch customers:', customersResponse.statusText)
+        }
+
+        // Fetch products and staff
         let productsQuery = supabase.from("products").select("*").order("name")
         let staffQuery = supabase
           .from("users")
@@ -197,21 +207,18 @@ export default function CreateProductOrderPage() {
 
         // Apply franchise filter for non-super-admins
         if (user.role !== 'super_admin' && user.franchise_id) {
-          customersQuery = customersQuery.eq('franchise_id', user.franchise_id)
           productsQuery = productsQuery.eq('franchise_id', user.franchise_id)
           staffQuery = staffQuery.eq('franchise_id', user.franchise_id)
         }
 
-        const [cust, prod, staff] = await Promise.all([
-          customersQuery,
+        const [prod, staff] = await Promise.all([
           productsQuery,
           staffQuery,
         ])
 
-        if (cust.error) throw cust.error
         if (prod.error) throw prod.error
 
-        setCustomers(cust.data || [])
+        setCustomers(customersData)
         setProducts(prod.data || [])
         
         // Fetch categories and subcategories from database
@@ -809,7 +816,10 @@ export default function CreateProductOrderPage() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Order insert error:', error)
+        throw new Error(error.message || 'Failed to create order/quote')
+      }
 
       const rows = items.map((it) => ({
         order_id: order.id,
@@ -824,7 +834,10 @@ export default function CreateProductOrderPage() {
         .from("product_order_items")
         .insert(rows)
 
-      if (itemsErr) throw itemsErr
+      if (itemsErr) {
+        console.error('Order items insert error:', itemsErr)
+        throw new Error(itemsErr.message || 'Failed to create order items')
+      }
 
       // Track coupon usage if coupon was applied
       if (formData.coupon_code && formData.coupon_discount > 0 && !isQuote) {
@@ -904,10 +917,10 @@ export default function CreateProductOrderPage() {
       const redirectPath = isQuote ? "/quotes" : "/bookings"
       router.push(`${redirectPath}?refresh=${Date.now()}`)
       router.refresh() // Force refresh to ensure data is reloaded
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      console.error('Order submission error:', e)
       const errorMsg = isQuote ? "Failed to create quote" : "Failed to create order"
-      toast.error(errorMsg)
+      toast.error(e.message || errorMsg)
     } finally {
       setLoading(false)
     }

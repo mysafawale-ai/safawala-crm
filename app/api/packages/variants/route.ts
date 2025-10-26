@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-middleware'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -23,6 +24,62 @@ async function getUser(request: NextRequest) {
     .single()
   if (error || !user || user.is_active === false) throw new Error('Authentication required')
   return { userId: user.id as string, franchiseId: user.franchise_id as string | null, role: user.role as string, isSuperAdmin: user.role === 'super_admin' }
+}
+
+// GET /api/packages/variants
+// Returns active package variants with franchise isolation
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await requireAuth(request, 'readonly')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.franchise_id || null
+    const isSuperAdmin = user.role === 'super_admin'
+    const supabase = createClient()
+
+    const { searchParams } = new URL(request.url)
+    const categoryId = searchParams.get('category_id')
+    const includeLegacy = (searchParams.get('include_legacy') ?? 'true') === 'true'
+    const includeInactive = (searchParams.get('include_inactive') ?? 'false') === 'true'
+
+    let query = supabase
+      .from('package_variants')
+      .select('*')
+
+    if (!includeInactive) {
+      query = query.eq('is_active', true)
+    }
+
+    // Franchise isolation: super admin sees all, others see own or null (legacy)
+    if (!isSuperAdmin && franchiseId) {
+      query = query.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+    }
+
+    // Optional category filter; support legacy package_id linkage
+    if (categoryId) {
+      if (includeLegacy) {
+        query = query.or(`category_id.eq.${categoryId},package_id.eq.${categoryId}`)
+      } else {
+        query = query.eq('category_id', categoryId)
+      }
+    }
+
+    const { data, error } = await query.order('display_order', { ascending: true })
+    if (error) {
+      console.error('[Variants API] GET error:', error)
+      return NextResponse.json({ error: 'Failed to fetch variants' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, data: data || [] })
+  } catch (error: any) {
+    console.error('[Variants API] GET Error:', error)
+    return NextResponse.json(
+      { error: error?.message || 'Authentication required' },
+      { status: error?.message === 'Authentication required' ? 401 : 500 }
+    )
+  }
 }
 
 export async function POST(request: NextRequest) {

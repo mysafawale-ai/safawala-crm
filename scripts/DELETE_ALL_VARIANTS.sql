@@ -1,61 +1,78 @@
--- ============================================================================
--- DELETE ALL EXISTING VARIANTS (CLEANUP SCRIPT)
--- ============================================================================
--- Run this to clean up all variants before running the new import scripts
--- This will cascade delete all related levels and distance pricing
--- ============================================================================
+-- This version safely handles existing bookings by unlinking referenced variants
+-- from your franchise instead of deleting them (so history remains intact).
 
-DO $$
-DECLARE
-  v_franchise_id UUID := '1a518dde-85b7-44ef-8bc4-092f53ddfd99';
-  v_deleted_count INT;
-BEGIN
+-- Set your franchise here (Surat)
+DO $$ BEGIN END $$; -- no-op to allow BEGIN below in Supabase editor
 
-RAISE NOTICE '🧹 Starting cleanup...';
+BEGIN;
 
--- Delete all distance pricing first (if not cascade)
-DELETE FROM distance_pricing 
-WHERE package_level_id IN (
-  SELECT l.id FROM package_levels l
-  JOIN package_variants v ON l.variant_id = v.id
-  JOIN packages_categories c ON v.category_id = c.id
-  WHERE c.franchise_id = v_franchise_id
-);
+-- Parameters
+-- Surat Branch Franchise ID
+-- If you need a different franchise, replace the UUID below
+WITH params AS (
+  SELECT '1a518dde-85b7-44ef-8bc4-092f53ddfd99'::uuid AS franchise_id
+)
 
-GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
-RAISE NOTICE '  ✅ Deleted % distance pricing records', v_deleted_count;
+-- 1) Snapshot counts before
+, counts_before AS (
+  SELECT 
+    (SELECT COUNT(*) FROM package_variants pv JOIN params p ON true WHERE pv.franchise_id = p.franchise_id) AS total_for_franchise,
+    (SELECT COUNT(*) FROM package_variants) AS total_all
+)
 
--- Delete all levels
-DELETE FROM package_levels 
-WHERE variant_id IN (
-  SELECT v.id FROM package_variants v
-  JOIN packages_categories c ON v.category_id = c.id
-  WHERE c.franchise_id = v_franchise_id
-);
+-- 2) Unlink variants that are referenced by bookings (cannot delete due to FK)
+, unlinked AS (
+  UPDATE package_variants pv
+  SET 
+    franchise_id = NULL,
+    is_active = false,
+    updated_at = NOW()
+  FROM params p
+  WHERE pv.franchise_id = p.franchise_id
+    AND EXISTS (
+      SELECT 1 FROM package_booking_items pbi 
+      WHERE pbi.variant_id = pv.id
+    )
+  RETURNING 1
+)
 
-GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
-RAISE NOTICE '  ✅ Deleted % package levels', v_deleted_count;
+-- 3) Hard delete variants that are NOT referenced by bookings
+, deleted AS (
+  DELETE FROM package_variants pv
+  USING params p
+  WHERE pv.franchise_id = p.franchise_id
+    AND NOT EXISTS (
+      SELECT 1 FROM package_booking_items pbi 
+      WHERE pbi.variant_id = pv.id
+    )
+  RETURNING 1
+)
 
--- Delete all variants
-DELETE FROM package_variants 
-WHERE category_id IN (
-  SELECT id FROM packages_categories 
-  WHERE franchise_id = v_franchise_id
-);
-
-GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
-RAISE NOTICE '  ✅ Deleted % package variants', v_deleted_count;
-
-RAISE NOTICE '🎉 Cleanup complete! Ready to run STEP_2 and CREATE_ALL_REMAINING_VARIANTS scripts';
-
-END $$;
-
--- Verify cleanup
+-- 4) Emit a compact summary row
 SELECT 
-  c.name as category,
-  COUNT(v.id) as variant_count
-FROM packages_categories c
-LEFT JOIN package_variants v ON c.id = v.category_id
-WHERE c.franchise_id = '1a518dde-85b7-44ef-8bc4-092f53ddfd99'
-GROUP BY c.name
-ORDER BY c.name;
+  (SELECT total_for_franchise FROM counts_before)        AS variants_before_for_franchise,
+  (SELECT total_all FROM counts_before)                  AS total_all_before,
+  (SELECT COUNT(*) FROM unlinked)                        AS unlinked_due_to_bookings,
+  (SELECT COUNT(*) FROM deleted)                         AS hard_deleted,
+  (SELECT COUNT(*) FROM package_variants pv)             AS total_all_after,
+  (SELECT COUNT(*) FROM package_variants pv 
+     JOIN params p ON true 
+    WHERE pv.franchise_id = p.franchise_id)              AS remaining_linked_to_franchise
+;
+
+COMMIT;
+
+-- Verification: list any variants still linked to the franchise (should be 0)
+WITH p AS (SELECT '1a518dde-85b7-44ef-8bc4-092f53ddfd99'::uuid AS franchise_id)
+SELECT pv.id, pv.name, pv.franchise_id, pv.is_active
+FROM package_variants pv
+JOIN p ON pv.franchise_id = p.franchise_id
+ORDER BY pv.updated_at DESC NULLS LAST;
+
+-- Verification: show any variants that were unlinked (now is_active=false and franchise_id is NULL)
+SELECT pv.id, pv.name, pv.franchise_id, pv.is_active
+FROM package_variants pv
+WHERE pv.franchise_id IS NULL AND pv.is_active = false
+  AND EXISTS (SELECT 1 FROM package_booking_items pbi WHERE pbi.variant_id = pv.id)
+ORDER BY pv.updated_at DESC NULLS LAST
+LIMIT 50;

@@ -28,17 +28,24 @@ function hasModuleAccess(perms: UserPermissions | null, key: keyof UserPermissio
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request, 'viewer')
+  const authResult = await requireAuth(request, 'readonly')
     if (!authResult.success) {
       return NextResponse.json(authResult.response, { status: 401 })
     }
     const { authContext } = authResult
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'customers')) {
-      return NextResponse.json(
-        { error: 'You do not have permission to view customers' },
-        { status: 403 }
-      )
+    const { searchParams } = new URL(request.url)
+    const basic = (searchParams.get('basic') ?? '0') === '1'
+
+    // Permissions: In basic mode (used by booking wizard), allow read for authenticated roles
+    // while still enforcing franchise isolation. Otherwise require explicit module permission.
+    if (!basic) {
+      const permissions = await getUserPermissions(authContext!.user.id)
+      if (!hasModuleAccess(permissions, 'customers')) {
+        return NextResponse.json(
+          { error: 'You do not have permission to view customers' },
+          { status: 403 }
+        )
+      }
     }
 
     const franchiseId = authContext!.user.franchise_id
@@ -50,16 +57,16 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Customers API] User: role=${role}, franchiseId=${franchiseId}, isSuperAdmin=${isSuperAdmin}`)
 
-    const { searchParams } = new URL(request.url)
-    const search = searchParams.get("search")
+  const search = searchParams.get("search")
 
     // Build query - manually apply franchise filter for non-super-admins
     let query = supabase
       .from("customers")
-      .select(`
-        *,
-        franchise:franchises(id, name, code)
-      `)
+      .select(
+        basic
+          ? 'id,name,phone,email,pincode,franchise_id,created_at,updated_at'
+          : `*,franchise:franchises(id, name, code)`
+      )
       .order("created_at", { ascending: false })
       // avoid filtering on removed columns; rely on franchise isolation
 
@@ -124,11 +131,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request, 'viewer')
+    const authResult = await requireAuth(request, 'staff')
     if (!authResult.success) {
       return NextResponse.json(authResult.response, { status: 401 })
     }
     const { authContext } = authResult
+    const userId = authContext!.user.id
     const permissions = await getUserPermissions(authContext!.user.id)
     if (!hasModuleAccess(permissions, 'customers')) {
       return NextResponse.json(
@@ -177,7 +185,7 @@ export async function POST(request: NextRequest) {
       state: state?.trim() || null,
       pincode: pincode?.trim() || null,
       franchise_id: franchiseId,
-      created_by: userId,
+  created_by: userId,
     }
     if (typeof notes !== 'undefined') {
       insertPayload.notes = typeof notes === 'string' ? notes.trim() : notes ?? null
@@ -207,7 +215,14 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { userId, franchiseId, isSuperAdmin } = await getUserFromSession(request)
+    const authResult = await requireAuth(request, 'staff')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const { authContext } = authResult
+    const userId = authContext!.user.id
+    const franchiseId = authContext!.user.franchise_id
+    const isSuperAdmin = authContext!.user.role === 'super_admin'
     const supabase = createClient()
 
     const body = await request.json()

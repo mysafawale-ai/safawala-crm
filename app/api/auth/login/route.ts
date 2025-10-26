@@ -152,9 +152,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[v0] Login successful for:", email)
-    
-    // Return session data so client can set it in Supabase client
-    return NextResponse.json({
+
+    // Build response and set an HTTP-only auth cookie for middleware checks
+    const res = NextResponse.json({
       success: true,
       message: "Login successful",
       user,
@@ -165,6 +165,27 @@ export async function POST(request: NextRequest) {
         expires_in: signInData.session?.expires_in
       }
     })
+
+    try {
+      // Minimal cookie payload to identify user server-side (no tokens)
+      const cookiePayload = JSON.stringify({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        franchise_id: user.franchise_id,
+      })
+      res.cookies.set('safawala_user', cookiePayload, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      })
+    } catch (cookieErr) {
+      console.warn('[v0] Failed to set safawala_user cookie:', cookieErr)
+    }
+
+    return res
   } catch (error) {
     console.error("[v0] Unexpected login error:", error)
     console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")

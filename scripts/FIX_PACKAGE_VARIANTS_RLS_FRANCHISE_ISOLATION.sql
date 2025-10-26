@@ -1,7 +1,6 @@
--- FIX PACKAGE VARIANTS RLS FOR FRANCHISE ISOLATION
--- Issue: Franchise admins can see variants from other franchises
--- Cause: RLS policies checking old 'packages' table structure
--- Solution: Update RLS policies to check franchise_id directly on package_variants
+-- FIX PACKAGE VARIANTS RLS FOR FRANCHISE ISOLATION (NO LEVELS)
+-- Issue: Variants visibility inconsistent due to legacy level-based checks
+-- Solution: Remove package_levels references entirely; scope by package_variants only
 
 -- Step 1: Drop old/incorrect policies
 DROP POLICY IF EXISTS "super_admin_full_access_package_variants" ON package_variants;
@@ -41,41 +40,19 @@ USING (
   )
 );
 
--- Step 4: Apply same policies to package_levels
-DROP POLICY IF EXISTS "super_admin_all_package_levels" ON package_levels;
-DROP POLICY IF EXISTS "franchise_users_own_package_levels" ON package_levels;
+-- Step 4: Distance pricing — variant-based only (no levels)
+-- Ensure column exists
+ALTER TABLE distance_pricing
+  ADD COLUMN IF NOT EXISTS package_variant_id uuid REFERENCES package_variants(id) ON DELETE CASCADE;
 
-ALTER TABLE package_levels ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "super_admin_all_package_levels" ON package_levels
-FOR ALL
-USING (
-  EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.role = 'super_admin'
-    AND users.is_active = true
-  )
-);
-
-CREATE POLICY "franchise_users_own_package_levels" ON package_levels
-FOR ALL
-USING (
-  EXISTS (
-    SELECT 1 FROM package_variants
-    JOIN users ON users.id = auth.uid()
-    WHERE package_variants.id = package_levels.variant_id
-    AND users.franchise_id = package_variants.franchise_id
-    AND users.is_active = true
-  )
-);
-
--- Step 5: Apply same policies to distance_pricing
+-- Drop any legacy policies
 DROP POLICY IF EXISTS "super_admin_all_distance_pricing" ON distance_pricing;
 DROP POLICY IF EXISTS "franchise_users_own_distance_pricing" ON distance_pricing;
 
+-- Enable RLS
 ALTER TABLE distance_pricing ENABLE ROW LEVEL SECURITY;
 
+-- Policy: super-admins see all rows
 CREATE POLICY "super_admin_all_distance_pricing" ON distance_pricing
 FOR ALL
 USING (
@@ -87,20 +64,21 @@ USING (
   )
 );
 
+-- Policy: franchise users see rows tied to variants in their franchise
 CREATE POLICY "franchise_users_own_distance_pricing" ON distance_pricing
 FOR ALL
 USING (
   EXISTS (
-    SELECT 1 FROM package_levels
-    JOIN package_variants ON package_variants.id = package_levels.variant_id
+    SELECT 1
+    FROM package_variants
     JOIN users ON users.id = auth.uid()
-    WHERE package_levels.id = distance_pricing.package_level_id
-    AND users.franchise_id = package_variants.franchise_id
-    AND users.is_active = true
+    WHERE package_variants.id = distance_pricing.package_variant_id
+      AND users.franchise_id = package_variants.franchise_id
+      AND users.is_active = true
   )
 );
 
--- Step 6: Verify the policies
+-- Step 5: Verify the policies
 SELECT 
     schemaname,
     tablename,
@@ -110,10 +88,9 @@ SELECT
     cmd,
     qual
 FROM pg_policies
-WHERE tablename IN ('package_variants', 'package_levels', 'distance_pricing')
+WHERE tablename IN ('package_variants', 'distance_pricing')
 ORDER BY tablename, policyname;
 
 -- Expected result: 
 -- package_variants: 2 policies (super_admin_all, franchise_users_own)
--- package_levels: 2 policies (super_admin_all, franchise_users_own)
 -- distance_pricing: 2 policies (super_admin_all, franchise_users_own)

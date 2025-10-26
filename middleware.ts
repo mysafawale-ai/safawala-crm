@@ -1,66 +1,69 @@
 import { NextRequest, NextResponse } from "next/server"
 
+// Unified middleware: protect all pages by default; allow public paths and API
+const PUBLIC_PATH_PREFIXES = [
+  "/",
+  "/auth/login",
+  "/auth/logout",
+  "/_next",
+  "/favicon",
+  "/public",
+  "/assets",
+]
+
+function isPublic(pathname: string) {
+  // Root path is considered public only ("/") — deeper pages are protected
+  if (pathname === "/") return true
+  return PUBLIC_PATH_PREFIXES.some((p) => p !== "/" && pathname.startsWith(p))
+}
+
+function hasSupabaseCookie(req: NextRequest): boolean {
+  return req.cookies.getAll().some((c) => c.name.startsWith("sb-"))
+}
+
 function isAuthDisabled() {
   return process.env.AUTH_ENABLED !== "true"
 }
 
-function hasSupabaseSessionCookie(request: NextRequest): boolean {
-  // Supabase sets cookies prefixed with 'sb-'
-  const cookies = request.cookies.getAll()
-  return cookies.some((c) => c.name.startsWith("sb-"))
-}
-
 export function middleware(request: NextRequest) {
-  const { pathname, hostname } = request.nextUrl
+  const { pathname } = request.nextUrl
 
-  // Public routes that don't require authentication
-  const publicRoutes = ["/", "/auth/login"]
-  
-  if (publicRoutes.includes(pathname)) {
+  // Allow API routes and public paths
+  if (pathname.startsWith("/api/") || isPublic(pathname)) {
     return NextResponse.next()
   }
 
-  // If auth is disabled, allow all
+  // Optional global switch to turn off auth quickly in dev
   if (isAuthDisabled()) {
     return NextResponse.next()
   }
 
-  // Check for session cookie
-  const legacySession = request.cookies.get("safawala_session")?.value
-  const hasSupabase = hasSupabaseSessionCookie(request)
+  const hasUserCookie = request.cookies.has("safawala_user")
+  const hasLegacySession = request.cookies.has("safawala_session")
+  const hasSb = hasSupabaseCookie(request)
 
-  if (!legacySession && !hasSupabase) {
-    // Redirect to login with original URL as redirect param
-    const isLocal = hostname === "localhost" || hostname === "127.0.0.1"
-    
-    if (isLocal) {
-      const loginUrl = new URL("/auth/login", request.url)
-      loginUrl.searchParams.set("redirect", pathname)
-      return NextResponse.redirect(loginUrl)
-    } else {
-      // Production: redirect to main website
-      return NextResponse.redirect(new URL("https://mysafawala.com/", request.url))
-    }
+  // Any of these cookies indicates an authenticated browser session
+  const isAuthed = hasUserCookie || hasLegacySession || hasSb
+
+  if (!isAuthed) {
+    const loginUrl = new URL("/auth/login", request.url)
+    loginUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
-  // Optional: Validate session cookie content
-  // Keep legacy validation only if that cookie exists
-  if (legacySession) {
+  // Basic validation of legacy cookie if present
+  if (hasLegacySession) {
     try {
-      const sessionData = JSON.parse(legacySession)
-      if (!sessionData.id || !sessionData.email) {
-        throw new Error("Invalid session data")
+      const raw = request.cookies.get("safawala_session")?.value || "{}"
+      const parsed = JSON.parse(raw)
+      if (!parsed?.id || !parsed?.email) {
+        throw new Error("invalid")
       }
-    } catch (error) {
-      // Invalid session → Clear cookie and redirect to login
-      console.error("[Middleware] Invalid legacy session cookie:", error)
+    } catch {
       const loginUrl = new URL("/auth/login", request.url)
-      const response = NextResponse.redirect(loginUrl)
-      response.cookies.set("safawala_session", "", { 
-        maxAge: 0,
-        path: "/" 
-      })
-      return response
+      const resp = NextResponse.redirect(loginUrl)
+      resp.cookies.set("safawala_session", "", { maxAge: 0, path: "/" })
+      return resp
     }
   }
 
@@ -68,16 +71,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Protect all routes except static files, API routes, and public assets
+  // Protect all routes except static files, images, favicon, and api
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico (favicon)
-     * - public folder files (images, etc.)
-     * - api routes (they have their own auth)
-     */
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 }
