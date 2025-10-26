@@ -964,21 +964,25 @@ export default function BookPackageWizard() {
         event_type: formData.event_type,
         event_participant: formData.event_participant,
         payment_type: formData.payment_type,
+        custom_amount: formData.custom_amount || 0,
         event_date: eventDate.toISOString(),
         delivery_date: deliveryDateISO,
         return_date: returnDateISO,
         venue_address: formData.venue_address,
-  groom_name: formData.groom_name || null,
-  // Optional columns (may not exist in some DBs): groom_whatsapp, groom_address, bride_whatsapp, bride_address
-  // Persist only name fields for broad compatibility
-  bride_name: formData.bride_name || null,
-        // bride_address not captured; leave null
+        groom_name: formData.groom_name || null,
+        groom_whatsapp: formData.groom_whatsapp || null,
+        groom_address: formData.groom_address || null,
+        bride_name: formData.bride_name || null,
+        bride_whatsapp: formData.bride_whatsapp || null,
         notes: formData.notes || null,
+        distance_km: distanceKm || 0,
+        distance_amount: (totals as any).distanceSurcharge || 0,
         tax_amount: totals.gst,
         subtotal_amount: totals.subtotal,
         total_amount: totals.grand,
-        amount_paid: asQuote ? 0 : totals.payable,  // ✅ BUG FIX #2: Use calculated payment
-        pending_amount: asQuote ? totals.grand : totals.remaining,  // ✅ BUG FIX #2: Use calculated remaining
+        security_deposit: (totals as any).securityDeposit || 0,
+        amount_paid: asQuote ? 0 : totals.payable,
+        pending_amount: asQuote ? totals.grand : totals.remaining,
         status: asQuote ? 'quote' : 'confirmed',
         sales_closed_by_id: selectedStaff || null,
         use_custom_pricing: useCustomPricing || false,
@@ -2629,7 +2633,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             .upload(fileName, blob, {
               contentType: blob.type,
               cacheControl: '3600',
-              upsert: false
+              upsert: true
             })
           
           if (uploadError) throw uploadError
@@ -2653,11 +2657,12 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
           name: customProductData.name.trim(),
           category_id: customProductData.category_id,
           image_url: imageUrl || null,
-          rental_price: 0,
-          sale_price: 0,
+          rental_price: 10,
+          price: 10,
           security_deposit: 0,
           stock_available: 100,
-          is_active: true
+          is_active: true,
+          description: 'Custom product'
         })
         .select()
         .single()

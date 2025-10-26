@@ -19,6 +19,12 @@ ON CONFLICT (id) DO NOTHING;
 -- STORAGE POLICIES
 -- =====================================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload product images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can update product images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete product images" ON storage.objects;
+
 -- Policy 1: Anyone can view product images (public bucket)
 CREATE POLICY "Public Access"
 ON storage.objects FOR SELECT
