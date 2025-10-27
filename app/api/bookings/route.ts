@@ -108,53 +108,45 @@ export async function GET(request: NextRequest) {
     if (packageIds.length > 0) {
       const { data: pkgItems } = await supabase
         .from('package_booking_items')
-        .select('booking_id, quantity, extra_safas, category_id, package_sets(category_id, packages_categories(name))')
+        .select('booking_id, quantity, extra_safas, category_id')
         .in('booking_id', packageIds)
       
-      // Group by booking_id and extract category quantity from name
-      const categoryQuantities: Record<string, number> = {}
+      // Get unique category IDs
+      const categoryIds = [...new Set(pkgItems?.map(item => item.category_id).filter(Boolean) || [])]
       
+      // Fetch category names
+      const categoryMap: Record<string, string> = {}
+      if (categoryIds.length > 0) {
+        const { data: categories } = await supabase
+          .from('packages_categories')
+          .select('id, name')
+          .in('id', categoryIds)
+        
+        for (const cat of categories || []) {
+          categoryMap[cat.id] = cat.name
+        }
+      }
+      
+      // Process each booking
+      const processedBookings = new Set<string>()
       for (const row of pkgItems || []) {
-        // If we haven't processed this booking yet
-        if (!categoryQuantities[row.booking_id]) {
-          // Try to get category from package_sets relation
-          const categoryName = (row as any).package_sets?.packages_categories?.name || ''
-          
-          // If no relation, try category_id directly
-          if (!categoryName && row.category_id) {
-            const { data: cat } = await supabase
-              .from('packages_categories')
-              .select('name')
-              .eq('id', row.category_id)
-              .single()
-            
-            if (cat?.name) {
-              // Extract number from category name (e.g., "21 Safas" -> 21)
-              const match = cat.name.match(/(\d+)/)
-              if (match) {
-                categoryQuantities[row.booking_id] = parseInt(match[1])
-              }
-            }
-          } else if (categoryName) {
-            // Extract number from category name (e.g., "21 Safas" -> 21)
-            const match = categoryName.match(/(\d+)/)
-            if (match) {
-              categoryQuantities[row.booking_id] = parseInt(match[1])
-            }
+        // Only process each booking once
+        if (!processedBookings.has(row.booking_id) && row.category_id && categoryMap[row.category_id]) {
+          const categoryName = categoryMap[row.category_id]
+          // Extract number from category name (e.g., "21 Safas" -> 21)
+          const match = categoryName.match(/(\d+)/)
+          if (match) {
+            packageTotals[row.booking_id] = parseInt(match[1])
+            processedBookings.add(row.booking_id)
           }
         }
         
-        // Fallback: sum quantities if no category quantity found
-        if (!categoryQuantities[row.booking_id]) {
+        // Fallback: sum quantities if category not found
+        if (!processedBookings.has(row.booking_id)) {
           const base = Number(row.quantity) || 0
           const extra = Number(row.extra_safas) || 0
           packageTotals[row.booking_id] = (packageTotals[row.booking_id] || 0) + base + extra
         }
-      }
-      
-      // Use category quantities where available, otherwise use item sum
-      for (const bookingId of Object.keys(categoryQuantities)) {
-        packageTotals[bookingId] = categoryQuantities[bookingId]
       }
     }
 
