@@ -69,6 +69,14 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     return firstLine || 'Not Specified'
   }
 
+  // Helper function to extract area from customer address
+  const extractArea = (address: string): string => {
+    if (!address || address === 'Not Specified') return 'Not Specified'
+    // Extract first line (area is usually first line before comma or newline)
+    const firstLine = address.split(/[,\n]/)[0].trim()
+    return firstLine || 'Not Specified'
+  }
+
   const fetchBookings = async () => {
     try {
       setLoading(true)
@@ -420,7 +428,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           <div className="font-medium">{booking.venue_name}</div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          {booking.customer.address}
+                          {extractArea(booking.customer.address)}
                         </td>
                         <td className="border-muted px-4 py-3 text-sm text-foreground">{booking.customer.city}</td>
                       </tr>
