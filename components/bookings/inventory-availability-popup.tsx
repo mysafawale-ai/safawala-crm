@@ -256,16 +256,15 @@ export function InventoryAvailabilityPopup({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-1.5 text-base">
+            <Calendar className="h-4 w-4" />
             5-Day Booking Overview
           </DialogTitle>
           {eventDate && (
-            <p className="text-sm text-gray-600">
-              Showing bookings from {format(subDays(eventDate, 2), "MMM dd")} to{" "}
-              {format(addDays(eventDate, 2), "MMM dd, yyyy")}
+            <p className="text-xs text-gray-500">
+              {format(subDays(eventDate, 2), "MMM dd")} - {format(addDays(eventDate, 2), "MMM dd, yyyy")}
             </p>
           )}
         </DialogHeader>
@@ -275,29 +274,26 @@ export function InventoryAvailabilityPopup({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {availabilityData.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No products found for availability check</p>
+              <div className="text-center py-6 text-gray-500">
+                <Package className="h-8 w-8 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">No products found</p>
               </div>
             ) : (
               <>
                 {availabilityData.map((data) => (
-                  <Card key={data.product.id} className="border-2">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-lg">{data.product.name}</CardTitle>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm text-gray-600">Total Stock</div>
-                          <div className="text-2xl font-bold">{data.product.stock_total}</div>
-                          <div className="text-xs text-gray-500">Available: {data.product.stock_available}</div>
+                  <Card key={data.product.id} className="border">
+                    <CardHeader className="pb-2 pt-3 px-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold">{data.product.name}</CardTitle>
+                        <div className="flex items-center gap-3 text-xs">
+                          <div><span className="text-gray-500">Stock:</span> <span className="font-bold">{data.product.stock_total}</span></div>
+                          <div><span className="text-gray-500">Available:</span> <span className="font-semibold text-green-600">{data.product.stock_available}</span></div>
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-1.5 p-3 pt-0">
                       {/* Daily breakdown */}
                       {data.dailyBookings.map((day, index) => {
                         const isEvent = isEventDate(day.date)
@@ -307,36 +303,31 @@ export function InventoryAvailabilityPopup({
                           <div 
                             key={day.date} 
                             className={cn(
-                              "border rounded-lg p-3",
+                              "border rounded p-2 text-xs",
                               isEvent && "border-blue-500 bg-blue-50",
                               !isEvent && hasBookings && "bg-orange-50 border-orange-200",
                               !hasBookings && "bg-gray-50"
                             )}
                           >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
-                                <span className="font-semibold">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="h-3 w-3" />
+                                <span className="font-medium text-xs">
                                   {format(new Date(day.date), "EEE, MMM dd")}
                                 </span>
                                 {isEvent && (
-                                  <Badge variant="default" className="text-xs">
+                                  <Badge variant="default" className="text-[10px] h-4 px-1.5">
                                     Event Date
                                   </Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
                                 {hasBookings ? (
-                                  <>
-                                    <Badge variant="destructive" className="text-sm">
-                                      {day.totalQuantity} Booked
-                                    </Badge>
-                                    <Badge variant="outline" className="text-sm">
-                                      {day.bookings.length} {day.bookings.length === 1 ? 'Booking' : 'Bookings'}
-                                    </Badge>
-                                  </>
+                                  <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
+                                    {day.totalQuantity} Booked
+                                  </Badge>
                                 ) : (
-                                  <Badge variant="secondary" className="text-sm">
+                                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
                                     Available
                                   </Badge>
                                 )}
@@ -345,32 +336,30 @@ export function InventoryAvailabilityPopup({
 
                             {/* Booking details */}
                             {hasBookings && (
-                              <div className="space-y-2 mt-3">
+                              <div className="space-y-1 mt-1.5">
                                 {day.bookings.map((booking, idx) => (
                                   <div 
                                     key={idx}
-                                    className="flex items-center justify-between p-2 bg-white rounded border"
+                                    className="flex items-center justify-between p-1.5 bg-white rounded border text-xs"
                                   >
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
                                       <Badge 
                                         variant={booking.source === 'package' ? 'default' : 'secondary'}
-                                        className="text-xs"
+                                        className="text-[10px] h-4 px-1.5"
                                       >
-                                        {booking.source === 'package' ? '📦 Package' : '🛒 Product'}
+                                        {booking.source === 'package' ? '📦' : '🛒'}
                                       </Badge>
                                       <div>
-                                        <div className="font-medium text-sm">
+                                        <div className="font-medium text-xs">
                                           {booking.customer_name}
                                         </div>
-                                        <div className="text-xs text-gray-500">
+                                        <div className="text-[10px] text-gray-500">
                                           {booking.booking_number}
                                         </div>
                                       </div>
                                     </div>
-                                    <div className="text-right">
-                                      <div className="font-bold text-orange-600">
-                                        Qty: {booking.quantity}
-                                      </div>
+                                    <div className="font-bold text-orange-600 text-xs">
+                                      Qty: {booking.quantity}
                                     </div>
                                   </div>
                                 ))}
@@ -381,22 +370,11 @@ export function InventoryAvailabilityPopup({
                       })}
 
                       {/* Summary */}
-                      <div className="border-t pt-3 mt-3">
-                        <div className="flex items-center justify-between text-sm">
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-600">Total bookings in 5 days:</span>
-                          <span className="font-bold text-lg">{data.totalBooked} units</span>
+                          <span className="font-bold text-sm">{data.totalBooked} units</span>
                         </div>
-                        {data.totalBooked > 0 && (
-                          <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-blue-700">
-                            💡 Peak demand: {Math.max(...data.dailyBookings.map(d => d.totalQuantity))} units on{' '}
-                            {format(
-                              new Date(data.dailyBookings.reduce((max, d) => 
-                                d.totalQuantity > max.totalQuantity ? d : max
-                              ).date),
-                              "MMM dd"
-                            )}
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
