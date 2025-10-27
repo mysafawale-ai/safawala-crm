@@ -69,20 +69,36 @@ export default function DashboardPage() {
       try {
         const currentUser = await getCurrentUser()
         if (!currentUser) {
-          router.push("/")
+          // Redirect to login with current path as redirect target
+          const currentPath = window.location.pathname
+          router.push(`/?redirect=${currentPath}`)
           return
         }
         
         // Check if user has dashboard permission
         if (!currentUser.permissions?.dashboard) {
-          // Silent redirect - no error toast
-          router.push("/bookings") // Redirect to first available page
+          // Find first available page based on permissions
+          const availablePages = [
+            { path: '/bookings', permission: currentUser.permissions?.bookings },
+            { path: '/customers', permission: currentUser.permissions?.customers },
+            { path: '/inventory', permission: currentUser.permissions?.inventory },
+            { path: '/quotes', permission: currentUser.permissions?.quotes },
+          ]
+          
+          const firstAvailable = availablePages.find(p => p.permission)
+          if (firstAvailable) {
+            router.push(firstAvailable.path)
+          } else {
+            // No permissions, log out
+            router.push('/')
+          }
           return
         }
         
         setUser(currentUser)
       } catch (error) {
-        router.push("/")
+        console.error('Dashboard auth check failed:', error)
+        router.push('/')
       }
     }
 

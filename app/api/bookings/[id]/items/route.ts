@@ -24,18 +24,10 @@ export async function GET(
     let items: any[] = []
     
     if (source === 'product_order') {
-      // Fetch product order items
+      // Fetch product order items WITHOUT joins (FK doesn't exist yet)
       const { data, error } = await supabase
         .from('product_order_items')
-        .select(`
-          id,
-          order_id,
-          product_id,
-          quantity,
-          unit_price,
-          total_price,
-          product:products!left(id, name, product_code, category, image_url)
-        `)
+        .select('*')
         .eq('order_id', id)
         .order('created_at', { ascending: true })
       
@@ -44,32 +36,31 @@ export async function GET(
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
       
-      items = data || []
+      // Fetch product details separately if there are items
+      if (data && data.length > 0) {
+        const productIds = [...new Set(data.map((item: any) => item.product_id).filter(Boolean))]
+        
+        if (productIds.length > 0) {
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, name, product_code, category, image_url')
+            .in('id', productIds)
+          
+          const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])
+          
+          items = data.map((item: any) => ({
+            ...item,
+            product: productsMap.get(item.product_id) || null
+          }))
+        } else {
+          items = data
+        }
+      }
     } else if (source === 'package_booking') {
-      // Fetch package booking items
+      // Fetch package booking items WITHOUT joins (FK doesn't exist yet)
       const { data, error } = await supabase
         .from('package_booking_items')
-        .select(`
-          id,
-          booking_id,
-          variant_id,
-          package_id,
-          quantity,
-          extra_safas,
-          unit_price,
-          total_price,
-          selected_products,
-          package:package_sets!package_booking_items_package_id_fkey(
-            id,
-            name
-          ),
-          variant:package_variants!package_booking_items_variant_id_fkey(
-            id,
-            name,
-            size,
-            quantity_safas
-          )
-        `)
+        .select('*')
         .eq('booking_id', id)
         .order('created_at', { ascending: true })
       
@@ -78,20 +69,52 @@ export async function GET(
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
       
-      // Add extra_safas to quantity for package items
-      items = (data || []).map((item: any) => ({
-        ...item,
-        quantity: (item.quantity || 0) + (item.extra_safas || 0),
-        // Map package info to product-like structure for consistent display
-        product: item.package ? {
-          id: item.package.id,
-          name: item.package.name,
-          product_code: null,
-          category: 'Package',
-          image_url: null
-        } : null,
-        variant_name: item.variant?.name || null
-      }))
+      // Fetch related data separately
+      if (data && data.length > 0) {
+        const packageIds = [...new Set(data.map((item: any) => item.package_id).filter(Boolean))]
+        const variantIds = [...new Set(data.map((item: any) => item.variant_id).filter(Boolean))]
+        
+        // Fetch package_sets
+        const packagesMap = new Map()
+        if (packageIds.length > 0) {
+          const { data: packages } = await supabase
+            .from('package_sets')
+            .select('id, name')
+            .in('id', packageIds)
+          
+          packages?.forEach((p: any) => packagesMap.set(p.id, p))
+        }
+        
+        // Fetch package_variants
+        const variantsMap = new Map()
+        if (variantIds.length > 0) {
+          const { data: variants } = await supabase
+            .from('package_variants')
+            .select('id, name, size, quantity_safas')
+            .in('id', variantIds)
+          
+          variants?.forEach((v: any) => variantsMap.set(v.id, v))
+        }
+        
+        // Map the data with product-like structure for consistent display
+        items = data.map((item: any) => {
+          const packageSet = packagesMap.get(item.package_id)
+          const variant = variantsMap.get(item.variant_id)
+          
+          return {
+            ...item,
+            quantity: (item.quantity || 0) + (item.extra_safas || 0),
+            product: packageSet ? {
+              id: packageSet.id,
+              name: packageSet.name,
+              product_code: null,
+              category: 'Package',
+              image_url: null
+            } : null,
+            variant_name: variant?.name || null
+          }
+        })
+      }
     }
     
     return NextResponse.json({

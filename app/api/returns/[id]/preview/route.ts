@@ -46,11 +46,13 @@ export async function GET(
     } else if (returnRecord.booking_source === "package_booking") {
       const { data: packageItems } = await supabase
         .from("package_booking_items")
-        .select("selected_products")
+        .select("reserved_products")
         .eq("booking_id", returnRecord.booking_id)
       
-      // Extract product IDs from selected_products array
-      productIds = (packageItems || []).flatMap(item => item.selected_products || [])
+      // Extract product IDs from reserved_products array (supports string IDs or object with id)
+      productIds = (packageItems || []).flatMap((item: any) =>
+        (item.reserved_products || []).map((p: any) => typeof p === 'string' ? p : p?.id)
+      ).filter(Boolean)
     }
     
     // Remove duplicates

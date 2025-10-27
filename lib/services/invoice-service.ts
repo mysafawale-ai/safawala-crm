@@ -16,33 +16,38 @@ export class InvoiceService {
         return []
       }
 
+      // Get current user for franchise filtering
+      const userStr = typeof window !== 'undefined' ? localStorage.getItem('safawala_user') : null
+      const currentUser = userStr ? JSON.parse(userStr) : null
+      const isSuperAdmin = currentUser?.role === 'super_admin'
+      const franchiseId = currentUser?.franchise_id
+
+      console.log("🔐 INVOICE FRANCHISE FILTER:", { 
+        role: currentUser?.role, 
+        franchiseId, 
+        isSuperAdmin 
+      })
+
       // Fetch from product_orders where is_quote=false (actual orders)
+      // NOTE: Fetching without joins due to missing FK constraints
       let productQuery = supabase
         .from("product_orders")
-        .select(`
-          *,
-          customer:customers(name, phone, email),
-          product_order_items(
-            *,
-            product:products(name)
-          )
-        `)
+        .select("*")
         .eq("is_quote", false)
         .order("created_at", { ascending: false })
 
       // Fetch from package_bookings where is_quote=false (actual bookings)
       let packageQuery = supabase
         .from("package_bookings")
-        .select(`
-          *,
-          customer:customers(name, phone, email),
-          package_booking_items(
-            *,
-            package:package_sets(name)
-          )
-        `)
+        .select("*")
         .eq("is_quote", false)
         .order("created_at", { ascending: false })
+
+      // Apply franchise filter unless super admin
+      if (!isSuperAdmin && franchiseId) {
+        productQuery = productQuery.eq("franchise_id", franchiseId)
+        packageQuery = packageQuery.eq("franchise_id", franchiseId)
+      }
 
       // Apply filters
       if (filters.status) {
@@ -82,40 +87,45 @@ export class InvoiceService {
       const [productResult, packageResult] = await Promise.all([productQuery, packageQuery])
 
       if (productResult.error) {
-        console.error("Error fetching product orders:", productResult.error)
-        console.error("Product query error details:", {
-          message: productResult.error.message,
-          details: productResult.error.details,
-          hint: productResult.error.hint,
-          code: productResult.error.code,
-        })
-        // Don't throw, just log and return empty for this table
-        // throw productResult.error
+        console.error("❌ Product orders error:", productResult.error)
       }
 
       if (packageResult.error) {
-        console.error("Error fetching package bookings:", packageResult.error)
-        console.error("Package query error details:", {
-          message: packageResult.error.message,
-          details: packageResult.error.details,
-          hint: packageResult.error.hint,
-          code: packageResult.error.code,
-        })
-        // Don't throw, just log and return empty for this table
-        // throw packageResult.error
+        console.error("❌ Package bookings error:", packageResult.error)
+      }
+
+      const productOrders = productResult.data || []
+      const packageBookings = packageResult.data || []
+
+      // Fetch customers
+      const customerIds = [...new Set([
+        ...productOrders.map((o: any) => o.customer_id),
+        ...packageBookings.map((b: any) => b.customer_id)
+      ].filter(Boolean))]
+      
+      const customersMap = new Map()
+      if (customerIds.length > 0) {
+        const { data: customersData } = await supabase
+          .from('customers')
+          .select('*')
+          .in('id', customerIds)
+        
+        customersData?.forEach((c: any) => customersMap.set(c.id, c))
       }
 
       // Transform data to Invoice format
-      const productInvoices = (productResult.data || []).map((order: any) => ({
+      const productInvoices = productOrders.map((order: any) => {
+        const customer = customersMap.get(order.customer_id)
+        return {
         id: order.id,
         invoice_number: order.order_number,
         booking_id: order.id,
         invoice_type: "product_order" as const,
         order_number: order.order_number,
         customer_id: order.customer_id,
-        customer_name: order.customer?.name || "",
-        customer_phone: order.customer?.phone || "",
-        customer_email: order.customer?.email || "",
+        customer_name: customer?.name || "",
+        customer_phone: customer?.phone || "",
+        customer_email: customer?.email || "",
         event_type: order.event_type,
         event_date: order.event_date,
         delivery_date: order.delivery_date,
@@ -132,19 +142,21 @@ export class InvoiceService {
         payment_status: order.amount_paid >= order.total_amount ? "paid" : order.amount_paid > 0 ? "partial" : "pending",
         notes: order.notes,
         created_at: order.created_at,
-        invoice_items: order.product_order_items,
-      }))
+        invoice_items: [],
+      }})
 
-      const packageInvoices = (packageResult.data || []).map((booking: any) => ({
+      const packageInvoices = packageBookings.map((booking: any) => {
+        const customer = customersMap.get(booking.customer_id)
+        return {
         id: booking.id,
         invoice_number: booking.package_number,
         booking_id: booking.id,
         invoice_type: "package_booking" as const,
         order_number: booking.package_number,
         customer_id: booking.customer_id,
-        customer_name: booking.customer?.name || "",
-        customer_phone: booking.customer?.phone || "",
-        customer_email: booking.customer?.email || "",
+        customer_name: customer?.name || "",
+        customer_phone: customer?.phone || "",
+        customer_email: customer?.email || "",
         event_type: booking.event_type,
         event_date: booking.event_date,
         delivery_date: booking.delivery_date,
@@ -161,8 +173,8 @@ export class InvoiceService {
         payment_status: booking.amount_paid >= booking.total_amount ? "paid" : booking.amount_paid > 0 ? "partial" : "pending",
         notes: booking.notes,
         created_at: booking.created_at,
-        invoice_items: booking.package_booking_items,
-      }))
+        invoice_items: [],
+      }})
 
       // Combine and sort by created_at
       const allInvoices = [...productInvoices, ...packageInvoices].sort(
@@ -247,16 +259,32 @@ export class InvoiceService {
         }
       }
 
+      // Get current user for franchise filtering
+      const userStr = typeof window !== 'undefined' ? localStorage.getItem('safawala_user') : null
+      const currentUser = userStr ? JSON.parse(userStr) : null
+      const isSuperAdmin = currentUser?.role === 'super_admin'
+      const franchiseId = currentUser?.franchise_id
+
       // Fetch from both product_orders and package_bookings where is_quote=false
+      let productQuery = supabase
+        .from("product_orders")
+        .select("status, total_amount, amount_paid, pending_amount")
+        .eq("is_quote", false)
+      
+      let packageQuery = supabase
+        .from("package_bookings")
+        .select("status, total_amount, amount_paid, pending_amount")
+        .eq("is_quote", false)
+
+      // Apply franchise filter unless super admin
+      if (!isSuperAdmin && franchiseId) {
+        productQuery = productQuery.eq("franchise_id", franchiseId)
+        packageQuery = packageQuery.eq("franchise_id", franchiseId)
+      }
+
       const [productResult, packageResult] = await Promise.all([
-        supabase
-          .from("product_orders")
-          .select("status, total_amount, amount_paid, pending_amount")
-          .eq("is_quote", false),
-        supabase
-          .from("package_bookings")
-          .select("status, total_amount, amount_paid, pending_amount")
-          .eq("is_quote", false),
+        productQuery,
+        packageQuery
       ])
 
       if (productResult.error) {

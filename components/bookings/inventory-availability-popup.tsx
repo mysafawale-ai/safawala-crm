@@ -39,6 +39,7 @@ interface AvailabilityData {
 interface InventoryAvailabilityPopupProps {
   packageId?: string
   variantId?: string
+  productId?: string
   eventDate?: Date
   deliveryDate?: Date
   returnDate?: Date
@@ -48,6 +49,7 @@ interface InventoryAvailabilityPopupProps {
 export function InventoryAvailabilityPopup({
   packageId,
   variantId,
+  productId,
   eventDate,
   deliveryDate,
   returnDate,
@@ -83,7 +85,10 @@ export function InventoryAvailabilityPopup({
       // Get products associated with the package/variant
       let productIds: string[] = []
 
-      if (variantId) {
+      if (productId) {
+        // Check specific product only
+        productIds = [productId]
+      } else if (variantId) {
         // Get products from variant inclusions (if they reference product IDs)
         const { data: variantData } = await supabase
           .from("package_variants")

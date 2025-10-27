@@ -115,16 +115,10 @@ export class QuoteService {
       })
 
       // Fetch from product_orders where is_quote=true
+      // NOTE: Fetching without joins due to missing FK constraints
       let productQuery = supabase
         .from("product_orders")
-        .select(`
-          *,
-          customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
-          product_order_items(
-            *,
-            product:products!left(name, security_deposit)
-          )
-        `)
+        .select("*")
         .eq("is_quote", true)
 
       // Apply franchise filter unless super admin
@@ -135,25 +129,10 @@ export class QuoteService {
       productQuery = productQuery.order("created_at", { ascending: false })
 
       // Fetch from package_bookings where is_quote=true
+      // NOTE: Fetching without joins due to missing FK constraints
       let packageQuery = supabase
         .from("package_bookings")
-        .select(`
-          *,
-          customer:customers!left(name, phone, email, whatsapp, address, city, state, pincode),
-          package_booking_items(
-            *,
-            package:package_sets!left(
-              name,
-              description,
-              security_deposit,
-              category:packages_categories!left(name)
-            ),
-            variant:package_variants!left(
-              name,
-              inclusions
-            )
-          )
-        `)
+        .select("*")
         .eq("is_quote", true)
 
       // Apply franchise filter unless super admin
@@ -202,6 +181,25 @@ export class QuoteService {
         productQuery,
         packageQuery
       ])
+      
+      // Log the actual error messages
+      if (productResult.error) {
+        console.error("❌ Product query error details:", {
+          message: productResult.error.message,
+          hint: productResult.error.hint,
+          details: productResult.error.details,
+          code: productResult.error.code
+        })
+      }
+      
+      if (packageResult.error) {
+        console.error("❌ Package query error details:", {
+          message: packageResult.error.message,
+          hint: packageResult.error.hint,
+          details: packageResult.error.details,
+          code: packageResult.error.code
+        })
+      }
 
       console.log("📦 Product orders query result:", {
         success: !productResult.error,
@@ -236,22 +234,80 @@ export class QuoteService {
         if (typeof window !== 'undefined') {
           ;(window as any).__QUOTE_SCHEMA_ERROR__ = true
         }
-        // Don't throw - continue with product data
+        // Don't throw - continue with package data
+      }
+
+      // Fetch related data separately (since FK relationships aren't working)
+      const productOrders = productResult.data || []
+      const packageBookings = packageResult.data || []
+      
+      // Fetch customers
+      const customerIds = [...new Set([
+        ...productOrders.map((o: any) => o.customer_id),
+        ...packageBookings.map((b: any) => b.customer_id)
+      ].filter(Boolean))]
+      
+      const customersMap = new Map()
+      if (customerIds.length > 0) {
+        const { data: customersData } = await supabase
+          .from('customers')
+          .select('*')
+          .in('id', customerIds)
+        
+        customersData?.forEach((c: any) => customersMap.set(c.id, c))
+      }
+      
+      // Fetch product order items
+      const orderIds = productOrders.map((o: any) => o.id)
+      const productOrderItemsMap = new Map()
+      if (orderIds.length > 0) {
+        const { data: itemsData } = await supabase
+          .from('product_order_items')
+          .select('*')
+          .in('order_id', orderIds)
+        
+        itemsData?.forEach((item: any) => {
+          if (!productOrderItemsMap.has(item.order_id)) {
+            productOrderItemsMap.set(item.order_id, [])
+          }
+          productOrderItemsMap.get(item.order_id).push(item)
+        })
+      }
+      
+      // Fetch package booking items
+      const bookingIds = packageBookings.map((b: any) => b.id)
+      const packageBookingItemsMap = new Map()
+      if (bookingIds.length > 0) {
+        const { data: itemsData } = await supabase
+          .from('package_booking_items')
+          .select('*')
+          .in('booking_id', bookingIds)
+        
+        itemsData?.forEach((item: any) => {
+          if (!packageBookingItemsMap.has(item.booking_id)) {
+            packageBookingItemsMap.set(item.booking_id, [])
+          }
+          packageBookingItemsMap.get(item.booking_id).push(item)
+        })
       }
 
       // Transform data to Quote format
-      const productQuotes = (productResult.data || []).map((order: any) => ({
+      const productQuotes = productOrders.map((order: any) => {
+        const customer = customersMap.get(order.customer_id)
+        const items = productOrderItemsMap.get(order.id) || []
+        
+        return {
         id: order.id,
         quote_number: order.order_number,
         customer_id: order.customer_id,
-        customer_name: order.customer?.name || '',
-        customer_phone: order.customer?.phone || '',
-        customer_email: order.customer?.email || '',
-        customer_whatsapp: order.customer?.whatsapp || '',
-        customer_address: order.customer?.address || '',
-        customer_city: order.customer?.city || '',
-        customer_state: order.customer?.state || '',
-        customer_pincode: order.customer?.pincode || '',
+        customer_name: customer?.name || '',
+        customer_phone: customer?.phone || '',
+        customer_email: customer?.email || '',
+        customer_whatsapp: customer?.whatsapp || '',
+        customer_address: customer?.address || '',
+        customer_city: customer?.city || '',
+        customer_state: customer?.state || '',
+        customer_pincode: customer?.pincode || '',
         event_type: order.event_type,
         event_participant: order.event_participant,
         event_date: order.event_date,
@@ -281,27 +337,31 @@ export class QuoteService {
         sales_closed_by: order.sales_closed_by_id,
         sales_staff_name: null, // Will be populated separately if needed
         created_at: order.created_at,
-        quote_items: (order.product_order_items || []).map((item: any) => ({
+        quote_items: items.map((item: any) => ({
           ...item,
-          product_name: item.product?.name || item.product_name || 'Product',
-          product_security_deposit: item.product?.security_deposit || 0
+          product_name: item.product_name || 'Product',
+          product_security_deposit: 0
         })),
         booking_type: 'product',
         booking_subtype: order.booking_type || 'rental' // rental or sale
-      }))
+      }})
 
-      const packageQuotes = (packageResult.data || []).map((booking: any) => ({
+      const packageQuotes = packageBookings.map((booking: any) => {
+        const customer = customersMap.get(booking.customer_id)
+        const items = packageBookingItemsMap.get(booking.id) || []
+        
+        return {
         id: booking.id,
         quote_number: booking.package_number,
         customer_id: booking.customer_id,
-        customer_name: booking.customer?.name || '',
-        customer_phone: booking.customer?.phone || '',
-        customer_email: booking.customer?.email || '',
-        customer_whatsapp: booking.customer?.whatsapp || '',
-        customer_address: booking.customer?.address || '',
-        customer_city: booking.customer?.city || '',
-        customer_state: booking.customer?.state || '',
-        customer_pincode: booking.customer?.pincode || '',
+        customer_name: customer?.name || '',
+        customer_phone: customer?.phone || '',
+        customer_email: customer?.email || '',
+        customer_whatsapp: customer?.whatsapp || '',
+        customer_address: customer?.address || '',
+        customer_city: customer?.city || '',
+        customer_state: customer?.state || '',
+        customer_pincode: customer?.pincode || '',
         event_type: booking.event_type,
         event_participant: booking.event_participant,
         event_date: booking.event_date,
@@ -331,26 +391,20 @@ export class QuoteService {
         sales_closed_by: booking.sales_closed_by_id,
         sales_staff_name: null, // Will be populated separately if needed
         created_at: booking.created_at,
-        quote_items: (booking.package_booking_items || []).map((item: any) => ({
+        quote_items: items.map((item: any) => ({
           ...item,
-          product_name: item.package?.name || item.package_name || 'Package',
-          package_name: item.package?.name || '',
-          package_description: item.package?.description || '',
-          package_security_deposit: item.package?.security_deposit || 0,
-          category: item.package?.category?.name || '',
-          variant_name: item.variant?.name || '',
+          product_name: item.package_name || 'Package',
+          package_name: item.package_name || '',
+          package_description: '',
+          package_security_deposit: 0,
+          category: '',
+          variant_name: item.variant_name || '',
           extra_safas: item.extra_safas || 0,
-          // Use inclusions array directly from variant (text[] field)
-          variant_inclusions: Array.isArray(item.variant?.inclusions) 
-            ? item.variant.inclusions.map((inclusion: string) => ({
-                product_name: inclusion,
-                quantity: 1
-              }))
-            : []
+          variant_inclusions: []
         })),
         booking_type: 'package',
         booking_subtype: 'rental' // packages are always rental
-      }))
+      }})
 
       // Combine and sort by created_at
       const allQuotes = [...productQuotes, ...packageQuotes].sort((a, b) => 

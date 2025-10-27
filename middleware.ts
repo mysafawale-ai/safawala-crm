@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 
 // Unified middleware: protect all pages by default; allow public paths and API
 const PUBLIC_PATH_PREFIXES = [
-  "/",
   "/auth/login",
   "/auth/logout",
   "/_next",
@@ -12,9 +11,9 @@ const PUBLIC_PATH_PREFIXES = [
 ]
 
 function isPublic(pathname: string) {
-  // Root path is considered public only ("/") — deeper pages are protected
+  // Root path "/" is the login page - always public
   if (pathname === "/") return true
-  return PUBLIC_PATH_PREFIXES.some((p) => p !== "/" && pathname.startsWith(p))
+  return PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p))
 }
 
 function hasSupabaseCookie(req: NextRequest): boolean {
@@ -46,7 +45,7 @@ export function middleware(request: NextRequest) {
   const isAuthed = hasUserCookie || hasLegacySession || hasSb
 
   if (!isAuthed) {
-    const loginUrl = new URL("/auth/login", request.url)
+    const loginUrl = new URL("/", request.url)
     loginUrl.searchParams.set("redirect", pathname)
     return NextResponse.redirect(loginUrl)
   }
@@ -60,7 +59,7 @@ export function middleware(request: NextRequest) {
         throw new Error("invalid")
       }
     } catch {
-      const loginUrl = new URL("/auth/login", request.url)
+      const loginUrl = new URL("/", request.url)
       const resp = NextResponse.redirect(loginUrl)
       resp.cookies.set("safawala_session", "", { maxAge: 0, path: "/" })
       return resp

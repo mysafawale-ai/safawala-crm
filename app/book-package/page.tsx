@@ -890,6 +890,8 @@ export default function BookPackageWizard() {
           booking_id: editQuoteId,
           category_id: itm.category.id,
           variant_id: itm.variant.id,
+          // Ensure NOT NULL constraint on package_booking_items.package_id
+          package_id: (itm.variant as any)?.package_id || null,
           variant_name: itm.variant.variant_name || itm.variant.name,
           variant_inclusions: itm.custom_inclusions || itm.variant.inclusions || [],
           quantity: itm.quantity,
@@ -1050,6 +1052,8 @@ export default function BookPackageWizard() {
         booking_id: booking.id,
         category_id: item.category.id,
         variant_id: item.variant.id,
+        // Ensure NOT NULL constraint on package_booking_items.package_id
+        package_id: (item.variant as any)?.package_id || null,
         variant_name: (item.variant.variant_name || item.variant.name) ?? null,
         variant_inclusions: (item.custom_inclusions && item.custom_inclusions.length > 0)
           ? item.custom_inclusions

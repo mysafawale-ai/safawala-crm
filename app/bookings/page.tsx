@@ -45,6 +45,7 @@ import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { ItemsDisplayDialog, ItemsSelectionDialog } from "@/components/shared"
 import type { SelectedItem, Product, PackageSet } from "@/components/shared/types/items"
+import { createClient } from "@/lib/supabase/client"
 
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
 import ManageOffersDialog from "@/components/ManageOffersDialog"
@@ -71,6 +72,14 @@ export default function BookingsPage() {
 
   const { data: bookings = [], loading, error, refresh } = useData<Booking[]>("bookings")
   const [currentUser, setCurrentUser] = useState<any>(null)
+  
+  // Fetch products and categories for the selection dialog
+  const [products, setProducts] = useState<Product[]>([])
+  const [packages, setPackages] = useState<PackageSet[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [packagesCategories, setPackagesCategories] = useState<any[]>([])
+  const [subcategories, setSubcategories] = useState<any[]>([])
+  
   const [bookingItems, setBookingItems] = useState<Record<string, any[]>>({})
   const [itemsLoading, setItemsLoading] = useState<Record<string, boolean>>({})
   const [itemsError, setItemsError] = useState<Record<string, string>>({})
@@ -99,6 +108,65 @@ export default function BookingsPage() {
         }
       } catch {}
     })()
+  }, [])
+
+  // Load inventory data (products, packages, categories)
+  useEffect(() => {
+    const loadInventoryData = async () => {
+      try {
+        const supabase = createClient()
+        
+        // Fetch products
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .order('name')
+        
+        // Fetch product_categories (for products)
+        const { data: categoriesData } = await supabase
+          .from('product_categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('name')
+        
+        // Separate main categories and subcategories
+        const mainCategories = categoriesData?.filter(c => !c.parent_id) || []
+        const subCategories = categoriesData?.filter(c => c.parent_id) || []
+        
+        // Fetch package_sets
+        const { data: packagesData } = await supabase
+          .from('package_sets')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order')
+        
+        // Fetch packages_categories (for packages)
+        const { data: packagesCategoriesData } = await supabase
+          .from('packages_categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order')
+        
+        setProducts(productsData || [])
+        setCategories(mainCategories)
+        setSubcategories(subCategories)
+        setPackages(packagesData || [])
+        setPackagesCategories(packagesCategoriesData || [])
+        
+        console.log('[Bookings] Loaded inventory:', {
+          products: productsData?.length || 0,
+          categories: mainCategories.length,
+          subcategories: subCategories.length,
+          packages: packagesData?.length || 0,
+          packagesCategories: packagesCategoriesData?.length || 0,
+        })
+      } catch (err) {
+        console.error('[Bookings] Failed to load inventory:', err)
+      }
+    }
+    
+    loadInventoryData()
   }, [])
 
   // Fetch booking items for display with comprehensive error handling
@@ -1767,9 +1835,22 @@ export default function BookingsPage() {
             }
           }}
           type={(currentBookingForItems as any).source === 'package_bookings' ? 'package' : 'product'}
-          items={[]} // Load from API in production
+          items={
+            (currentBookingForItems as any).source === 'package_bookings'
+              ? packages
+              : products
+          }
+          categories={
+            (currentBookingForItems as any).source === 'package_bookings'
+              ? packagesCategories
+              : categories
+          }
+          subcategories={subcategories}
           context={{
             bookingType: (currentBookingForItems as any).source === 'package_bookings' ? 'sale' : 'rental',
+            eventDate: currentBookingForItems.event_date,
+            deliveryDate: currentBookingForItems.delivery_date,
+            returnDate: currentBookingForItems.pickup_date,
             onItemSelect: (item) => {
               if ('variants' in item || 'package_variants' in item) {
                 // Package item
@@ -1798,10 +1879,10 @@ export default function BookingsPage() {
                 setSelectedItems(prev => [...prev, newItem])
               }
             },
-            deliveryDate: currentBookingForItems.delivery_date,
-            returnDate: currentBookingForItems.pickup_date,
           }}
           selectedItems={selectedItems}
+          title="Select Products for Booking"
+          description="Choose products from your inventory to add to this booking"
         />
       )}
     </div>

@@ -35,7 +35,13 @@ export default function LoginPage() {
         if (user) {
           const urlParams = new URLSearchParams(window.location.search)
           const redirectTo = urlParams.get("redirect") || "/dashboard"
-          router.push(redirectTo)
+          
+          // Prevent redirect loop - don't redirect if already on login page
+          if (redirectTo === "/" || redirectTo === window.location.pathname) {
+            router.push("/dashboard")
+          } else {
+            router.push(redirectTo)
+          }
           return
         }
       } catch (error) {
@@ -45,6 +51,7 @@ export default function LoginPage() {
       }
     }
 
+    // Slight delay to avoid race conditions
     setTimeout(checkAuth, 100)
   }, [router])
 

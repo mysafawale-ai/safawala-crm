@@ -65,6 +65,7 @@ import type {
 import { useProductFilter, useAvailabilityCheck } from '../hooks/useItems'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { InventoryAvailabilityPopup } from '@/components/bookings/inventory-availability-popup'
 
 interface ItemsSelectionDialogProps {
   open: boolean
@@ -95,7 +96,6 @@ export function ItemsSelectionDialog({
   onBarcodeSearch,
 }: ItemsSelectionDialogProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [availabilityModalItem, setAvailabilityModalItem] = useState<string | null>(null)
 
   // Filter hook
@@ -163,248 +163,147 @@ export function ItemsSelectionDialog({
   }
 
   // Render product card
-  const renderProductCard = (product: Product, isGrid: boolean = true) => {
+  const renderProductCard = (product: Product) => {
     const selectedQty = getSelectedQuantity(product.id)
     const currentQty = quantities[product.id] || 1
     const availableStock = product.stock_available || 0
     const isOutOfStock = availableStock === 0
-    const availability = getAvailabilityStatus(product.id)
+    const isInCart = selectedQty > 0
 
-    const cardContent = (
+    return (
       <div className={cn(
-        "border rounded-lg overflow-hidden hover:shadow-md transition-all",
+        "border rounded-lg overflow-hidden hover:shadow-md transition-all bg-white",
         isOutOfStock && "opacity-60 bg-gray-50"
       )}>
-        {isGrid ? (
-          // Grid View
-          <div className="p-3 space-y-3">
-            {/* Image */}
-            <div className="relative">
-              {product.image_url ? (
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-full h-32 object-cover rounded"
-                />
+        {/* Image */}
+        <div className="relative aspect-square">
+          {product.image_url ? (
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+              <Package className="h-8 w-8 text-gray-300" />
+            </div>
+          )}
+          
+          {/* Stock Badge */}
+          <Badge
+            className={cn(
+              "absolute top-1 right-1 text-[10px] px-1.5 py-0",
+              availableStock > 10 ? "bg-green-500 text-white" :
+              availableStock > 0 ? "bg-yellow-500 text-white" :
+              "bg-red-500 text-white"
+            )}
+          >
+            {availableStock} left
+          </Badge>
+          
+          {isInCart && (
+            <Badge className="absolute top-1 left-1 bg-blue-500 text-white text-[10px] px-1.5 py-0">
+              {selectedQty} in cart
+            </Badge>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="p-2 space-y-1.5">
+          <h4 className="font-semibold text-xs line-clamp-2 min-h-[2rem]">
+            {product.name}
+          </h4>
+          
+          {product.product_code && (
+            <p className="text-[10px] text-gray-500">
+              {product.product_code}
+            </p>
+          )}
+
+          {/* Price */}
+          <div className="font-bold text-sm text-green-700">
+            {formatCurrency(
+              context.bookingType === 'rental' 
+                ? product.rental_price 
+                : product.sale_price
+            )}
+          </div>
+
+          {/* Check Availability Button - Always visible */}
+          {context.eventDate && (
+            <InventoryAvailabilityPopup
+              productId={product.id}
+              eventDate={new Date(context.eventDate)}
+              deliveryDate={context.deliveryDate ? new Date(context.deliveryDate) : undefined}
+              returnDate={context.returnDate ? new Date(context.returnDate) : undefined}
+            >
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-6 text-[10px]"
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Check Availability
+              </Button>
+            </InventoryAvailabilityPopup>
+          )}
+
+          {/* Add to Cart or Quantity Selector */}
+          {!isInCart ? (
+            <Button
+              size="sm"
+              className="w-full h-7 text-xs"
+              onClick={() => handleSelectItem(product)}
+              disabled={isOutOfStock}
+            >
+              {isOutOfStock ? (
+                <>
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Out of Stock
+                </>
               ) : (
-                <div className="w-full h-32 bg-gray-100 rounded flex items-center justify-center">
-                  <Package className="h-12 w-12 text-gray-300" />
-                </div>
+                <>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add to Cart
+                </>
               )}
-              
-              {/* Stock Badge */}
-              <Badge
-                className={cn(
-                  "absolute top-2 right-2",
-                  availableStock > 10 ? "bg-green-100 text-green-800" :
-                  availableStock > 0 ? "bg-yellow-100 text-yellow-800" :
-                  "bg-red-100 text-red-800"
-                )}
-              >
-                {availableStock} in stock
-              </Badge>
-            </div>
-
-            {/* Info */}
+            </Button>
+          ) : (
             <div className="space-y-1.5">
-              <h4 className="font-semibold text-sm line-clamp-2 min-h-[2.5rem]">
-                {product.name}
-              </h4>
-              
-              {product.category && (
-                <Badge variant="outline" className="text-xs">
-                  {product.category}
-                </Badge>
-              )}
-              
-              {product.product_code && (
-                <p className="text-xs text-gray-500">
-                  Code: {product.product_code}
-                </p>
-              )}
-            </div>
-
-            {/* Pricing */}
-            <div className="flex items-center justify-between text-sm">
-              <div>
-                <div className="font-bold text-green-700">
-                  {formatCurrency(
-                    context.bookingType === 'rental' 
-                      ? product.rental_price 
-                      : product.sale_price
-                  )}
-                </div>
-                {context.bookingType === 'rental' && product.security_deposit && (
-                  <div className="text-xs text-gray-500">
-                    +{formatCurrency(product.security_deposit)} deposit
-                  </div>
-                )}
-              </div>
-              {selectedQty > 0 && (
-                <Badge className="bg-blue-100 text-blue-800">
-                  {selectedQty} selected
-                </Badge>
-              )}
-            </div>
-
-            {/* Quantity Selector */}
-            <div className="flex items-center gap-2">
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-7 w-7"
-                onClick={() => updateQuantity(product.id, currentQty - 1)}
-                disabled={currentQty <= 1}
-              >
-                <Plus className="h-3 w-3 rotate-45" />
-              </Button>
-              <Input
-                type="number"
-                value={currentQty}
-                onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 1)}
-                className="h-7 w-14 text-center text-sm"
-                min={1}
-              />
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-7 w-7"
-                onClick={() => updateQuantity(product.id, currentQty + 1)}
-                disabled={currentQty >= availableStock && inStockOnly}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-
-            {/* Actions */}
-            <div className="space-y-2">
-              {context.eventDate && context.onCheckAvailability && (
+              {/* Quantity Selector */}
+              <div className="flex items-center gap-1">
                 <Button
-                  size="sm"
+                  size="icon"
                   variant="outline"
-                  className="w-full h-7 text-xs"
-                  onClick={() => handleCheckAvailability(product.id)}
+                  className="h-6 w-6"
+                  onClick={() => updateQuantity(product.id, currentQty - 1)}
+                  disabled={currentQty <= 1}
                 >
-                  <Eye className="h-3 w-3 mr-1" />
-                  Check Availability
+                  <Plus className="h-3 w-3 rotate-45" />
                 </Button>
-              )}
-              
-              <Button
-                size="sm"
-                className="w-full"
-                onClick={() => handleSelectItem(product)}
-                disabled={isOutOfStock}
-              >
-                {isOutOfStock ? (
-                  <>
-                    <XCircle className="h-3 w-3 mr-1" />
-                    Out of Stock
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add to Cart
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Availability Indicator */}
-            {availability && (
-              <div className={cn(
-                "text-xs px-2 py-1 rounded flex items-center gap-1",
-                availability.status === 'available' ? "bg-green-50 text-green-700" :
-                availability.status === 'limited' ? "bg-yellow-50 text-yellow-700" :
-                "bg-red-50 text-red-700"
-              )}>
-                {availability.status === 'available' ? (
-                  <CheckCircle className="h-3 w-3" />
-                ) : (
-                  <AlertTriangle className="h-3 w-3" />
-                )}
-                {availability.status === 'available' ? 'Available' :
-                 availability.status === 'limited' ? 'Limited Stock' : 'Unavailable'}
-              </div>
-            )}
-          </div>
-        ) : (
-          // List View
-          <div className="p-4 flex gap-4">
-            {/* Image */}
-            {product.image_url ? (
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-20 h-20 object-cover rounded"
-              />
-            ) : (
-              <div className="w-20 h-20 bg-gray-100 rounded flex items-center justify-center shrink-0">
-                <Package className="h-8 w-8 text-gray-300" />
-              </div>
-            )}
-
-            {/* Info */}
-            <div className="flex-1 space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-semibold">{product.name}</h4>
-                  {product.product_code && (
-                    <p className="text-xs text-gray-500">Code: {product.product_code}</p>
-                  )}
-                </div>
-                {selectedQty > 0 && (
-                  <Badge className="bg-blue-100 text-blue-800">
-                    {selectedQty} selected
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {product.category && (
-                  <Badge variant="outline" className="text-xs">{product.category}</Badge>
-                )}
-                <Badge className={cn(
-                  availableStock > 10 ? "bg-green-100 text-green-800" :
-                  availableStock > 0 ? "bg-yellow-100 text-yellow-800" :
-                  "bg-red-100 text-red-800"
-                )}>
-                  {availableStock} in stock
-                </Badge>
+                <Input
+                  type="number"
+                  value={currentQty}
+                  onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 1)}
+                  className="h-6 flex-1 text-center text-xs px-1"
+                  min={1}
+                  max={availableStock}
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-6 w-6"
+                  onClick={() => updateQuantity(product.id, currentQty + 1)}
+                  disabled={currentQty >= availableStock}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
               </div>
             </div>
-
-            {/* Price and Actions */}
-            <div className="flex flex-col items-end gap-2 shrink-0">
-              <div className="text-right">
-                <div className="font-bold text-green-700">
-                  {formatCurrency(
-                    context.bookingType === 'rental' 
-                      ? product.rental_price 
-                      : product.sale_price
-                  )}
-                </div>
-                {context.bookingType === 'rental' && product.security_deposit && (
-                  <div className="text-xs text-gray-500">
-                    +{formatCurrency(product.security_deposit)} deposit
-                  </div>
-                )}
-              </div>
-              
-              <Button
-                size="sm"
-                onClick={() => handleSelectItem(product)}
-                disabled={isOutOfStock}
-              >
-                {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     )
-
-    return <div key={product.id}>{cardContent}</div>
   }
 
   // Render package card (simplified - you can expand this)
@@ -466,37 +365,22 @@ export function ItemsSelectionDialog({
                 className="pl-10"
               />
             </div>
-            
-            {/* View Mode Toggle */}
-            <div className="flex border rounded-md">
-              <Button
-                size="sm"
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                onClick={() => setViewMode('grid')}
-                className="rounded-r-none"
-              >
-                Grid
-              </Button>
-              <Button
-                size="sm"
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                onClick={() => setViewMode('list')}
-                className="rounded-l-none"
-              >
-                List
-              </Button>
-            </div>
           </div>
 
           {/* Category Filters */}
-          <div className="flex gap-2 flex-wrap">
-            {categories.length > 0 && (
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <div className="flex gap-2 flex-wrap">{categories.length > 0 && (
+              <Select value={selectedCategory || 'all'} onValueChange={(v) => {
+                setSelectedCategory(v === 'all' ? '' : v)
+                // Reset subcategory when main category changes
+                if (v === 'all' || v !== selectedCategory) {
+                  setSelectedSubcategory('')
+                }
+              }}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
@@ -506,15 +390,16 @@ export function ItemsSelectionDialog({
               </Select>
             )}
             
-            {type === 'product' && subcategories.length > 0 && (
-              <Select value={selectedSubcategory} onValueChange={setSelectedSubcategory}>
+            {/* Show subcategories only when a main category is selected and it has subcategories */}
+            {type === 'product' && selectedCategory && subcategories.filter(sub => sub.parent_id === selectedCategory).length > 0 && (
+              <Select value={selectedSubcategory || 'all'} onValueChange={(v) => setSelectedSubcategory(v === 'all' ? '' : v)}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="All Subcategories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Subcategories</SelectItem>
+                  <SelectItem value="all">All Subcategories</SelectItem>
                   {subcategories
-                    .filter(sub => !selectedCategory || sub.parent_id === selectedCategory)
+                    .filter(sub => sub.parent_id === selectedCategory)
                     .map((sub) => (
                       <SelectItem key={sub.id} value={sub.id}>
                         {sub.name}
@@ -536,27 +421,22 @@ export function ItemsSelectionDialog({
         </div>
 
         {/* Items Grid/List */}
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <div className="flex-1 -mx-6 px-6 overflow-y-auto max-h-[60vh]">
           {filteredItems.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
               <p>No {type}s found</p>
             </div>
           ) : (
-            <div className={cn(
-              viewMode === 'grid'
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                : "space-y-3",
-              "pb-4"
-            )}>
+            <div className="grid grid-cols-5 gap-3 pb-4">
               {filteredItems.map((item) =>
                 type === 'product'
-                  ? renderProductCard(item as Product, viewMode === 'grid')
-                  : renderPackageCard(item as PackageSet, viewMode === 'grid')
+                  ? renderProductCard(item as Product)
+                  : renderPackageCard(item as PackageSet)
               )}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t">
