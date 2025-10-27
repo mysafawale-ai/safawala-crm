@@ -241,14 +241,6 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             squareCells={false}
             className={`rounded-lg border-2 border-border/50 w-full bg-background/50 ${compact ? (mini ? '[--cell-size:1.5rem]' : '[--cell-size:2rem]') : '[--cell-size:3.5rem] md:[--cell-size:4rem]'}`}
           />
-          {/* Always show a small legend for reference */}
-          <div className={`mt-4 flex items-center ${mini ? 'gap-3 text-[11px]' : 'gap-5 text-xs'} justify-center bg-muted/30 rounded-lg py-2.5 px-4 flex-wrap`}>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-green-500 border border-green-600/30`} /> Confirmed</span>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-blue-500 border border-blue-600/30`} /> Delivered</span>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-orange-500 border border-orange-600/30`} /> Pending</span>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-purple-500 border border-purple-600/30`} /> Quote</span>
-            <span className="inline-flex items-center gap-1.5 font-medium"><span className={`inline-block ${mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} rounded-sm bg-gray-400 border border-gray-500/30`} /> Cancelled</span>
-          </div>
         </div>
       </CardContent>
 
