@@ -286,17 +286,9 @@ export default function DashboardPage() {
 
         {/* Booking Calendar - Only show if user has bookings permission */}
         {user?.permissions?.bookings && (
-          <Card>
-            <CardHeader>
-              <CardTitle>📅 Booking Calendar</CardTitle>
-              <CardDescription>View all your bookings at a glance</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <BookingCalendar 
-                franchiseId={user?.role !== 'super_admin' ? user?.franchise_id : undefined} 
-              />
-            </CardContent>
-          </Card>
+          <BookingCalendar 
+            franchiseId={user?.role !== 'super_admin' ? user?.franchise_id : undefined} 
+          />
         )}
 
         <div className="grid gap-6 lg:grid-cols-3">
