@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { requireAuth, canAccessFranchise } from "@/lib/auth-middleware"
 
 export const dynamic = "force-dynamic"
 
@@ -12,6 +13,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // AuthN/Z: ensure user is authenticated and scoped to the return's franchise
+    const auth = await requireAuth(request, 'readonly')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+
     const supabase = createClient()
     const returnId = params.id
     
@@ -31,6 +39,10 @@ export async function GET(
         { error: "Return not found" },
         { status: 404 }
       )
+    }
+    // Enforce franchise isolation
+    if (!canAccessFranchise(user as any, returnRecord.franchise_id)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     
     // 2. Get products from booking
@@ -90,7 +102,25 @@ export async function GET(
       }
     }
     
-    // 5. Calculate preview for each product
+    // 5. If applicable, fetch handover restocked quantities to avoid double counting
+    let handoverRestockedByProduct: Record<string, number> = {}
+    let handoverLaundryByProduct: Record<string, number> = {}
+    if (returnRecord.delivery_id) {
+      const { data: handoverRows, error: handoverErr } = await supabase
+        .from("delivery_handover_items")
+        .select("product_id, restocked_qty, returned_laundry_qty")
+        .eq("delivery_id", returnRecord.delivery_id)
+        .in("product_id", productIds)
+
+      if (!handoverErr && handoverRows) {
+        for (const row of handoverRows) {
+          if (row?.product_id) handoverRestockedByProduct[row.product_id] = Number(row.restocked_qty) || 0
+          if (row?.product_id) handoverLaundryByProduct[row.product_id] = Number(row.returned_laundry_qty) || 0
+        }
+      }
+    }
+    
+    // 6. Calculate preview for each product
     const preview = (products || []).map(product => {
       // Find item data if provided
       const itemData = items.find(i => i.product_id === product.id)
@@ -101,18 +131,26 @@ export async function GET(
       const qty_damaged = itemData?.qty_damaged || 0
       const qty_lost = itemData?.qty_lost || 0
       const send_to_laundry = itemData?.send_to_laundry || false
+      const qty_to_laundry = typeof itemData?.qty_to_laundry === 'number'
+        ? Math.max(0, Math.min(itemData.qty_to_laundry, qty_returned))
+        : (send_to_laundry ? qty_returned : 0)
       
       // Calculate new inventory values
-      // qty_not_used: Goes directly to available (never used, no laundry needed)
-      // qty_returned: Goes to laundry if send_to_laundry is true, otherwise to available
-      const directToAvailable = qty_not_used + (send_to_laundry ? 0 : qty_returned)
-      const tolaundry = send_to_laundry ? qty_returned : 0
+      // handoverRestocked: quantities that were already restocked during handover (subset of not_used)
+  const alreadyRestocked = Math.min(handoverRestockedByProduct[product.id] || 0, qty_not_used)
+  const alreadyToLaundry = Math.max(0, handoverLaundryByProduct[product.id] || 0)
+      // qty_not_used: Goes directly to available, but avoid double-adding already restocked during handover
+      // qty_returned: Split between laundry and direct restock based on qty_to_laundry
+      const directToAvailable = (qty_not_used - alreadyRestocked) + (qty_returned - qty_to_laundry)
+  const tolaundry = qty_to_laundry
       
       const new_stock_available = product.stock_available + directToAvailable
       const new_stock_damaged = product.stock_damaged + qty_damaged
       const new_stock_total = product.stock_total - qty_lost
       const new_stock_in_laundry = (product.stock_in_laundry || 0) + tolaundry
-      const new_stock_booked = Math.max(0, (product.stock_booked || 0) - qty_delivered)
+  // Booked should be decreased only by quantities not already released at handover (restock or laundry)
+  const bookedRelease = Math.max(0, qty_delivered - ((handoverRestockedByProduct[product.id] || 0) + alreadyToLaundry))
+      const new_stock_booked = Math.max(0, (product.stock_booked || 0) - bookedRelease)
       
       return {
         product_id: product.id,
@@ -146,15 +184,17 @@ export async function GET(
           not_used: qty_not_used,
           damaged: qty_damaged,
           lost: qty_lost,
-          send_to_laundry
+          send_to_laundry,
+          qty_to_laundry
         },
         warnings: [
           ...(new_stock_total < 0 ? ["Total stock would go negative"] : []),
           ...(new_stock_available < 0 ? ["Available stock would go negative"] : []),
           ...(qty_lost > 0 ? [`${qty_lost} items will be permanently removed`] : []),
           ...(qty_damaged > 0 ? [`${qty_damaged} items will be archived as damaged`] : []),
-          ...(send_to_laundry && qty_returned > 0 ? [`${qty_returned} used items will be sent to laundry`] : []),
-          ...(qty_not_used > 0 ? [`${qty_not_used} unused items will go directly to available`] : [])
+          ...(tolaundry > 0 ? [`${tolaundry} used items will be sent to laundry`] : []),
+          ...(alreadyToLaundry > 0 ? [`${alreadyToLaundry} items were already sent to laundry at handover`] : []),
+          ...(qty_not_used > 0 ? [`${qty_not_used} unused items will go directly to available${alreadyRestocked > 0 ? ` (of which ${alreadyRestocked} already restocked at handover)` : ''}`] : [])
         ]
       }
     })

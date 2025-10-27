@@ -1,36 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { requireAuth } from "@/lib/auth-middleware"
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) throw new Error("No session")
-    const sessionData = JSON.parse(cookieHeader.value)
-    const supabase = createClient()
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, franchise_id, role')
-      .eq('id', sessionData.id)
-      .eq('is_active', true)
-      .single()
-    if (error || !user) throw new Error('Auth failed')
-    return { userId: user.id, franchiseId: user.franchise_id, isSuperAdmin: user.role === 'super_admin' }
-  } catch {
-    throw new Error('Authentication required')
-  }
-}
+// Authentication is handled via requireAuth which uses Supabase auth-helpers
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
+    const { id } = params
+    const auth = await requireAuth(request, 'readonly')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.franchise_id
+    const isSuperAdmin = user.is_super_admin
     const supabase = createClient()
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
     const type = request.nextUrl.searchParams.get('type') || 'unified'
     let booking: any = null
     let error: any = null
@@ -58,7 +48,7 @@ export async function GET(
           customer:customers(*),
           items:booking_items(*, product:products(*))
         `)
-        .eq("id", params.id)
+        .eq("id", id)
         .single()
       booking = res.data; error = res.error
     }
@@ -74,9 +64,6 @@ export async function GET(
 
     return NextResponse.json({ booking })
   } catch (error) {
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
     return NextResponse.json({ error: "Failed to fetch booking" }, { status: 500 })
   }
 }
@@ -86,8 +73,14 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuth(request, 'staff')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.franchise_id
+    const isSuperAdmin = user.is_super_admin
     const supabase = createClient()
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
     const body = await request.json()
     const type = request.nextUrl.searchParams.get('type') || 'unified'
     let table = 'bookings'
@@ -120,9 +113,6 @@ export async function PATCH(
 
     return NextResponse.json({ booking })
   } catch (error) {
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
     return NextResponse.json({ error: "Failed to update booking" }, { status: 500 })
   }
 }
@@ -132,8 +122,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuth(request, 'staff')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.franchise_id
+    const isSuperAdmin = user.is_super_admin
     const supabase = createClient()
-    const { franchiseId, isSuperAdmin } = await getUserFromSession(request)
     const type = request.nextUrl.searchParams.get('type') || 'unified'
     let table = 'bookings'
     if (type === 'product_order') table = 'product_orders'
@@ -163,9 +159,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Booking deleted successfully" })
   } catch (error) {
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
     return NextResponse.json({ error: "Failed to delete booking" }, { status: 500 })
   }
 }

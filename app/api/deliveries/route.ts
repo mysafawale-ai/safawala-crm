@@ -1,20 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer, getDefaultFranchiseId } from "@/lib/supabase-server-simple"
-import { createClient } from "@/lib/supabase-server"
-
-async function validateAuth(request: NextRequest) {
-  const franchiseId = await getDefaultFranchiseId()
-  return { franchiseId, userId: "system", userRole: "admin" }
-}
+import { createClient } from "@/lib/supabase/server"
+import { supabaseServer } from "@/lib/supabase-server-simple"
+import { requireAuth } from "@/lib/auth-middleware"
 
 export async function GET(request: NextRequest) {
   try {
-    const { franchiseId } = await validateAuth(request)
+    // Require authentication and derive franchise context
+    const auth = await requireAuth(request, 'readonly')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+  const user = auth.authContext!.user
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
+  const scope = searchParams.get('scope') // super_admin can pass scope=all to view all franchises
 
-    // Use anon client to respect RLS policies
-    const supabase = createClient()
+  // Determine effective franchise filter
+  const isSuper = !!user.is_super_admin
+  const effectiveFranchiseId = isSuper && scope === 'all' ? null : (user.franchise_id || null)
+
+  console.log('[Deliveries API] Fetching deliveries for franchise:', effectiveFranchiseId || (isSuper ? 'ALL (super_admin)' : 'NONE'))
+
+    // Use service role client (bypasses RLS) but add manual franchise filter
+    const supabase = await createClient()
 
     let query = supabase
       .from("deliveries")
@@ -23,6 +31,19 @@ export async function GET(request: NextRequest) {
         customer:customers(id, name, phone, email)
       `)
       .order("created_at", { ascending: false })
+
+    // CRITICAL: Add franchise filter for non super_admin users
+    if (effectiveFranchiseId) {
+      query = query.eq('franchise_id', effectiveFranchiseId)
+      console.log('[Deliveries API] Filtering by franchise_id:', effectiveFranchiseId)
+    } else {
+      // super_admin scope=all – allow viewing all
+      if (isSuper && scope === 'all') {
+        console.log('[Deliveries API] Super admin mode (scope=all): no franchise filter applied')
+      } else {
+        console.warn('[Deliveries API] No franchise_id available; returning all deliveries')
+      }
+    }
 
     // Optional status filter
     if (status && status !== 'all') {
@@ -46,12 +67,24 @@ export async function GET(request: NextRequest) {
       
       // If the error is due to an optional join (e.g., staff) or missing relationship, fall back to a simpler select
       try {
-        const { data: fallbackData, error: fallbackError } = await supabase
+        let fallbackQuery = supabase
           .from('deliveries')
           .select('*')
           .order('created_at', { ascending: false })
+        
+        // CRITICAL: Apply franchise filter even in fallback
+        if (effectiveFranchiseId) {
+          fallbackQuery = fallbackQuery.eq('franchise_id', effectiveFranchiseId)
+        }
+        
+        if (status && status !== 'all') {
+          fallbackQuery = fallbackQuery.eq('status', status)
+        }
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery
 
         if (!fallbackError) {
+          console.log(`[Deliveries API] Fallback: Found ${fallbackData?.length || 0} deliveries`)
           return NextResponse.json({ success: true, data: fallbackData || [] })
         }
       } catch (e) {
@@ -61,6 +94,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    console.log(`[Deliveries API] Found ${data?.length || 0} deliveries`)
     return NextResponse.json({ success: true, data: data || [] })
   } catch (error: any) {
     console.error("[Deliveries API] Error:", error)
@@ -70,7 +104,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseId, userId } = await validateAuth(request)
+    // Require authentication and derive franchise context
+    const auth = await requireAuth(request, 'staff')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.is_super_admin ? (undefined as unknown as string | undefined) : (user.franchise_id as string | undefined)
+    const userId = user.id
+    
     const body = await request.json()
 
     // Validation
@@ -114,8 +156,18 @@ export async function POST(request: NextRequest) {
       typeof body.assigned_staff_id === 'string' && uuidRegex.test(body.assigned_staff_id)
         ? body.assigned_staff_id
         : null
-    const safeFranchiseId = typeof franchiseId === 'string' && uuidRegex.test(franchiseId) ? franchiseId : null
-    const safeCreatedBy = typeof userId === 'string' && uuidRegex.test(userId) ? userId : null
+    // Determine franchise assignment
+    let computedFranchiseId: string | null = null
+    if (user.is_super_admin) {
+      // Allow super admin to optionally pass a franchise_id in request body
+      const candidate = typeof body.franchise_id === 'string' ? body.franchise_id : undefined
+      computedFranchiseId = candidate && uuidRegex.test(candidate) ? candidate : null
+    } else {
+      computedFranchiseId = franchiseId && uuidRegex.test(franchiseId) ? franchiseId : null
+    }
+
+    const safeFranchiseId = computedFranchiseId
+    const safeCreatedBy = uuidRegex.test(userId) ? userId : null
 
     // Create delivery
     const deliveryData = {

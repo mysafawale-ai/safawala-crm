@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import AuditLogger from "@/lib/audit-logger"
+import { requireAuth } from "@/lib/auth-middleware"
 
 export const dynamic = "force-dynamic"
 
@@ -10,11 +11,18 @@ export const dynamic = "force-dynamic"
  */
 export async function GET(request: NextRequest) {
   try {
+    // Enforce authentication and franchise isolation
+    const auth = await requireAuth(request, 'readonly')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
     const supabase = createClient()
     const { searchParams } = new URL(request.url)
     
     const status = searchParams.get("status") // pending, completed, etc.
-    const franchise_id = searchParams.get("franchise_id")
+  // Super admin may pass franchise_id to scope; others are locked to their own
+  const franchise_id = user.is_super_admin ? searchParams.get("franchise_id") : (user.franchise_id || null)
     
     // Build query
     let query = supabase

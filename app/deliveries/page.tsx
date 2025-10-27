@@ -22,8 +22,255 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
 import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
+import { DialogFooter } from "@/components/ui/dialog"
+
+// Lazy import to avoid circular deps
+function HandoverDialog({
+  open,
+  onClose,
+  delivery,
+  onSaved,
+}: { open: boolean; onClose: () => void; delivery: any | null; onSaved: () => void }) {
+  const [items, setItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [restockNow, setRestockNow] = useState(false)
+  const [existingRestocked, setExistingRestocked] = useState<Record<string, number>>({})
+  const [existingReturnedRestocked, setExistingReturnedRestocked] = useState<Record<string, number>>({})
+  const [existingReturnedLaundry, setExistingReturnedLaundry] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    const load = async () => {
+      if (!open || !delivery) return
+      setLoading(true)
+      try {
+        // Build base items from booking like ReturnProcessingDialog
+        let productItems: any[] = []
+        if (delivery.booking_source === "product_order") {
+          const res = await fetch(`/api/product-orders/${delivery.booking_id}`)
+          if (res.ok) {
+            const json = await res.json()
+            productItems = json.items || []
+          }
+        } else if (delivery.booking_source === "package_booking") {
+          const res = await fetch(`/api/package-bookings/${delivery.booking_id}`)
+          if (res.ok) {
+            const json = await res.json()
+            productItems = json.items?.flatMap((it: any) => (it.selected_products || []).map((pid: string) => ({ product_id: pid, quantity: 1 }))) || []
+          }
+        }
+
+        // Fetch existing handover values to prefill
+        let existing: Record<string, number> = {}
+        let existingRestockedMap: Record<string, number> = {}
+        let existingReturnedRestockedMap: Record<string, number> = {}
+        let existingReturnedLaundryMap: Record<string, number> = {}
+        try {
+          const ho = await fetch(`/api/deliveries/${delivery.id}/handover`, { cache: "no-store" })
+          if (ho.ok) {
+            const data = await ho.json()
+            for (const it of data.items || []) {
+              if (it?.product_id) existing[it.product_id] = Number(it.qty_not_tied) || 0
+              if (it?.product_id) existingRestockedMap[it.product_id] = Number(it.restocked_qty) || 0
+              if (it?.product_id) existingReturnedRestockedMap[it.product_id] = Number(it.returned_restocked_qty) || 0
+              if (it?.product_id) existingReturnedLaundryMap[it.product_id] = Number(it.returned_laundry_qty) || 0
+            }
+          }
+        } catch {}
+
+        // Fetch product details and build form items
+        const withDetails = await Promise.all(productItems.map(async (pi: any) => {
+          const pr = await fetch(`/api/products/${pi.product_id}`)
+          const p = pr.ok ? await pr.json() : null
+          const deliveredQty = pi.quantity || 1
+          const prevRestocked = existingRestockedMap[pi.product_id] || 0
+          return {
+            product_id: pi.product_id,
+            product_name: p?.name || "Unknown Product",
+            qty_delivered: deliveredQty,
+            qty_not_tied: Math.min(existing[pi.product_id] || 0, deliveredQty),
+            already_restocked: Math.min(prevRestocked, deliveredQty),
+            // Returned during delivery (defaults)
+            returned_now_qty: Math.max(existingReturnedRestockedMap[pi.product_id] || existingReturnedLaundryMap[pi.product_id] || 0, 0),
+            returned_now_process: (existingReturnedLaundryMap[pi.product_id] || 0) > 0 ? "laundry" : "restock",
+          }
+        }))
+
+        setItems(withDetails)
+        setExistingRestocked(existingRestockedMap)
+        setExistingReturnedRestocked(existingReturnedRestockedMap)
+        setExistingReturnedLaundry(existingReturnedLaundryMap)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [open, delivery])
+
+  const updateItem = (idx: number, qty: number) => {
+    setItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it
+      const clamped = Math.max(0, Math.min(qty, it.qty_delivered))
+      return { ...it, qty_not_tied: clamped }
+    }))
+  }
+
+  const handleSave = async () => {
+    if (!delivery) return
+    setLoading(true)
+    try {
+      const payload = {
+        items: items.map(it => ({ 
+          product_id: it.product_id, 
+          qty_not_tied: it.qty_not_tied,
+          returned_now_qty: Math.max(0, Number(it.returned_now_qty) || 0),
+          returned_now_process: it.returned_now_qty > 0 ? (it.returned_now_process || "restock") : undefined,
+        })),
+        restock_now: restockNow,
+      }
+      const res = await fetch(`/api/deliveries/${delivery.id}/handover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to save handover")
+      }
+      onSaved()
+      onClose()
+      toast({ title: "Handover saved", description: "Not tied quantities recorded." })
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to save handover", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Capture Handover: Not Tied at Delivery</DialogTitle>
+          <DialogDescription>
+            Record how many items were delivered but not tied/used. These will prefill the final return as "Not Used" and go directly to available inventory.
+          </DialogDescription>
+        </DialogHeader>
+        {loading ? (
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {items.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No products found for this delivery.</div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-md border p-3 bg-muted/40">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" className="h-4 w-4" checked={restockNow} onChange={(e) => setRestockNow(e.target.checked)} />
+                    Restock these "Not Tied" items to inventory now
+                  </label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    When enabled, Available will increase and Booked will decrease immediately for the delta not already restocked.
+                  </p>
+                  {restockNow ? (
+                    <div className="mt-2 text-xs">
+                      {items.map((it) => {
+                        const prev = Number(existingRestocked[it.product_id] || 0)
+                        const delta = Math.max(0, Math.min(it.qty_not_tied, it.qty_delivered) - prev)
+                        if (delta <= 0) return null
+                        return (
+                          <div key={it.product_id} className="flex justify-between">
+                            <span className="text-muted-foreground">{it.product_name}</span>
+                            <span className="font-medium">Avail +{delta} · Booked -{delta}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+                {items.map((it, idx) => (
+                  <div key={it.product_id} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end border rounded-md p-3">
+                    <div className="col-span-2">
+                      <Label className="text-xs">Product</Label>
+                      <div className="text-sm font-medium">{it.product_name}</div>
+                      <div className="text-xs text-muted-foreground">Delivered: {it.qty_delivered}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Not Tied</Label>
+                      <Input type="number" value={it.qty_not_tied}
+                        min={0}
+                        max={it.qty_delivered}
+                        onChange={(e) => updateItem(idx, parseInt(e.target.value) || 0)}
+                      />
+                      {restockNow ? (
+                        <div className="mt-1 text-[10px] text-muted-foreground">
+                          Delta to restock now: {Math.max(0, Math.min(it.qty_not_tied, it.qty_delivered) - (existingRestocked[it.product_id] || 0))}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Returned during delivery (qty)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={it.qty_delivered}
+                          value={it.returned_now_qty || 0}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0)
+                            setItems(prev => prev.map((p, i) => i === idx ? { ...p, returned_now_qty: val } : p))
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Process</Label>
+                        <Select
+                          value={it.returned_now_process || "restock"}
+                          onValueChange={(val) => setItems(prev => prev.map((p, i) => i === idx ? { ...p, returned_now_process: val } : p))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select process" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="restock">Restock now</SelectItem>
+                            <SelectItem value="laundry">Send to Laundry</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="self-end text-[11px] text-muted-foreground">
+                        {(() => {
+                          const qty = Math.max(0, Number(it.returned_now_qty) || 0)
+                          const process = it.returned_now_process || "restock"
+                          const prev = process === "laundry" 
+                            ? (existingReturnedLaundry[it.product_id] || 0)
+                            : (existingReturnedRestocked[it.product_id] || 0)
+                          const delta = Math.max(0, qty - prev)
+                          if (qty === 0) return <span>No return captured at handover.</span>
+                          if (process === "laundry") return <span>Delta: In Laundry +{delta} · Booked -{delta}</span>
+                          return <span>Delta: Avail +{delta} · Booked -{delta}</span>
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={handleSave} disabled={loading || items.length === 0}>
+            {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+            Save Handover
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 const supabase = createClient()
 
@@ -84,6 +331,8 @@ interface Staff {
 
 export default function DeliveriesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
   const [activeTab, setActiveTab] = useState("deliveries")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -94,6 +343,7 @@ export default function DeliveriesPage() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false)
   const [showReturnDialog, setShowReturnDialog] = useState(false)
+  const [showHandoverDialog, setShowHandoverDialog] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
   const [selectedReturn, setSelectedReturn] = useState<any>(null)
   const [returns, setReturns] = useState<any[]>([])
@@ -203,15 +453,7 @@ export default function DeliveriesPage() {
         if (!deliveriesRes.ok) {
           const errorData = await deliveriesRes.json().catch(() => ({}))
           console.warn("Deliveries API error:", errorData.error || deliveriesRes.statusText)
-          
-          // If table doesn't exist, show helpful message
-          if (deliveriesRes.status === 500 || deliveriesRes.status === 404) {
-            console.info("💡 Run MIGRATION_DELIVERIES_TABLE.sql to create the deliveries table")
-            setTableNotFound(true)
-            setDeliveries([])
-            setLoading(false)
-            return
-          }
+          setDeliveries([])
         } else {
           setTableNotFound(false)
           const deliveriesJson = await deliveriesRes.json()
@@ -273,6 +515,20 @@ export default function DeliveriesPage() {
     }
   }
 
+  // Helper: update URL query params without full reload
+  const replaceQuery = (updates: Record<string, string | null | undefined>) => {
+    const params = new URLSearchParams(searchParams?.toString() || "")
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined || value === null || value === "") params.delete(key)
+      else params.set(key, String(value))
+    }
+    const qs = params.toString()
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`)
+  }
+
+  // Helper: clear action-related params
+  const clearActionParams = () => replaceQuery({ action: null, delivery_id: null, return_id: null })
+
   // Status update handlers
   const handleStartTransit = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
@@ -331,8 +587,15 @@ export default function DeliveriesPage() {
           ? "Delivery marked as delivered. Return automatically created."
           : "Delivery marked as delivered.",
       })
-
-      await fetchData()
+      // Open handover capture immediately to record 'not tied' quantities
+      const justDelivered = deliveries.find(d => d.id === deliveryId) || null
+      if (justDelivered) {
+        setSelectedDelivery(justDelivered)
+        setShowHandoverDialog(true)
+        replaceQuery({ tab: "deliveries", action: "handover", delivery_id: deliveryId })
+      }
+      // Refresh list in background
+      fetchData()
     } catch (error: any) {
       toast({
         title: "Error",
@@ -347,6 +610,123 @@ export default function DeliveriesPage() {
       })
     }
   }
+
+  // Deep-link: apply URL params to UI state
+  useEffect(() => {
+    const tab = searchParams?.get("tab")
+    if (tab && (tab === "deliveries" || tab === "returns") && tab !== activeTab) {
+      setActiveTab(tab)
+    }
+
+    const action = searchParams?.get("action")
+    if (!action) return
+
+    // Handle returns actions
+    if (action === "reschedule") {
+      const rid = searchParams?.get("return_id")
+      if (rid && returns.length && !showRescheduleDialog) {
+        const r = returns.find((x: any) => x.id === rid)
+        if (r) {
+          // Simulate click handler logic
+          const deliveryLike = {
+            id: r.delivery_id || r.id,
+            booking_id: r.booking_id,
+            booking_source: r.booking_source,
+            rescheduled_return_at: r.booking?.return_date || r.return_date,
+          }
+          setSelectedDelivery(deliveryLike as any)
+
+          const currentISO = r.booking?.return_date || r.return_date
+          let date = ""
+          let time = "18:00"
+          if (currentISO) {
+            const d = new Date(currentISO)
+            if (!Number.isNaN(d.getTime())) {
+              date = d.toISOString().slice(0, 10)
+              const hh = String(d.getHours()).padStart(2, "0")
+              const mm = String(d.getMinutes()).padStart(2, "0")
+              time = `${hh}:${mm}`
+            }
+          }
+          setRescheduleForm({ date, time })
+          setShowRescheduleDialog(true)
+        }
+      }
+      return
+    }
+
+    if (action === "process") {
+      const rid = searchParams?.get("return_id")
+      if (rid && returns.length && !showReturnDialog) {
+        const r = returns.find((x: any) => x.id === rid)
+        if (r) {
+          setSelectedReturn(r)
+          setShowReturnDialog(true)
+        }
+      }
+      return
+    }
+
+    // Handle delivery actions
+    const did = searchParams?.get("delivery_id")
+    if (did && deliveries.length) {
+      const d = deliveries.find((x) => x.id === did)
+      if (!d) return
+      if (action === "view" && !showViewDialog) {
+        setSelectedDelivery(d)
+        setShowViewDialog(true)
+      }
+      if (action === "edit" && !showEditDialog) {
+        ;(async () => {
+          setSelectedDelivery(d)
+          // Prefill same as Edit click
+          let deliveryDate = d.delivery_date
+          let deliveryTime = d.delivery_time || ""
+          let deliveryAddress = d.delivery_address
+          if (d.booking_id && (!deliveryDate || !deliveryTime)) {
+            const linkedBooking = bookings.find((b: any) => b.id === d.booking_id && b.source === d.booking_source)
+            if (linkedBooking) {
+              deliveryDate = deliveryDate || linkedBooking.delivery_date || ""
+              deliveryTime = deliveryTime || linkedBooking.delivery_time || ""
+              deliveryAddress = deliveryAddress || linkedBooking.delivery_address || ""
+            }
+          }
+          setEditForm({
+            customer_name: d.customer_name,
+            customer_phone: d.customer_phone,
+            customer_id: d.customer_id || "",
+            pickup_address: d.pickup_address,
+            delivery_address: deliveryAddress,
+            delivery_date: deliveryDate,
+            delivery_time: deliveryTime,
+            driver_name: d.driver_name,
+            vehicle_number: d.vehicle_number,
+            delivery_charge: d.delivery_charge.toString(),
+            fuel_cost: d.fuel_cost.toString(),
+            special_instructions: d.special_instructions,
+          })
+          if (d.customer_id) {
+            setLoadingAddresses(true)
+            try {
+              const { data } = await supabase
+                .from("customer_addresses")
+                .select("*")
+                .eq("customer_id", d.customer_id)
+                .order("last_used_at", { ascending: false })
+                .limit(10)
+              if (data) setSavedAddresses(data)
+            } catch {}
+            setLoadingAddresses(false)
+          }
+          setShowEditDialog(true)
+        })()
+      }
+      if (action === "handover" && !showHandoverDialog) {
+        setSelectedDelivery(d)
+        setShowHandoverDialog(true)
+      }
+    }
+  }, [searchParams, returns, deliveries, bookings])
 
   const handleCancelDelivery = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
@@ -985,7 +1365,14 @@ export default function DeliveriesPage() {
       </div>
 
       {/* Tabs: Deliveries & Returns */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => {
+          setActiveTab(val)
+          replaceQuery({ tab: val, action: null, delivery_id: null, return_id: null })
+        }}
+        className="space-y-4"
+      >
         <TabsList className="grid w-full md:w-[400px] grid-cols-2">
           <TabsTrigger value="deliveries" className="flex items-center gap-2">
             <Truck className="h-4 w-4" />
@@ -1178,12 +1565,27 @@ export default function DeliveriesPage() {
                         </Button>
                       </>
                     )}
+                    {delivery.status === "delivered" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDelivery(delivery)
+                          setShowHandoverDialog(true)
+                          replaceQuery({ tab: "deliveries", action: "handover", delivery_id: delivery.id })
+                        }}
+                      >
+                        <Package className="h-4 w-4 mr-1" />
+                        Capture Handover
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => {
                         setSelectedDelivery(delivery)
                         setShowViewDialog(true)
+                        replaceQuery({ tab: "deliveries", action: "view", delivery_id: delivery.id })
                       }}
                     >
                       <Eye className="h-4 w-4" />
@@ -1250,6 +1652,7 @@ export default function DeliveriesPage() {
                         }
                         
                         setShowEditDialog(true)
+                        replaceQuery({ tab: "deliveries", action: "edit", delivery_id: delivery.id })
                       }}
                     >
                       <Edit className="h-4 w-4" />
@@ -1339,8 +1742,10 @@ export default function DeliveriesPage() {
                   </div>
                 ) : (
                   returns.map((returnItem) => {
-                    const returnDate = returnItem.return_date ? new Date(returnItem.return_date) : null
+                    const plannedISO = returnItem.booking?.return_date || returnItem.return_date
+                    const returnDate = plannedISO ? new Date(plannedISO) : null
                     const isOverdue = returnDate && returnDate < new Date()
+                    const isRescheduled = !!(returnItem.booking?.return_date && returnItem.booking.return_date !== returnItem.return_date)
                     
                     return (
                       <div 
@@ -1362,6 +1767,9 @@ export default function DeliveriesPage() {
                               <p className="font-medium">{returnItem.return_number}</p>
                               {isOverdue && (
                                 <Badge variant="destructive" className="text-xs">⚠️ Overdue</Badge>
+                              )}
+                              {isRescheduled && (
+                                <Badge className="bg-blue-100 text-blue-800 text-xs">Rescheduled</Badge>
                               )}
                               <Badge className="bg-yellow-100 text-yellow-800 text-xs">
                                 {returnItem.status}
@@ -1396,7 +1804,7 @@ export default function DeliveriesPage() {
                                   rescheduled_return_at: returnItem.booking?.return_date || returnItem.return_date,
                                 }
                                 setSelectedDelivery(deliveryLike as any)
-                                
+
                                 // Pre-fill with current return date
                                 const currentISO = returnItem.booking?.return_date || returnItem.return_date
                                 let date = ""
@@ -1412,6 +1820,8 @@ export default function DeliveriesPage() {
                                 }
                                 setRescheduleForm({ date, time })
                                 setShowRescheduleDialog(true)
+                                // Deep link into this reschedule view
+                                replaceQuery({ tab: "returns", action: "reschedule", return_id: returnItem.id })
                               }}
                             >
                               <CalendarClock className="h-4 w-4 mr-1" />
@@ -1424,6 +1834,7 @@ export default function DeliveriesPage() {
                             onClick={() => {
                               setSelectedReturn(returnItem)
                               setShowReturnDialog(true)
+                              replaceQuery({ tab: "returns", action: "process", return_id: returnItem.id })
                             }}
                           >
                             <PackageCheck className="h-4 w-4 mr-1" />
@@ -1441,7 +1852,13 @@ export default function DeliveriesPage() {
       </Tabs>
 
       {/* View Dialog */}
-      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+      <Dialog
+        open={showViewDialog}
+        onOpenChange={(open) => {
+          setShowViewDialog(open)
+          if (!open) clearActionParams()
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Delivery Details</DialogTitle>
@@ -1506,7 +1923,13 @@ export default function DeliveriesPage() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <Dialog
+        open={showEditDialog}
+        onOpenChange={(open) => {
+          setShowEditDialog(open)
+          if (!open) clearActionParams()
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Delivery</DialogTitle>
@@ -1737,8 +2160,22 @@ export default function DeliveriesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Handover Dialog */}
+      <HandoverDialog
+        open={showHandoverDialog}
+        onClose={() => { setShowHandoverDialog(false); clearActionParams() }}
+        delivery={selectedDelivery}
+        onSaved={() => fetchData()}
+      />
+
       {/* Reschedule Return Dialog */}
-      <Dialog open={showRescheduleDialog} onOpenChange={setShowRescheduleDialog}>
+      <Dialog
+        open={showRescheduleDialog}
+        onOpenChange={(open) => {
+          setShowRescheduleDialog(open)
+          if (!open) clearActionParams()
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Reschedule Return</DialogTitle>
@@ -1804,12 +2241,26 @@ export default function DeliveriesPage() {
                   setDeliveries((prev) =>
                     prev.map((d) => (d.id === selectedDelivery.id ? { ...d, rescheduled_return_at: iso } : d))
                   )
-                  // Also update local bookings map for immediate UI consistency
+                  // Also update local bookings list for immediate UI consistency
                   setBookings((prev) =>
-                    (prev || []).map((b: any) => (b.id === selectedDelivery.booking_id ? { ...b, pickup_date: iso } : b))
+                    (prev || []).map((b: any) =>
+                      b.id === selectedDelivery.booking_id ? { ...b, pickup_date: iso, return_date: iso } : b
+                    )
+                  )
+                  // Update returns list so the "Returns" tab reflects the new plan immediately
+                  setReturns((prev) =>
+                    (prev || []).map((r: any) =>
+                      r.booking_id === selectedDelivery.booking_id
+                        ? { ...r, booking: { ...(r.booking || {}), return_date: iso } }
+                        : r
+                    )
                   )
                   toast({ title: "Return rescheduled", description: "Return date/time updated successfully." })
+                  // Close the dialog immediately for better UX, then refresh in background
                   setShowRescheduleDialog(false)
+                  clearActionParams()
+                  // Refresh server data to keep everything in sync (IDs, related fields, badges)
+                  void fetchData()
                 } catch (e: any) {
                   console.error("Reschedule failed:", e)
                   toast({ title: "Error", description: e?.message || "Failed to reschedule", variant: "destructive" })
@@ -1829,6 +2280,7 @@ export default function DeliveriesPage() {
           onClose={() => {
             setShowReturnDialog(false)
             setSelectedReturn(null)
+            clearActionParams()
           }}
           returnRecord={selectedReturn}
           onSuccess={async () => {

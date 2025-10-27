@@ -74,6 +74,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_deliveries_updated_at ON deliveries;
+
 CREATE TRIGGER trigger_update_deliveries_updated_at
   BEFORE UPDATE ON deliveries
   FOR EACH ROW

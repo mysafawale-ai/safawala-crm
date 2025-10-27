@@ -35,7 +35,8 @@ interface ReturnItem {
   category?: string
   image_url?: string
   qty_delivered: number
-  qty_returned: number // Used items that need laundry
+  qty_returned: number // Used items returned
+  qty_to_laundry?: number // Portion of used items to send to laundry
   qty_not_used: number // Extra items that were never used
   qty_damaged: number
   qty_lost: number
@@ -131,6 +132,24 @@ export function ReturnProcessingDialog({
     try {
       // Fetch booking items based on booking source
       let productItems: any[] = []
+      // Optional: handover prefill map
+      let handoverMap: Record<string, { qty_not_tied: number; notes?: string }> = {}
+      // If delivery_id exists on the return record, fetch handover to prefill Not Used
+      if (returnRecord?.delivery_id) {
+        try {
+          const hoRes = await fetch(`/api/deliveries/${returnRecord.delivery_id}/handover`, { cache: "no-store" })
+          if (hoRes.ok) {
+            const hoJson = await hoRes.json()
+            const arr = Array.isArray(hoJson?.items) ? hoJson.items : []
+            handoverMap = arr.reduce((acc: any, it: any) => {
+              if (it?.product_id) acc[it.product_id] = { qty_not_tied: Number(it.qty_not_tied) || 0, notes: it.notes }
+              return acc
+            }, {})
+          }
+        } catch (e) {
+          // Ignore prefill errors silently
+        }
+      }
       
       if (returnRecord.booking_source === "product_order") {
         const response = await fetch(`/api/product-orders/${returnRecord.booking_id}`)
@@ -158,15 +177,22 @@ export function ReturnProcessingDialog({
           const productResponse = await fetch(`/api/products/${item.product_id}`)
           const product = productResponse.ok ? await productResponse.json() : null
 
+          const ho = handoverMap[item.product_id]
+          const qty_not_used_prefill = ho ? Math.max(0, Math.min(Number(item.quantity || 1), Number(ho.qty_not_tied))) : 0
+          const qty_delivered_val = item.quantity || 1
+          const defaultQtyReturned = Math.max(0, qty_delivered_val - qty_not_used_prefill)
+
           return {
             product_id: item.product_id,
             product_name: product?.name || "Unknown Product",
             product_code: product?.product_code,
             category: product?.category,
             image_url: product?.image_url,
-            qty_delivered: item.quantity || 1,
-            qty_returned: item.quantity || 1, // Default: all returned clean (to laundry)
-            qty_not_used: 0, // Extra items not used
+            qty_delivered: qty_delivered_val,
+            // Default: prefer handover's not used -> rest goes to Used
+            qty_returned: defaultQtyReturned,
+            qty_to_laundry: 0,
+            qty_not_used: qty_not_used_prefill, // Extra items not used (prefilled from handover when available)
             qty_damaged: 0,
             qty_lost: 0,
             damage_reason: undefined,
@@ -174,7 +200,7 @@ export function ReturnProcessingDialog({
             damage_severity: undefined,
             lost_reason: undefined,
             lost_description: "",
-            notes: "",
+            notes: ho?.notes || "",
           }
         })
       )
@@ -220,7 +246,28 @@ export function ReturnProcessingDialog({
       return
     }
 
-    updateItem(index, { [field]: numValue })
+    // If reducing qty_returned below qty_to_laundry, clamp laundry qty
+    const updates: any = { [field]: numValue }
+    if (field === 'qty_returned') {
+      const newReturned = numValue
+      const current = items[index]
+      const currentLaundry = current.qty_to_laundry || 0
+      if (currentLaundry > newReturned) {
+        updates.qty_to_laundry = newReturned
+      }
+    }
+    updateItem(index, updates)
+  }
+
+  const handleLaundryQtyChange = (index: number, value: string) => {
+    const numValue = parseInt(value) || 0
+    const item = items[index]
+    const max = item.qty_returned
+    if (numValue < 0 || numValue > max) {
+      toast({ title: 'Invalid Laundry Quantity', description: `Must be between 0 and ${max}`, variant: 'destructive' })
+      return
+    }
+    updateItem(index, { qty_to_laundry: numValue })
   }
 
   const validateItems = (): boolean => {
@@ -230,6 +277,16 @@ export function ReturnProcessingDialog({
         toast({
           title: "Validation Error",
           description: `${item.product_name}: Quantities must add up to delivered (${item.qty_delivered})`,
+          variant: "destructive",
+        })
+        return false
+      }
+
+      // Laundry qty must be <= returned qty
+      if ((item.qty_to_laundry || 0) > item.qty_returned) {
+        toast({
+          title: "Validation Error",
+          description: `${item.product_name}: Laundry quantity cannot exceed Used quantity`,
           variant: "destructive",
         })
         return false
@@ -271,6 +328,7 @@ export function ReturnProcessingDialog({
               qty_not_used: item.qty_not_used,
               qty_damaged: item.qty_damaged,
               qty_lost: item.qty_lost,
+              qty_to_laundry: item.qty_to_laundry ?? (sendToLaundry ? item.qty_returned : 0),
               send_to_laundry: sendToLaundry,
             }))
           )
@@ -312,6 +370,7 @@ export function ReturnProcessingDialog({
             qty_not_used: item.qty_not_used,
             qty_damaged: item.qty_damaged,
             qty_lost: item.qty_lost,
+            qty_to_laundry: item.qty_to_laundry ?? (sendToLaundry ? item.qty_returned : 0),
             damage_reason: item.damage_reason,
             damage_description: item.damage_description,
             damage_severity: item.damage_severity,
@@ -417,7 +476,7 @@ export function ReturnProcessingDialog({
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Used (Laundry)</Label>
+                          <Label className="text-xs">Used</Label>
                           <Input
                             type="number"
                             value={item.qty_returned}
@@ -469,6 +528,26 @@ export function ReturnProcessingDialog({
                           />
                         </div>
                       </div>
+
+                      {/* Per-item Laundry split */}
+                      {item.qty_returned > 0 && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs">Move to Laundry</Label>
+                            <Input
+                              type="number"
+                              value={item.qty_to_laundry ?? 0}
+                              onChange={(e) => handleLaundryQtyChange(index, e.target.value)}
+                              min={0}
+                              max={item.qty_returned}
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="self-end text-xs text-muted-foreground">
+                            Will restock directly: {(item.qty_returned - (item.qty_to_laundry ?? 0))}
+                          </div>
+                        </div>
+                      )}
 
                       {item.qty_damaged > 0 && (
                         <div className="grid grid-cols-2 gap-4 p-3 bg-orange-50 dark:bg-orange-950 rounded">

@@ -11,17 +11,6 @@
 			]
 		},
 		{
-			"label": "Auto Push to GitHub",
-			"type": "shell",
-			"command": "./scripts/auto-push.sh",
-			"isBackground": true,
-			"problemMatcher": [],
-			"presentation": {
-				"reveal": "always",
-				"panel": "dedicated"
-			}
-		},
-		{
 			"label": "typecheck",
 			"type": "shell",
 			"command": "pnpm",

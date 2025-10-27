@@ -29,16 +29,23 @@ export const supabaseServer = new Proxy({} as any, {
 // Helper function to get a default franchise ID for testing (first franchise in database)
 export async function getDefaultFranchiseId(): Promise<string | null> {
   try {
-    const { data: franchises } = await supabaseServer
+    const { data: franchises, error } = await supabaseServer
       .from("franchises")
       .select("id")
+      .order("created_at", { ascending: true })
       .limit(1)
-      .single()
     
-    return franchises?.id || "default-franchise-id"
+    if (error) {
+      console.error("Error getting default franchise:", error)
+      return null
+    }
+    
+    // franchises is an array, get first element
+    const firstFranchise = Array.isArray(franchises) ? franchises[0] : franchises
+    return firstFranchise?.id || null
   } catch (error) {
     console.error("Error getting default franchise:", error)
-    return "default-franchise-id"
+    return null
   }
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { requireAuth, canAccessFranchise } from "@/lib/auth-middleware"
 
 export const dynamic = "force-dynamic"
 
@@ -7,6 +8,7 @@ interface ReturnItem {
   product_id: string
   qty_delivered: number
   qty_returned: number // Used items that need laundry
+  qty_to_laundry?: number // Portion of used items sent to laundry
   qty_not_used: number // Extra items that weren't used
   qty_damaged: number
   qty_lost: number
@@ -34,6 +36,13 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // AuthN/Z: ensure user is authenticated and scoped to the return's franchise
+    const auth = await requireAuth(request, 'staff')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const userCtx = auth.authContext!.user
+
     const supabase = createClient()
     const returnId = params.id
     const body: ProcessReturnRequest = await request.json()
@@ -49,8 +58,7 @@ export async function POST(
     }
     
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-    const userId = user?.id
+  const userId = userCtx.id
     
     // 1. Fetch return record
     const { data: returnRecord, error: returnError } = await supabase
@@ -65,6 +73,10 @@ export async function POST(
         { status: 404 }
       )
     }
+    // Enforce franchise isolation
+    if (!canAccessFranchise(userCtx as any, returnRecord.franchise_id)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     
     // Check if already processed
     if (returnRecord.status === "completed") {
@@ -75,6 +87,20 @@ export async function POST(
     }
     
     // 2. Validate quantities for each item
+    // Fetch handover restocked quantities to avoid double counting on booked/available
+    let handoverRestockedByProduct: Record<string, number> = {}
+    let handoverLaundryByProduct: Record<string, number> = {}
+    if (returnRecord.delivery_id) {
+      const { data: handoverRows } = await supabase
+        .from("delivery_handover_items")
+        .select("product_id, restocked_qty, returned_laundry_qty")
+        .eq("delivery_id", returnRecord.delivery_id)
+      for (const row of handoverRows || []) {
+        if (row?.product_id) handoverRestockedByProduct[row.product_id] = Number(row.restocked_qty) || 0
+        if (row?.product_id) handoverLaundryByProduct[row.product_id] = Number(row.returned_laundry_qty) || 0
+      }
+    }
+
     for (const item of items) {
       const total = item.qty_returned + item.qty_not_used + item.qty_damaged + item.qty_lost
       if (total !== item.qty_delivered) {
@@ -96,6 +122,15 @@ export async function POST(
       if (item.qty_lost > 0 && !item.lost_reason) {
         return NextResponse.json(
           { error: `Lost reason required for product ${item.product_id}` },
+          { status: 400 }
+        )
+      }
+
+      // Validate laundry quantity does not exceed returned used qty
+      const qty_to_laundry = typeof item.qty_to_laundry === 'number' ? item.qty_to_laundry : (body.send_to_laundry ? item.qty_returned : 0)
+      if (qty_to_laundry > item.qty_returned) {
+        return NextResponse.json(
+          { error: `Laundry quantity cannot exceed used quantity for product ${item.product_id}` },
           { status: 400 }
         )
       }
@@ -123,6 +158,7 @@ export async function POST(
       }
       
       // 4. Insert return item record
+      const effective_qty_to_laundry = typeof item.qty_to_laundry === 'number' ? item.qty_to_laundry : (send_to_laundry ? item.qty_returned : 0)
       const { error: itemInsertError } = await supabase
         .from("return_items")
         .insert({
@@ -143,7 +179,7 @@ export async function POST(
           lost_description: item.lost_description,
           notes: item.notes,
           archived: item.qty_damaged > 0 || item.qty_lost > 0,
-          sent_to_laundry: send_to_laundry && item.qty_returned > 0
+          sent_to_laundry: effective_qty_to_laundry > 0
         })
       
       if (itemInsertError) {
@@ -153,18 +189,22 @@ export async function POST(
       
       results.items_processed++
       
-      // 5. Update inventory
-      // qty_not_used: Goes directly to available (never used, no laundry needed)
-      // qty_returned: Goes to laundry if send_to_laundry is true, otherwise to available
-      const directToAvailable = item.qty_not_used + (send_to_laundry ? 0 : item.qty_returned)
-      const toLoadry = send_to_laundry ? item.qty_returned : 0
+    // 5. Update inventory
+    // Avoid double counting for quantities restocked at handover
+  const alreadyRestocked = Math.min(handoverRestockedByProduct[item.product_id] || 0, item.qty_not_used)
+  const alreadyToLaundry = Math.max(0, handoverLaundryByProduct[item.product_id] || 0)
+    // qty_not_used: Goes directly to available, but subtract portion already restocked at handover
+    // qty_returned: Split between laundry and direct restock based on qty_to_laundry
+    const directToAvailable = (item.qty_not_used - alreadyRestocked) + (item.qty_returned - effective_qty_to_laundry)
+    const toLoadry = effective_qty_to_laundry
       
       const newInventory = {
         stock_available: product.stock_available + directToAvailable,
         stock_damaged: product.stock_damaged + item.qty_damaged,
         stock_total: product.stock_total - item.qty_lost,
         stock_in_laundry: (product.stock_in_laundry || 0) + toLoadry,
-        stock_booked: Math.max(0, (product.stock_booked || 0) - item.qty_delivered)
+        // Only release booked that wasn't already released during handover (restocked or sent to laundry)
+        stock_booked: Math.max(0, (product.stock_booked || 0) - Math.max(0, item.qty_delivered - ((handoverRestockedByProduct[item.product_id] || 0) + alreadyToLaundry)))
       }
       
       const { error: inventoryError } = await supabase
@@ -237,16 +277,15 @@ export async function POST(
     }
     
     // 8. Create laundry batch if needed
-    if (send_to_laundry) {
-      const laundryItems = items
-        .filter(item => item.qty_returned > 0)
-        .map(item => ({
-          product_id: item.product_id,
-          quantity: item.qty_returned,
-          condition_before: "dirty"
-        }))
+    const laundryItems = items
+      .map((item) => ({
+        product_id: item.product_id,
+        quantity: (typeof item.qty_to_laundry === 'number' ? item.qty_to_laundry : (send_to_laundry ? item.qty_returned : 0)),
+        condition_before: "dirty"
+      }))
+      .filter(li => li.quantity > 0)
       
-      if (laundryItems.length > 0) {
+    if (laundryItems.length > 0) {
         // Generate batch number
         const batchNumber = `LB-RET-${Date.now().toString().slice(-6)}`
         
@@ -292,7 +331,6 @@ export async function POST(
             .from("laundry_batch_items")
             .insert(batchItemsToInsert)
         }
-      }
     }
     
     // 9. Calculate totals for return record
@@ -313,9 +351,9 @@ export async function POST(
         status: "completed",
         processed_at: new Date().toISOString(),
         processed_by: userId,
-        send_to_laundry,
+        send_to_laundry: send_to_laundry || laundryItems.length > 0,
         laundry_batch_id: results.laundry_batch_id,
-        laundry_batch_created: send_to_laundry && results.laundry_batch_id !== null,
+        laundry_batch_created: results.laundry_batch_id !== null,
         notes: notes || returnRecord.notes,
         processing_notes: processing_notes,
         ...totals

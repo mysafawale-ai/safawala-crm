@@ -1,58 +1,20 @@
-# Auto Git Push Setup
+# Auto Git Push — Deprecated
 
-## 🚀 Automatic GitHub Push
+This feature has been removed from the repository by request. The script `scripts/auto-push.sh` is now a stub that exits immediately and does nothing.
 
-This script automatically commits and pushes your changes to GitHub every 30 seconds.
+## Current Status
 
-## How to Use
+- VS Code task "Auto Push to GitHub" has been removed from `.vscode/tasks.json`.
+- `scripts/auto-push.sh` prints a deprecation message and exits.
 
-### Option 1: Run in Terminal
+## Recommended Workflow
+
+Use standard Git commands to commit and push intentionally:
+
 ```bash
-cd /Applications/safawala-crm
-./scripts/auto-push.sh
+git add -A
+git commit -m "feat: <message>"
+git push origin main
 ```
 
-### Option 2: Run in Background
-```bash
-cd /Applications/safawala-crm
-nohup ./scripts/auto-push.sh > auto-push.log 2>&1 &
-```
-
-### Option 3: Use VS Code Task
-Press `Cmd+Shift+P` → Type "Run Task" → Select "Auto Push to GitHub"
-
-## Features
-
-✅ Monitors file changes every 30 seconds
-✅ Auto-commits with timestamp
-✅ Auto-pushes to GitHub main branch
-✅ Shows status of each operation
-✅ Handles errors gracefully
-
-## Stop Auto-Push
-
-If running in terminal: Press `Ctrl+C`
-
-If running in background:
-```bash
-# Find the process
-ps aux | grep auto-push.sh
-
-# Kill it
-kill <process_id>
-```
-
-## What Gets Committed
-
-- All modified files
-- All new files
-- Commit message format: `auto: Save changes at YYYY-MM-DD HH:MM:SS`
-
-## Notes
-
-⚠️ Make sure you have:
-- Git credentials configured
-- Push access to the repository
-- Internet connection for pushing
-
-💡 Tip: Use this during active development, but stop it when done to avoid too many commits.
+You can also create a conventional commit task or use an extension if you want shortcuts without automatic pushing.
