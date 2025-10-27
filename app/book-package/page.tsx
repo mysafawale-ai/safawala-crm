@@ -166,29 +166,29 @@ export default function BookPackageWizard() {
         }
       }
       
-      // Fetch staff members via API (server-side supabase) to avoid client env issues
-      console.log("Fetching staff members via API...")
-      const staffResp = await fetch('/api/staff', { cache: 'no-store' })
+      // Fetch all data in parallel for faster loading ⚡
+      const [staffResp, customersResponse, catHttp, variantHttp] = await Promise.all([
+        fetch('/api/staff', { cache: 'no-store' }),
+        fetch('/api/customers?basic=1', { cache: 'no-store' }),
+        fetch('/api/packages/categories', { cache: 'no-store' }),
+        fetch('/api/packages/variants', { cache: 'no-store' }),
+      ])
+      
+      // Process staff
       const staffJson = staffResp.ok ? await staffResp.json() : { staff: [] }
       const staffRes = { data: (staffJson?.staff || []).filter((s: any) => ['staff','franchise_admin'].includes(s.role)), error: staffResp.ok ? null : new Error('Failed to load staff') }
       
-      // Prepare customer query with franchise filter
-  console.log("Fetching customers via API (basic mode)...")
-  const customersResponse = await fetch('/api/customers?basic=1', { cache: 'no-store' })
+      // Process customers
       let customersData: Customer[] = []
       if (customersResponse.ok) {
         const result = await customersResponse.json()
-        customersData = result.data || [] // API returns { success: true, data: [...] }
+        customersData = result.data || []
         console.log("✅ Customers loaded from API:", customersData.length)
       } else {
         console.error("Error loading customers from API:", customersResponse.status)
       }
       
-      // Fetch categories and variants via API (server-side supabase)
-      const [catHttp, variantHttp] = await Promise.all([
-        fetch('/api/packages/categories', { cache: 'no-store' }),
-        fetch('/api/packages/variants', { cache: 'no-store' }),
-      ])
+      // Process categories and variants
       const catJson = catHttp.ok ? await catHttp.json() : { data: [] }
       const variantJson = variantHttp.ok ? await variantHttp.json() : { data: [] }
       const catRes = { data: catJson?.data || [], error: catHttp.ok ? null : new Error('Failed to load categories') }

@@ -295,7 +295,9 @@ export function ProductSelector({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {filteredProducts.map((product, index) => {
-                const unitPrice = bookingType === "rental" ? product.rental_price : product.sale_price
+                const unitPrice = bookingType === "rental" 
+                  ? product.rental_price 
+                  : (product.sale_price || product.rental_price || 0) // Fallback to rental if sale is missing
                 const reservedQty = getReservedQuantity(product.id)
                 const availableStock = getAvailableStock(product)
                 const outOfStock = isOutOfStock(product)

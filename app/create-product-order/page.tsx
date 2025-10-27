@@ -127,6 +127,10 @@ export default function CreateProductOrderPage() {
   const [availabilityModalFor, setAvailabilityModalFor] = useState<{ id: string; name: string } | null>(null)
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [availabilityRows, setAvailabilityRows] = useState<{ date: string; kind: 'order' | 'package'; ref?: string; qty: number; returnStatus?: 'returned' | 'in_progress'; returnDate?: string }[]>([])
+  const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null)
+  const [paidAmount, setPaidAmount] = useState(0)
+  const [damageAmount, setDamageAmount] = useState(0)
+  const [lossAmount, setLossAmount] = useState(0)
   
   // Calendar popover states for auto-close
   const [eventDateOpen, setEventDateOpen] = useState(false)
@@ -159,6 +163,32 @@ export default function CreateProductOrderPage() {
     notes: "",
   })
 
+  // Scroll to top when page loads
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
+  // Recalculate item prices when booking type changes
+  useEffect(() => {
+    if (items.length === 0) return
+    
+    setItems(prevItems => prevItems.map(item => {
+      const product = products.find(p => p.id === item.product_id)
+      if (!product) return item
+      
+      const newUnitPrice = formData.booking_type === "rental" 
+        ? (product.rental_price || 0) 
+        : (product.sale_price || product.rental_price || 0) // Fallback to rental if sale is 0
+      
+      return {
+        ...item,
+        unit_price: newUnitPrice,
+        total_price: newUnitPrice * item.quantity,
+        security_deposit: formData.booking_type === "rental" ? (product.security_deposit || 0) : 0
+      }
+    }))
+  }, [formData.booking_type, products])
+
   // Load initial data
   useEffect(() => {
     ;(async () => {
@@ -170,61 +200,59 @@ export default function CreateProductOrderPage() {
         const user = await userRes.json()
         setCurrentUser(user)  // ✅ Store user in state for later use
 
-        // Fetch company settings to get base pincode
-        if (user.franchise_id) {
-          try {
-            const settingsRes = await fetch(`/api/settings/company?franchise_id=${user.franchise_id}`)
-            if (settingsRes.ok) {
-              const settingsData = await settingsRes.json()
-              const pincode = settingsData.data?.pincode
-              if (pincode) {
-                setBasePincode(pincode)
-                console.log('✅ Base pincode loaded from company settings:', pincode)
-              }
-            }
-          } catch (err) {
-            console.warn('Could not load company settings, using default pincode')
-          }
-        }
-
-        // Fetch customers via API (server-side supabase)
-        console.log("Fetching customers via API (basic mode)...")
-        const customersResponse = await fetch('/api/customers?basic=1', { cache: 'no-store' })
-        let customersData: Customer[] = []
-        if (customersResponse.ok) {
-          const result = await customersResponse.json()
-          customersData = result.customers || []
-        } else {
-          console.error('Failed to fetch customers:', customersResponse.statusText)
-        }
-
-        // Fetch products and staff
+        // Build queries with franchise filter
         let productsQuery = supabase.from("products").select("*").order("name")
         let staffQuery = supabase
           .from("users")
           .select("id,name,email,role,franchise_id")
           .in("role", ["staff", "franchise_admin"]).order("name")
 
-        // Apply franchise filter for non-super-admins
         if (user.role !== 'super_admin' && user.franchise_id) {
           productsQuery = productsQuery.eq('franchise_id', user.franchise_id)
           staffQuery = staffQuery.eq('franchise_id', user.franchise_id)
         }
 
-        const [prod, staff] = await Promise.all([
+        // Fetch all data in parallel for faster loading ⚡
+        const [customersResponse, settingsResponse, prod, staff, categoriesData] = await Promise.all([
+          fetch('/api/customers?basic=1', { cache: 'no-store' }),
+          user.franchise_id ? fetch(`/api/settings/company?franchise_id=${user.franchise_id}`) : Promise.resolve(null),
           productsQuery,
           staffQuery,
+          supabase.from('product_categories').select('*').order('name')
         ])
+
+        // Process company settings
+        if (settingsResponse) {
+          try {
+            const settingsData = await settingsResponse.json()
+            const pincode = settingsData.data?.pincode
+            if (pincode) {
+              setBasePincode(pincode)
+              console.log('✅ Base pincode loaded from company settings:', pincode)
+            }
+          } catch (err) {
+            console.warn('Could not load company settings')
+          }
+        }
+
+        // Process customers
+        let customersData: Customer[] = []
+        if (customersResponse.ok) {
+          const result = await customersResponse.json()
+          customersData = result.data || []
+        } else {
+          console.error('Failed to fetch customers:', customersResponse.statusText)
+        }
 
         if (prod.error) throw prod.error
 
+        console.log('✅ Loaded customers:', customersData.length, customersData)
         setCustomers(customersData)
         setProducts(prod.data || [])
         
         // Fetch categories and subcategories from database
-        const { data: cats } = await supabase.from('product_categories').select('*').order('name')
-        const mainCats = cats?.filter((c: any) => !c.parent_id) || []
-        const subCats = cats?.filter((c: any) => c.parent_id) || []
+        const mainCats = categoriesData.data?.filter((c: any) => !c.parent_id) || []
+        const subCats = categoriesData.data?.filter((c: any) => c.parent_id) || []
         setCategories(mainCats)
         setSubcategories(subCats)
         
@@ -378,7 +406,9 @@ export default function CreateProductOrderPage() {
     }
 
     const unit =
-      formData.booking_type === "rental" ? (p.rental_price || 0) : (p.sale_price || 0)
+      formData.booking_type === "rental" 
+        ? (p.rental_price || 0) 
+        : (p.sale_price || p.rental_price || 0) // Use rental as fallback if sale is 0
 
     if (existing) {
       if (existing.quantity >= p.stock_available) {
@@ -386,13 +416,15 @@ export default function CreateProductOrderPage() {
         return
       }
       updateQuantity(existing.id, existing.quantity + 1)
+      setLastAddedItemId(existing.id) // Track for focus
       return
     }
 
+    const newItemId = `item-${p.id}-${Date.now()}`
     setItems((prev) => [
       ...prev,
       {
-        id: `item-${p.id}-${Date.now()}`,
+        id: newItemId,
         product_id: p.id,
         product_name: p.name,
         category: p.category,
@@ -404,6 +436,7 @@ export default function CreateProductOrderPage() {
         stock_available: p.stock_available,
       },
     ])
+    setLastAddedItemId(newItemId) // Track for focus
   }
 
   const updateQuantity = (id: string, qty: number) => {
@@ -1429,9 +1462,18 @@ export default function CreateProductOrderPage() {
                             >
                               -
                             </Button>
-                            <span className="text-sm w-5 text-center">
-                              {it.quantity}
-                            </span>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={it.stock_available}
+                              value={it.quantity}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 1
+                                updateQuantity(it.id, val)
+                              }}
+                              className="w-16 h-8 text-center text-sm"
+                              autoFocus={lastAddedItemId === it.id}
+                            />
                             <Button
                               size="sm"
                               variant="outline"
@@ -1637,6 +1679,47 @@ export default function CreateProductOrderPage() {
                       <span className="font-medium text-yellow-700">₹{totals.remaining.toFixed(2)}</span>
                     </div>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Payment Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle>💳 Payment Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {formData.booking_type === "sale" ? (
+                  /* For Sale - Only show Total Payment */
+                  <div className="flex justify-between text-base bg-green-50 p-3 rounded border border-green-200">
+                    <span className="font-medium">💰 Total Payment:</span>
+                    <span className="font-bold text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  /* For Rental - Show Payable Now, Remaining, and Refundable */
+                  <>
+                    {/* Payable Now */}
+                    <div className="flex justify-between text-base bg-green-50 p-3 rounded border border-green-200">
+                      <span className="font-medium">💰 Payable Now:</span>
+                      <span className="font-bold text-green-700 text-lg">
+                        ₹{(totals.payable + totals.deposit).toFixed(2)}
+                      </span>
+                    </div>
+
+                    {/* Remaining Amount */}
+                    <div className="flex justify-between text-base bg-orange-50 p-3 rounded border border-orange-200">
+                      <span className="font-medium">⏳ Remaining Amount:</span>
+                      <span className="font-bold text-orange-700 text-lg">₹{totals.remaining.toFixed(2)}</span>
+                    </div>
+
+                    {/* Refundable Amount */}
+                    {totals.deposit > 0 && (
+                      <div className="flex justify-between text-base bg-blue-50 p-3 rounded border border-blue-200">
+                        <span className="font-medium">🔒 Refundable Amount:</span>
+                        <span className="font-bold text-blue-700 text-lg">₹{totals.deposit.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

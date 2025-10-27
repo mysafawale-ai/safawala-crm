@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
+import { DashboardErrorBoundary } from "@/components/error-boundary"
 import { getCurrentUser } from "@/lib/auth"
 import { useData } from "@/hooks/use-data"
 import type { User, Booking } from "@/lib/types"
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
 
+  // Fetch all dashboard data in parallel for better performance
   const { data: stats, loading: statsLoading, refresh: refreshStats } = useData<DashboardStats>("dashboard-stats")
   
   // Only fetch bookings data if user has bookings permission
@@ -63,6 +65,9 @@ export default function DashboardPage() {
     loading: calendarLoading,
     refresh: refreshCalendar,
   } = useData<any[]>(shouldFetchBookings ? "calendar-bookings" : "skip")
+
+  // Combined loading state for better UX
+  const isLoading = statsLoading || (shouldFetchBookings && (bookingsLoading || calendarLoading))
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -159,8 +164,9 @@ export default function DashboardPage() {
   if (!user) return null
 
   return (
-    <DashboardLayout userRole={user?.role}>
-      <div className="space-y-6">
+    <DashboardErrorBoundary>
+      <DashboardLayout userRole={user?.role}>
+        <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -170,8 +176,8 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={statsLoading}>
-              <RefreshCw className={`h-4 w-4 ${statsLoading ? 'animate-spin' : ''}`} />
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
 
             <div className="flex items-center gap-2">
@@ -190,7 +196,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Loading State */}
-        {statsLoading ? (
+        {isLoading ? (
           <DashboardSkeleton />
         ) : (
           <>
@@ -408,5 +414,6 @@ export default function DashboardPage() {
         )}
       </div>
     </DashboardLayout>
+    </DashboardErrorBoundary>
   )
 }

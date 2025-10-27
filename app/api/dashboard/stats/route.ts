@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request, 'viewer')
+    const authResult = await requireAuth(request, 'readonly')
     if (!authResult.success) {
       return NextResponse.json(authResult.response, { status: 401 })
     }
@@ -23,47 +23,42 @@ export async function GET(request: NextRequest) {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
-    // Build queries with franchise filter
-    let bookingsQuery = supabase.from("bookings").select("*")
-    let customersQuery = supabase.from("customers").select("*")
-    let productsQuery = supabase.from("products").select("*")
+    // Optimized: Build a single aggregated query instead of fetching all records
+    let bookingsQuery = supabase
+      .from("bookings")
+      .select("id, status, total_amount, created_at, type", { count: 'exact' })
 
-    // CRITICAL: Filter by franchise_id unless super admin
+    // Apply franchise filter
     if (!isSuperAdmin && franchiseId) {
       bookingsQuery = bookingsQuery.eq("franchise_id", franchiseId)
-      customersQuery = customersQuery.eq("franchise_id", franchiseId)
-      productsQuery = productsQuery.eq("franchise_id", franchiseId)
       console.log(`[Dashboard Stats API] Applied franchise filter: ${franchiseId}`)
     } else {
       console.log(`[Dashboard Stats API] Super admin mode - showing all stats`)
     }
 
-    const [bookingsResult, customersResult, productsResult] = await Promise.all([
-      bookingsQuery,
-      customersQuery,
-      productsQuery
+    // Fetch bookings with count
+    const { data: bookingsData, error: bookingsError, count: totalBookings } = await bookingsQuery
+
+    if (bookingsError) {
+      console.error("Error fetching bookings:", bookingsError)
+      return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 })
+    }
+
+    // Parallel queries for other data
+    const [customersResult, productsResult] = await Promise.all([
+      isSuperAdmin || !franchiseId
+        ? supabase.from("customers").select("id", { count: 'exact', head: true })
+        : supabase.from("customers").select("id", { count: 'exact', head: true }).eq("franchise_id", franchiseId),
+      isSuperAdmin || !franchiseId
+        ? supabase.from("products").select("id, stock_available, reorder_level")
+        : supabase.from("products").select("id, stock_available, reorder_level").eq("franchise_id", franchiseId)
     ])
 
-    const bookingsData = bookingsResult.data || []
-    const customersData = customersResult.data || []
+    const totalCustomers = customersResult.count || 0
     const productsData = productsResult.data || []
-
-    if (bookingsResult.error) {
-      console.error("Error fetching bookings:", bookingsResult.error)
-    }
-    if (customersResult.error) {
-      console.error("Error fetching customers:", customersResult.error)
-    }
-    if (productsResult.error) {
-      console.error("Error fetching products:", productsResult.error)
-    }
-
-    const totalBookings = bookingsData.length
     const activeBookings = bookingsData.filter((b: any) => 
       ['confirmed', 'delivered'].includes(b.status)
     ).length
-
-    const totalCustomers = customersData.length
 
     const totalRevenue = bookingsData.reduce((sum: number, booking: any) => 
       sum + (booking.total_amount || 0), 0
@@ -91,7 +86,8 @@ export async function GET(request: NextRequest) {
     const quotesCount = bookingsData.filter((b: any) => b.status === 'quote').length
     const conversionRate = quotesCount > 0 ? ((confirmedBookings / (confirmedBookings + quotesCount)) * 100) : 0
     
-    const avgBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0
+    const bookingsCount = totalBookings || 0
+    const avgBookingValue = bookingsCount > 0 ? totalRevenue / bookingsCount : 0
 
     // Revenue by month (last 6 months)
     const revenueByMonth = []
@@ -122,7 +118,7 @@ export async function GET(request: NextRequest) {
     const overdueTasks = 0 // Can be enhanced with actual due date logic
 
     const stats = {
-      totalBookings,
+      totalBookings: bookingsCount,
       activeBookings,
       totalCustomers,
       totalRevenue,
@@ -144,7 +140,14 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(`[Dashboard Stats API] Returning stats:`, stats)
-    return NextResponse.json({ success: true, data: stats })
+    return NextResponse.json(
+      { success: true, data: stats },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30'
+        }
+      }
+    )
   } catch (error) {
     console.error("[Dashboard Stats API] Error:", error)
     if (error instanceof Error && error.message === "Authentication required") {
