@@ -240,9 +240,9 @@ export function ItemsSelectionDialog({
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full h-6 text-[10px]"
+                className="w-full h-7 text-[11px] border-blue-200 hover:bg-blue-50"
               >
-                <Eye className="h-3 w-3 mr-1" />
+                <Eye className="h-3.5 w-3.5 mr-1.5" />
                 Check Availability
               </Button>
             </InventoryAvailabilityPopup>

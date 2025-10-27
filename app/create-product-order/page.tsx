@@ -556,102 +556,10 @@ export default function CreateProductOrderPage() {
     return date.toISOString()
   }
 
-  // On-demand availability fetch for a single product around event date (5-day window)
+  // Deprecated: checkAvailability function removed - use InventoryAvailabilityPopup component instead
+  // This provides better UX with product-specific availability checking
   const checkAvailability = async (productId: string, productName: string) => {
-    setAvailabilityModalFor({ id: productId, name: productName })
-    setAvailabilityLoading(true)
-    setAvailabilityRows([])
-    try {
-      const base = formData.event_date ? new Date(formData.event_date) : new Date()
-      const start = new Date(base); start.setDate(start.getDate() - 2)
-      const end = new Date(base); end.setDate(end.getDate() + 2)
-      const startISO = start.toISOString(); const endISO = end.toISOString()
-
-      const { data: orderItems } = await supabase
-        .from('product_order_items')
-        .select('product_id, quantity, order:product_orders(id, event_date, delivery_date, return_date, order_number, status)')
-        .eq('product_id', productId)
-
-      // Get order IDs for barcode status check
-      const orderIds = (orderItems || [])
-        .map((item: any) => item.order?.id)
-        .filter(Boolean)
-
-      console.log('[Availability Check] Order IDs:', orderIds)
-
-      // Fetch barcode assignments to determine return status
-      const { data: barcodeData, error: barcodeError } = await supabase
-        .from('booking_barcode_assignments')
-        .select('booking_id, status, returned_at')
-        .in('booking_id', orderIds)
-        .eq('booking_type', 'product')
-
-      console.log('[Availability Check] Barcode data:', barcodeData)
-      console.log('[Availability Check] Barcode error:', barcodeError)
-
-      // Create return status map
-      const returnStatusMap = new Map<string, { returned: number; pending: number; returnDate?: string }>()
-      barcodeData?.forEach((bc: any) => {
-        if (!returnStatusMap.has(bc.booking_id)) {
-          returnStatusMap.set(bc.booking_id, { returned: 0, pending: 0 })
-        }
-        const stats = returnStatusMap.get(bc.booking_id)!
-        if (bc.status === 'returned' || bc.status === 'completed') {
-          stats.returned++
-        } else {
-          stats.pending++
-        }
-      })
-
-      console.log('[Availability Check] Return status map:', Array.from(returnStatusMap.entries()))
-
-      const rows: { date: string; kind: 'order' | 'package'; ref?: string; qty: number; returnStatus?: 'returned' | 'in_progress'; returnDate?: string }[] = []
-      const within = (iso?: string | null) => iso ? (new Date(iso) >= new Date(startISO) && new Date(iso) <= new Date(endISO)) : false
-      const overlap = (a?: string | null, b?: string | null) => {
-        const s = a ? new Date(a) : null; const e = b ? new Date(b) : null
-        const S = new Date(startISO); const E = new Date(endISO)
-        if (!s && !e) return false
-        const from = s ?? e!; const to = e ?? s!
-        return from <= E && to >= S
-      }
-      for (const r of (orderItems || []) as any[]) {
-        const st = r.order?.status
-        if (!st || ['cancelled'].includes(st)) continue
-        const d = r.order?.event_date
-        const hit = d ? within(d) : overlap(r.order?.delivery_date, r.order?.return_date)
-        if (!hit) continue
-        
-        // Determine return status
-        const orderId = r.order?.id
-        const barcodeStats = orderId ? returnStatusMap.get(orderId) : undefined
-        let returnStatus: 'returned' | 'in_progress' | undefined
-        if (barcodeStats) {
-          if (barcodeStats.pending > 0) {
-            returnStatus = 'in_progress'
-          } else if (barcodeStats.returned > 0) {
-            returnStatus = 'returned'
-          }
-        }
-        
-        console.log('[Availability Check] Order:', r.order?.order_number, 'Status:', returnStatus, 'Stats:', barcodeStats)
-        
-        rows.push({ 
-          date: d || r.order?.delivery_date || r.order?.return_date, 
-          kind: 'order', 
-          ref: r.order?.order_number, 
-          qty: Number(r.quantity)||0,
-          returnStatus,
-          returnDate: r.order?.return_date
-        })
-      }
-      rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      console.log('[Availability Check] Final rows:', rows)
-      setAvailabilityRows(rows)
-    } catch (e) {
-      setAvailabilityRows([])
-    } finally {
-      setAvailabilityLoading(false)
-    }
+    console.warn('checkAvailability function is deprecated. Use InventoryAvailabilityPopup component instead.')
   }
 
   // Submit order or quote

@@ -20,7 +20,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Package, AlertCircle } from "lucide-react"
+import { Search, Package, AlertCircle, Eye } from "lucide-react"
+import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 
 export interface Product {
   id: string
@@ -379,15 +380,20 @@ export function ProductSelector({
 
                     {/* Actions */}
                     <div className="mt-auto space-y-2">
-                      {eventDate && onCheckAvailability && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onCheckAvailability(product.id, product.name)}
-                          className="w-full h-7 text-[10px]"
+                      {eventDate && (
+                        <InventoryAvailabilityPopup
+                          productId={product.id}
+                          eventDate={new Date(eventDate)}
                         >
-                          Check Availability
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-7 text-[10px]"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Check Availability
+                          </Button>
+                        </InventoryAvailabilityPopup>
                       )}
                       <Button
                         size="sm"

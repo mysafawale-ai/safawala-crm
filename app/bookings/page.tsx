@@ -46,6 +46,7 @@ import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/ske
 import { ItemsDisplayDialog, ItemsSelectionDialog } from "@/components/shared"
 import type { SelectedItem, Product, PackageSet } from "@/components/shared/types/items"
 import { createClient } from "@/lib/supabase/client"
+import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
 import ManageOffersDialog from "@/components/ManageOffersDialog"
@@ -1633,19 +1634,34 @@ export default function BookingsPage() {
                     Select products from available inventory to complete this booking.
                   </p>
                   
-                  <Button 
-                    className="w-full" 
-                    onClick={() => {
-                      setShowProductDialog(false)
-                      // Open the selection dialog
-                      setCurrentBookingForItems(productDialogBooking)
-                      setSelectedItems([])
-                      setShowItemsSelection(true)
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Select Products Now
-                  </Button>
+                  <div className="flex gap-2">
+                    {productDialogBooking.event_date && (
+                      <InventoryAvailabilityPopup
+                        packageId={(productDialogBooking as any).source === 'package_bookings' ? productDialogBooking.id : undefined}
+                        eventDate={new Date(productDialogBooking.event_date)}
+                        deliveryDate={productDialogBooking.delivery_date ? new Date(productDialogBooking.delivery_date) : undefined}
+                        returnDate={(productDialogBooking as any).return_date ? new Date((productDialogBooking as any).return_date) : undefined}
+                      >
+                        <Button variant="outline" className="flex-1">
+                          <Eye className="h-4 w-4 mr-2" />
+                          Check Availability
+                        </Button>
+                      </InventoryAvailabilityPopup>
+                    )}
+                    <Button 
+                      className="flex-1" 
+                      onClick={() => {
+                        setShowProductDialog(false)
+                        // Open the selection dialog
+                        setCurrentBookingForItems(productDialogBooking)
+                        setSelectedItems([])
+                        setShowItemsSelection(true)
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Select Products Now
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>

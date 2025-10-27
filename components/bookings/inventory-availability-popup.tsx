@@ -9,6 +9,7 @@ import { Calendar, Package, AlertTriangle, CheckCircle, Clock } from "lucide-rea
 import { format, addDays, subDays } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 interface Product {
   id: string
@@ -20,20 +21,22 @@ interface Product {
   stock_in_laundry: number
 }
 
-interface BookingConflict {
-  booking_id: string
-  customer_name: string
-  delivery_date: string
-  return_date: string
-  quantity: number
-  return_status?: 'returned' | 'in_progress'
+interface DailyBooking {
+  date: string
+  bookings: {
+    booking_number: string
+    customer_name: string
+    quantity: number
+    source: 'package' | 'product'
+    booking_id: string
+  }[]
+  totalQuantity: number
 }
 
-interface AvailabilityData {
+interface ProductAvailability {
   product: Product
-  availableQuantity: number
-  conflicts: BookingConflict[]
-  nextAvailableDate?: string
+  dailyBookings: DailyBooking[]
+  totalBooked: number
 }
 
 interface InventoryAvailabilityPopupProps {
@@ -57,7 +60,7 @@ export function InventoryAvailabilityPopup({
 }: InventoryAvailabilityPopupProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [availabilityData, setAvailabilityData] = useState<AvailabilityData[]>([])
+  const [availabilityData, setAvailabilityData] = useState<ProductAvailability[]>([])
   const supabase = createClient()
 
   const checkAvailability = async () => {
@@ -72,154 +75,161 @@ export function InventoryAvailabilityPopup({
 
     setLoading(true)
     try {
-      // Calculate date range (2 days before and after)
+      // Calculate date range (2 days before event, event day, 2 days after = 5 days)
       const startDate = subDays(eventDate, 2)
       const endDate = addDays(eventDate, 2)
-      const checkDeliveryDate = deliveryDate || subDays(eventDate, 1)
-      const checkReturnDate = returnDate || addDays(eventDate, 1)
+      
+      // Generate 5 dates (event date +/- 2 days)
+      const dates: string[] = []
+      for (let i = 0; i < 5; i++) {
+        dates.push(format(addDays(startDate, i), 'yyyy-MM-dd'))
+      }      console.log(`Checking availability for dates:`, dates)
 
-      console.log(
-        `[v0] Checking availability from ${format(startDate, "yyyy-MM-dd")} to ${format(endDate, "yyyy-MM-dd")}`,
-      )
-
-      // Get products associated with the package/variant
+      // Get products to check
       let productIds: string[] = []
 
       if (productId) {
-        // Check specific product only
         productIds = [productId]
       } else if (variantId) {
-        // Get products from variant inclusions (if they reference product IDs)
-        const { data: variantData } = await supabase
-          .from("package_variants")
-          .select("inclusions")
-          .eq("id", variantId)
-          .single()
-
-        if (variantData?.inclusions) {
-          // For now, we'll get all products as inclusions might be text descriptions
-          const { data: allProducts } = await supabase.from("products").select("id").eq("is_active", true)
-
-          productIds = allProducts?.map((p) => p.id) || []
-        }
-      } else {
-        // Get all active products for general availability check
         const { data: allProducts } = await supabase.from("products").select("id").eq("is_active", true)
-
+        productIds = allProducts?.map((p) => p.id) || []
+      } else {
+        const { data: allProducts } = await supabase.from("products").select("id").eq("is_active", true)
         productIds = allProducts?.map((p) => p.id) || []
       }
 
       // Get product details
-      const { data: products, error: productsError } = await supabase
+      const { data: products } = await supabase
         .from("products")
         .select("*")
         .in("id", productIds)
         .eq("is_active", true)
 
-      if (productsError) throw productsError
+      if (!products || products.length === 0) {
+        setAvailabilityData([])
+        return
+      }
 
-      // Get conflicting bookings for the date range
-      const { data: conflictingBookings, error: bookingsError } = await supabase
-        .from("bookings")
+      // Get all package bookings that overlap with our date range
+      const { data: packageBookings } = await supabase
+        .from("package_bookings")
         .select(`
           id,
+          package_number,
+          event_date,
           delivery_date,
           return_date,
-          customers(name),
-          booking_items(product_id, quantity)
+          status,
+          customer_id,
+          customers(name)
         `)
-        .or(
-          `delivery_date.lte.${format(checkReturnDate, "yyyy-MM-dd")},return_date.gte.${format(checkDeliveryDate, "yyyy-MM-dd")}`,
-        )
-        .neq("status", "cancelled")
+        .gte('event_date', format(startDate, 'yyyy-MM-dd'))
+        .lte('event_date', format(endDate, 'yyyy-MM-dd'))
+        .neq('status', 'cancelled')
 
-      if (bookingsError) throw bookingsError
+      // Get package booking items
+      const packageBookingIds = packageBookings?.map(b => b.id) || []
+      const { data: packageItems } = await supabase
+        .from("package_booking_items")
+        .select("booking_id, reserved_products")
+        .in("booking_id", packageBookingIds)
 
-      // Get barcode status for each booking to determine return status
-      const bookingIds = conflictingBookings?.map((b) => b.id) || []
-      const { data: barcodeData } = await supabase
-        .from("booking_barcode_assignments")
-        .select("booking_id, status, returned_at")
-        .in("booking_id", bookingIds)
-        .eq("booking_type", "package")
+      // Get all product orders that overlap with our date range
+      const { data: productOrders } = await supabase
+        .from("product_orders")
+        .select(`
+          id,
+          order_number,
+          event_date,
+          delivery_date,
+          return_date,
+          status,
+          customer_id,
+          customers(name)
+        `)
+        .gte('event_date', format(startDate, 'yyyy-MM-dd'))
+        .lte('event_date', format(endDate, 'yyyy-MM-dd'))
+        .neq('status', 'cancelled')
 
-      // Create a map of booking_id to return status
-      const returnStatusMap = new Map<string, { returned: number; pending: number }>()
-      barcodeData?.forEach((bc) => {
-        if (!returnStatusMap.has(bc.booking_id)) {
-          returnStatusMap.set(bc.booking_id, { returned: 0, pending: 0 })
-        }
-        const stats = returnStatusMap.get(bc.booking_id)!
-        if (bc.status === "returned" || bc.status === "completed") {
-          stats.returned++
-        } else {
-          stats.pending++
+      // Get product order items
+      const productOrderIds = productOrders?.map(o => o.id) || []
+      const { data: productOrderItems } = await supabase
+        .from("product_order_items")
+        .select("order_id, product_id, quantity")
+        .in("order_id", productOrderIds)
+        .in("product_id", productIds)
+
+      // Build availability data for each product
+      const availability: ProductAvailability[] = products.map(product => {
+        const dailyBookings: DailyBooking[] = dates.map(date => {
+          const bookings: DailyBooking['bookings'] = []
+
+          // Check package bookings for this date
+          packageBookings?.forEach(booking => {
+            if (booking.event_date === date) {
+              // Check if any package items have this product in reserved_products
+              const items = packageItems?.filter(item => item.booking_id === booking.id) || []
+              items.forEach(item => {
+                if (item.reserved_products) {
+                  const reserved = Array.isArray(item.reserved_products) 
+                    ? item.reserved_products 
+                    : []
+                  
+                  const productInReserved = reserved.find((r: any) => r.id === product.id || r.product_id === product.id)
+                  if (productInReserved) {
+                    const qty = productInReserved.quantity || 1
+                    bookings.push({
+                      booking_number: booking.package_number || booking.id.slice(0, 8),
+                      customer_name: (booking.customers as any)?.name || 'Unknown',
+                      quantity: qty,
+                      source: 'package',
+                      booking_id: booking.id
+                    })
+                  }
+                }
+              })
+            }
+          })
+
+          // Check product orders for this date
+          productOrders?.forEach(order => {
+            if (order.event_date === date) {
+              const items = productOrderItems?.filter(item => 
+                item.order_id === order.id && item.product_id === product.id
+              ) || []
+              
+              items.forEach(item => {
+                bookings.push({
+                  booking_number: order.order_number || order.id.slice(0, 8),
+                  customer_name: (order.customers as any)?.name || 'Unknown',
+                  quantity: item.quantity,
+                  source: 'product',
+                  booking_id: order.id
+                })
+              })
+            }
+          })
+
+          const totalQuantity = bookings.reduce((sum, b) => sum + b.quantity, 0)
+
+          return {
+            date,
+            bookings,
+            totalQuantity
+          }
+        })
+
+        const totalBooked = dailyBookings.reduce((sum, day) => sum + day.totalQuantity, 0)
+
+        return {
+          product,
+          dailyBookings,
+          totalBooked
         }
       })
 
-      // Calculate availability for each product
-      const availability: AvailabilityData[] =
-        products?.map((product) => {
-          // Find conflicts for this product
-          const productConflicts: BookingConflict[] = []
-          let bookedQuantity = 0
-
-          conflictingBookings?.forEach((booking: any) => {
-            const customerName = Array.isArray(booking.customers) 
-              ? booking.customers[0]?.name 
-              : booking.customers?.name || "Unknown"
-            
-            // Determine return status for this booking
-            const barcodeStats = returnStatusMap.get(booking.id)
-            let returnStatus: 'returned' | 'in_progress' | undefined
-            if (barcodeStats) {
-              if (barcodeStats.pending > 0) {
-                returnStatus = 'in_progress'
-              } else if (barcodeStats.returned > 0) {
-                returnStatus = 'returned'
-              }
-            }
-
-            booking.booking_items?.forEach((item: any) => {
-              if (item.product_id === product.id) {
-                bookedQuantity += item.quantity
-                productConflicts.push({
-                  booking_id: booking.id,
-                  customer_name: customerName,
-                  delivery_date: booking.delivery_date,
-                  return_date: booking.return_date,
-                  quantity: item.quantity,
-                  return_status: returnStatus,
-                })
-              }
-            })
-          })
-
-          const availableQuantity = Math.max(0, product.stock_available - bookedQuantity)
-
-          // Find next available date if not available now
-          let nextAvailableDate: string | undefined
-          if (availableQuantity === 0) {
-            // Find the earliest return date from conflicts
-            const returnDates = productConflicts
-              .map((c) => new Date(c.return_date))
-              .sort((a, b) => a.getTime() - b.getTime())
-
-            if (returnDates.length > 0) {
-              nextAvailableDate = format(addDays(returnDates[0], 1), "yyyy-MM-dd")
-            }
-          }
-
-          return {
-            product,
-            availableQuantity,
-            conflicts: productConflicts,
-            nextAvailableDate,
-          }
-        }) || []
-
       setAvailabilityData(availability)
-      console.log(`[v0] Availability check complete for ${availability.length} products`)
+      console.log(`Availability check complete for ${availability.length} products`)
     } catch (error) {
       console.error("Error checking availability:", error)
       toast({
@@ -239,28 +249,22 @@ export function InventoryAvailabilityPopup({
     }
   }
 
-  const getAvailabilityStatus = (data: AvailabilityData) => {
-    if (data.availableQuantity > 5) {
-      return { status: "good", color: "text-green-600", icon: CheckCircle }
-    } else if (data.availableQuantity > 0) {
-      return { status: "limited", color: "text-yellow-600", icon: AlertTriangle }
-    } else {
-      return { status: "unavailable", color: "text-red-600", icon: AlertTriangle }
-    }
+  const isEventDate = (dateStr: string) => {
+    return eventDate && dateStr === format(eventDate, 'yyyy-MM-dd')
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Inventory Availability Check
+            <Calendar className="h-5 w-5" />
+            5-Day Booking Overview
           </DialogTitle>
           {eventDate && (
             <p className="text-sm text-gray-600">
-              Checking availability for {format(subDays(eventDate, 2), "MMM dd")} -{" "}
+              Showing bookings from {format(subDays(eventDate, 2), "MMM dd")} to{" "}
               {format(addDays(eventDate, 2), "MMM dd, yyyy")}
             </p>
           )}
@@ -271,7 +275,7 @@ export function InventoryAvailabilityPopup({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {availabilityData.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -279,120 +283,124 @@ export function InventoryAvailabilityPopup({
               </div>
             ) : (
               <>
-                {/* Summary */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Availability Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <div className="text-2xl font-bold text-green-600">
-                          {availabilityData.filter((d) => d.availableQuantity > 5).length}
+                {availabilityData.map((data) => (
+                  <Card key={data.product.id} className="border-2">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{data.product.name}</CardTitle>
                         </div>
-                        <div className="text-sm text-gray-600">Fully Available</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-yellow-600">
-                          {availabilityData.filter((d) => d.availableQuantity > 0 && d.availableQuantity <= 5).length}
+                        <div className="text-right">
+                          <div className="text-sm text-gray-600">Total Stock</div>
+                          <div className="text-2xl font-bold">{data.product.stock_total}</div>
+                          <div className="text-xs text-gray-500">Available: {data.product.stock_available}</div>
                         </div>
-                        <div className="text-sm text-gray-600">Limited Stock</div>
                       </div>
-                      <div>
-                        <div className="text-2xl font-bold text-red-600">
-                          {availabilityData.filter((d) => d.availableQuantity === 0).length}
-                        </div>
-                        <div className="text-sm text-gray-600">Unavailable</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Product Details */}
-                <div className="space-y-3">
-                  {availabilityData.map((data) => {
-                    const { status, color, icon: Icon } = getAvailabilityStatus(data)
-
-                    return (
-                      <Card key={data.product.id} className="border-l-4 border-l-gray-200">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Icon className={`h-4 w-4 ${color}`} />
-                                <h4 className="font-medium">{data.product.name}</h4>
-                                <Badge
-                                  variant={
-                                    status === "good" ? "default" : status === "limited" ? "secondary" : "destructive"
-                                  }
-                                >
-                                  {data.availableQuantity} available
-                                </Badge>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {/* Daily breakdown */}
+                      {data.dailyBookings.map((day, index) => {
+                        const isEvent = isEventDate(day.date)
+                        const hasBookings = day.bookings.length > 0
+                        
+                        return (
+                          <div 
+                            key={day.date} 
+                            className={cn(
+                              "border rounded-lg p-3",
+                              isEvent && "border-blue-500 bg-blue-50",
+                              !isEvent && hasBookings && "bg-orange-50 border-orange-200",
+                              !hasBookings && "bg-gray-50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4" />
+                                <span className="font-semibold">
+                                  {format(new Date(day.date), "EEE, MMM dd")}
+                                </span>
+                                {isEvent && (
+                                  <Badge variant="default" className="text-xs">
+                                    Event Date
+                                  </Badge>
+                                )}
                               </div>
-
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600 mb-2">
-                                <div>Total Stock: {data.product.stock_total}</div>
-                                <div>Available: {data.product.stock_available}</div>
-                                <div>Booked: {data.product.stock_booked}</div>
-                                <div>In Laundry: {data.product.stock_in_laundry}</div>
+                              <div className="flex items-center gap-2">
+                                {hasBookings ? (
+                                  <>
+                                    <Badge variant="destructive" className="text-sm">
+                                      {day.totalQuantity} Booked
+                                    </Badge>
+                                    <Badge variant="outline" className="text-sm">
+                                      {day.bookings.length} {day.bookings.length === 1 ? 'Booking' : 'Bookings'}
+                                    </Badge>
+                                  </>
+                                ) : (
+                                  <Badge variant="secondary" className="text-sm">
+                                    Available
+                                  </Badge>
+                                )}
                               </div>
-
-                              {data.conflicts.length > 0 && (
-                                <div className="mt-3">
-                                  <p className="text-sm font-medium text-gray-700 mb-2">Booking Conflicts:</p>
-                                  <div className="space-y-1">
-                                    {data.conflicts.map((conflict, index) => (
-                                      <div
-                                        key={index}
-                                        className="text-xs bg-red-50 p-2 rounded flex items-center gap-2 flex-wrap"
-                                      >
-                                        <Calendar className="h-3 w-3" />
-                                        <span>{conflict.customer_name}</span>
-                                        <span>•</span>
-                                        <span>
-                                          {format(new Date(conflict.delivery_date), "MMM dd")} -{" "}
-                                          {format(new Date(conflict.return_date), "MMM dd")}
-                                        </span>
-                                        <span>•</span>
-                                        <span>{conflict.quantity} items</span>
-                                        
-                                        {/* Return Status Badges */}
-                                        {conflict.return_status === 'returned' && (
-                                          <Badge variant="default" className="bg-green-500 text-white text-[10px] px-1.5 py-0">
-                                            Returned
-                                          </Badge>
-                                        )}
-                                        {conflict.return_status === 'in_progress' && (
-                                          <>
-                                            <Badge variant="secondary" className="bg-orange-500 text-white text-[10px] px-1.5 py-0">
-                                              In Progress
-                                            </Badge>
-                                            <span className="text-[10px] text-orange-600 font-medium">
-                                              Return: {format(new Date(conflict.return_date), "MMM dd, hh:mm a")}
-                                            </span>
-                                          </>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {data.nextAvailableDate && (
-                                <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
-                                  <Clock className="h-4 w-4" />
-                                  <span>
-                                    Next available: {format(new Date(data.nextAvailableDate), "MMM dd, yyyy")}
-                                  </span>
-                                </div>
-                              )}
                             </div>
+
+                            {/* Booking details */}
+                            {hasBookings && (
+                              <div className="space-y-2 mt-3">
+                                {day.bookings.map((booking, idx) => (
+                                  <div 
+                                    key={idx}
+                                    className="flex items-center justify-between p-2 bg-white rounded border"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <Badge 
+                                        variant={booking.source === 'package' ? 'default' : 'secondary'}
+                                        className="text-xs"
+                                      >
+                                        {booking.source === 'package' ? '📦 Package' : '🛒 Product'}
+                                      </Badge>
+                                      <div>
+                                        <div className="font-medium text-sm">
+                                          {booking.customer_name}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          {booking.booking_number}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="font-bold text-orange-600">
+                                        Qty: {booking.quantity}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
+                        )
+                      })}
+
+                      {/* Summary */}
+                      <div className="border-t pt-3 mt-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Total bookings in 5 days:</span>
+                          <span className="font-bold text-lg">{data.totalBooked} units</span>
+                        </div>
+                        {data.totalBooked > 0 && (
+                          <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-blue-700">
+                            💡 Peak demand: {Math.max(...data.dailyBookings.map(d => d.totalQuantity))} units on{' '}
+                            {format(
+                              new Date(data.dailyBookings.reduce((max, d) => 
+                                d.totalQuantity > max.totalQuantity ? d : max
+                              ).date),
+                              "MMM dd"
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </>
             )}
           </div>
