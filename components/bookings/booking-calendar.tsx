@@ -61,6 +61,14 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     fetchBookings()
   }, [franchiseId])
 
+  // Helper function to extract venue name from venue_address
+  const extractVenueName = (venueAddress: string): string => {
+    if (!venueAddress) return 'Not Specified'
+    // Extract first line (venue name is usually first line before comma or newline)
+    const firstLine = venueAddress.split(/[,\n]/)[0].trim()
+    return firstLine || 'Not Specified'
+  }
+
   const fetchBookings = async () => {
     try {
       setLoading(true)
@@ -83,7 +91,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         delivery_date: toDateOnly(r.delivery_date),
         return_date: toDateOnly(r.pickup_date), // API field name
         event_type: r.event_type,
-        venue_name: r.venue_name || 'Not Specified',
+        venue_name: extractVenueName(r.venue_address),
         venue_address: r.venue_address || '',
         total_amount: Number(r.total_amount) || 0,
         status: r.status,
@@ -409,12 +417,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          <div>
-                            <div className="font-medium">{booking.venue_name}</div>
-                            {booking.venue_address && (
-                              <div className="text-xs text-muted-foreground mt-1">{booking.venue_address}</div>
-                            )}
-                          </div>
+                          <div className="font-medium">{booking.venue_name}</div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
                           {booking.customer.address}

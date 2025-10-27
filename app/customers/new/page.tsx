@@ -113,9 +113,11 @@ export default function NewCustomerPage() {
             ...prev,
             city: pincodeData.city,
             state: pincodeData.state,
+            // Auto-populate address with area if address is empty
+            address: prev.address.trim() === "" ? pincodeData.area : prev.address,
           }))
           setPincodeStatus("valid")
-          toast.success(`Location found: ${pincodeData.city}, ${pincodeData.state}`)
+          toast.success(`Location found: ${pincodeData.area}, ${pincodeData.city}, ${pincodeData.state}`)
         } else {
           setPincodeStatus("invalid")
           toast.error("Invalid pincode or location not found")
