@@ -117,37 +117,61 @@ export default function BookingsPage() {
       try {
         const supabase = createClient()
         
-        // Fetch products
-        const { data: productsData } = await supabase
+        // Fetch products with franchise isolation
+        let productsQuery = supabase
           .from('products')
           .select('*')
           .eq('is_active', true)
-          .order('name')
         
-        // Fetch product_categories (for products)
-        const { data: categoriesData } = await supabase
+        // Apply franchise filter if user is not super_admin
+        if (currentUser?.role !== 'super_admin' && currentUser?.franchise_id) {
+          productsQuery = productsQuery.eq('franchise_id', currentUser.franchise_id)
+        }
+        
+        const { data: productsData } = await productsQuery.order('name')
+        
+        // Fetch product_categories (for products) with franchise isolation
+        let categoriesQuery = supabase
           .from('product_categories')
           .select('*')
           .eq('is_active', true)
-          .order('name')
+        
+        // Apply franchise filter if user is not super_admin
+        if (currentUser?.role !== 'super_admin' && currentUser?.franchise_id) {
+          categoriesQuery = categoriesQuery.eq('franchise_id', currentUser.franchise_id)
+        }
+        
+        const { data: categoriesData } = await categoriesQuery.order('name')
         
         // Separate main categories and subcategories
         const mainCategories = categoriesData?.filter(c => !c.parent_id) || []
         const subCategories = categoriesData?.filter(c => c.parent_id) || []
         
-        // Fetch package_sets
-        const { data: packagesData } = await supabase
+        // Fetch package_sets with franchise isolation
+        let packagesQuery = supabase
           .from('package_sets')
           .select('*')
           .eq('is_active', true)
-          .order('display_order')
         
-        // Fetch packages_categories (for packages)
-        const { data: packagesCategoriesData } = await supabase
+        // Apply franchise filter if user is not super_admin
+        if (currentUser?.role !== 'super_admin' && currentUser?.franchise_id) {
+          packagesQuery = packagesQuery.eq('franchise_id', currentUser.franchise_id)
+        }
+        
+        const { data: packagesData } = await packagesQuery.order('display_order')
+        
+        // Fetch packages_categories (for packages) with franchise isolation
+        let packagesCategoriesQuery = supabase
           .from('packages_categories')
           .select('*')
           .eq('is_active', true)
-          .order('display_order')
+        
+        // Apply franchise filter if user is not super_admin
+        if (currentUser?.role !== 'super_admin' && currentUser?.franchise_id) {
+          packagesCategoriesQuery = packagesCategoriesQuery.eq('franchise_id', currentUser.franchise_id)
+        }
+        
+        const { data: packagesCategoriesData } = await packagesCategoriesQuery.order('display_order')
         
         setProducts(productsData || [])
         setCategories(mainCategories)
@@ -167,8 +191,10 @@ export default function BookingsPage() {
       }
     }
     
-    loadInventoryData()
-  }, [])
+    if (currentUser) {
+      loadInventoryData()
+    }
+  }, [currentUser])
 
   // Fetch booking items for display with comprehensive error handling
   useEffect(() => {
