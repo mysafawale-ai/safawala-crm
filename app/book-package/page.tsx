@@ -1238,7 +1238,7 @@ export default function BookPackageWizard() {
                         />
                       </div>
                     </div>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[70vh] overflow-y-auto pr-2">
                       {filteredVariants.length === 0 && (
                         <div className="col-span-3 text-center text-sm text-gray-500 py-8 border rounded">
                           No variants found for this category.
