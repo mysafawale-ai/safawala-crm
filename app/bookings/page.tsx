@@ -911,17 +911,7 @@ export default function BookingsPage() {
                         <TableCell>
                           {(() => {
                             const b: any = booking
-                            if (b.type === 'package') {
-                              // Get package category name from booking items
-                              const packageCategory = bookingItems[booking.id]?.[0]?.category?.name || 'Package'
-                              const totalSafas = (b.total_safas || 0)
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  <Badge variant="default">Package</Badge>
-                                  <span className="text-xs text-gray-600 whitespace-normal">{packageCategory}: {totalSafas} Safas</span>
-                                </div>
-                              )
-                            }
+                            if (b.type === 'package') return <Badge variant="default">Package</Badge>
                             if (b.type === 'sale') return <Badge variant="secondary">Product • Sale</Badge>
                             if (b.type === 'rental') return <Badge>Product • Rental</Badge>
                             return <Badge variant="outline">Unknown</Badge>
@@ -967,7 +957,7 @@ export default function BookingsPage() {
                               )
                             }
                             
-                            // For packages: show item count
+                            // For packages: show safas count
                             if (items.length === 0) {
                               return (
                                 <Badge 
@@ -979,7 +969,7 @@ export default function BookingsPage() {
                                     setShowProductDialog(true)
                                   }}
                                 >
-                                  {(booking as any).total_safas || 0} items
+                                  {(booking as any).total_safas || 0} Safas
                                 </Badge>
                               )
                             }
