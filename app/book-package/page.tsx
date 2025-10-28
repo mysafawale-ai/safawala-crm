@@ -2939,7 +2939,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 overflow-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto pr-2">
               {filtered.map(p => {
                 const qty = selection[p.id] || 0
                 return (
