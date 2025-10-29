@@ -345,6 +345,95 @@ export default function BookingsPage() {
     packageCount: (bookings || []).filter(b => (b as any).source === 'package_bookings').length,
   }
 
+  // Save selected items to database
+  const saveSelectedItems = async (bookingId: string, items: SelectedItem[], source: 'product_orders' | 'package_bookings') => {
+    try {
+      console.log(`[Bookings] Saving ${items.length} items for booking ${bookingId}`)
+      
+      const response = await fetch(`/api/bookings/${bookingId}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items,
+          source,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('[Bookings] Error saving items:', error)
+        throw new Error(error.error || 'Failed to save items')
+      }
+
+      const result = await response.json()
+      console.log('[Bookings] Items saved successfully:', result)
+      
+      // Adjust inventory - reserve items for this booking
+      if (source === 'product_orders' && items.length > 0) {
+        const inventoryItems = items
+          .filter(item => 'product_id' in item)
+          .map((item: any) => ({
+            product_id: item.product_id,
+            quantity: item.quantity || 0
+          }))
+
+        if (inventoryItems.length > 0) {
+          console.log('[Bookings] Reserving inventory for products:', inventoryItems)
+          
+          const inventoryResponse = await fetch('/api/inventory/reserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              operation: 'reserve',
+              items: inventoryItems,
+              bookingId
+            })
+          })
+
+          if (!inventoryResponse.ok) {
+            const invError = await inventoryResponse.json()
+            console.warn('[Bookings] Inventory reservation failed:', invError)
+            // Don't fail the entire operation if inventory fails, but warn user
+            toast({
+              title: 'Items saved but inventory warning',
+              description: invError.error || 'Could not reserve inventory. Please check stock levels.',
+              variant: 'destructive',
+            })
+          } else {
+            console.log('[Bookings] Inventory reserved successfully')
+          }
+        }
+      }
+      
+      // Refresh booking items to show the saved data
+      const itemsResponse = await fetch(`/api/bookings/${bookingId}/items?source=${source}`)
+      if (itemsResponse.ok) {
+        const itemsData = await itemsResponse.json()
+        setBookingItems(prev => ({
+          ...prev,
+          [bookingId]: itemsData.items || []
+        }))
+      }
+
+      toast({
+        title: 'Items saved successfully!',
+        description: `${items.length} item(s) saved and inventory reserved`,
+      })
+
+      return true
+    } catch (error: any) {
+      console.error('[Bookings] Error saving items:', error)
+      toast({
+        title: 'Error saving items',
+        description: error.message || 'Failed to save items',
+        variant: 'destructive',
+      })
+      return false
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending_selection: { label: "Pending Selection", variant: "info" as const },
@@ -933,25 +1022,17 @@ export default function BookingsPage() {
                             
                             if (!hasItems) {
                               return (
-                                <div className="flex items-center gap-2">
-                                  <Badge 
-                                    variant="outline" 
-                                    className="text-orange-600 border-orange-300"
-                                  >
-                                    ⏳ Pending
-                                  </Badge>
-                                  <Button 
-                                    size="sm" 
-                                    variant="secondary"
-                                    onClick={() => {
-                                      setProductDialogBooking(booking)
-                                      setProductDialogType('pending')
-                                      setShowProductDialog(true)
-                                    }}
-                                  >
-                                    Select Items
-                                  </Button>
-                                </div>
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
+                                  onClick={() => {
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('pending')
+                                    setShowProductDialog(true)
+                                  }}
+                                >
+                                  ⏳ Selection Pending
+                                </Badge>
                               )
                             }
                             
@@ -971,16 +1052,18 @@ export default function BookingsPage() {
                                   >
                                     📦 {totalQty} {totalQty === 1 ? 'Item' : 'Items'}
                                   </Badge>
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     onClick={() => {
                                       setProductDialogBooking(booking)
                                       setProductDialogType('items')
-                                      setShowProductDialog(true)
+                                      setCurrentBookingForItems(booking)
+                                      setShowItemsSelection(true)
                                     }}
+                                    className="text-xs h-7"
                                   >
-                                    Edit
+                                    ✎ Edit
                                   </Button>
                                 </div>
                               )
@@ -1004,36 +1087,31 @@ export default function BookingsPage() {
                             }
                             
                             return (
-                              <div 
-                                className="flex flex-wrap gap-1 max-w-xs cursor-pointer hover:opacity-80"
-                                onClick={() => {
-                                  setProductDialogBooking(booking)
-                                  setProductDialogType('items')
-                                  setShowProductDialog(true)
-                                }}
-                              >
-                                {items.slice(0, 3).map((item: any, idx: number) => (
-                                  <div key={idx} className="flex items-center gap-1 bg-gray-100 rounded px-2 py-1">
-                                    {item.product?.image_url && (
-                                      <img 
-                                        src={item.product.image_url} 
-                                        alt={item.product?.name || 'Product'}
-                                        className="w-6 h-6 rounded object-cover"
-                                      />
-                                    )}
-                                    <span className="text-xs font-medium">
-                                      {item.product?.name || item.variant_name || 'Unknown'}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      ×{item.quantity || 0}
-                                    </span>
-                                  </div>
-                                ))}
-                                {items.length > 3 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    +{items.length - 3} more
-                                  </Badge>
-                                )}
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant="outline"
+                                  className="cursor-pointer hover:bg-gray-100 border-gray-300"
+                                  onClick={() => {
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('items')
+                                    setShowProductDialog(true)
+                                  }}
+                                >
+                                  📋 {items.length} Items
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('items')
+                                    setCurrentBookingForItems(booking)
+                                    setShowItemsSelection(true)
+                                  }}
+                                  className="text-xs h-7"
+                                >
+                                  ✎ Edit
+                                </Button>
                               </div>
                             )
                           })()}
@@ -1054,16 +1132,6 @@ export default function BookingsPage() {
                             {!((booking as any).has_items) && (
                               <Button variant="secondary" size="sm" onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>
                                 Select Products
-                              </Button>
-                            )}
-                            {(booking as any).has_items && booking.status === 'pending_selection' && (
-                              <Button 
-                                variant="default" 
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => handleStatusUpdate(booking.id, 'confirmed', (booking as any).source)}
-                              >
-                                ✓ Confirm
                               </Button>
                             )}
                             <Button 
@@ -1914,7 +1982,13 @@ export default function BookingsPage() {
       {currentBookingForItems && (
         <ItemsSelectionDialog
           open={showItemsSelection}
-          onOpenChange={(open) => {
+          onOpenChange={async (open) => {
+            // When modal closes (open === false), save the selected items
+            if (!open && selectedItems.length > 0) {
+              const source = (currentBookingForItems as any).source === 'package_bookings' ? 'package_bookings' : 'product_orders'
+              await saveSelectedItems(currentBookingForItems.id, selectedItems, source)
+            }
+            
             setShowItemsSelection(open)
             if (!open) {
               setShowItemsDisplay(true)

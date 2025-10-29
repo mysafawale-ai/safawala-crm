@@ -130,3 +130,123 @@ export async function GET(
     )
   }
 }
+
+/**
+ * POST /api/bookings/[id]/items
+ * Save items for a booking (product_order or package_booking)
+ * Body: { items: SelectedItem[], source: 'product_order' | 'package_booking' }
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+    const body = await request.json()
+    const { items, source } = body
+
+    if (!items || !Array.isArray(items)) {
+      return NextResponse.json(
+        { error: 'Items must be an array' },
+        { status: 400 }
+      )
+    }
+
+    if (!source || !['product_order', 'product_orders', 'package_booking', 'package_bookings'].includes(source)) {
+      return NextResponse.json(
+        { error: 'Source must be product_order or package_booking' },
+        { status: 400 }
+      )
+    }
+
+    const normalizedSource = source.replace(/s$/, '') // Normalize to singular
+
+    const supabase = createClient()
+
+    if (normalizedSource === 'product_order') {
+      // Delete existing items for this order
+      const { error: deleteError } = await supabase
+        .from('product_order_items')
+        .delete()
+        .eq('order_id', id)
+
+      if (deleteError) {
+        console.error('[Booking Items API] Error deleting old product order items:', deleteError)
+        return NextResponse.json({ error: deleteError.message }, { status: 500 })
+      }
+
+      // Insert new items
+      if (items.length > 0) {
+        const itemsToInsert = items.map((item: any) => ({
+          order_id: id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price || 0,
+          total_price: item.total_price || 0,
+          variant_id: item.variant_id || null,
+          variant_name: item.variant_name || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }))
+
+        const { error: insertError } = await supabase
+          .from('product_order_items')
+          .insert(itemsToInsert)
+
+        if (insertError) {
+          console.error('[Booking Items API] Error inserting product order items:', insertError)
+          return NextResponse.json({ error: insertError.message }, { status: 500 })
+        }
+      }
+    } else if (normalizedSource === 'package_booking') {
+      // Delete existing items for this booking
+      const { error: deleteError } = await supabase
+        .from('package_booking_items')
+        .delete()
+        .eq('booking_id', id)
+
+      if (deleteError) {
+        console.error('[Booking Items API] Error deleting old package booking items:', deleteError)
+        return NextResponse.json({ error: deleteError.message }, { status: 500 })
+      }
+
+      // Insert new items
+      if (items.length > 0) {
+        const itemsToInsert = items.map((item: any) => ({
+          booking_id: id,
+          package_id: item.package_id,
+          variant_id: item.variant_id,
+          quantity: item.quantity || 0,
+          extra_safas: item.extra_safas || 0,
+          unit_price: item.unit_price || 0,
+          total_price: item.total_price || 0,
+          distance_addon: item.distance_addon || 0,
+          security_deposit: item.security_deposit || 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }))
+
+        const { error: insertError } = await supabase
+          .from('package_booking_items')
+          .insert(itemsToInsert)
+
+        if (insertError) {
+          console.error('[Booking Items API] Error inserting package booking items:', insertError)
+          return NextResponse.json({ error: insertError.message }, { status: 500 })
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Saved ${items.length} items for ${normalizedSource}`,
+      count: items.length
+    })
+  } catch (error) {
+    console.error('[Booking Items API] POST Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to save booking items' },
+      { status: 500 }
+    )
+  }
+}

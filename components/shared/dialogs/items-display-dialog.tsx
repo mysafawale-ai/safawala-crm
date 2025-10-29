@@ -103,38 +103,52 @@ export function ItemsDisplayDialog({
   }
 
   const renderProductItem = (item: SelectedProductItem) => (
-    <div className="p-4 border rounded-lg space-y-3 hover:shadow-sm transition-shadow">
-      <div className="flex items-start gap-3">
-        {/* Product Image */}
-        {item.product.image_url ? (
-          <img 
-            src={item.product.image_url} 
-            alt={item.product.name}
-            className="w-16 h-16 object-cover rounded border"
-          />
-        ) : (
-          <div className="w-16 h-16 bg-gray-100 rounded border flex items-center justify-center">
-            <Package className="h-8 w-8 text-gray-400" />
-          </div>
-        )}
+    <div className="p-4 border border-gray-200 rounded-xl space-y-3 hover:shadow-md transition-all bg-white">
+      <div className="flex items-start gap-4">
+        {/* Product Image - Enhanced */}
+        <div className="relative flex-shrink-0">
+          {item.product.image_url ? (
+            <img 
+              src={item.product.image_url} 
+              alt={item.product.name}
+              className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm"
+            />
+          ) : (
+            <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg border border-gray-200 flex items-center justify-center shadow-sm">
+              <Package className="h-10 w-10 text-gray-400" />
+            </div>
+          )}
+          {item.product.stock_available !== undefined && item.product.stock_available > 0 && (
+            <Badge className="absolute -top-2 -right-2 bg-green-500 text-white text-xs">
+              {item.product.stock_available} in stock
+            </Badge>
+          )}
+        </div>
 
-        {/* Product Info */}
+        {/* Product Info - Enhanced */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
-              <h4 className="font-semibold text-sm text-gray-900 truncate">
+              <h4 className="font-bold text-base text-gray-900 truncate">
                 {item.product.name}
               </h4>
               {item.product.product_code && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Code: {item.product.product_code}
+                <p className="text-xs text-gray-500 mt-1 font-mono">
+                  SKU: {item.product.product_code}
                 </p>
               )}
-              {item.product.category && (
-                <Badge variant="outline" className="mt-1 text-xs">
-                  {item.product.category}
-                </Badge>
-              )}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {item.product.category && (
+                  <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                    📁 {item.product.category}
+                  </Badge>
+                )}
+                {item.variant_name && (
+                  <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                    ◆ {item.variant_name}
+                  </Badge>
+                )}
+              </div>
             </div>
 
             {/* Remove Button */}
@@ -142,10 +156,10 @@ export function ItemsDisplayDialog({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7 text-gray-400 hover:text-red-500"
+                className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 flex-shrink-0"
                 onClick={() => onRemoveItem(item.id)}
               >
-                <X className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
               </Button>
             )}
           </div>
@@ -153,29 +167,22 @@ export function ItemsDisplayDialog({
           {/* Stock Warning */}
           {item.product.stock_available !== undefined && 
            item.quantity > item.product.stock_available && (
-            <div className="flex items-center gap-1 mt-2 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-              <AlertTriangle className="h-3 w-3" />
-              <span>Quantity exceeds available stock ({item.product.stock_available})</span>
+            <div className="flex items-center gap-2 mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <span>Exceeds stock ({item.product.stock_available} available)</span>
             </div>
-          )}
-
-          {/* Variant Info */}
-          {item.variant_name && (
-            <p className="text-xs text-blue-600 mt-1">
-              Variant: {item.variant_name}
-            </p>
           )}
         </div>
       </div>
 
-      {/* Quantity and Price Controls */}
-      <div className="flex items-center justify-between pt-2 border-t">
+      {/* Quantity and Price Controls - Enhanced */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-200">
         {isEditable && onQuantityChange ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <Button
               size="icon"
-              variant="outline"
-              className="h-7 w-7"
+              variant="ghost"
+              className="h-7 w-7 hover:bg-white"
               onClick={() => handleQuantityChange(item.id, -1)}
               disabled={item.quantity <= 1}
             >
@@ -185,21 +192,21 @@ export function ItemsDisplayDialog({
               type="number"
               value={item.quantity}
               onChange={(e) => onQuantityChange?.(item.id, parseInt(e.target.value) || 1)}
-              className="w-16 h-7 text-center text-sm"
+              className="w-14 h-7 text-center text-sm border-0 bg-white font-semibold"
               min={1}
             />
             <Button
               size="icon"
-              variant="outline"
-              className="h-7 w-7"
+              variant="ghost"
+              className="h-7 w-7 hover:bg-white"
               onClick={() => handleQuantityChange(item.id, 1)}
             >
               <Plus className="h-3 w-3" />
             </Button>
           </div>
         ) : (
-          <div className="text-sm text-gray-600">
-            Quantity: <span className="font-medium">{item.quantity}</span>
+          <div className="text-sm">
+            Qty: <span className="font-bold text-base">{item.quantity}</span>
           </div>
         )}
 
@@ -208,7 +215,7 @@ export function ItemsDisplayDialog({
             <div className="text-xs text-gray-500">
               {formatCurrency(item.unit_price)} × {item.quantity}
             </div>
-            <div className="font-semibold text-sm">
+            <div className="font-bold text-base text-blue-600">
               {formatCurrency(item.total_price)}
             </div>
           </div>
@@ -220,10 +227,10 @@ export function ItemsDisplayDialog({
         <Button
           size="sm"
           variant="outline"
-          className="w-full h-7 text-xs"
+          className="w-full h-8 text-xs hover:bg-blue-50"
           onClick={() => onItemEdit(item.id)}
         >
-          <Edit className="h-3 w-3 mr-1" />
+          <Edit className="h-3.5 w-3.5 mr-1.5" />
           Edit Product
         </Button>
       )}
@@ -239,35 +246,36 @@ export function ItemsDisplayDialog({
         : []
 
     return (
-      <div className="p-4 border rounded-lg space-y-3 hover:shadow-sm transition-shadow">
-        <div className="flex items-start justify-between gap-2">
+      <div className="p-4 border border-green-200 rounded-xl space-y-3 hover:shadow-md transition-all bg-gradient-to-br from-white to-green-50">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex-1 space-y-2">
-            {/* Package Category */}
+            {/* Package Category Badge */}
             {item.package.category && (
-              <Badge className="bg-green-50 text-green-700 border-green-200">
-                {item.package.category}
+              <Badge className="bg-green-100 text-green-800 border-green-300 font-semibold">
+                📦 {item.package.category}
               </Badge>
             )}
 
             {/* Package Name */}
-            <h4 className="font-bold text-base text-gray-900">
+            <h4 className="font-bold text-lg text-gray-900">
               {item.package.name}
             </h4>
 
             {/* Variant Info */}
             {item.variant && (
-              <div className="space-y-1.5">
-                <Badge variant="outline" className="text-xs text-blue-700 bg-blue-50 border-blue-200">
+              <div className="space-y-2">
+                <Badge variant="outline" className="text-xs text-blue-700 bg-blue-50 border-blue-300 font-semibold">
                   ◆ {item.variant.variant_name || item.variant.name}
+                  {item.variant.size && ` - ${item.variant.size}`}
                 </Badge>
 
-                {/* Inclusions */}
+                {/* Inclusions - Enhanced */}
                 {inclusions.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-2">
                     {inclusions.map((inc, idx) => (
                       <span
                         key={idx}
-                        className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded border"
+                        className="text-xs px-2.5 py-1.5 bg-white border border-green-200 text-green-700 rounded-lg font-medium"
                       >
                         ✓ {inc}
                       </span>
@@ -279,16 +287,16 @@ export function ItemsDisplayDialog({
 
             {/* Extra Safas */}
             {item.extra_safas && item.extra_safas > 0 && (
-              <div className="text-xs text-orange-700 bg-orange-50 px-2 py-1 rounded border border-orange-200">
-                + Extra Safas: <span className="font-semibold">{item.extra_safas}</span>
+              <div className="text-xs text-orange-700 bg-orange-50 border border-orange-200 px-3 py-2 rounded-lg font-semibold">
+                🎉 Extra Safas: {item.extra_safas}
               </div>
             )}
 
             {/* Products Pending Warning */}
             {item.products_pending && (
-              <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                <AlertTriangle className="h-3 w-3" />
-                <span>Products selection pending</span>
+              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span className="font-medium">Products selection pending</span>
               </div>
             )}
           </div>
@@ -298,22 +306,22 @@ export function ItemsDisplayDialog({
             <Button
               size="icon"
               variant="ghost"
-              className="h-7 w-7 text-gray-400 hover:text-red-500"
+              className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 flex-shrink-0"
               onClick={() => onRemoveItem(item.id)}
             >
-              <X className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
             </Button>
           )}
         </div>
 
-        {/* Quantity and Price Controls */}
-        <div className="flex items-center justify-between pt-2 border-t">
+        {/* Quantity and Price Controls - Enhanced */}
+        <div className="flex items-center justify-between pt-2 border-t border-green-200">
           {isEditable && onQuantityChange ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-green-100 rounded-lg p-1">
               <Button
                 size="icon"
-                variant="outline"
-                className="h-7 w-7"
+                variant="ghost"
+                className="h-7 w-7 hover:bg-white"
                 onClick={() => handleQuantityChange(item.id, -1)}
                 disabled={item.quantity <= 1}
               >
@@ -323,21 +331,21 @@ export function ItemsDisplayDialog({
                 type="number"
                 value={item.quantity}
                 onChange={(e) => onQuantityChange?.(item.id, parseInt(e.target.value) || 1)}
-                className="w-16 h-7 text-center text-sm"
+                className="w-14 h-7 text-center text-sm border-0 bg-white font-semibold"
                 min={1}
               />
               <Button
                 size="icon"
-                variant="outline"
-                className="h-7 w-7"
+                variant="ghost"
+                className="h-7 w-7 hover:bg-white"
                 onClick={() => handleQuantityChange(item.id, 1)}
               >
                 <Plus className="h-3 w-3" />
               </Button>
             </div>
           ) : (
-            <div className="text-sm text-gray-600">
-              Quantity: <span className="font-medium">{item.quantity}</span>
+            <div className="text-sm">
+              Qty: <span className="font-bold text-base">{item.quantity}</span>
             </div>
           )}
 
@@ -346,7 +354,7 @@ export function ItemsDisplayDialog({
               <div className="text-xs text-gray-500">
                 {formatCurrency(item.unit_price)} × {item.quantity}
               </div>
-              <div className="font-semibold text-sm">
+              <div className="font-bold text-base text-green-600">
                 {formatCurrency(item.total_price)}
               </div>
             </div>
@@ -355,8 +363,15 @@ export function ItemsDisplayDialog({
 
         {/* Security Deposit */}
         {item.security_deposit && item.security_deposit > 0 && (
-          <div className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
-            Security Deposit: {formatCurrency(item.security_deposit)} per item
+          <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg font-semibold">
+            🔐 Security Deposit: {formatCurrency(item.security_deposit)} per item
+          </div>
+        )}
+
+        {/* Distance Addon */}
+        {item.distance_addon && item.distance_addon > 0 && (
+          <div className="text-xs text-purple-700 bg-purple-50 border border-purple-200 px-3 py-2 rounded-lg font-semibold">
+            📍 Distance Addon: {formatCurrency(item.distance_addon)}
           </div>
         )}
 
@@ -365,10 +380,10 @@ export function ItemsDisplayDialog({
           <Button
             size="sm"
             variant="outline"
-            className="w-full h-7 text-xs"
+            className="w-full h-8 text-xs hover:bg-green-50"
             onClick={() => onItemEdit(item.id)}
           >
-            <Edit className="h-3 w-3 mr-1" />
+            <Edit className="h-3.5 w-3.5 mr-1.5" />
             Edit Package
           </Button>
         )}
@@ -378,16 +393,19 @@ export function ItemsDisplayDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <div className="flex items-start justify-between">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0">
+        <DialogHeader className="border-b pb-4">
+          <div className="flex items-start justify-between w-full">
             <div>
-              <DialogTitle className="flex items-center gap-2 text-lg">
-                <ShoppingCart className="h-5 w-5" />
-                {title} ({items.length})
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <ShoppingCart className="h-6 w-6 text-blue-600" />
+                {title}
+                <Badge className="ml-2 bg-blue-100 text-blue-800">
+                  {items.length} {items.length === 1 ? 'Item' : 'Items'}
+                </Badge>
               </DialogTitle>
               {description && (
-                <DialogDescription className="mt-1">
+                <DialogDescription className="mt-2 text-sm">
                   {description}
                 </DialogDescription>
               )}
@@ -396,37 +414,35 @@ export function ItemsDisplayDialog({
             {/* Add Items Button */}
             {isEditable && onAddItems && (
               <Button
-                size="sm"
                 onClick={onAddItems}
-                className="shrink-0"
+                className="shrink-0 bg-blue-600 hover:bg-blue-700"
               >
-                <Plus className="h-4 w-4 mr-1" />
-                Add More
+                <Plus className="h-4 w-4 mr-2" />
+                Add More Items
               </Button>
             )}
           </div>
         </DialogHeader>
 
         {/* Items List */}
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <ScrollArea className="flex-1">
           {items.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p className="text-sm">No items added yet</p>
+            <div className="text-center py-16 px-6 text-gray-500">
+              <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg font-medium mb-1">No items added yet</p>
+              <p className="text-sm text-gray-400 mb-6">Start by adding items to your booking</p>
               {onAddItems && (
                 <Button
-                  size="sm"
-                  variant="outline"
                   onClick={onAddItems}
-                  className="mt-4"
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-4 w-4 mr-2" />
                   Add Items
                 </Button>
               )}
             </div>
           ) : (
-            <div className="space-y-3 pb-4">
+            <div className="space-y-3 p-6">
               {items.map((item) => (
                 <div key={item.id}>
                   {'product' in item 
@@ -443,16 +459,16 @@ export function ItemsDisplayDialog({
         {showSummary && summaryData && items.length > 0 && (
           <>
             <Separator />
-            <div className="space-y-2 text-sm">
+            <div className="p-6 space-y-3 text-sm bg-gray-50">
               {summaryData.subtotal !== undefined && (
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span className="font-medium">{formatCurrency(summaryData.subtotal)}</span>
+                <div className="flex justify-between text-gray-700">
+                  <span className="font-medium">Subtotal</span>
+                  <span>{formatCurrency(summaryData.subtotal)}</span>
                 </div>
               )}
               
               {summaryData.discount !== undefined && summaryData.discount > 0 && (
-                <div className="flex justify-between text-green-600">
+                <div className="flex justify-between text-green-600 font-semibold">
                   <span>Discount</span>
                   <span>-{formatCurrency(summaryData.discount)}</span>
                 </div>
@@ -466,8 +482,8 @@ export function ItemsDisplayDialog({
               )}
               
               {summaryData.securityDeposit !== undefined && summaryData.securityDeposit > 0 && (
-                <div className="flex justify-between text-amber-600">
-                  <span>Security Deposit</span>
+                <div className="flex justify-between text-amber-600 font-semibold">
+                  <span>🔐 Security Deposit</span>
                   <span>{formatCurrency(summaryData.securityDeposit)}</span>
                 </div>
               )}
@@ -475,9 +491,9 @@ export function ItemsDisplayDialog({
               {summaryData.total !== undefined && (
                 <>
                   <Separator className="my-2" />
-                  <div className="flex justify-between font-bold text-base">
-                    <span>Total</span>
-                    <span>{formatCurrency(summaryData.total)}</span>
+                  <div className="flex justify-between font-bold text-lg bg-white p-3 rounded-lg border-2 border-blue-200">
+                    <span>💰 Total Amount</span>
+                    <span className="text-blue-600">{formatCurrency(summaryData.total)}</span>
                   </div>
                 </>
               )}
@@ -486,8 +502,15 @@ export function ItemsDisplayDialog({
         )}
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <div className="flex items-center justify-between gap-3 pt-4 border-t px-6 pb-6">
+          <div className="text-sm text-gray-500">
+            {items.length} item(s) selected
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="min-w-24"
+          >
             Close
           </Button>
         </div>
