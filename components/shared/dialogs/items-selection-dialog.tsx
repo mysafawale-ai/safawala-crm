@@ -48,6 +48,7 @@ interface ItemsSelectionDialogProps {
   selectedItems?: SelectedItem[]
   title?: string
   description?: string
+  mode?: 'select' | 'edit' // 'select' for initial selection, 'edit' for editing existing
   onBarcodeSearch?: (barcode: string) => void
 }
 
@@ -62,6 +63,7 @@ export function ItemsSelectionDialog({
   selectedItems = [],
   title,
   description,
+  mode = 'select',
   onBarcodeSearch,
 }: ItemsSelectionDialogProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
@@ -485,13 +487,26 @@ export function ItemsSelectionDialog({
         </div>
 
         {/* Bottom Footer */}
-        <div className="px-6 py-4 border-t bg-white flex-shrink-0 flex items-center justify-between">
+        <div className="px-6 py-4 border-t bg-white flex-shrink-0 space-y-3">
           <div className="text-sm text-gray-600">
             Showing {filteredItems.length} of {items.length} {type}s
           </div>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+          <div className="flex items-center gap-2 justify-end">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {mode === 'edit' ? 'Cancel' : 'Continue Shopping'}
+            </Button>
+            <Button 
+              onClick={() => onOpenChange(false)}
+              disabled={selectedItems.length === 0}
+              className={mode === 'edit' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}
+            >
+              {mode === 'edit' ? (
+                <>💾 Save Changes ({selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'})</>
+              ) : (
+                <>✓ Finish Selection ({selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'})</>
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

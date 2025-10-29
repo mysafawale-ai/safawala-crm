@@ -933,17 +933,25 @@ export default function BookingsPage() {
                             
                             if (!hasItems) {
                               return (
-                                <Badge 
-                                  variant="outline" 
-                                  className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
-                                  onClick={() => {
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('pending')
-                                    setShowProductDialog(true)
-                                  }}
-                                >
-                                  Selection Pending
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-orange-600 border-orange-300"
+                                  >
+                                    ⏳ Pending
+                                  </Badge>
+                                  <Button 
+                                    size="sm" 
+                                    variant="secondary"
+                                    onClick={() => {
+                                      setProductDialogBooking(booking)
+                                      setProductDialogType('pending')
+                                      setShowProductDialog(true)
+                                    }}
+                                  >
+                                    Select Items
+                                  </Button>
+                                </div>
                               )
                             }
                             
@@ -951,17 +959,30 @@ export default function BookingsPage() {
                             if (bookingType === 'sale' || bookingType === 'rental') {
                               const totalQty = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
                               return (
-                                <Badge 
-                                  variant="default"
-                                  className="cursor-pointer hover:bg-primary/80"
-                                  onClick={() => {
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('items')
-                                    setShowProductDialog(true)
-                                  }}
-                                >
-                                  Qty: {totalQty}
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    variant="default"
+                                    className="bg-blue-600 cursor-pointer hover:bg-blue-700"
+                                    onClick={() => {
+                                      setProductDialogBooking(booking)
+                                      setProductDialogType('items')
+                                      setShowProductDialog(true)
+                                    }}
+                                  >
+                                    📦 {totalQty} {totalQty === 1 ? 'Item' : 'Items'}
+                                  </Badge>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => {
+                                      setProductDialogBooking(booking)
+                                      setProductDialogType('items')
+                                      setShowProductDialog(true)
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                </div>
                               )
                             }
                             
@@ -1030,9 +1051,19 @@ export default function BookingsPage() {
                         <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {booking.status === 'pending_selection' && (
+                            {!((booking as any).has_items) && (
                               <Button variant="secondary" size="sm" onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>
                                 Select Products
+                              </Button>
+                            )}
+                            {(booking as any).has_items && booking.status === 'pending_selection' && (
+                              <Button 
+                                variant="default" 
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => handleStatusUpdate(booking.id, 'confirmed', (booking as any).source)}
+                              >
+                                ✓ Confirm
                               </Button>
                             )}
                             <Button 
@@ -1889,6 +1920,7 @@ export default function BookingsPage() {
               setShowItemsDisplay(true)
             }
           }}
+          mode={productDialogType === 'pending' ? 'select' : 'edit'}
           type={(currentBookingForItems as any).source === 'package_bookings' ? 'package' : 'product'}
           items={
             (currentBookingForItems as any).source === 'package_bookings'
