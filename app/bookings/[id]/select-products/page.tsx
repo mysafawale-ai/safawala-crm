@@ -98,31 +98,47 @@ export default function SelectProductsForBookingPage() {
     const stock = typeof p.stock_available === 'number' ? p.stock_available : undefined
     setItems((prev) => {
       const current = prev[p.id]?.qty || 0
-      if (typeof stock === 'number' && current >= stock) {
+      const nextQty = current + 1
+      
+      if (typeof stock === 'number' && nextQty > stock) {
         toast({ title: "Out of stock", description: `Only ${stock} available`, variant: "destructive" })
         return prev
       }
       const unit = Number((booking?.type === "rental" ? p.rental_price : p.price) || 0)
-      return { ...prev, [p.id]: { qty: current + 1, unit } }
+      return { ...prev, [p.id]: { qty: nextQty, unit } }
     })
   }
 
   const updateQty = (productId: string, qty: number) => {
-    setItems((prev) => {
-      const unit = prev[productId]?.unit || 0
-      // normalize to integer
-      const nextQty = Math.floor(qty)
-      if (!nextQty || nextQty <= 0) {
+    const product = products.find(p => p.id === productId)
+    const stock = product && typeof product.stock_available === 'number' ? product.stock_available : undefined
+    
+    // normalize to integer
+    const nextQty = Math.floor(qty)
+    
+    // Remove item if qty is 0 or less
+    if (!nextQty || nextQty <= 0) {
+      setItems((prev) => {
         const { [productId]: _, ...rest } = prev
         return rest
+      })
+      return
+    }
+    
+    // Check stock limit
+    if (typeof stock === 'number' && nextQty > stock) {
+      toast({ title: "Stock limit", description: `Max ${stock} available`, variant: "destructive" })
+      return
+    }
+    
+    setItems((prev) => {
+      const currentUnit = prev[productId]?.unit
+      if (currentUnit !== undefined) {
+        // Item already exists, just update qty
+        return { ...prev, [productId]: { qty: nextQty, unit: currentUnit } }
       }
-      const product = products.find(p => p.id === productId)
-      const stock = product && typeof product.stock_available === 'number' ? product.stock_available : undefined
-      if (typeof stock === 'number' && nextQty > stock) {
-        toast({ title: "Stock limit", description: `Max ${stock} allowed`, variant: "destructive" })
-        return prev
-      }
-      return { ...prev, [productId]: { qty: nextQty, unit } }
+      // This shouldn't happen, but fallback
+      return prev
     })
   }
 
@@ -295,24 +311,56 @@ export default function SelectProductsForBookingPage() {
               {filteredProducts.map((p) => {
                 const selected = items[p.id]?.qty || 0
                 const unit = items[p.id]?.unit ?? Number((booking?.type === "rental" ? p.rental_price : p.price) || 0)
+                const isAtStock = typeof p.stock_available === 'number' && selected >= p.stock_available
+                
                 return (
-                  <div key={p.id} className="border rounded-md p-3 flex flex-col gap-2">
+                  <div key={p.id} className="border rounded-md p-3 flex flex-col gap-2 hover:bg-muted/30 transition-colors">
                     <div className="font-medium truncate" title={p.name}>{p.name}</div>
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <Badge variant="outline">{p.category || "General"}</Badge>
                       {typeof p.stock_available === 'number' && (
-                        <span>Stock: {p.stock_available}</span>
+                        <span className={selected > 0 ? "font-semibold" : ""}>Stock: {p.stock_available}</span>
                       )}
                     </div>
-                    <div className="text-sm">Unit: ₹{unit}</div>
-                    <div className="flex items-center gap-2 mt-auto">
-                      <Button size="sm" variant="outline" onClick={() => updateQty(p.id, (selected || 0) - 1)}>-</Button>
-                      <span className="w-6 text-center text-sm">{selected || 0}</span>
-                      <Button size="sm" variant="outline" onClick={() => updateQty(p.id, (selected || 0) + 1)} disabled={typeof p.stock_available === 'number' && (selected || 0) >= p.stock_available}>+</Button>
-                      <Button size="sm" className="ml-auto" onClick={() => addProduct(p)} disabled={p.stock_available !== null && p.stock_available !== undefined && p.stock_available <= 0}>
-                        <Plus className="h-4 w-4 mr-1" /> Add
+                    <div className="text-sm font-medium">₹{unit}/unit</div>
+                    
+                    {selected > 0 ? (
+                      <div className="flex flex-col gap-2 mt-auto">
+                        <div className="flex items-center gap-1 bg-blue-50 rounded p-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-7 w-7 p-0"
+                            onClick={() => updateQty(p.id, selected - 1)}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-sm font-semibold flex-1 text-center">{selected}</span>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-7 w-7 p-0"
+                            onClick={() => updateQty(p.id, selected + 1)}
+                            disabled={isAtStock}
+                            title={isAtStock ? `Max ${p.stock_available} available` : ""}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="text-xs font-semibold text-blue-600">
+                          Total: ₹{(selected * unit).toLocaleString()}
+                        </div>
+                      </div>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        className="mt-auto w-full"
+                        onClick={() => addProduct(p)}
+                        disabled={p.stock_available !== null && p.stock_available !== undefined && p.stock_available <= 0}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Add to Cart
                       </Button>
-                    </div>
+                    )}
                   </div>
                 )
               })}
@@ -325,15 +373,20 @@ export default function SelectProductsForBookingPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="sticky top-20">
           <CardHeader>
-            <CardTitle>Selection Summary</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Selection Summary
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">{Object.keys(items).length} item{Object.keys(items).length !== 1 ? 's' : ''} selected</p>
           </CardHeader>
           <CardContent>
             {Object.keys(items).length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">
                 <ShoppingCart className="h-8 w-8 mx-auto mb-3 text-gray-300" />
-                No items selected yet
+                <p>No items selected yet</p>
+                <p className="text-xs mt-1">Add products from the left to see them here</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -341,29 +394,82 @@ export default function SelectProductsForBookingPage() {
                   const p = products.find((x) => x.id === pid)
                   if (!p) return null
                   return (
-                    <div key={pid} className="flex items-center justify-between border-b pb-2 gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium leading-none truncate" title={p.name}>{p.name}</div>
-                        <div className="text-[11px] text-muted-foreground truncate">{p.category || "General"}</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <Button size="sm" variant="outline" onClick={() => updateQty(pid, v.qty - 1)}>-</Button>
-                          <span className="text-sm w-6 text-center">{v.qty}</span>
-                          <Button size="sm" variant="outline" onClick={() => updateQty(pid, v.qty + 1)}>+</Button>
+                    <div key={pid} className="border-b pb-3 last:border-b-0 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold leading-tight text-balance" title={p.name}>{p.name}</div>
+                          <div className="text-[11px] text-muted-foreground">{p.category || "General"}</div>
                         </div>
-                        <span className="text-xs font-medium whitespace-nowrap">₹{(v.qty * v.unit).toLocaleString()}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-red-600"
+                          onClick={() => updateQty(pid, 0)}
+                          title="Remove item"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between bg-gray-50 rounded p-2">
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-6 w-6 p-0"
+                            onClick={() => updateQty(pid, v.qty - 1)}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-sm font-bold w-8 text-center">{v.qty}</span>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-6 w-6 p-0"
+                            onClick={() => updateQty(pid, v.qty + 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <span className="text-sm font-bold text-right">₹{(v.qty * v.unit).toLocaleString()}</span>
+                      </div>
+                      
+                      <div className="text-xs text-muted-foreground flex justify-between px-2">
+                        <span>₹{v.unit} × {v.qty}</span>
+                        <span className="font-semibold text-foreground">= ₹{(v.qty * v.unit).toLocaleString()}</span>
                       </div>
                     </div>
                   )
                 })}
 
-                <Separator />
-                <div className="text-sm flex justify-between"><span>Items</span><span>{totals.itemCount}</span></div>
-                <div className="font-semibold flex justify-between"><span>Subtotal</span><span>₹{totals.subtotal.toLocaleString()}</span></div>
-                <div className="pt-2 flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => saveSelection(false)} disabled={saving}>Save</Button>
-                  <Button className="flex-1" onClick={() => saveSelection(true)} disabled={saving}>Save & Confirm</Button>
+                <Separator className="my-2" />
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Items:</span>
+                    <span className="font-semibold">{totals.itemCount}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold text-blue-600 bg-blue-50 p-2 rounded">
+                    <span>Subtotal:</span>
+                    <span>₹{totals.subtotal.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex flex-col gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={() => saveSelection(false)} 
+                    disabled={saving}
+                  >
+                    Save
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    onClick={() => saveSelection(true)} 
+                    disabled={saving || Object.keys(items).length === 0}
+                  >
+                    Save & Confirm Booking
+                  </Button>
                 </div>
               </div>
             )}

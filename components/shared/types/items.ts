@@ -121,6 +121,7 @@ export interface ProductSelectionContext {
   pincode?: string
   // Callbacks
   onItemSelect?: (item: Product | PackageSet) => void
+  onQuantityChange?: (itemId: string, quantity: number) => void
   onCheckAvailability?: (productId: string, productName: string) => void
 }
 

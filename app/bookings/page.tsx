@@ -911,7 +911,15 @@ export default function BookingsPage() {
                         <TableCell>
                           {(() => {
                             const b: any = booking
-                            if (b.type === 'package') return <Badge variant="default">Package</Badge>
+                            if (b.type === 'package') {
+                              const totalSafas = (b.total_safas || 0)
+                              return (
+                                <div className="flex flex-col gap-1">
+                                  <Badge variant="default">Package</Badge>
+                                  <span className="text-xs text-gray-600">{totalSafas} Safas</span>
+                                </div>
+                              )
+                            }
                             if (b.type === 'sale') return <Badge variant="secondary">Product • Sale</Badge>
                             if (b.type === 'rental') return <Badge>Product • Rental</Badge>
                             return <Badge variant="outline">Unknown</Badge>
@@ -957,7 +965,7 @@ export default function BookingsPage() {
                               )
                             }
                             
-                            // For packages: show safas count
+                            // For packages: show item details
                             if (items.length === 0) {
                               return (
                                 <Badge 
@@ -969,7 +977,7 @@ export default function BookingsPage() {
                                     setShowProductDialog(true)
                                   }}
                                 >
-                                  {(booking as any).total_safas || 0} Safas
+                                  {(booking as any).total_safas || 0} items
                                 </Badge>
                               )
                             }
@@ -1680,34 +1688,19 @@ export default function BookingsPage() {
                     Select products from available inventory to complete this booking.
                   </p>
                   
-                  <div className="flex gap-2">
-                    {productDialogBooking.event_date && (
-                      <InventoryAvailabilityPopup
-                        packageId={(productDialogBooking as any).source === 'package_bookings' ? productDialogBooking.id : undefined}
-                        eventDate={new Date(productDialogBooking.event_date)}
-                        deliveryDate={productDialogBooking.delivery_date ? new Date(productDialogBooking.delivery_date) : undefined}
-                        returnDate={(productDialogBooking as any).return_date ? new Date((productDialogBooking as any).return_date) : undefined}
-                      >
-                        <Button variant="outline" className="flex-1">
-                          <Eye className="h-4 w-4 mr-2" />
-                          Check Availability
-                        </Button>
-                      </InventoryAvailabilityPopup>
-                    )}
-                    <Button 
-                      className="flex-1" 
-                      onClick={() => {
-                        setShowProductDialog(false)
-                        // Open the selection dialog
-                        setCurrentBookingForItems(productDialogBooking)
-                        setSelectedItems([])
-                        setShowItemsSelection(true)
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Select Products Now
-                    </Button>
-                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={() => {
+                      setShowProductDialog(false)
+                      // Open the selection dialog
+                      setCurrentBookingForItems(productDialogBooking)
+                      setSelectedItems([])
+                      setShowItemsSelection(true)
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Select Products Now
+                  </Button>
                 </CardContent>
               </Card>
             </div>
@@ -1914,32 +1907,64 @@ export default function BookingsPage() {
             deliveryDate: currentBookingForItems.delivery_date,
             returnDate: currentBookingForItems.pickup_date,
             onItemSelect: (item) => {
-              if ('variants' in item || 'package_variants' in item) {
-                // Package item
-                const newItem: SelectedItem = {
-                  id: `pkg-${item.id}-${Date.now()}`,
-                  package_id: item.id,
-                  variant_id: undefined,
-                  package: item as PackageSet,
-                  variant: undefined,
-                  quantity: 1,
-                  extra_safas: 0,
-                  variant_inclusions: [],
-                } as any
-                setSelectedItems(prev => [...prev, newItem])
+              // Check if item already exists in selectedItems
+              const existingItem = selectedItems.find(si => {
+                if ('variants' in item || 'package_variants' in item) {
+                  return 'package_id' in si && si.package_id === item.id
+                } else {
+                  return 'product_id' in si && si.product_id === item.id
+                }
+              })
+
+              if (existingItem) {
+                // Item already selected, remove it
+                setSelectedItems(prev => prev.filter(si => si.id !== existingItem.id))
               } else {
-                // Product item
-                const prod = item as Product
-                const newItem: SelectedItem = {
-                  id: `prod-${item.id}-${Date.now()}`,
-                  product_id: item.id,
-                  product: prod,
-                  quantity: 1,
-                  unit_price: prod.rental_price || 0,
-                  total_price: prod.rental_price || 0,
-                } as any
-                setSelectedItems(prev => [...prev, newItem])
+                // Add new item
+                if ('variants' in item || 'package_variants' in item) {
+                  // Package item
+                  const newItem: SelectedItem = {
+                    id: `pkg-${item.id}-${Date.now()}`,
+                    package_id: item.id,
+                    variant_id: undefined,
+                    package: item as PackageSet,
+                    variant: undefined,
+                    quantity: (item as any).requestedQuantity || 1,
+                    extra_safas: 0,
+                    variant_inclusions: [],
+                    unit_price: 0,
+                    total_price: 0,
+                  } as any
+                  setSelectedItems(prev => [...prev, newItem])
+                } else {
+                  // Product item
+                  const prod = item as Product
+                  const newItem: SelectedItem = {
+                    id: `prod-${item.id}-${Date.now()}`,
+                    product_id: item.id,
+                    product: prod,
+                    quantity: (item as any).requestedQuantity || 1,
+                    unit_price: prod.rental_price || 0,
+                    total_price: (prod.rental_price || 0) * ((item as any).requestedQuantity || 1),
+                  } as any
+                  setSelectedItems(prev => [...prev, newItem])
+                }
               }
+            },
+            onQuantityChange: (itemId: string, qty: number) => {
+              // Update quantity for existing item
+              setSelectedItems(prev => prev.map(si => {
+                const id = 'product_id' in si ? si.product_id : si.package_id
+                if (id === itemId) {
+                  const unitPrice = 'product' in si ? (si as any).product?.rental_price || 0 : (si as any).package?.base_price || 0
+                  return {
+                    ...si,
+                    quantity: qty,
+                    total_price: unitPrice * qty
+                  }
+                }
+                return si
+              }))
             },
           }}
           selectedItems={selectedItems}
