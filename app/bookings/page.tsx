@@ -1862,13 +1862,18 @@ export default function BookingsPage() {
           context={{
             bookingType: (productDialogBooking as any).source === 'package_bookings' ? 'sale' : 'rental',
             eventDate: productDialogBooking.event_date,
-            isEditable: false,
+            isEditable: true,
             showPricing: true,
           }}
           title={`📦 Booking Items - ${productDialogBooking.booking_number}`}
           description={`${productDialogBooking.customer?.name} • ${new Date(productDialogBooking.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
           onQuantityChange={() => {}}
           onRemoveItem={() => {}}
+          onEditProducts={() => {
+            setShowProductDialog(false)
+            setCurrentBookingForItems(productDialogBooking)
+            setShowItemsSelection(true)
+          }}
           summaryData={{
             subtotal: productDialogBooking.total_amount || 0,
             discount: productDialogBooking.discount_amount || 0,

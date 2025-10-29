@@ -65,6 +65,7 @@ interface ItemsDisplayDialogProps {
   onRemoveItem?: (itemId: string) => void
   onAddItems?: () => void
   onItemEdit?: (itemId: string) => void
+  onEditProducts?: () => void
   // Display options
   title?: string
   description?: string
@@ -87,6 +88,7 @@ export function ItemsDisplayDialog({
   onRemoveItem,
   onAddItems,
   onItemEdit,
+  onEditProducts,
   title = 'Selected Items',
   description,
   showSummary = true,
@@ -506,13 +508,24 @@ export function ItemsDisplayDialog({
           <div className="text-sm text-gray-500">
             {items.length} item(s) selected
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)}
-            className="min-w-24"
-          >
-            Close
-          </Button>
+          <div className="flex items-center gap-2">
+            {onEditProducts && (
+              <Button 
+                onClick={onEditProducts}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Products
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              className="min-w-24"
+            >
+              Close
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
