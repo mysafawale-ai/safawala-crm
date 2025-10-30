@@ -43,7 +43,7 @@ import { BookingCalendar } from "@/components/bookings/booking-calendar"
 import { BookingBarcodes } from "@/components/bookings/booking-barcodes"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
-import { ItemsDisplayDialog, ItemsSelectionDialog } from "@/components/shared"
+import { ItemsDisplayDialog, ItemsSelectionDialog, CompactItemsDisplayDialog } from "@/components/shared"
 import type { SelectedItem, Product, PackageSet } from "@/components/shared/types/items"
 import { createClient } from "@/lib/supabase/client"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
@@ -84,6 +84,7 @@ export default function BookingsPage() {
   const [bookingItems, setBookingItems] = useState<Record<string, any[]>>({})
   const [itemsLoading, setItemsLoading] = useState<Record<string, boolean>>({})
   const [itemsError, setItemsError] = useState<Record<string, string>>({})
+  const [bookingsWithItems, setBookingsWithItems] = useState<Set<string>>(new Set())
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showProductDialog, setShowProductDialog] = useState(false)
@@ -96,6 +97,7 @@ export default function BookingsPage() {
   // New reusable dialog states
   const [showItemsDisplay, setShowItemsDisplay] = useState(false)
   const [showItemsSelection, setShowItemsSelection] = useState(false)
+  const [showCompactDisplay, setShowCompactDisplay] = useState(false)
   const [currentBookingForItems, setCurrentBookingForItems] = useState<Booking | null>(null)
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
 
@@ -349,6 +351,54 @@ export default function BookingsPage() {
   const saveSelectedItems = async (bookingId: string, items: SelectedItem[], source: 'product_orders' | 'package_bookings') => {
     try {
       console.log(`[Bookings] Saving ${items.length} items for booking ${bookingId}`)
+      console.log('[Bookings] Items to save:', JSON.stringify(items, null, 2))
+      
+      // Transform items to ensure they have the correct structure
+      const itemsToSave = items.map((item: any, idx: number) => {
+        console.log(`[Bookings] Item ${idx}:`, { 
+          has_product_id: !!item.product_id, 
+          product_id: item.product_id,
+          has_package_id: !!item.package_id,
+          package_id: item.package_id,
+          item_keys: Object.keys(item)
+        })
+        
+        if (source === 'product_orders') {
+          // For product orders
+          return {
+            product_id: item.product_id,
+            quantity: item.quantity || 1,
+            unit_price: item.unit_price || 0,
+            total_price: (item.unit_price || 0) * (item.quantity || 1),
+          }
+        } else {
+          // For package bookings - now supporting individual products
+          // Check if this is a product item or package item
+          if (item.product_id) {
+            // Individual product in package booking
+            console.log(`[Bookings] Item ${idx} is PRODUCT:`, item.product_id)
+            return {
+              product_id: item.product_id,
+              quantity: item.quantity || 1,
+              unit_price: item.unit_price || 0,
+              total_price: (item.unit_price || 0) * (item.quantity || 1),
+            }
+          } else {
+            // Package item (legacy - if ever used)
+            console.log(`[Bookings] Item ${idx} is PACKAGE:`, item.package_id)
+            return {
+              package_id: item.package_id,
+              variant_id: item.variant_id,
+              quantity: item.quantity || 1,
+              unit_price: item.unit_price || 0,
+              total_price: (item.unit_price || 0) * (item.quantity || 1),
+              extra_safas: item.extra_safas || 0,
+            }
+          }
+        }
+      })
+      
+      console.log('[Bookings] Transformed items to save:', JSON.stringify(itemsToSave, null, 2))
       
       const response = await fetch(`/api/bookings/${bookingId}/items`, {
         method: 'POST',
@@ -356,7 +406,7 @@ export default function BookingsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items,
+          items: itemsToSave,
           source,
         }),
       })
@@ -370,10 +420,14 @@ export default function BookingsPage() {
       const result = await response.json()
       console.log('[Bookings] Items saved successfully:', result)
       
+      // Immediately mark this booking as having items (UI update)
+      setBookingsWithItems(prev => new Set([...prev, bookingId]))
+      console.log('[Bookings] Marked booking as having items:', bookingId)
+      
       // Adjust inventory - reserve items for this booking
-      if (source === 'product_orders' && items.length > 0) {
-        const inventoryItems = items
-          .filter(item => 'product_id' in item)
+      if (source === 'product_orders' && itemsToSave.length > 0) {
+        const inventoryItems = itemsToSave
+          .filter((item: any) => item.product_id)
           .map((item: any) => ({
             product_id: item.product_id,
             quantity: item.quantity || 0
@@ -402,7 +456,8 @@ export default function BookingsPage() {
               variant: 'destructive',
             })
           } else {
-            console.log('[Bookings] Inventory reserved successfully')
+            const invResult = await inventoryResponse.json()
+            console.log('[Bookings] Inventory reserved successfully:', invResult)
           }
         }
       }
@@ -411,15 +466,34 @@ export default function BookingsPage() {
       const itemsResponse = await fetch(`/api/bookings/${bookingId}/items?source=${source}`)
       if (itemsResponse.ok) {
         const itemsData = await itemsResponse.json()
+        console.log('[Bookings] Fetched updated items from DB:', itemsData)
         setBookingItems(prev => ({
           ...prev,
           [bookingId]: itemsData.items || []
         }))
+        
+        // Also update selectedItems for the display dialog
+        const transformedItems = itemsData.items.map((item: any) => ({
+          id: item.id || `item-${Math.random()}`,
+          product_id: item.product_id || item.package_id,
+          package_id: item.package_id,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price || 0,
+          total_price: item.total_price || 0,
+          product: item.product,
+          package: item.package,
+          variant_name: item.variant_name,
+        }))
+        setSelectedItems(transformedItems)
+        console.log('[Bookings] Updated selectedItems state:', transformedItems)
       }
+
+      // Refresh the bookings list to update has_items flag
+      refresh()
 
       toast({
         title: 'Items saved successfully!',
-        description: `${items.length} item(s) saved and inventory reserved`,
+        description: `${itemsToSave.length} item(s) saved and inventory reserved`,
       })
 
       return true
@@ -540,6 +614,40 @@ export default function BookingsPage() {
         title: "Cannot edit", 
         description: "Unable to determine booking type. Please try again.",
         variant: "destructive"
+      })
+    }
+  }
+
+  // Helper function to fetch and load items for a booking into the compact display
+  const handleOpenCompactDisplay = async (booking: Booking) => {
+    try {
+      console.log('[Bookings] Opening compact display for booking:', booking.id)
+      
+      // Determine source
+      const bookingType = (booking as any).type || 'product'
+      const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
+      
+      // Fetch latest items from database
+      const response = await fetch(`/api/bookings/${booking.id}/items?source=${source}`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch items: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      console.log('[Bookings] Fetched items from database:', data.items)
+      
+      // Update state with fresh data from database
+      setCurrentBookingForItems(booking)
+      setSelectedItems(data.items || [])
+      setShowCompactDisplay(true)
+      
+    } catch (err) {
+      console.error('[Bookings] Error opening compact display:', err)
+      toast({
+        title: 'Error loading items',
+        description: 'Failed to fetch booking items',
+        variant: 'destructive',
       })
     }
   }
@@ -1017,7 +1125,7 @@ export default function BookingsPage() {
                         <TableCell>
                           {(() => {
                             const items = bookingItems[booking.id] || []
-                            const hasItems = (booking as any).has_items
+                            const hasItems = (booking as any).has_items || bookingsWithItems.has(booking.id)
                             const bookingType = (booking as any).type
                             
                             if (!hasItems) {
@@ -1026,9 +1134,10 @@ export default function BookingsPage() {
                                   variant="outline" 
                                   className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
                                   onClick={() => {
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('pending')
-                                    setShowProductDialog(true)
+                                    // Open product selection directly
+                                    setCurrentBookingForItems(booking)
+                                    setSelectedItems([])
+                                    setShowItemsSelection(true)
                                   }}
                                 >
                                   ⏳ Selection Pending
@@ -1040,32 +1149,17 @@ export default function BookingsPage() {
                             if (bookingType === 'sale' || bookingType === 'rental') {
                               const totalQty = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
                               return (
-                                <div className="flex items-center gap-2">
-                                  <Badge 
-                                    variant="default"
-                                    className="bg-blue-600 cursor-pointer hover:bg-blue-700"
-                                    onClick={() => {
-                                      setProductDialogBooking(booking)
-                                      setProductDialogType('items')
-                                      setShowProductDialog(true)
-                                    }}
-                                  >
-                                    📦 {totalQty} {totalQty === 1 ? 'Item' : 'Items'}
-                                  </Badge>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setProductDialogBooking(booking)
-                                      setProductDialogType('items')
-                                      setCurrentBookingForItems(booking)
-                                      setShowItemsSelection(true)
-                                    }}
-                                    className="text-xs h-7"
-                                  >
-                                    ✎ Edit
-                                  </Button>
-                                </div>
+                                <Badge 
+                                  variant="default"
+                                  className="bg-blue-600 cursor-pointer hover:bg-blue-700"
+                                  onClick={() => {
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('items')
+                                    setShowProductDialog(true)
+                                  }}
+                                >
+                                  📦 {totalQty} {totalQty === 1 ? 'Item' : 'Items'}
+                                </Badge>
                               )
                             }
                             
@@ -1075,11 +1169,7 @@ export default function BookingsPage() {
                                 <Badge 
                                   variant="default"
                                   className="cursor-pointer hover:bg-primary/80"
-                                  onClick={() => {
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('items')
-                                    setShowProductDialog(true)
-                                  }}
+                                  onClick={() => handleOpenCompactDisplay(booking)}
                                 >
                                   {(booking as any).total_safas || 0} items
                                 </Badge>
@@ -1087,32 +1177,13 @@ export default function BookingsPage() {
                             }
                             
                             return (
-                              <div className="flex items-center gap-2">
-                                <Badge 
-                                  variant="outline"
-                                  className="cursor-pointer hover:bg-gray-100 border-gray-300"
-                                  onClick={() => {
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('items')
-                                    setShowProductDialog(true)
-                                  }}
-                                >
-                                  📋 {items.length} Items
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('items')
-                                    setCurrentBookingForItems(booking)
-                                    setShowItemsSelection(true)
-                                  }}
-                                  className="text-xs h-7"
-                                >
-                                  ✎ Edit
-                                </Button>
-                              </div>
+                              <Badge 
+                                variant="outline"
+                                className="cursor-pointer hover:bg-gray-100 border-gray-300"
+                                onClick={() => handleOpenCompactDisplay(booking)}
+                              >
+                                � {items.length} Items
+                              </Badge>
                             )
                           })()}
                         </TableCell>
@@ -1129,11 +1200,6 @@ export default function BookingsPage() {
                         <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {!((booking as any).has_items) && (
-                              <Button variant="secondary" size="sm" onClick={() => router.push(`/bookings/${booking.id}/select-products`)}>
-                                Select Products
-                              </Button>
-                            )}
                             <Button 
                               variant="ghost" 
                               size="icon" 
@@ -1733,80 +1799,6 @@ export default function BookingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Product Details Dialog - Using Reusable Components */}
-      {productDialogBooking && productDialogType === 'pending' && (
-        <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>⏳ Selection Pending</DialogTitle>
-              <DialogDescription>
-                Customer needs to select products for this booking
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              {/* Booking Info */}
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Booking #</p>
-                      <p className="font-medium">{productDialogBooking.booking_number}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Customer</p>
-                      <p className="font-medium">{productDialogBooking.customer?.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Event Date</p>
-                      <p className="font-medium">
-                        {new Date(productDialogBooking.event_date).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Total Safas</p>
-                      <Badge variant="default" className="text-base px-3 py-1">
-                        {(productDialogBooking as any).total_safas || 0} Safas
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-orange-200 bg-orange-50/50">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="h-5 w-5 text-orange-600" />
-                    <p className="font-medium">Product Selection Pending</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Select products from available inventory to complete this booking.
-                  </p>
-                  
-                  <Button 
-                    className="w-full" 
-                    onClick={() => {
-                      setShowProductDialog(false)
-                      // Open the selection dialog
-                      setCurrentBookingForItems(productDialogBooking)
-                      setSelectedItems([])
-                      setShowItemsSelection(true)
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Select Products Now
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
       {/* Items Display Dialog - Using Reusable Component */}
       {productDialogBooking && productDialogType === 'items' && !itemsLoading[productDialogBooking.id] && !itemsError[productDialogBooking.id] && bookingItems[productDialogBooking.id] && (
         <ItemsDisplayDialog
@@ -1943,46 +1935,6 @@ export default function BookingsPage() {
 
       <ConfirmationDialog />
       
-      {/* Reusable Items Display Dialog */}
-      {currentBookingForItems && (
-        <ItemsDisplayDialog
-          open={showItemsDisplay}
-          onOpenChange={setShowItemsDisplay}
-          items={selectedItems}
-          context={{
-            bookingType: (currentBookingForItems as any).source === 'package_bookings' ? 'sale' : 'rental',
-            eventDate: currentBookingForItems.event_date,
-            isEditable: currentBookingForItems.status === 'pending_selection',
-            showPricing: true,
-          }}
-          onQuantityChange={(itemId, newQuantity) => {
-            // Update local state
-            setSelectedItems(prev => 
-              prev.map(item => 
-                item.id === itemId ? { ...item, quantity: newQuantity } : item
-              )
-            )
-          }}
-          onRemoveItem={(itemId) => {
-            setSelectedItems(prev => prev.filter(item => item.id !== itemId))
-          }}
-          onAddItems={() => {
-            setShowItemsDisplay(false)
-            setShowItemsSelection(true)
-          }}
-          summaryData={{
-            subtotal: selectedItems.reduce((sum, item) => {
-              const price = 'unit_price' in item ? item.unit_price : ((item as any).variant?.base_price || 0)
-              return sum + (price * item.quantity)
-            }, 0),
-            discount: currentBookingForItems.discount_amount || 0,
-            gst: currentBookingForItems.tax_amount || 0,
-            securityDeposit: currentBookingForItems.security_deposit || 0,
-            total: currentBookingForItems.total_amount || 0,
-          }}
-        />
-      )}
-      
       {/* Reusable Items Selection Dialog */}
       {currentBookingForItems && (
         <ItemsSelectionDialog
@@ -1990,30 +1942,21 @@ export default function BookingsPage() {
           onOpenChange={async (open) => {
             // When modal closes (open === false), save the selected items
             if (!open && selectedItems.length > 0) {
-              const source = (currentBookingForItems as any).source === 'package_bookings' ? 'package_bookings' : 'product_orders'
+              // Determine source based on booking type
+              const bookingType = (currentBookingForItems as any).type || 'product'
+              const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
               await saveSelectedItems(currentBookingForItems.id, selectedItems, source)
             }
             
             setShowItemsSelection(open)
-            if (!open) {
-              setShowItemsDisplay(true)
-            }
           }}
           mode={productDialogType === 'pending' ? 'select' : 'edit'}
-          type={(currentBookingForItems as any).source === 'package_bookings' ? 'package' : 'product'}
-          items={
-            (currentBookingForItems as any).source === 'package_bookings'
-              ? packages
-              : products
-          }
-          categories={
-            (currentBookingForItems as any).source === 'package_bookings'
-              ? packagesCategories
-              : categories
-          }
+          type="product"
+          items={products}
+          categories={categories}
           subcategories={subcategories}
           context={{
-            bookingType: (currentBookingForItems as any).source === 'package_bookings' ? 'sale' : 'rental',
+            bookingType: (currentBookingForItems as any).type === 'package' ? 'sale' : 'rental',
             eventDate: currentBookingForItems.event_date,
             deliveryDate: currentBookingForItems.delivery_date,
             returnDate: currentBookingForItems.pickup_date,
@@ -2081,6 +2024,122 @@ export default function BookingsPage() {
           selectedItems={selectedItems}
           title="Select Products for Booking"
           description="Choose products from your inventory to add to this booking"
+        />
+      )}
+
+      {/* Compact Items Display Dialog */}
+      {currentBookingForItems && (
+        <CompactItemsDisplayDialog
+          open={showCompactDisplay}
+          onOpenChange={async (open) => {
+            if (!open) {
+              // Dialog is closing - save the updated items to database
+              console.log('[Bookings] Compact dialog closing, saving items count:', selectedItems.length)
+              if (currentBookingForItems) {
+                // Save current items to database (even if 0 items - to clear them)
+                const bookingType = (currentBookingForItems as any).type || 'product'
+                const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
+                
+                // Transform items for saving
+                const itemsToSave = selectedItems.map((item: any) => {
+                  if (source === 'product_orders') {
+                    return {
+                      product_id: item.product_id,
+                      quantity: item.quantity || 1,
+                      unit_price: item.unit_price || 0,
+                      total_price: (item.unit_price || 0) * (item.quantity || 1),
+                    }
+                  } else {
+                    // Package booking
+                    if (item.product_id) {
+                      return {
+                        product_id: item.product_id,
+                        quantity: item.quantity || 1,
+                        unit_price: item.unit_price || 0,
+                        total_price: (item.unit_price || 0) * (item.quantity || 1),
+                      }
+                    } else {
+                      return {
+                        package_id: item.package_id,
+                        variant_id: item.variant_id,
+                        quantity: item.quantity || 1,
+                        unit_price: item.unit_price || 0,
+                        total_price: (item.unit_price || 0) * (item.quantity || 1),
+                        extra_safas: item.extra_safas || 0,
+                      }
+                    }
+                  }
+                })
+
+                try {
+                  console.log('[Bookings] Saving to API:', { itemsToSave, source })
+                  const response = await fetch(`/api/bookings/${currentBookingForItems.id}/items`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      items: itemsToSave,
+                      source,
+                    }),
+                  })
+
+                  if (!response.ok) {
+                    const error = await response.json()
+                    console.error('[Bookings] Error saving items:', error)
+                    toast({
+                      title: 'Error saving items',
+                      description: error.error || 'Failed to save changes',
+                      variant: 'destructive',
+                    })
+                  } else {
+                    const result = await response.json()
+                    console.log('[Bookings] Items saved successfully from compact dialog:', result)
+                    
+                    // Update bookingsWithItems based on actual count
+                    if (selectedItems.length > 0) {
+                      setBookingsWithItems(prev => new Set([...prev, currentBookingForItems.id]))
+                    } else {
+                      setBookingsWithItems(prev => {
+                        const updated = new Set(prev)
+                        updated.delete(currentBookingForItems.id)
+                        return updated
+                      })
+                    }
+                    
+                    // Refresh bookings to get updated data
+                    await refresh()
+                    
+                    toast({
+                      title: 'Items updated',
+                      description: `${selectedItems.length} item(s) saved`,
+                    })
+                  }
+                } catch (err) {
+                  console.error('[Bookings] Error in compact dialog save:', err)
+                  toast({
+                    title: 'Error',
+                    description: 'Failed to save items',
+                    variant: 'destructive',
+                  })
+                }
+              }
+            }
+            setShowCompactDisplay(open)
+          }}
+          items={selectedItems}
+          title={`📦 ${(currentBookingForItems as any).booking_number || 'Booking'}`}
+          onEditProducts={() => {
+            setShowCompactDisplay(false)
+            setShowItemsSelection(true)
+          }}
+          onRemoveItem={(itemId) => {
+            console.log('[Bookings] Removing item from compact dialog:', itemId)
+            setSelectedItems(prev => {
+              const updated = prev.filter(item => item.id !== itemId)
+              console.log('[Bookings] Updated selectedItems after delete:', updated.length, 'items remaining')
+              return updated
+            })
+          }}
+          showPricing={true}
         />
       )}
     </div>

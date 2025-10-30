@@ -57,61 +57,60 @@ export async function GET(
         }
       }
     } else if (source === 'package_booking') {
-      // Fetch package booking items WITHOUT joins (FK doesn't exist yet)
-      const { data, error } = await supabase
-        .from('package_booking_items')
+      // First try the new dedicated table
+      let { data, error } = await supabase
+        .from('package_booking_product_items')
         .select('*')
-        .eq('booking_id', id)
+        .eq('package_booking_id', id)
         .order('created_at', { ascending: true })
       
-      if (error) {
+      // If new table is empty or has an error, check the old table
+      if (!data || data.length === 0) {
+        console.log('[Booking Items API] No items in new table, checking old table...')
+        const { data: oldData, error: oldError } = await supabase
+          .from('package_booking_items')
+          .select('*')
+          .eq('package_booking_id', id)
+          .order('created_at', { ascending: true })
+        
+        if (!oldError && oldData && oldData.length > 0) {
+          console.log('[Booking Items API] Found items in old table:', oldData.length)
+          data = oldData
+        }
+      }
+      
+      if (error && (!data || data.length === 0)) {
         console.error('[Booking Items API] Error fetching package booking items:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
       
-      // Fetch related data separately
+      // Fetch related product data
       if (data && data.length > 0) {
-        const packageIds = [...new Set(data.map((item: any) => item.package_id).filter(Boolean))]
-        const variantIds = [...new Set(data.map((item: any) => item.variant_id).filter(Boolean))]
+        console.log('[Booking Items API] Fetching product data for items:', data.length)
+        const productIds = [...new Set(data.map((item: any) => item.product_id || item.package_id).filter(Boolean))]
         
-        // Fetch package_sets
-        const packagesMap = new Map()
-        if (packageIds.length > 0) {
-          const { data: packages } = await supabase
-            .from('package_sets')
-            .select('id, name')
-            .in('id', packageIds)
+        // Fetch products
+        const productsMap = new Map()
+        if (productIds.length > 0) {
+          const { data: products } = await supabase
+            .from('products')
+            .select('id, name, product_code, category, image_url, price, rental_price, stock_available, category_id')
+            .in('id', productIds)
           
-          packages?.forEach((p: any) => packagesMap.set(p.id, p))
+          products?.forEach((p: any) => productsMap.set(p.id, p))
         }
         
-        // Fetch package_variants
-        const variantsMap = new Map()
-        if (variantIds.length > 0) {
-          const { data: variants } = await supabase
-            .from('package_variants')
-            .select('id, name, size, quantity_safas')
-            .in('id', variantIds)
-          
-          variants?.forEach((v: any) => variantsMap.set(v.id, v))
-        }
-        
-        // Map the data with product-like structure for consistent display
+        // Map the data with product structure for consistent display
         items = data.map((item: any) => {
-          const packageSet = packagesMap.get(item.package_id)
-          const variant = variantsMap.get(item.variant_id)
-          
+          const product = productsMap.get(item.product_id || item.package_id)
           return {
             ...item,
-            quantity: (item.quantity || 0) + (item.extra_safas || 0),
-            product: packageSet ? {
-              id: packageSet.id,
-              name: packageSet.name,
-              product_code: null,
-              category: 'Package',
-              image_url: null
-            } : null,
-            variant_name: variant?.name || null
+            id: item.id,
+            product_id: item.product_id,
+            quantity: item.quantity || 1,
+            unit_price: item.unit_price || 0,
+            total_price: item.total_price || 0,
+            product: product || null,
           }
         })
       }
@@ -175,7 +174,18 @@ export async function POST(
         return NextResponse.json({ error: deleteError.message }, { status: 500 })
       }
 
-      // Insert new items
+      // Update has_items flag based on whether we have new items
+      const hasItemsFlag = items.length > 0
+      const { error: updateFlagError } = await supabase
+        .from('product_orders')
+        .update({ has_items: hasItemsFlag })
+        .eq('id', id)
+
+      if (updateFlagError) {
+        console.error('[Booking Items API] Error updating product_orders.has_items:', updateFlagError)
+      }
+
+      // Insert new items only if there are any
       if (items.length > 0) {
         const itemsToInsert = items.map((item: any) => ({
           order_id: id,
@@ -183,10 +193,6 @@ export async function POST(
           quantity: item.quantity,
           unit_price: item.unit_price || 0,
           total_price: item.total_price || 0,
-          variant_id: item.variant_id || null,
-          variant_name: item.variant_name || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         }))
 
         const { error: insertError } = await supabase
@@ -199,39 +205,45 @@ export async function POST(
         }
       }
     } else if (normalizedSource === 'package_booking') {
-      // Delete existing items for this booking
+      // Delete existing product items for this booking from the new table
       const { error: deleteError } = await supabase
-        .from('package_booking_items')
+        .from('package_booking_product_items')
         .delete()
-        .eq('booking_id', id)
+        .eq('package_booking_id', id)
 
       if (deleteError) {
-        console.error('[Booking Items API] Error deleting old package booking items:', deleteError)
+        console.error('[Booking Items API] Error deleting old package booking product items:', deleteError)
         return NextResponse.json({ error: deleteError.message }, { status: 500 })
       }
 
-      // Insert new items
+      // Update has_items flag based on whether we have new items
+      const hasItemsFlag = items.length > 0
+      const { error: updateFlagError } = await supabase
+        .from('package_bookings')
+        .update({ has_items: hasItemsFlag })
+        .eq('id', id)
+
+      if (updateFlagError) {
+        console.error('[Booking Items API] Error updating package_bookings.has_items:', updateFlagError)
+      }
+
+      // Insert new product items only if there are any
       if (items.length > 0) {
         const itemsToInsert = items.map((item: any) => ({
-          booking_id: id,
-          package_id: item.package_id,
-          variant_id: item.variant_id,
-          quantity: item.quantity || 0,
-          extra_safas: item.extra_safas || 0,
+          package_booking_id: id,
+          product_id: item.product_id,
+          quantity: item.quantity || 1,
           unit_price: item.unit_price || 0,
           total_price: item.total_price || 0,
-          distance_addon: item.distance_addon || 0,
-          security_deposit: item.security_deposit || 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          notes: item.notes || null,
         }))
 
         const { error: insertError } = await supabase
-          .from('package_booking_items')
+          .from('package_booking_product_items')
           .insert(itemsToInsert)
 
         if (insertError) {
-          console.error('[Booking Items API] Error inserting package booking items:', insertError)
+          console.error('[Booking Items API] Error inserting package booking product items:', insertError)
           return NextResponse.json({ error: insertError.message }, { status: 500 })
         }
       }

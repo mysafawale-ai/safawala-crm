@@ -6,12 +6,13 @@ import { createClient } from "@/lib/supabase/server"
  * Adjust product inventory when items are selected in a booking
  * 
  * Operations:
- * - "reserve": Decrease qty_available, increase qty_reserved (when items selected)
- * - "release": Increase qty_available, decrease qty_reserved (when items removed/unconfirmed)
- * - "confirm": Decrease qty_reserved, increase qty_in_use (when booking delivered)
+ * - "reserve": Decrease stock_available, increase stock_booked (when items selected)
+ * - "release": Increase stock_available, decrease stock_booked (when items removed/unconfirmed)
+ * - "confirm": No change (items already tracked in stock_booked)
+ * - "return": Increase stock_available, decrease stock_booked (when items returned)
  * 
  * Body: {
- *   operation: 'reserve' | 'release' | 'confirm',
+ *   operation: 'reserve' | 'release' | 'confirm' | 'return',
  *   items: Array<{ product_id: string, quantity: number }>,
  *   bookingId: string
  * }
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Fetch current inventory for all products
     const { data: products, error: fetchError } = await supabase
       .from('products')
-      .select('id, stock_available, qty_reserved, qty_in_use')
+      .select('id, stock_available, stock_booked, stock_total')
       .in('id', productIds)
 
     if (fetchError) {
@@ -66,7 +67,6 @@ export async function POST(request: NextRequest) {
     }
 
     const productsMap = new Map(products.map(p => [p.id, p]))
-    const updates: any[] = []
 
     // Build updates based on operation
     for (const item of items) {
@@ -74,64 +74,51 @@ export async function POST(request: NextRequest) {
       if (!product) continue
 
       const qty = item.quantity || 0
-      let update: any = { id: item.product_id }
+      let newAvailable = product.stock_available || 0
+      let newBooked = product.stock_booked || 0
 
       switch (operation) {
         case 'reserve':
-          // Decrease available, increase reserved
-          const availableAfterReserve = (product.stock_available || 0) - qty
-          if (availableAfterReserve < 0) {
+          // Decrease available, increase booked
+          if (newAvailable < qty) {
             return NextResponse.json(
-              { error: `Insufficient stock for product ${item.product_id}. Available: ${product.stock_available}, Requested: ${qty}` },
+              { error: `Insufficient stock for product ${item.product_id}. Available: ${newAvailable}, Requested: ${qty}` },
               { status: 400 }
             )
           }
-          update.stock_available = availableAfterReserve
-          update.qty_reserved = (product.qty_reserved || 0) + qty
+          newAvailable -= qty
+          newBooked += qty
           break
 
         case 'release':
-          // Increase available, decrease reserved
-          update.stock_available = (product.stock_available || 0) + qty
-          update.qty_reserved = Math.max(0, (product.qty_reserved || 0) - qty)
+          // Increase available, decrease booked
+          newAvailable += qty
+          newBooked = Math.max(0, newBooked - qty)
           break
 
         case 'confirm':
-          // Decrease reserved, increase in use
-          if ((product.qty_reserved || 0) < qty) {
-            return NextResponse.json(
-              { error: `Cannot confirm: reserved quantity is less than requested` },
-              { status: 400 }
-            )
-          }
-          update.qty_reserved = (product.qty_reserved || 0) - qty
-          update.qty_in_use = (product.qty_in_use || 0) + qty
-          break
+          // Confirm booked items (just a status change, no inventory change needed)
+          // No updates needed
+          continue
 
         case 'return':
-          // Decrease in use, increase available
-          if ((product.qty_in_use || 0) < qty) {
-            return NextResponse.json(
-              { error: `Cannot return: in-use quantity is less than requested` },
-              { status: 400 }
-            )
-          }
-          update.qty_in_use = (product.qty_in_use || 0) - qty
-          update.stock_available = (product.stock_available || 0) + qty
+          // Increase available when items are returned
+          newAvailable += qty
+          newBooked = Math.max(0, newBooked - qty)
           break
       }
 
-      updates.push(update)
-    }
-
-    // Apply all updates
-    if (updates.length > 0) {
+      // Apply individual updates using .update() instead of upsert
       const { error: updateError } = await supabase
         .from('products')
-        .upsert(updates, { onConflict: 'id' })
+        .update({
+          stock_available: newAvailable,
+          stock_booked: newBooked,
+        })
+        .eq('id', item.product_id)
 
       if (updateError) {
-        console.error('[Inventory API] Error updating inventory:', updateError)
+        console.error(`[Inventory API] Error updating product ${item.product_id}:`, updateError)
         return NextResponse.json({ error: updateError.message }, { status: 500 })
       }
     }
@@ -146,7 +133,7 @@ export async function POST(request: NextRequest) {
       success: true,
       operation,
       message: `${operation} operation completed for ${items.length} item(s)`,
-      itemsUpdated: updates.length
+      itemsUpdated: items.length
     })
   } catch (error) {
     console.error('[Inventory API] Error:', error)

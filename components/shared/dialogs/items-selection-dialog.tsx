@@ -492,9 +492,6 @@ export function ItemsSelectionDialog({
             Showing {filteredItems.length} of {items.length} {type}s
           </div>
           <div className="flex items-center gap-2 justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {mode === 'edit' ? 'Cancel' : 'Continue Shopping'}
-            </Button>
             <Button 
               onClick={() => onOpenChange(false)}
               disabled={selectedItems.length === 0}
