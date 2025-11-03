@@ -130,28 +130,28 @@ async function downloadAsLabels(
 
 /**
  * Download barcodes as PDF - Sheet Layout
- * Larger barcodes, fewer per page, better for warehouses
- * Optimized for 4.2 inch (107mm) width with 2 columns per row
+ * Optimized for Zebra ZD230 Thermal Printer (4" width, 203 dpi)
+ * One barcode per 4" x 6" thermal label
  */
 async function downloadAsSheet(
   items: BarcodeItem[],
   options: BulkDownloadOptions,
   filename: string
 ): Promise<void> {
-  // Custom page size: 4.2 inches (107mm) width for standard label printer
-  const pageWidthMM = 107 // 4.2 inches
-  const pageHeightMM = 279 // Standard letter height
+  // Zebra ZD230 thermal label dimensions
+  const pageWidthMM = 101.6 // 4 inches (usable width)
+  const pageHeightMM = 152.4 // 6 inches (standard thermal label height)
   
   const pdf = new jsPDF('p', 'mm', [pageWidthMM, pageHeightMM])
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
-  // Sheet configuration (2 columns x 5 rows for 4.2" width)
-  const margin = 8
-  const cols = 2
-  const rows = 5
-  const itemWidth = (pageWidth - margin * 2 - 8) / cols
-  const itemHeight = (pageHeight - margin * 2 - 20) / rows
+  // Single barcode per label, optimized for thermal printer
+  const margin = 5
+  const cols = 1
+  const rows = 1
+  const itemWidth = pageWidth - 2 * margin
+  const itemHeight = pageHeight - 2 * margin
   const itemsPerPage = cols * rows
   
   let itemIndex = 0

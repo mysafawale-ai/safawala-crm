@@ -81,10 +81,10 @@ export function BulkBarcodeDownloadDialog({
       preview: "Perfect for printing on label sheets. 3 columns × 10 rows.",
     },
     sheet: {
-      title: "Barcode Sheet",
-      description: "4.2 inch width (2 columns × 5 rows per page)",
+      title: "Thermal Label Printer",
+      description: "Optimized for Zebra ZD230 (4\" × 6\" labels)",
       icon: FileText,
-      preview: "Optimized for 4.2\" wide label printer. 2 columns × 5 rows per page.",
+      preview: "One barcode per 4\" × 6\" thermal label. Perfect for warehouse scanning.",
     },
     list: {
       title: "Inventory List",
