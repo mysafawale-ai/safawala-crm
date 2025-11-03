@@ -146,10 +146,10 @@ async function downloadAsSheet(
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
-  // 2 columns × 2 rows configuration for maximum space efficiency
-  const margin = 3
+  // 2 columns × 8 rows configuration for maximum space efficiency (16 barcodes per label)
+  const margin = 2
   const cols = 2
-  const rows = 2
+  const rows = 8
   const itemWidth = (pageWidth - 2 * margin) / cols
   const itemHeight = (pageHeight - 2 * margin) / rows
   const itemsPerPage = cols * rows

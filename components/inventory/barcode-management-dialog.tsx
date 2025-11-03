@@ -222,11 +222,11 @@ export function BarcodeManagementDialog({
       
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
-      const margin = 3
+      const margin = 2
       const barcodeWidth = 42 // Each barcode ~1.6" wide
-      const barcodeHeight = 25
+      const barcodeHeight = 18 // Reduced height to fit more rows
       const cols = 2 // 2 columns for 4" width
-      const rows = 2 // 2 rows = 4 barcodes per label
+      const rows = 8 // 8 rows = 16 barcodes per label (fills entire page)
       const spacingX = (pageWidth - 2 * margin) / cols
       const spacingY = (pageHeight - 2 * margin) / rows
       
