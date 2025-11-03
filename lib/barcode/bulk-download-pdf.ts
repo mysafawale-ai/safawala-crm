@@ -131,21 +131,26 @@ async function downloadAsLabels(
 /**
  * Download barcodes as PDF - Sheet Layout
  * Larger barcodes, fewer per page, better for warehouses
+ * Optimized for 4.2 inch (107mm) width with 2 columns per row
  */
 async function downloadAsSheet(
   items: BarcodeItem[],
   options: BulkDownloadOptions,
   filename: string
 ): Promise<void> {
-  const pdf = new jsPDF('p', 'mm', 'a4')
+  // Custom page size: 4.2 inches (107mm) width for standard label printer
+  const pageWidthMM = 107 // 4.2 inches
+  const pageHeightMM = 279 // Standard letter height
+  
+  const pdf = new jsPDF('p', 'mm', [pageWidthMM, pageHeightMM])
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
-  // Sheet configuration (2 columns x 4 rows)
-  const margin = 15
+  // Sheet configuration (2 columns x 5 rows for 4.2" width)
+  const margin = 8
   const cols = 2
-  const rows = 4
-  const itemWidth = (pageWidth - margin * 2 - 10) / cols
+  const rows = 5
+  const itemWidth = (pageWidth - margin * 2 - 8) / cols
   const itemHeight = (pageHeight - margin * 2 - 20) / rows
   const itemsPerPage = cols * rows
   

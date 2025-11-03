@@ -82,9 +82,9 @@ export function BulkBarcodeDownloadDialog({
     },
     sheet: {
       title: "Barcode Sheet",
-      description: "Large barcodes (8 per page)",
+      description: "4.2 inch width (2 columns × 5 rows per page)",
       icon: FileText,
-      preview: "Larger barcodes for warehouses. 2 columns × 4 rows.",
+      preview: "Optimized for 4.2\" wide label printer. 2 columns × 5 rows per page.",
     },
     list: {
       title: "Inventory List",

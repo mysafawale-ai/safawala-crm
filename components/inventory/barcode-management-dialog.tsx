@@ -209,19 +209,24 @@ export function BarcodeManagementDialog({
       const { default: jsPDF } = await import('jspdf')
       const JsBarcode = (await import('jsbarcode')).default
       
+      // Custom page size: 4.2 inches width (10.67 cm) with portrait orientation
+      // Standard 8.5 x 11 inches (210 x 279 mm) but we'll use a narrower width
+      const pageWidthMM = 107 // 4.2 inches = 106.68 mm
+      const pageHeightMM = 279 // Standard letter height
+      
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'a4'
+        format: [pageWidthMM, pageHeightMM]
       })
       
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
-      const margin = 10
-      const barcodeWidth = 60
+      const margin = 8
+      const barcodeWidth = 45
       const barcodeHeight = 25
-      const cols = 3
-      const rows = 8
+      const cols = 2
+      const rows = 10
       const spacingX = (pageWidth - 2 * margin) / cols
       const spacingY = (pageHeight - 2 * margin) / rows
       
