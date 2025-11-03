@@ -82,9 +82,9 @@ export function BulkBarcodeDownloadDialog({
     },
     sheet: {
       title: "Thermal Label Printer",
-      description: "Optimized for Zebra ZD230 (4\" × 6\" labels)",
+      description: "Zebra ZD230 (2 columns × 2 rows = 4 barcodes per label)",
       icon: FileText,
-      preview: "One barcode per 4\" × 6\" thermal label. Perfect for warehouse scanning.",
+      preview: "Optimized for 4\" Zebra thermal printer. 2 columns × 2 rows = 4 barcodes per 4\"×6\" label.",
     },
     list: {
       title: "Inventory List",

@@ -210,8 +210,8 @@ export function BarcodeManagementDialog({
       const JsBarcode = (await import('jsbarcode')).default
       
       // Optimized for Zebra ZD230 Thermal Printer (4" width at 203 dpi)
-      // Page size: 4" width x 6" height per label (standard thermal label)
-      const pageWidthMM = 101.6 // 4 inches = 101.6 mm (usable area)
+      // 2 columns × 2 rows per page (4 barcodes per label sheet)
+      const pageWidthMM = 101.6 // 4 inches = 101.6 mm
       const pageHeightMM = 152.4 // 6 inches = 152.4 mm (standard thermal label height)
       
       const doc = new jsPDF({
@@ -222,11 +222,11 @@ export function BarcodeManagementDialog({
       
       const pageWidth = doc.internal.pageSize.getWidth()
       const pageHeight = doc.internal.pageSize.getHeight()
-      const margin = 5 // Reduced margin for thermal printer
-      const barcodeWidth = 90 // Larger barcode width for thermal printer
-      const barcodeHeight = 30
-      const cols = 1 // Single column for 4" width
-      const rows = 1 // One barcode per label
+      const margin = 3
+      const barcodeWidth = 42 // Each barcode ~1.6" wide
+      const barcodeHeight = 25
+      const cols = 2 // 2 columns for 4" width
+      const rows = 2 // 2 rows = 4 barcodes per label
       const spacingX = (pageWidth - 2 * margin) / cols
       const spacingY = (pageHeight - 2 * margin) / rows
       
