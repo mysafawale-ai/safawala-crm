@@ -1404,114 +1404,103 @@ export default function CreateProductOrderPage() {
                 <BarcodeInput
                   onScan={async (code) => {
                     try {
-                      console.log('[Barcode Scan] Searching for barcode:', code)
+                      console.log('[Barcode Scan] Starting scan:', {
+                        fullBarcode: code,
+                        length: code.length,
+                        timestamp: new Date().toISOString()
+                      })
                       
-                      // ===== STEP 1: LOCAL SEARCH (FASTEST) =====
-                      // Search through all loaded products with their barcodes
-                      console.log('[Barcode Scan] Step 1: Checking local products with barcodes...')
+                      // ===== STEP 1: QUERY DEDICATED API (BEST) =====
+                      // Use the dedicated barcode lookup API for reliable scanning
+                      console.log('[Barcode Scan] Step 1: Querying barcode lookup API...')
+                      
+                      const response = await fetch('/api/barcode/lookup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                          barcode: code,
+                          franchiseId: formData.franchise_id
+                        })
+                      })
+
+                      if (response.ok) {
+                        const result = await response.json()
+                        console.log('[Barcode Scan] ✅ FOUND via API:', {
+                          barcode: code,
+                          product: result.product.name,
+                          source: result.source,
+                          productId: result.product.id
+                        })
+
+                        addProduct({
+                          id: result.product.id,
+                          name: result.product.name,
+                          category: result.product.category,
+                          category_id: result.product.category_id,
+                          subcategory_id: result.product.subcategory_id,
+                          rental_price: result.product.rental_price,
+                          sale_price: result.product.sale_price,
+                          security_deposit: result.product.security_deposit,
+                          stock_available: result.product.stock_available,
+                          image_url: result.product.image_url,
+                          product_code: result.product.product_code
+                        })
+
+                        toast.success("Product added!", {
+                          description: `${result.product.name} added to cart`,
+                          duration: 2000
+                        })
+                        return
+                      }
+
+                      if (response.status === 404) {
+                        const errorData = await response.json()
+                        console.log('[Barcode Scan] ❌ Product not found via API:', {
+                          barcode: code,
+                          error: errorData.error
+                        })
+                        toast.error("Product not found", {
+                          description: `No product found with barcode: ${code}`,
+                          duration: 3000
+                        })
+                        return
+                      }
+
+                      // ===== STEP 2: FALLBACK LOCAL SEARCH =====
+                      // If API fails, try local search in products array
+                      console.log('[Barcode Scan] Step 2: Falling back to local product search...')
                       
                       const foundProduct = findProductByAnyBarcode(products as any, code)
                       
                       if (foundProduct) {
-                        console.log('[Barcode Scan] ✅ FOUND in local products array:', {
+                        console.log('[Barcode Scan] ✅ Found in local products:', {
                           barcode: code,
-                          product: foundProduct.name,
-                          product_id: foundProduct.id,
-                          matched_barcodes: (foundProduct as any).all_barcode_numbers?.filter((b: string) => 
-                            b.toLowerCase() === code.trim().toLowerCase()
-                          )
+                          product: foundProduct.name
                         })
                         addProduct(foundProduct as any)
                         toast.success("Product added!", {
-                          description: `${foundProduct.name} added to cart`
+                          description: `${foundProduct.name} added to cart (local)`,
+                          duration: 2000
                         })
                         return
                       }
-                      
-                      // ===== STEP 2: DEDICATED BARCODES TABLE (FALLBACK) =====
-                      // If not found locally, query barcodes table directly
-                      console.log('[Barcode Scan] Step 2: Checking dedicated barcodes table...')
-                      
-                      const { data: barcodeRecord, error: barcodeError } = await supabase
-                        .from('barcodes')
-                        .select('product_id, products(*)')
-                        .eq('barcode_number', code)
-                        .eq('is_active', true)
-                        .limit(1)
-                        .single()
-                      
-                      if (barcodeRecord && barcodeRecord.products) {
-                        const product = barcodeRecord.products as any
-                        console.log('[Barcode Scan] ✅ FOUND in barcodes table:', {
-                          barcode: code,
-                          product: product.name,
-                          product_id: product.id
-                        })
-                        addProduct({
-                          id: product.id,
-                          name: product.name,
-                          category: product.category,
-                          category_id: product.category_id,
-                          subcategory_id: product.subcategory_id,
-                          rental_price: product.rental_price,
-                          sale_price: product.sale_price,
-                          security_deposit: product.security_deposit,
-                          stock_available: product.stock_available,
-                        })
-                        toast.success("Product added!", {
-                          description: `${product.name} added to cart (via barcode table)`
-                        })
-                        return
-                      }
-                      
-                      if (barcodeError && barcodeError.code !== 'PGRST116') {
-                        console.warn('[Barcode Scan] Error querying barcodes table:', barcodeError)
-                      }
-                      
-                      // ===== STEP 3: PRODUCTS TABLE FIELDS (FINAL FALLBACK) =====
-                      // Search in product_code, barcode_number, etc. fields
-                      console.log('[Barcode Scan] Step 3: Checking products table fields...')
-                      
-                      const { data: dbProducts } = await supabase
-                        .from('products')
-                        .select('*')
-                        .or(
-                          `product_code.eq.${code},` +
-                          `barcode_number.eq.${code},` +
-                          `alternate_barcode_1.eq.${code},` +
-                          `alternate_barcode_2.eq.${code},` +
-                          `sku.eq.${code},` +
-                          `code.eq.${code}`
-                        )
-                        .limit(1)
-                      
-                      if (dbProducts && dbProducts.length > 0) {
-                        const product = dbProducts[0] as any
-                        console.log('[Barcode Scan] ✅ FOUND in products table:', {
-                          barcode: code,
-                          product: product.name
-                        })
-                        addProduct(product)
-                        toast.success("Product added!", {
-                          description: `${product.name} added to cart (via product code)`
-                        })
-                        return
-                      }
-                      
+
                       // ===== NOT FOUND =====
-                      console.log('[Barcode Scan] ❌ Product not found:', code)
+                      console.log('[Barcode Scan] ❌ Product not found in any source:', code)
                       toast.error("Product not found", {
-                        description: `No product found with barcode: ${code}`
+                        description: `Barcode not found: ${code}. Try scanning again or select manually.`,
+                        duration: 3000
                       })
+
                     } catch (error) {
                       console.error('[Barcode Scan] Error:', error)
                       toast.error("Scan error", {
-                        description: `Failed to process barcode: ${code}`
+                        description: `Failed to process barcode: ${error instanceof Error ? error.message : 'Unknown error'}`
                       })
                     }
                   }}
                   placeholder="Scan barcode or product code..."
-                  debounceMs={500}
+                  debounceMs={300}
                   autoFocus={true}
                 />
                 <p className="text-xs text-muted-foreground mt-2">

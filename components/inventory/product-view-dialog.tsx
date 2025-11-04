@@ -19,6 +19,7 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { generateBarcode } from "@/lib/barcode-generator"
+import { BulkBarcodePrinter } from "@/components/inventory/bulk-barcode-printer"
 // Fixed import path for ProductItemService
 import { ProductItemService } from "@/lib/services/product-item-service"
 
@@ -63,6 +64,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const [printing, setPrinting] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadingPDF, setDownloadingPDF] = useState(false)
+  const [bulkPrinterOpen, setBulkPrinterOpen] = useState(false)
   const [generatedBarcode, setGeneratedBarcode] = useState<string>("")
   const [itemBarcodes, setItemBarcodes] = useState<
     Array<{
@@ -98,7 +100,9 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
         <html>
           <head>
             <title>Print Barcode - ${product.name}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
             <style>
+              /* Using Cinzel for printed barcode labels. For offline use, download Cinzel to /public/fonts and add @font-face fallback. */
               body { 
                 font-family: Arial, sans-serif; 
                 text-align: center; 
@@ -116,12 +120,13 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                 margin-bottom: 15px;
               }
               .product-name {
+                font-family: 'Cinzel', serif;
                 font-size: 16px;
-                font-weight: bold;
+                font-weight: 700;
                 margin-bottom: 5px;
               }
               .product-code {
-                font-family: monospace;
+                font-family: 'Cinzel', serif;
                 font-size: 14px;
                 color: #666;
               }
@@ -137,11 +142,11 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
           </head>
           <body>
             <div class="barcode-container">
-              <div class="product-info">
-                <div class="product-name">${product.name}</div>
-                <div class="product-code">${product.product_code}</div>
-              </div>
               <img src="${barcodeToUse}" alt="Barcode for ${product.name}" />
+              <div class="product-info">
+                <div class="product-code">${product.product_code}</div>
+                <div class="product-name">${product.name}</div>
+              </div>
             </div>
           </body>
         </html>
@@ -539,22 +544,11 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={handlePrintBarcode}
-                        disabled={printing}
+                        onClick={() => setBulkPrinterOpen(true)}
                         className="flex-1 bg-transparent"
                       >
                         <Printer className="h-4 w-4 mr-1" />
-                        {printing ? "Printing..." : "Print"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleDownloadBarcode}
-                        disabled={downloading}
-                        className="flex-1 bg-transparent"
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        {downloading ? "Downloading..." : "Download"}
+                        Print
                       </Button>
                     </div>
                   </div>
@@ -568,62 +562,24 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                     </Button>
                   </div>
                 )}
-
-                {/* Individual Item Barcodes */}
-                <div className="border-t pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Individual Item Barcodes ({itemBarcodes.length} items)
-                    </label>
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setShowAllBarcodes(!showAllBarcodes)}
-                        disabled={loadingItems}
-                      >
-                        {loadingItems ? "Loading..." : showAllBarcodes ? "Hide" : "Show All"}
-                      </Button>
-                      {itemBarcodes.length > 0 && (
-                        <Button size="sm" variant="outline" onClick={downloadBarcodesAsPDF} disabled={downloadingPDF}>
-                          <FileText className="h-3 w-3 mr-1" />
-                          {downloadingPDF ? "Generating..." : "PDF"}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {showAllBarcodes && (
-                    <div className="space-y-3">
-                      {itemBarcodes.length > 0 ? (
-                        <div className="max-h-60 overflow-y-auto space-y-2">
-                          {itemBarcodes.map((item) => (
-                            <div key={item.id} className="flex items-center space-x-3 p-2 border rounded">
-                              <img
-                                src={item.barcode || "/placeholder.svg"}
-                                alt={`Barcode for ${item.item_code}`}
-                                className="w-20 h-8 object-contain"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-mono truncate">{item.item_code}</p>
-                                <p className="text-xs text-muted-foreground">{item.status}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          No individual item barcodes found. Generate bulk barcodes first.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </DialogContent>
+      
+      {product && (
+        <BulkBarcodePrinter
+          open={bulkPrinterOpen}
+          onOpenChange={setBulkPrinterOpen}
+          product={{
+            id: product.id,
+            name: product.name,
+            product_code: product.product_code,
+            barcode: generatedBarcode || product.barcode,
+          }}
+        />
+      )}
     </Dialog>
   )
 }

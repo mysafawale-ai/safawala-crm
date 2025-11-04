@@ -38,6 +38,7 @@ export function BarcodeInput({
   const [isScanning, setIsScanning] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const scanStartTimeRef = useRef<number>(0)
 
   // Auto-focus on mount
   useEffect(() => {
@@ -59,7 +60,14 @@ export function BarcodeInput({
 
     // Set new timeout
     timeoutRef.current = setTimeout(() => {
-      onScan(value.trim())
+      const finalValue = value.trim()
+      console.log('[BarcodeInput] Scan complete:', {
+        fullValue: finalValue,
+        length: finalValue.length,
+        timestamp: new Date().toISOString(),
+        scanDuration: Date.now() - scanStartTimeRef.current
+      })
+      onScan(finalValue)
       setValue("")
       setIsScanning(false)
     }, debounceMs)
@@ -77,21 +85,59 @@ export function BarcodeInput({
       <Input
         ref={inputRef}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          const newValue = e.currentTarget.value
+          console.log('[BarcodeInput] Character received:', {
+            character: newValue[newValue.length - 1],
+            totalLength: newValue.length,
+            fullValue: newValue
+          })
+          setValue(newValue)
+        }}
         onKeyDown={(e) => {
+          // Detect scanner Enter key (typically comes after all characters)
+          // Scanners typically send: character1 + character2 + ... + characterN + ENTER
           if (e.key === 'Enter' && value.trim()) {
             e.preventDefault()
+            const finalValue = value.trim()
+            console.log('[BarcodeInput] Enter key pressed, triggering scan:', {
+              fullValue: finalValue,
+              length: finalValue.length
+            })
             if (timeoutRef.current) {
               clearTimeout(timeoutRef.current)
             }
-            onScan(value.trim())
+            onScan(finalValue)
             setValue("")
             setIsScanning(false)
           }
+          // Also log other characters being typed
+          if (e.key.length === 1) {
+            console.log('[BarcodeInput] Char:', e.key)
+          }
+        }}
+        onPaste={(e) => {
+          // Handle paste events (some scanners use paste)
+          e.preventDefault()
+          const pastedText = e.clipboardData.getData('text')
+          const finalValue = (value + pastedText).trim()
+          console.log('[BarcodeInput] Paste detected:', {
+            pastedText,
+            combinedValue: finalValue,
+            length: finalValue.length
+          })
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
+          }
+          onScan(finalValue)
+          setValue("")
+          setIsScanning(false)
         }}
         placeholder={placeholder}
-        className={`pl-10 pr-10 ${className}`}
+        className={`pl-10 pr-10 font-mono text-sm tracking-wide ${className}`}
         disabled={disabled || isScanning}
+        autoComplete="off"
+        spellCheck="false"
       />
       {isScanning && (
         <div className="absolute right-3 top-3">

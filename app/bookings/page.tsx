@@ -932,77 +932,90 @@ export default function BookingsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{smartStats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              {smartStats.rentalCount} rental • {smartStats.saleCount} sale
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-orange-200 bg-orange-50/30 dark:bg-orange-950/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmed (Selection Pending)</CardTitle>
-            <Clock className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{smartStats.pendingSelection}</div>
-            <p className="text-xs text-muted-foreground">
-              Product Rent: {smartStats.pendingProductRental} • Sale: {smartStats.pendingProductSale} • Package: {smartStats.pendingPackage}
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ready for Delivery</CardTitle>
-            <CalendarDays className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{smartStats.confirmed}</div>
-            <p className="text-xs text-muted-foreground">
-              Product Rent: {smartStats.confirmedProductRental} • Sale: {smartStats.confirmedProductSale} • Package: {smartStats.confirmedPackage}
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-green-200 bg-green-50/30 dark:bg-green-950/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Delivered</CardTitle>
-            <Package className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{smartStats.delivered}</div>
-            <p className="text-xs text-muted-foreground">Sales ✓ • Rentals in use</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-purple-200 bg-purple-50/30 dark:bg-purple-950/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Returned</CardTitle>
-            <RefreshCw className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{smartStats.returned}</div>
-            <p className="text-xs text-muted-foreground">Rentals completed ✓</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-emerald-200 bg-emerald-50/30 dark:bg-emerald-950/30">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">₹{smartStats.revenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">All bookings combined</p>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{smartStats.total}</div>
+                <p className="text-xs text-muted-foreground">
+                  {smartStats.rentalCount} rental • {smartStats.saleCount} sale
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-orange-200 bg-orange-50/30 dark:bg-orange-950/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Confirmed (Selection Pending)</CardTitle>
+                <Clock className="h-4 w-4 text-orange-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{smartStats.pendingSelection}</div>
+                <p className="text-xs text-muted-foreground">
+                  Product Rent: {smartStats.pendingProductRental} • Sale: {smartStats.pendingProductSale} • Package: {smartStats.pendingPackage}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ready for Delivery</CardTitle>
+                <CalendarDays className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{smartStats.confirmed}</div>
+                <p className="text-xs text-muted-foreground">
+                  Product Rent: {smartStats.confirmedProductRental} • Sale: {smartStats.confirmedProductSale} • Package: {smartStats.confirmedPackage}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-green-200 bg-green-50/30 dark:bg-green-950/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Delivered</CardTitle>
+                <Package className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{smartStats.delivered}</div>
+                <p className="text-xs text-muted-foreground">Sales ✓ • Rentals in use</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-purple-200 bg-purple-50/30 dark:bg-purple-950/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Returned</CardTitle>
+                <RefreshCw className="h-4 w-4 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-600">{smartStats.returned}</div>
+                <p className="text-xs text-muted-foreground">Rentals completed ✓</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-emerald-200 bg-emerald-50/30 dark:bg-emerald-950/30">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-emerald-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">₹{smartStats.revenue.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">All bookings combined</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "table" | "calendar")}>
@@ -1075,7 +1088,9 @@ export default function BookingsPage() {
               <CardTitle>All Bookings ({filteredBookings.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {paginatedBookings.length === 0 ? (
+              {loading ? (
+                <TableSkeleton rows={10} />
+              ) : paginatedBookings.length === 0 ? (
                 <div className="text-center py-12">
                   <Package className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No bookings found</h3>
@@ -1304,7 +1319,13 @@ export default function BookingsPage() {
 
         <TabsContent value="calendar">
           <div className="w-full p-6">
-            <BookingCalendar franchiseId={currentUser?.role !== 'super_admin' ? currentUser?.franchise_id : undefined} />
+            {loading ? (
+              <div className="w-full h-96 flex items-center justify-center">
+                <PageLoader />
+              </div>
+            ) : (
+              <BookingCalendar franchiseId={currentUser?.role !== 'super_admin' ? currentUser?.franchise_id : undefined} />
+            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -1850,12 +1871,15 @@ export default function BookingsPage() {
                   product_id: item.product_id || item.id,
                   product: {
                     id: item.product_id || item.id,
-                    name: item.product_name || 'Item',
-                    product_code: item.product_code,
-                    category: item.category_name,
+                    name: item.product?.name || item.product_name || 'Item',
+                    product_code: item.product?.product_code || item.product_code,
+                    category: item.product?.category || item.category_name,
                     image_url: item.product?.image_url,
-                    rental_price: item.unit_price || item.price || 0,
+                    price: item.product?.price || item.price,
+                    rental_price: item.product?.rental_price || item.unit_price || item.price || 0,
                     sale_price: item.unit_price || item.price || 0,
+                    stock_available: item.product?.stock_available,
+                    category_id: item.product?.category_id,
                   },
                   quantity: item.quantity || 1,
                   unit_price: item.unit_price || item.price || 0,

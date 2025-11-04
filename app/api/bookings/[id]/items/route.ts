@@ -43,7 +43,7 @@ export async function GET(
         if (productIds.length > 0) {
           const { data: products } = await supabase
             .from('products')
-            .select('id, name, product_code, category, image_url')
+            .select('id, name, product_code, category, image_url, price, rental_price, stock_available, category_id')
             .in('id', productIds)
           
           const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])
@@ -57,62 +57,103 @@ export async function GET(
         }
       }
     } else if (source === 'package_booking') {
-      // First try the new dedicated table
-      let { data, error } = await supabase
+      // First try the new dedicated table for product items
+      console.log('[Booking Items API] Fetching from package_booking_product_items...')
+      let { data: newTableData, error: newTableError } = await supabase
         .from('package_booking_product_items')
         .select('*')
         .eq('package_booking_id', id)
         .order('created_at', { ascending: true })
       
-      // If new table is empty or has an error, check the old table
-      if (!data || data.length === 0) {
-        console.log('[Booking Items API] No items in new table, checking old table...')
+      console.log('[Booking Items API] New table result:', { count: newTableData?.length || 0, error: newTableError?.message })
+      
+      // If new table has items, use those
+      let sourceTable = 'package_booking_product_items'
+      let data = newTableData || []
+      
+      // If new table is empty, check the old table for packages
+      if (!newTableData || newTableData.length === 0) {
+        console.log('[Booking Items API] No items in product items table, checking old package_booking_items table...')
         const { data: oldData, error: oldError } = await supabase
           .from('package_booking_items')
           .select('*')
           .eq('package_booking_id', id)
           .order('created_at', { ascending: true })
         
-        if (!oldError && oldData && oldData.length > 0) {
+        if (oldData && oldData.length > 0) {
           console.log('[Booking Items API] Found items in old table:', oldData.length)
           data = oldData
+          sourceTable = 'package_booking_items'
         }
       }
       
-      if (error && (!data || data.length === 0)) {
-        console.error('[Booking Items API] Error fetching package booking items:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-      
-      // Fetch related product data
+      // Fetch related product/package data
       if (data && data.length > 0) {
-        console.log('[Booking Items API] Fetching product data for items:', data.length)
-        const productIds = [...new Set(data.map((item: any) => item.product_id || item.package_id).filter(Boolean))]
+        console.log(`[Booking Items API] Fetching product/package data for ${data.length} items from ${sourceTable}...`)
         
-        // Fetch products
+        // Handle both product_id (new table) and package_id (old table)
+        const productIds = [...new Set(data.map((item: any) => item.product_id).filter(Boolean))]
+        const packageIds = [...new Set(data.map((item: any) => item.package_id).filter(Boolean))]
+        
+        console.log(`[Booking Items API] Product IDs to fetch: ${productIds.length}, Package IDs to fetch: ${packageIds.length}`)
+        
+        // Fetch products with all required fields
         const productsMap = new Map()
         if (productIds.length > 0) {
-          const { data: products } = await supabase
+          const { data: products, error: prodError } = await supabase
             .from('products')
             .select('id, name, product_code, category, image_url, price, rental_price, stock_available, category_id')
             .in('id', productIds)
           
+          if (prodError) {
+            console.error('[Booking Items API] Error fetching products:', prodError)
+          }
+          
           products?.forEach((p: any) => productsMap.set(p.id, p))
+          console.log(`[Booking Items API] Fetched ${products?.length || 0} products`)
         }
         
-        // Map the data with product structure for consistent display
+        // Fetch packages if needed
+        const packagesMap = new Map()
+        if (packageIds.length > 0) {
+          const { data: packages, error: pkgError } = await supabase
+            .from('package_sets')
+            .select('id, name, category_id, image_url, base_price')
+            .in('id', packageIds)
+          
+          if (pkgError) {
+            console.error('[Booking Items API] Error fetching packages:', pkgError)
+          }
+          
+          packages?.forEach((p: any) => packagesMap.set(p.id, p))
+          console.log(`[Booking Items API] Fetched ${packages?.length || 0} packages`)
+        }
+        
+        // Map the data with product/package structure for consistent display
         items = data.map((item: any) => {
-          const product = productsMap.get(item.product_id || item.package_id)
-          return {
+          const product = productsMap.get(item.product_id) || packagesMap.get(item.package_id)
+          const itemData: any = {
             ...item,
             id: item.id,
             product_id: item.product_id,
+            package_booking_id: item.package_booking_id,
             quantity: item.quantity || 1,
             unit_price: item.unit_price || 0,
             total_price: item.total_price || 0,
             product: product || null,
           }
+          
+          // Include optional fields if they exist
+          if (item.notes !== undefined) itemData.notes = item.notes
+          if (item.created_at !== undefined) itemData.created_at = item.created_at
+          if (item.updated_at !== undefined) itemData.updated_at = item.updated_at
+          if (item.created_by !== undefined) itemData.created_by = item.created_by
+          if (item.updated_by !== undefined) itemData.updated_by = item.updated_by
+          
+          return itemData
         })
+        
+        console.log(`[Booking Items API] Mapped ${items.length} items with product data`)
       }
     }
     
@@ -174,7 +215,7 @@ export async function POST(
         return NextResponse.json({ error: deleteError.message }, { status: 500 })
       }
 
-      // Update has_items flag based on whether we have new items
+      // Update has_items flag based on whether we have new items (if column exists)
       const hasItemsFlag = items.length > 0
       const { error: updateFlagError } = await supabase
         .from('product_orders')
@@ -182,7 +223,12 @@ export async function POST(
         .eq('id', id)
 
       if (updateFlagError) {
-        console.error('[Booking Items API] Error updating product_orders.has_items:', updateFlagError)
+        // Column might not exist yet - log but don't fail
+        if (updateFlagError.message?.includes('has_items') || updateFlagError.code === 'PGRST204') {
+          console.warn('[Booking Items API] Note: has_items column does not exist yet on product_orders. Run SQL migration to add it.')
+        } else {
+          console.error('[Booking Items API] Error updating product_orders.has_items:', updateFlagError)
+        }
       }
 
       // Insert new items only if there are any
