@@ -226,7 +226,7 @@ export default function BookingsPage() {
         
         // Fetch items for each booking with retry logic
         const fetchWithRetry = async (booking: any, retries = 2): Promise<void> => {
-          const source = booking.source
+          let source = booking.source
           const bookingId = booking.id
           const bookingNumber = booking.booking_number
           
@@ -236,12 +236,15 @@ export default function BookingsPage() {
             return
           }
           
-          console.log(`[Bookings] Fetching items for ${bookingNumber} (${source})...`)
+          // Normalize source: ensure we send singular form to API
+          const normalizedSource = source.endsWith('s') ? source.slice(0, -1) : source
+          
+          console.log(`[Bookings] Fetching items for ${bookingNumber} (source: ${source}, normalized: ${normalizedSource})...`)
           loading[bookingId] = true
           
           for (let attempt = 0; attempt <= retries; attempt++) {
             try {
-              const url = `/api/bookings/${bookingId}/items?source=${source}`
+              const url = `/api/bookings/${bookingId}/items?source=${normalizedSource}`
               console.log(`[Bookings] Attempt ${attempt + 1}/${retries + 1}: GET ${url}`)
               
               const res = await fetch(url)
@@ -264,7 +267,7 @@ export default function BookingsPage() {
               
               if (data.success && Array.isArray(data.items)) {
                 items[bookingId] = data.items
-                console.log(`[Bookings] ✓ Loaded ${data.items.length} items for ${bookingNumber}`)
+                console.log(`[Bookings] ✓ Loaded ${data.items.length} items for ${bookingNumber} (source: ${normalizedSource})`)
                 loading[bookingId] = false
                 return
               } else {
