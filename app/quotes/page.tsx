@@ -183,6 +183,7 @@ function QuotesPageContent() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
   const [isExporting, setIsExporting] = useState(false)
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null)
   
   
   
@@ -425,16 +426,31 @@ function QuotesPageContent() {
 
   const handleDownloadPDF = async (quote: Quote) => {
     try {
-      const franchiseId = user?.franchise_id
-      if (!franchiseId) {
-        console.warn("[PDF Download] No franchise_id available")
+      setDownloadingPdfId(quote.id)
+      
+      // Use new compact PDF API
+      const response = await fetch(`/api/quotes/download-pdf?id=${quote.id}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF')
       }
       
-      await downloadQuotePDF(quote, franchiseId, pdfDesign)
+      // Get the PDF blob
+      const blob = await response.blob()
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${quote.quote_number || 'quote'}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
 
       toast({
         title: "Success",
-        description: `Quote PDF (${pdfDesign}) downloaded successfully`,
+        description: "Quote PDF downloaded successfully",
       })
     } catch (error) {
       console.error("Error downloading PDF:", error)
@@ -443,6 +459,8 @@ function QuotesPageContent() {
         description: "Failed to download quote PDF. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setDownloadingPdfId(null)
     }
   }
 
@@ -948,8 +966,13 @@ function QuotesPageContent() {
                             variant="ghost"
                             onClick={() => handleDownloadPDF(quote)}
                             title="Download PDF"
+                            disabled={downloadingPdfId === quote.id}
                           >
-                            <Download className="h-3.5 w-3.5" />
+                            {downloadingPdfId === quote.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
                           </Button>
                           <ConvertQuoteDialog 
                             quote={quote}
@@ -1464,9 +1487,19 @@ function QuotesPageContent() {
                       variant="outline"
                       onClick={() => handleDownloadPDF(selectedQuote)}
                       className="text-green-600 border-green-200 hover:bg-green-50"
+                      disabled={downloadingPdfId === selectedQuote?.id}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download PDF
+                      {downloadingPdfId === selectedQuote?.id ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download PDF
+                        </>
+                      )}
                     </Button>
                     <Button
                       variant="outline"
@@ -1520,6 +1553,7 @@ export default function QuotesPage() {
   const [showBookingTypeDialog, setShowBookingTypeDialog] = useState(false)
   const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
   const [isExporting, setIsExporting] = useState(false)
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null)
   const [stats, setStats] = useState({
     total: 0,
     generated: 0,
@@ -1757,16 +1791,31 @@ export default function QuotesPage() {
 
   const handleDownloadPDF = async (quote: Quote) => {
     try {
-      const franchiseId = user?.franchise_id
-      if (!franchiseId) {
-        console.warn("[PDF Download] No franchise_id available")
+      setDownloadingPdfId(quote.id)
+      
+      // Use new compact PDF API
+      const response = await fetch(`/api/quotes/download-pdf?id=${quote.id}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF')
       }
       
-      await downloadQuotePDF(quote, franchiseId, pdfDesign)
+      // Get the PDF blob
+      const blob = await response.blob()
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${quote.quote_number || 'quote'}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
 
       toast({
         title: "Success",
-        description: `Quote PDF (${pdfDesign}) downloaded successfully`,
+        description: "Quote PDF downloaded successfully",
       })
     } catch (error) {
       console.error("Error downloading PDF:", error)
@@ -1775,6 +1824,8 @@ export default function QuotesPage() {
         description: "Failed to download quote PDF. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setDownloadingPdfId(null)
     }
   }
 
