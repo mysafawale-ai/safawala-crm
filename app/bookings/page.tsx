@@ -267,13 +267,14 @@ export default function BookingsPage() {
               
               if (data.success && Array.isArray(data.items)) {
                 items[bookingId] = data.items
-                console.log(`[Bookings] ✓ Loaded ${data.items.length} items for ${bookingNumber} (source: ${normalizedSource})`)
+                console.log(`[Bookings] ✓ Loaded ${data.items.length} items for ${bookingNumber} (source: ${normalizedSource}, took ${data.duration_ms}ms)`)
                 loading[bookingId] = false
                 return
               } else {
-                console.warn(`[Bookings] Invalid response format for ${bookingNumber}:`, data)
+                const errorDetail = data.details || data.error || 'Unknown error'
+                console.warn(`[Bookings] API returned error for ${bookingNumber}:`, errorDetail, data)
                 if (attempt === retries) {
-                  errors[bookingId] = 'Invalid response format'
+                  errors[bookingId] = `API Error: ${errorDetail}`
                 }
               }
             } catch (error: any) {

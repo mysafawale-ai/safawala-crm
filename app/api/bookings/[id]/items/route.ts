@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30 // 30 second timeout for Vercel
 
 /**
  * GET /api/bookings/[id]/items?source=product_order|package_booking
@@ -11,13 +12,17 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const startTime = Date.now()
   try {
     const { id } = params
     const { searchParams } = new URL(request.url)
     const sourceParam = searchParams.get('source') || 'product_order'
     
+    console.log(`[Items API] START GET /api/bookings/${id}/items?source=${sourceParam}`)
+    
     // Normalize source to handle both singular and plural forms
     const source = sourceParam.replace(/s$/, '') // Remove trailing 's' if present
+    console.log(`[Items API] Normalized source: ${sourceParam} -> ${source}`)
     
     const supabase = createClient()
     
@@ -157,15 +162,28 @@ export async function GET(
       }
     }
     
+    const elapsed = Date.now() - startTime
+    console.log(`[Items API] SUCCESS - Returning ${items.length} items (${elapsed}ms)`)
+    
     return NextResponse.json({
       success: true,
       items,
-      count: items.length
+      count: items.length,
+      timestamp: new Date().toISOString(),
+      duration_ms: elapsed
     })
   } catch (error) {
-    console.error('[Booking Items API] Error:', error)
+    const elapsed = Date.now() - startTime
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error(`[Items API] ERROR after ${elapsed}ms:`, errorMsg, error)
     return NextResponse.json(
-      { error: 'Failed to fetch booking items' },
+      { 
+        success: false,
+        error: 'Failed to fetch booking items',
+        details: errorMsg,
+        timestamp: new Date().toISOString(),
+        duration_ms: elapsed
+      },
       { status: 500 }
     )
   }
