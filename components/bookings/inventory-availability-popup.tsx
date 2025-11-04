@@ -264,7 +264,10 @@ export function InventoryAvailabilityPopup({
           </DialogTitle>
           {eventDate && (
             <p className="text-xs text-gray-500">
-              {format(subDays(eventDate, 2), "MMM dd")} - {format(addDays(eventDate, 2), "MMM dd, yyyy")}
+              {returnDate 
+                ? `Rental Period: ${format(eventDate, "MMM dd")} - ${format(returnDate, "MMM dd, yyyy")}`
+                : `${format(subDays(eventDate, 2), "MMM dd")} - ${format(addDays(eventDate, 2), "MMM dd, yyyy")}`
+              }
             </p>
           )}
         </DialogHeader>

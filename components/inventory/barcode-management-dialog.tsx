@@ -224,9 +224,9 @@ export function BarcodeManagementDialog({
       const pageHeight = doc.internal.pageSize.getHeight()
       const margin = 2
       const barcodeWidth = 42 // Each barcode ~1.6" wide
-      const barcodeHeight = 18 // Reduced height to fit more rows
+      const barcodeHeight = 20 // Slightly reduced for 6 rows
       const cols = 2 // 2 columns for 4" width
-      const rows = 8 // 8 rows = 16 barcodes per label (fills entire page)
+      const rows = 6 // 6 rows = 12 barcodes per label (better spacing)
       const spacingX = (pageWidth - 2 * margin) / cols
       const spacingY = (pageHeight - 2 * margin) / rows
       
@@ -244,8 +244,9 @@ export function BarcodeManagementDialog({
           currentCol = 0
         }
         
-        // Calculate position
-        const x = margin + currentCol * spacingX
+        // Calculate position - CENTER within each cell
+        const cellWidth = spacingX
+        const x = margin + currentCol * spacingX + (cellWidth - barcodeWidth) / 2
         const y = margin + currentRow * spacingY
         
         // Create high-resolution canvas for barcode
@@ -275,10 +276,10 @@ export function BarcodeManagementDialog({
           const imgData = canvas.toDataURL('image/png', 1.0) // Maximum quality
           doc.addImage(imgData, 'PNG', x, y, barcodeWidth, barcodeHeight, undefined, 'FAST')
           
-          // Add product name below barcode with better font
-          doc.setFontSize(9)
+          // Add product name ABOVE barcode for better paper optimization
+          doc.setFontSize(3.6) // Reduced by 0.8x (was 4.5pt, now 3.6pt)
           doc.setFont('helvetica', 'bold')
-          doc.text(productName.substring(0, 25), x + barcodeWidth / 2, y + barcodeHeight + 3, { align: 'center' })
+          doc.text(productName.substring(0, 30), x + barcodeWidth / 2, y - 2, { align: 'center', maxWidth: barcodeWidth + 2 })
           doc.setFont('helvetica', 'normal')
         } catch (err) {
           console.error('Error generating barcode:', err)

@@ -107,16 +107,16 @@ async function downloadAsLabels(
           )
         }
         
-        // Add product name
+        // Add product name ABOVE barcode for better optimization
         if (options.includeProductName && item.product_name) {
-          pdf.setFontSize(6)
-          pdf.setFont('helvetica', 'normal')
-          const productName = item.product_name.substring(0, 25)
+          pdf.setFontSize(2.8) // Reduced by 0.8x (was 3pt, now 2.8pt)
+          pdf.setFont('helvetica', 'bold')
+          const productName = item.product_name.substring(0, 30)
           pdf.text(
             productName,
             x + labelWidth / 2,
-            y + barcodeHeight + 11,
-            { align: 'center' }
+            y - 1,
+            { align: 'center', maxWidth: labelWidth }
           )
         }
         
@@ -146,10 +146,10 @@ async function downloadAsSheet(
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
-  // 2 columns × 8 rows configuration for maximum space efficiency (16 barcodes per label)
+  // 2 columns × 6 rows configuration (12 barcodes per label with better spacing)
   const margin = 2
   const cols = 2
-  const rows = 8
+  const rows = 6
   const itemWidth = (pageWidth - 2 * margin) / cols
   const itemHeight = (pageHeight - 2 * margin) / rows
   const itemsPerPage = cols * rows
@@ -169,7 +169,10 @@ async function downloadAsSheet(
     for (let row = 0; row < rows && itemIndex < items.length; row++) {
       for (let col = 0; col < cols && itemIndex < items.length; col++) {
         const item = items[itemIndex]
-        const x = margin + col * (itemWidth + 5)
+        // CENTER within each cell
+        const cellX = margin + col * (itemWidth + 5)
+        const cellWidth = itemWidth
+        const x = cellX + (cellWidth - itemWidth) / 2
         const y = margin + 10 + row * (itemHeight + 5)
         
         // Draw box
@@ -201,15 +204,15 @@ async function downloadAsSheet(
           { align: 'center' }
         )
         
-        // Add product name
+        // Add product name ABOVE barcode for better optimization
         if (item.product_name) {
-          pdf.setFontSize(9)
-          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(3.6) // Reduced by 0.8x (was 4.5pt, now 3.6pt)
+          pdf.setFont('helvetica', 'bold')
           pdf.text(
-            item.product_name,
+            item.product_name.substring(0, 30),
             x + itemWidth / 2,
-            y + barcodeHeight + 22,
-            { align: 'center', maxWidth: itemWidth - 10 }
+            y - 2,
+            { align: 'center', maxWidth: itemWidth + 1 }
           )
         }
         

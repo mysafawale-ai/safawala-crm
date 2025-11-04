@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -53,6 +53,7 @@ import ManageOffersDialog from "@/components/ManageOffersDialog"
 
 export default function BookingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog()
   const [searchTerm, setSearchTerm] = useState("")
@@ -100,6 +101,16 @@ export default function BookingsPage() {
   const [showCompactDisplay, setShowCompactDisplay] = useState(false)
   const [currentBookingForItems, setCurrentBookingForItems] = useState<Booking | null>(null)
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
+
+  // Auto-refresh when returning from booking creation
+  useEffect(() => {
+    const refreshParam = searchParams.get('refresh')
+    if (refreshParam) {
+      refresh()
+      // Clean up the URL by removing the refresh parameter
+      router.replace('/bookings')
+    }
+  }, [searchParams, refresh, router])
 
   useEffect(() => {
     ;(async () => {
@@ -1128,7 +1139,11 @@ export default function BookingsPage() {
                             const hasItems = (booking as any).has_items || bookingsWithItems.has(booking.id)
                             const bookingType = (booking as any).type
                             
-                            if (!hasItems) {
+                            // Check if there are actually no items in the fetched data
+                            // Priority: actual items array > has_items flag
+                            const actuallyHasItems = items.length > 0
+                            
+                            if (!hasItems || !actuallyHasItems) {
                               return (
                                 <Badge 
                                   variant="outline" 
@@ -1145,9 +1160,8 @@ export default function BookingsPage() {
                               )
                             }
                             
-                            // For product sales and rentals: show just quantity
+                            // For product sales and rentals: show just "items"
                             if (bookingType === 'sale' || bookingType === 'rental') {
-                              const totalQty = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
                               return (
                                 <Badge 
                                   variant="default"
@@ -1158,12 +1172,12 @@ export default function BookingsPage() {
                                     setShowProductDialog(true)
                                   }}
                                 >
-                                  📦 {totalQty} {totalQty === 1 ? 'Item' : 'Items'}
+                                  📦 Items
                                 </Badge>
                               )
                             }
                             
-                            // For packages: show item details
+                            // For packages: show just "items"
                             if (items.length === 0) {
                               return (
                                 <Badge 
@@ -1171,7 +1185,7 @@ export default function BookingsPage() {
                                   className="cursor-pointer hover:bg-primary/80"
                                   onClick={() => handleOpenCompactDisplay(booking)}
                                 >
-                                  {(booking as any).total_safas || 0} items
+                                  Items
                                 </Badge>
                               )
                             }
@@ -1182,7 +1196,7 @@ export default function BookingsPage() {
                                 className="cursor-pointer hover:bg-gray-100 border-gray-300"
                                 onClick={() => handleOpenCompactDisplay(booking)}
                               >
-                                � {items.length} Items
+                                Items
                               </Badge>
                             )
                           })()}

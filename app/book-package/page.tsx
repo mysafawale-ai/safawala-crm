@@ -671,6 +671,25 @@ export default function BookPackageWizard() {
     return () => window.removeEventListener('pkg-products-selected', handler as any)
   }, [])
 
+  // When product selection dialog opens, restore any previously selected products for that booking item
+  useEffect(() => {
+    if (productDialogOpen && productDialogContext?.itemId) {
+      const bookingItem = bookingItems.find(i => i.id === productDialogContext.itemId)
+      if (bookingItem?.selected_products && bookingItem.selected_products.length > 0) {
+        // Dispatch event to restore previous selection
+        setTimeout(() => {
+          const ev = new CustomEvent('pkg-restore-selection', { 
+            detail: { 
+              itemId: productDialogContext.itemId, 
+              selected_products: bookingItem.selected_products 
+            } 
+          })
+          window.dispatchEvent(ev)
+        }, 100)
+      }
+    }
+  }, [productDialogOpen, productDialogContext?.itemId, bookingItems])
+
   // Resolve effective km from selected customer's pincode using optional mapping tables
   useEffect(() => {
     const resolveKm = async () => {
@@ -1079,6 +1098,103 @@ export default function BookPackageWizard() {
           if (retry.error) throw retry.error
         } else {
           throw itemsError
+        }
+      }
+
+      // ✅ Step 1: Insert into package_booking_product_items junction table (proper records)
+      if (!itemsError && bookingItems.length > 0) {
+        console.log('[Book Package] Inserting product items into package_booking_product_items table...')
+        const productItemsToInsert: any[] = []
+        
+        for (const item of bookingItems) {
+          if (item.selected_products && item.selected_products.length > 0) {
+            for (const product of item.selected_products) {
+              console.log(`[Book Package] Preparing product item: ${product.id} qty=${product.qty}`)
+              
+              // Fetch product to get rental price (unit_price)
+              const { data: productData } = await supabase
+                .from('products')
+                .select('rental_price')
+                .eq('id', product.id)
+                .single()
+              
+              const unitPrice = productData?.rental_price || 0
+              
+              productItemsToInsert.push({
+                package_booking_id: booking.id,
+                product_id: product.id,
+                quantity: product.qty || 0,
+                unit_price: unitPrice,
+                total_price: unitPrice * (product.qty || 0)
+              })
+            }
+          }
+        }
+        
+        if (productItemsToInsert.length > 0) {
+          console.log(`[Book Package] Inserting ${productItemsToInsert.length} product items into package_booking_product_items...`)
+          const { error: productItemsError } = await supabase
+            .from('package_booking_product_items')
+            .insert(productItemsToInsert)
+          
+          if (productItemsError) {
+            console.warn('[Book Package] Failed to insert product items:', productItemsError)
+            // Don't fail the booking if product items insertion fails
+          } else {
+            console.log('[Book Package] ✅ Product items inserted successfully')
+          }
+        }
+      }
+
+      // ✅ Step 2: Deduct inventory for selected products
+      if (!itemsError) {
+        console.log('[Book Package] Deducting inventory for selected products...')
+        try {
+          for (const item of bookingItems) {
+            if (item.selected_products && item.selected_products.length > 0) {
+              console.log(`[Book Package] Processing ${item.selected_products.length} selected products for item`, item.id)
+              for (const product of item.selected_products) {
+                console.log(`[Book Package] Deducting ${product.qty} units from product ${product.id}`)
+                
+                // Get current stock before deduction
+                const { data: productData, error: fetchError } = await supabase
+                  .from('products')
+                  .select('stock_available, name')
+                  .eq('id', product.id)
+                  .single()
+                
+                if (fetchError) {
+                  console.warn(`[Book Package] Error fetching product ${product.id}:`, fetchError)
+                  continue
+                }
+                
+                const currentStock = productData?.stock_available || 0
+                const newStock = Math.max(0, currentStock - (product.qty || 0))
+                
+                // Warn if stock goes negative
+                if (newStock < currentStock - (product.qty || 0)) {
+                  console.warn(`[Book Package] Product ${product.id} (${productData?.name}) reserved more than available. Current: ${currentStock}, Requested: ${product.qty}, Will reserve: ${newStock}`)
+                }
+                
+                // Deduct stock
+                const { error: deductError } = await supabase
+                  .from('products')
+                  .update({ stock_available: newStock })
+                  .eq('id', product.id)
+                
+                if (deductError) {
+                  console.warn(`[Book Package] Failed to deduct stock for product ${product.id}:`, deductError)
+                  continue
+                }
+                
+                console.log(`[Book Package] ✅ Deducted ${product.qty} units from ${product.id}. New stock: ${newStock}`)
+              }
+            }
+          }
+        } catch (inventoryError) {
+          console.warn('[Book Package] Warning: Inventory deduction incomplete or failed', inventoryError)
+          // Don't fail the whole booking creation if inventory deduction has issues
+          toast.warning("Booking created but inventory update may be incomplete. Please verify stock levels.")
         }
       }
 
@@ -2454,6 +2570,33 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
       setSelectedSubCategory(null)
     }
   }, [open, selectedCategoryKey, products])
+
+  // Initialize selection from previously selected products if the dialog reopens
+  useEffect(() => {
+    if (!open) {
+      // Reset selection when dialog closes
+      return
+    }
+    
+    // When dialog opens, check if there are any previously selected products for this booking item
+    // This will be populated via a global event or we'll load from the booking item
+    const handlePreviousSelection = (e: any) => {
+      const itemId = e?.detail?.itemId as string | undefined
+      const selectedProducts = e?.detail?.selected_products as Array<{ id: string; name: string; qty: number }> | undefined
+      
+      if (itemId === context?.itemId && Array.isArray(selectedProducts)) {
+        // Initialize selection from previously selected products
+        const newSelection: Record<string, number> = {}
+        selectedProducts.forEach(sp => {
+          newSelection[sp.id] = sp.qty || 1
+        })
+        setSelection(newSelection)
+      }
+    }
+    
+    window.addEventListener('pkg-restore-selection', handlePreviousSelection as any)
+    return () => window.removeEventListener('pkg-restore-selection', handlePreviousSelection as any)
+  }, [open, context?.itemId])
 
   // On-demand availability fetch for a single product around event date (5-day window)
   const checkAvailability = async (productId: string, productName: string) => {

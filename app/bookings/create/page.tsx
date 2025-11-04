@@ -458,7 +458,8 @@ export default function CreateBookingPage() {
         description: "Booking created successfully!",
       })
 
-      router.push(`/bookings/${booking.id}`)
+      // Redirect to bookings page with refresh trigger
+      router.push(`/bookings?refresh=${Date.now()}`)
     } catch (error) {
       console.error("[v0] Error creating booking:", error)
       toast({

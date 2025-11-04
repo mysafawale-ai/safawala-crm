@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { fetchProductsWithBarcodes, findProductByAnyBarcode } from "@/lib/product-barcode-service"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -213,10 +214,14 @@ export default function CreateProductOrderPage() {
         }
 
         // Fetch all data in parallel for faster loading ⚡
-        const [customersResponse, settingsResponse, prod, staff, categoriesData] = await Promise.all([
+        // Use new service to fetch products with barcodes
+        const productsWithBarcodes = await fetchProductsWithBarcodes(
+          user.role !== 'super_admin' ? user.franchise_id : undefined
+        )
+
+        const [customersResponse, settingsResponse, staff, categoriesData] = await Promise.all([
           fetch('/api/customers?basic=1', { cache: 'no-store' }),
           user.franchise_id ? fetch(`/api/settings/company?franchise_id=${user.franchise_id}`) : Promise.resolve(null),
-          productsQuery,
           staffQuery,
           supabase.from('product_categories').select('*').order('name')
         ])
@@ -244,11 +249,9 @@ export default function CreateProductOrderPage() {
           console.error('Failed to fetch customers:', customersResponse.statusText)
         }
 
-        if (prod.error) throw prod.error
-
         console.log('✅ Loaded customers:', customersData.length, customersData)
         setCustomers(customersData)
-        setProducts(prod.data || [])
+        setProducts(productsWithBarcodes)
         
         // Fetch categories and subcategories from database
         const mainCats = categoriesData.data?.filter((c: any) => !c.parent_id) || []
@@ -820,31 +823,50 @@ export default function CreateProductOrderPage() {
         }
       }
 
-      // Deduct inventory for each item (unless it's a quote)
+      // ✅ NEW: Deduct inventory for each item (unless it's a quote)
       if (!isQuote) {
-        for (const item of items) {
-          // Get current stock
-          const { data: product, error: fetchError } = await supabase
-            .from('inventory')
-            .select('stock_available')
-            .eq('id', item.product_id)
-            .single()
+        console.log('[Product Order] Deducting inventory for', items.length, 'items')
+        try {
+          for (const item of items) {
+            console.log(`[Product Order] Deducting ${item.quantity} units from product ${item.product_id}`)
             
-          if (fetchError) {
-            console.error('Failed to fetch product stock:', fetchError)
-            continue
-          }
-          
-          // Update stock
-          const newStock = (product.stock_available || 0) - item.quantity
-          const { error: updateError } = await supabase
-            .from('inventory')
-            .update({ stock_available: Math.max(0, newStock) })
-            .eq('id', item.product_id)
+            // Get current stock from products table
+            const { data: product, error: fetchError } = await supabase
+              .from('products')
+              .select('stock_available, name')
+              .eq('id', item.product_id)
+              .single()
+              
+            if (fetchError) {
+              console.warn(`[Product Order] Failed to fetch product stock for ${item.product_id}:`, fetchError)
+              continue
+            }
             
-          if (updateError) {
-            console.error('Failed to update inventory:', updateError)
+            const currentStock = product?.stock_available || 0
+            const newStock = Math.max(0, currentStock - item.quantity)
+            
+            // Warn if stock would go negative
+            if (newStock < currentStock - item.quantity) {
+              console.warn(`[Product Order] Product ${item.product_id} (${product?.name}) reserved more than available. Current: ${currentStock}, Requested: ${item.quantity}, Will reserve: ${newStock}`)
+            }
+            
+            // Update stock in products table
+            const { error: updateError } = await supabase
+              .from('products')
+              .update({ stock_available: newStock })
+              .eq('id', item.product_id)
+              
+            if (updateError) {
+              console.warn(`[Product Order] Failed to deduct stock for product ${item.product_id}:`, updateError)
+              continue
+            }
+            
+            console.log(`[Product Order] ✅ Deducted ${item.quantity} units from ${item.product_id}. New stock: ${newStock}`)
           }
+        } catch (inventoryError) {
+          console.warn('[Product Order] Warning: Inventory deduction failed', inventoryError)
+          // Don't fail the order if inventory deduction has issues
+          toast.warning('Order created but inventory update may be incomplete. Please verify stock levels.')
         }
       }
 
@@ -1381,25 +1403,116 @@ export default function CreateProductOrderPage() {
               <CardContent>
                 <BarcodeInput
                   onScan={async (code) => {
-                    // Search for product by barcode or product_code
-                    const product = products.find(
-                      (p) =>
-                        (p as any).barcode === code ||
-                        (p as any).product_code === code
-                    )
-                    
-                    if (product) {
-                      addProduct(product)
-                      toast.success("Product added!", {
-                        description: `${product.name} added to cart`
-                      })
-                    } else {
+                    try {
+                      console.log('[Barcode Scan] Searching for barcode:', code)
+                      
+                      // ===== STEP 1: LOCAL SEARCH (FASTEST) =====
+                      // Search through all loaded products with their barcodes
+                      console.log('[Barcode Scan] Step 1: Checking local products with barcodes...')
+                      
+                      const foundProduct = findProductByAnyBarcode(products as any, code)
+                      
+                      if (foundProduct) {
+                        console.log('[Barcode Scan] ✅ FOUND in local products array:', {
+                          barcode: code,
+                          product: foundProduct.name,
+                          product_id: foundProduct.id,
+                          matched_barcodes: (foundProduct as any).all_barcode_numbers?.filter((b: string) => 
+                            b.toLowerCase() === code.trim().toLowerCase()
+                          )
+                        })
+                        addProduct(foundProduct as any)
+                        toast.success("Product added!", {
+                          description: `${foundProduct.name} added to cart`
+                        })
+                        return
+                      }
+                      
+                      // ===== STEP 2: DEDICATED BARCODES TABLE (FALLBACK) =====
+                      // If not found locally, query barcodes table directly
+                      console.log('[Barcode Scan] Step 2: Checking dedicated barcodes table...')
+                      
+                      const { data: barcodeRecord, error: barcodeError } = await supabase
+                        .from('barcodes')
+                        .select('product_id, products(*)')
+                        .eq('barcode_number', code)
+                        .eq('is_active', true)
+                        .limit(1)
+                        .single()
+                      
+                      if (barcodeRecord && barcodeRecord.products) {
+                        const product = barcodeRecord.products as any
+                        console.log('[Barcode Scan] ✅ FOUND in barcodes table:', {
+                          barcode: code,
+                          product: product.name,
+                          product_id: product.id
+                        })
+                        addProduct({
+                          id: product.id,
+                          name: product.name,
+                          category: product.category,
+                          category_id: product.category_id,
+                          subcategory_id: product.subcategory_id,
+                          rental_price: product.rental_price,
+                          sale_price: product.sale_price,
+                          security_deposit: product.security_deposit,
+                          stock_available: product.stock_available,
+                        })
+                        toast.success("Product added!", {
+                          description: `${product.name} added to cart (via barcode table)`
+                        })
+                        return
+                      }
+                      
+                      if (barcodeError && barcodeError.code !== 'PGRST116') {
+                        console.warn('[Barcode Scan] Error querying barcodes table:', barcodeError)
+                      }
+                      
+                      // ===== STEP 3: PRODUCTS TABLE FIELDS (FINAL FALLBACK) =====
+                      // Search in product_code, barcode_number, etc. fields
+                      console.log('[Barcode Scan] Step 3: Checking products table fields...')
+                      
+                      const { data: dbProducts } = await supabase
+                        .from('products')
+                        .select('*')
+                        .or(
+                          `product_code.eq.${code},` +
+                          `barcode_number.eq.${code},` +
+                          `alternate_barcode_1.eq.${code},` +
+                          `alternate_barcode_2.eq.${code},` +
+                          `sku.eq.${code},` +
+                          `code.eq.${code}`
+                        )
+                        .limit(1)
+                      
+                      if (dbProducts && dbProducts.length > 0) {
+                        const product = dbProducts[0] as any
+                        console.log('[Barcode Scan] ✅ FOUND in products table:', {
+                          barcode: code,
+                          product: product.name
+                        })
+                        addProduct(product)
+                        toast.success("Product added!", {
+                          description: `${product.name} added to cart (via product code)`
+                        })
+                        return
+                      }
+                      
+                      // ===== NOT FOUND =====
+                      console.log('[Barcode Scan] ❌ Product not found:', code)
                       toast.error("Product not found", {
-                        description: `No product found with code: ${code}`
+                        description: `No product found with barcode: ${code}`
+                      })
+                    } catch (error) {
+                      console.error('[Barcode Scan] Error:', error)
+                      toast.error("Scan error", {
+                        description: `Failed to process barcode: ${code}`
                       })
                     }
                   }}
                   placeholder="Scan barcode or product code..."
+                  debounceMs={500}
+                  autoFocus={true}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   💡 Use handheld barcode scanner or type product code manually

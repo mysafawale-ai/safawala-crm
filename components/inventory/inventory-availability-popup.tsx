@@ -36,6 +36,7 @@ interface InventoryAvailabilityPopupProps {
   onClose: () => void
   productIds: string[]
   bookingDate: string
+  returnDate?: string
   requiredQuantities: { [productId: string]: number }
 }
 
@@ -44,6 +45,7 @@ export default function InventoryAvailabilityPopup({
   onClose,
   productIds,
   bookingDate,
+  returnDate,
   requiredQuantities,
 }: InventoryAvailabilityPopupProps) {
   const [availabilityData, setAvailabilityData] = useState<AvailabilityData[]>([])
@@ -57,7 +59,7 @@ export default function InventoryAvailabilityPopup({
     if (isOpen && productIds.length > 0 && bookingDate) {
       checkAvailability()
     }
-  }, [isOpen, productIds, bookingDate])
+  }, [isOpen, productIds, bookingDate, returnDate])
 
   const checkAvailability = async () => {
     setLoading(true)
@@ -203,8 +205,17 @@ export default function InventoryAvailabilityPopup({
             Inventory Availability Check
           </DialogTitle>
           <p className="text-sm text-gray-600">
-            Checking availability for {new Date(bookingDate).toLocaleDateString()}
-            (±2 days range)
+            {returnDate ? (
+              <>
+                Booking Period: <strong>{new Date(bookingDate).toLocaleDateString()}</strong> to{" "}
+                <strong>{new Date(returnDate).toLocaleDateString()}</strong>
+              </>
+            ) : (
+              <>
+                Checking availability for {new Date(bookingDate).toLocaleDateString()}
+                (±2 days range)
+              </>
+            )}
           </p>
         </DialogHeader>
 

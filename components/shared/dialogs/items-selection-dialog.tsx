@@ -169,8 +169,8 @@ export function ItemsSelectionDialog({
           <div className="font-bold text-sm text-green-700">
             {formatCurrency(
               context.bookingType === 'rental' 
-                ? product.rental_price 
-                : product.sale_price
+                ? (product.rental_price ?? 0)
+                : (product.sale_price ?? 0)
             )}
           </div>
 
@@ -384,9 +384,9 @@ export function ItemsSelectionDialog({
                     : (selectedItem as any).product?.product_code
                   const quantity = selectedItem.quantity || 1
                   const price = 'package_id' in selectedItem 
-                    ? selectedItem.package?.base_price || 0
-                    : (selectedItem as any).product?.rental_price || 0
-                  const totalPrice = price * quantity
+                    ? (selectedItem.package?.base_price ?? 0)
+                    : ((selectedItem as any).product?.rental_price ?? 0)
+                  const totalPrice = (price || 0) * quantity
 
                   return (
                     <div key={selectedItem.id} className="bg-white border border-blue-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
@@ -473,9 +473,9 @@ export function ItemsSelectionDialog({
                       {formatCurrency(
                         selectedItems.reduce((sum, item) => {
                           const price = 'package_id' in item 
-                            ? item.package?.base_price || 0
-                            : (item as any).product?.rental_price || 0
-                          return sum + (price * (item.quantity || 1))
+                            ? (item.package?.base_price ?? 0)
+                            : ((item as any).product?.rental_price ?? 0)
+                          return sum + ((price || 0) * (item.quantity || 1))
                         }, 0)
                       )}
                     </span>
