@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30 // 30 second timeout for Vercel
+export const revalidate = 0 // Disable caching
 
 /**
  * GET /api/bookings/[id]/items?source=product_order|package_booking
@@ -10,11 +11,19 @@ export const maxDuration = 30 // 30 second timeout for Vercel
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } | { params: { id: string } }
 ) {
   const startTime = Date.now()
   try {
-    const { id } = params
+    // Handle both old and new Next.js versions
+    let id: string
+    if ('id' in context.params) {
+      id = context.params.id
+    } else {
+      const params = await (context.params as Promise<{ id: string }>)
+      id = params.id
+    }
+    
     const { searchParams } = new URL(request.url)
     const sourceParam = searchParams.get('source') || 'product_order'
     
@@ -165,13 +174,16 @@ export async function GET(
     const elapsed = Date.now() - startTime
     console.log(`[Items API] SUCCESS - Returning ${items.length} items (${elapsed}ms)`)
     
-    return NextResponse.json({
-      success: true,
-      items,
-      count: items.length,
-      timestamp: new Date().toISOString(),
-      duration_ms: elapsed
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        items,
+        count: items.length,
+        timestamp: new Date().toISOString(),
+        duration_ms: elapsed
+      },
+      { status: 200 }
+    )
   } catch (error) {
     const elapsed = Date.now() - startTime
     const errorMsg = error instanceof Error ? error.message : String(error)
@@ -196,10 +208,18 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } | { params: { id: string } }
 ) {
   try {
-    const { id } = params
+    // Handle both old and new Next.js versions
+    let id: string
+    if ('id' in context.params) {
+      id = context.params.id
+    } else {
+      const params = await (context.params as Promise<{ id: string }>)
+      id = params.id
+    }
+    
     const body = await request.json()
     const { items, source } = body
 
