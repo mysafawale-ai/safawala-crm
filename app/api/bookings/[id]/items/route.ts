@@ -2,27 +2,19 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 30 // 30 second timeout for Vercel
-export const revalidate = 0 // Disable caching
+export const maxDuration = 30
+export const revalidate = 0
 
 /**
  * GET /api/bookings/[id]/items?source=product_order|package_booking
- * Fetch items for a specific booking
  */
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> } | { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   const startTime = Date.now()
   try {
-    // Handle both old and new Next.js versions
-    let id: string
-    if ('id' in context.params) {
-      id = context.params.id
-    } else {
-      const params = await (context.params as Promise<{ id: string }>)
-      id = params.id
-    }
+    const { id } = params
     
     const { searchParams } = new URL(request.url)
     const sourceParam = searchParams.get('source') || 'product_order'
@@ -203,22 +195,13 @@ export async function GET(
 
 /**
  * POST /api/bookings/[id]/items
- * Save items for a booking (product_order or package_booking)
- * Body: { items: SelectedItem[], source: 'product_order' | 'package_booking' }
  */
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> } | { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Handle both old and new Next.js versions
-    let id: string
-    if ('id' in context.params) {
-      id = context.params.id
-    } else {
-      const params = await (context.params as Promise<{ id: string }>)
-      id = params.id
-    }
+    const { id } = params
     
     const body = await request.json()
     const { items, source } = body
