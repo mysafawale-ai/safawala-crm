@@ -182,6 +182,7 @@ function QuotesPageContent() {
   const [showBookingTypeDialog, setShowBookingTypeDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
+  const [isExporting, setIsExporting] = useState(false)
   
   
   
@@ -471,54 +472,90 @@ function QuotesPageContent() {
     }).format(amount)
   }
 
-  const exportQuotes = () => {
-    const csvContent = [
-      ["Quote Number", "Customer", "Phone", "Event Date", "Total Amount", "Status", "Created Date"].join(","),
-      ...filteredQuotes.map((quote) =>
-        [
-          quote.quote_number,
-          quote.customer_name || "",
-          quote.customer_phone || "",
-          quote.event_date || "",
-          quote.total_amount,
-          quote.status,
-          new Date(quote.created_at).toLocaleDateString(),
-        ].join(","),
-      ),
-    ].join("\n")
+  const exportQuotes = async () => {
+    setIsExporting(true)
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      const csvContent = [
+        ["Quote Number", "Customer", "Phone", "Event Date", "Total Amount", "Status", "Created Date"].join(","),
+        ...filteredQuotes.map((quote) =>
+          [
+            quote.quote_number,
+            quote.customer_name || "",
+            quote.customer_phone || "",
+            quote.event_date || "",
+            quote.total_amount,
+            quote.status,
+            new Date(quote.created_at).toLocaleDateString(),
+          ].join(","),
+        ),
+      ].join("\n")
 
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `quotes-${new Date().toISOString().split("T")[0]}.csv`
-    a.click()
-    window.URL.revokeObjectURL(url)
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `quotes-${new Date().toISOString().split("T")[0]}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      
+      toast({
+        title: "Success",
+        description: `Exported ${filteredQuotes.length} quotes to CSV`,
+      })
+    } catch (error) {
+      console.error("Export error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to export quotes",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExporting(false)
+    }
   }
 
-  const exportToCSV = () => {
-    const csvContent = [
-      ["Quote Number", "Customer", "Phone", "Event Date", "Total Amount", "Status", "Created Date"].join(","),
-      ...filteredQuotes.map((quote) =>
-        [
-          quote.quote_number,
-          quote.customer_name || "",
-          quote.customer_phone || "",
-          quote.event_date || "",
-          quote.total_amount,
-          quote.status,
-          new Date(quote.created_at).toLocaleDateString(),
-        ].join(","),
-      ),
-    ].join("\n")
+  const exportToCSV = async () => {
+    setIsExporting(true)
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      const csvContent = [
+        ["Quote Number", "Customer", "Phone", "Event Date", "Total Amount", "Status", "Created Date"].join(","),
+        ...filteredQuotes.map((quote) =>
+          [
+            quote.quote_number,
+            quote.customer_name || "",
+            quote.customer_phone || "",
+            quote.event_date || "",
+            quote.total_amount,
+            quote.status,
+            new Date(quote.created_at).toLocaleDateString(),
+          ].join(","),
+        ),
+      ].join("\n")
 
-    const blob = new Blob([csvContent], { type: "text/csv" })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `quotes-${new Date().toISOString().split("T")[0]}.csv`
-    a.click()
-    window.URL.revokeObjectURL(url)
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `quotes-${new Date().toISOString().split("T")[0]}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      
+      toast({
+        title: "Success",
+        description: `Exported ${filteredQuotes.length} quotes to CSV`,
+      })
+    } catch (error) {
+      console.error("Export error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to export quotes",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleTemplateSelect = (template: QuoteTemplate) => {
@@ -566,9 +603,13 @@ function QuotesPageContent() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={exportToCSV} disabled={quotes.length === 0}>
-              <Download className="h-3 w-3 mr-1" />
-              Export CSV
+            <Button variant="outline" size="sm" onClick={exportToCSV} disabled={quotes.length === 0 || isExporting}>
+              {isExporting ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3 mr-1" />
+              )}
+              {isExporting ? "Exporting..." : "Export CSV"}
             </Button>
             <Button
               variant="outline"
@@ -1478,6 +1519,7 @@ export default function QuotesPage() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showBookingTypeDialog, setShowBookingTypeDialog] = useState(false)
   const [pdfDesign, setPdfDesign] = useState<PDFDesignType>("classic")
+  const [isExporting, setIsExporting] = useState(false)
   const [stats, setStats] = useState({
     total: 0,
     generated: 0,
@@ -2202,9 +2244,13 @@ const getStatusBadge = (status: string) => {
                   <SelectItem value="quarter">Last Quarter</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={exportToCSV} variant="outline" size="sm">
-                <Download className="h-3 w-3 mr-1" />
-                Export
+              <Button onClick={exportToCSV} variant="outline" size="sm" disabled={isExporting}>
+                {isExporting ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3 mr-1" />
+                )}
+                {isExporting ? "Exporting..." : "Export"}
               </Button>
             </div>
           </div>
