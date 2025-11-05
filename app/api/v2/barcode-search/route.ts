@@ -1,13 +1,16 @@
 /**
  * Simple Barcode Search API (v2)
  * 
- * SIMPLIFIED approach:
- * 1. Search barcodes table directly (indexed by barcode_number)
- * 2. Get product ID from barcode record
- * 3. Fetch product details in separate query
- * 4. Return combined result
+ * ULTRA-SIMPLIFIED approach:
+ * - Search by product_code (primary)
+ * - This is the main field used for barcode scanning
+ * - No complex joins, just direct product lookup
  * 
- * This is more reliable than complex joins
+ * Why this works:
+ * - product_code field is indexed and fast
+ * - Already populated with barcode-like values
+ * - No dependency on separate barcodes table
+ * - Simple, reliable, debuggable
  */
 
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -23,84 +26,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Barcode is required" }, { status: 400 })
     }
 
-    console.log("[Barcode Search V2] Looking up barcode:", barcode)
+    console.log("[Barcode Search V2] 🔍 Searching for barcode:", barcode)
 
     const supabase = createServerComponentClient({ cookies })
 
-    // Step 1: Search in barcodes table (fast indexed lookup)
-    console.log("[Barcode Search V2] Step 1: Searching barcodes table...")
-    const { data: barcodeRecord, error: barcodeError } = await supabase
-      .from("barcodes")
-      .select("*")
-      .eq("barcode_number", barcode)
-      .eq("is_active", true)
-      .single()
-
-    if (barcodeError || !barcodeRecord) {
-      console.log("[Barcode Search V2] ❌ Barcode not found in barcodes table")
-      
-      // Fallback: Search in product_code or alternate barcodes
-      console.log("[Barcode Search V2] Step 2: Fallback search in product_code...")
-      const { data: productRecord, error: productError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("product_code", barcode)
-        .eq("is_active", true)
-        .single()
-
-      if (productError || !productRecord) {
-        console.log("[Barcode Search V2] ❌ Product not found anywhere")
-        return NextResponse.json({ error: "Barcode not found" }, { status: 404 })
-      }
-
-      console.log("[Barcode Search V2] ✅ Found via product_code:", productRecord.name)
-      return NextResponse.json({
-        success: true,
-        source: "product_code",
-        product: {
-          id: productRecord.id,
-          name: productRecord.name,
-          product_code: productRecord.product_code,
-          price: productRecord.price || 0,
-          rental_price: productRecord.rental_price || 0,
-          cost_price: productRecord.cost_price || 0,
-          security_deposit: productRecord.security_deposit || 0,
-          stock_available: productRecord.stock_available || 0,
-          category_id: productRecord.category_id,
-          franchise_id: productRecord.franchise_id,
-          image_url: productRecord.image_url,
-        },
-      })
-    }
-
-    // Step 2: Get the product ID from barcode record
-    const productId = barcodeRecord.product_id
-    console.log("[Barcode Search V2] Step 2: Found product_id:", productId)
-
-    // Step 3: Fetch product details
-    console.log("[Barcode Search V2] Step 3: Fetching product details...")
-    const { data: product, error: productError } = await supabase
+    // Direct search by product_code (simple and effective)
+    console.log("[Barcode Search V2] Querying products by product_code...")
+    const { data: products, error } = await supabase
       .from("products")
-      .select("*")
-      .eq("id", productId)
-      .single()
+      .select(
+        `
+        id,
+        name,
+        product_code,
+        price,
+        rental_price,
+        cost_price,
+        security_deposit,
+        stock_available,
+        category_id,
+        franchise_id,
+        image_url
+      `
+      )
+      .eq("product_code", barcode)
+      .limit(1)
 
-    if (productError || !product) {
-      console.log("[Barcode Search V2] ❌ Product details not found")
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    if (error) {
+      console.error("[Barcode Search V2] ❌ Query error:", error.message)
+      return NextResponse.json({ error: "Database error" }, { status: 500 })
     }
 
+    if (!products || products.length === 0) {
+      console.log("[Barcode Search V2] ❌ Product not found for barcode:", barcode)
+      return NextResponse.json({ error: "Barcode not found" }, { status: 404 })
+    }
+
+    const product = products[0]
     console.log("[Barcode Search V2] ✅ Found product:", product.name)
 
     // Return success with product details
     return NextResponse.json({
       success: true,
-      source: "barcodes_table",
-      barcode: {
-        id: barcodeRecord.id,
-        barcode_number: barcodeRecord.barcode_number,
-        barcode_type: barcodeRecord.barcode_type,
-      },
+      source: "product_code",
       product: {
         id: product.id,
         name: product.name,
@@ -116,7 +84,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("[Barcode Search V2] Error:", error)
+    console.error("[Barcode Search V2] ❌ Server error:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
