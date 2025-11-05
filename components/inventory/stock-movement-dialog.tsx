@@ -29,7 +29,8 @@ import { format } from "date-fns"
 
 interface Product {
   id: string
-  product_code: string
+  product_code?: string
+  barcode?: string
   name: string
   stock_total: number
   stock_available: number

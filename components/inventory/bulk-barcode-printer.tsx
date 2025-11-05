@@ -15,8 +15,7 @@ interface BulkBarcodePrinterProps {
   product: {
     id: string
     name: string
-    product_code: string
-    barcode?: string
+    barcode: string
   }
 }
 
@@ -34,9 +33,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
     }
 
     try {
-      const barcodeToUse = product.barcode?.startsWith("data:image")
-        ? product.barcode
-        : generateBarcode(product.barcode || product.product_code)
+      const barcodeToUse = generateBarcode(product.barcode)
 
       const printWindow = window.open("", "_blank")
       if (printWindow) {
@@ -55,7 +52,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               <div class="barcode-wrapper">
                 <img src="${barcodeToUse}" alt="Barcode ${i * 2 + 1}" class="barcode-image" />
                 <div class="barcode-text-overlay">
-                  <div class="barcode-code">${product.product_code}</div>
+                  <div class="barcode-code">${product.barcode}</div>
                   <div class="barcode-name">${product.name}</div>
                 </div>
               </div>
@@ -68,7 +65,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 <div class="barcode-wrapper">
                   <img src="${barcodeToUse}" alt="Barcode ${i * 2 + 2}" class="barcode-image" />
                   <div class="barcode-text-overlay">
-                    <div class="barcode-code">${product.product_code}</div>
+                    <div class="barcode-code">${product.barcode}</div>
                     <div class="barcode-name">${product.name}</div>
                   </div>
                 </div>

@@ -20,6 +20,8 @@ type Product = {
   price?: number | null
   rental_price?: number | null
   stock_available?: number | null
+  barcode?: string | null
+  product_code?: string | null
 }
 
 type BookingItem = {
@@ -70,7 +72,7 @@ export default function SelectProductsForBookingPage() {
         // Load products
         const { data: prods, error: pErr } = await supabase
           .from("products")
-          .select("id, name, category, price, rental_price, stock_available")
+          .select("id, name, category, price, rental_price, stock_available, barcode, product_code")
           .order("name", { ascending: true })
         if (pErr) throw pErr
         setProducts(prods || [])
@@ -88,7 +90,11 @@ export default function SelectProductsForBookingPage() {
     const s = search.trim().toLowerCase()
     return products.filter((p) => {
       const matchesSearch =
-        !s || p.name.toLowerCase().includes(s) || (p.category || "").toLowerCase().includes(s)
+        !s ||
+        p.name.toLowerCase().includes(s) ||
+        (p.category || "").toLowerCase().includes(s) ||
+        (p.barcode ? String(p.barcode).toLowerCase().includes(s) : false) ||
+        (p.product_code ? String(p.product_code).toLowerCase().includes(s) : false)
       const matchesCategory = category === "all" || (p.category || "").toLowerCase() === category.toLowerCase()
       return matchesSearch && matchesCategory
     })
@@ -282,10 +288,10 @@ export default function SelectProductsForBookingPage() {
                       }
                     }
                   }}
-                  placeholder="Scan individual item barcode or product code..."
+                  placeholder="Scan item barcode or product barcode..."
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  💡 Scan individual barcoded items (TUR-0001) or product codes. Each scan adds 1 quantity automatically.
+                  💡 Scan individual item barcodes or product barcodes. Each scan adds 1 quantity automatically.
                 </p>
               </CardContent>
             </Card>
@@ -318,6 +324,9 @@ export default function SelectProductsForBookingPage() {
                     <div className="font-medium truncate" title={p.name}>{p.name}</div>
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <Badge variant="outline">{p.category || "General"}</Badge>
+                      {(p.barcode || p.product_code) && (
+                        <span className="font-mono">{p.barcode || p.product_code}</span>
+                      )}
                       {typeof p.stock_available === 'number' && (
                         <span className={selected > 0 ? "font-semibold" : ""}>Stock: {p.stock_available}</span>
                       )}

@@ -134,9 +134,9 @@ export function ItemsDisplayDialog({
               <h4 className="font-bold text-base text-gray-900 truncate">
                 {item.product.name}
               </h4>
-              {item.product.product_code && (
+              {(item.product.barcode || item.product.product_code) && (
                 <p className="text-xs text-gray-500 mt-1 font-mono">
-                  SKU: {item.product.product_code}
+                  Barcode: {item.product.barcode || item.product.product_code}
                 </p>
               )}
               <div className="flex flex-wrap gap-2 mt-2">

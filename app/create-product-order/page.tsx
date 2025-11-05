@@ -80,6 +80,10 @@ interface Product {
   security_deposit: number
   stock_available: number
   image_url?: string
+  // Optional barcode metadata for search/display
+  barcode?: string | null
+  product_code?: string | null
+  all_barcode_numbers?: string[]
 }
 
 interface OrderItem {
@@ -257,7 +261,7 @@ export default function CreateProductOrderPage() {
 
         console.log('✅ Loaded customers:', customersData.length, customersData)
         setCustomers(customersData)
-        // ✅ Map ProductWithBarcodes to Product interface
+        // ✅ Map ProductWithBarcodes to Product interface (include barcode metadata for search)
         const mappedProducts = productsWithBarcodes.map(p => ({
           id: p.id,
           name: p.name,
@@ -267,7 +271,10 @@ export default function CreateProductOrderPage() {
           rental_price: p.rental_price || 0,
           sale_price: p.sale_price || 0,
           security_deposit: p.security_deposit || 0,
-          stock_available: p.stock_available || 0
+          stock_available: p.stock_available || 0,
+          barcode: (p as any).barcode || (p as any).barcode_number || null,
+          product_code: p.product_code || null,
+          all_barcode_numbers: p.all_barcode_numbers || []
         })) as Product[]
         setProducts(mappedProducts)
         
@@ -1656,12 +1663,12 @@ export default function CreateProductOrderPage() {
                       })
                     }
                   }}
-                  placeholder="Scan barcode or product code..."
+                  placeholder="Scan product barcode..."
                   debounceMs={300}
                   autoFocus={true}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  💡 Use handheld barcode scanner or type product code manually
+                  💡 Use a handheld scanner or type the 11-digit product barcode manually
                 </p>
               </CardContent>
             </Card>

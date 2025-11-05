@@ -25,7 +25,7 @@ import { ProductItemService } from "@/lib/services/product-item-service"
 
 interface Product {
   id: string
-  product_code: string
+  product_code?: string
   name: string
   description?: string
   brand?: string
@@ -88,11 +88,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const handlePrintBarcode = async () => {
     setPrinting(true)
     try {
-      const barcodeToUse =
-        generatedBarcode ||
-        (product.barcode?.startsWith("data:image")
-          ? product.barcode
-          : generateBarcode(product.barcode || product.product_code))
+      const barcodeToUse = generatedBarcode || generateBarcode(product.barcode || "")
 
       const printWindow = window.open("", "_blank")
       if (printWindow) {
@@ -144,7 +140,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
             <div class="barcode-container">
               <img src="${barcodeToUse}" alt="Barcode for ${product.name}" />
               <div class="product-info">
-                <div class="product-code">${product.product_code}</div>
+                <div class="product-code">${product.barcode ?? ""}</div>
                 <div class="product-name">${product.name}</div>
               </div>
             </div>
@@ -174,22 +170,18 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const handleDownloadBarcode = async () => {
     setDownloading(true)
     try {
-      const barcodeDataURL =
-        generatedBarcode ||
-        (product.barcode?.startsWith("data:image")
-          ? product.barcode
-          : generateBarcode(product.barcode || product.product_code))
+      const barcodeDataURL = generatedBarcode || generateBarcode(product.barcode || "")
 
       const link = document.createElement("a")
       link.href = barcodeDataURL
-      link.download = `barcode-${product.name.replace(/[^a-zA-Z0-9]/g, "_")}-${product.product_code}.png`
+  link.download = `barcode-${product.name.replace(/[^a-zA-Z0-9]/g, "_")}-${product.barcode ?? ""}.png`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
       toast({
         title: "Success",
-        description: `Barcode downloaded: ${product.name} (${product.product_code})`,
+  description: `Barcode downloaded: ${product.name} (${product.barcode ?? ""})`,
       })
     } catch (error) {
       console.error("Error downloading barcode:", error)
@@ -205,24 +197,12 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
 
   const handleGenerateBarcode = async () => {
     try {
-      const barcodeDataURL = generateBarcode(product.product_code)
+      const barcodeDataURL = generateBarcode(product.barcode || "")
       setGeneratedBarcode(barcodeDataURL)
-
-      const { error } = await supabase.from("products").update({ barcode: product.product_code }).eq("id", product.id)
-
-      if (error) {
-        console.error("Error saving barcode:", error)
-        toast({
-          title: "Error",
-          description: "Failed to save barcode to database",
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "Success",
-          description: "Barcode generated and saved successfully!",
-        })
-      }
+      toast({
+        title: "Success",
+        description: "Barcode image generated for printing/downloading.",
+      })
     } catch (error) {
       console.error("Error generating barcode:", error)
       toast({
@@ -303,7 +283,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
 
       pdf.setFontSize(10)
       pdf.setFont("helvetica", "normal")
-      pdf.text(`Product Code: ${product.product_code}`, margin, margin + 18)
+  pdf.text(`Barcode: ${product.barcode ?? ""}`, margin, margin + 18)
       pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, margin + 25)
 
       let currentPage = 1
@@ -401,7 +381,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
             <span>{product.name}</span>
           </DialogTitle>
           <DialogDescription>
-            Product Code: {product.product_code} • Created: {new Date(product.created_at).toLocaleDateString()}
+            Barcode: {product.barcode || "—"} • Created: {new Date(product.created_at).toLocaleDateString()}
           </DialogDescription>
         </DialogHeader>
 
@@ -443,8 +423,8 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                     <p className="font-medium">{product.name}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Product Code</label>
-                    <p className="font-mono">{product.product_code}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Barcode</label>
+                    <p className="font-mono">{product.barcode || "—"}</p>
                   </div>
                   {product.brand && (
                     <div>
@@ -528,16 +508,14 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                         <img
                           src={
                             generatedBarcode ||
-                            (product.barcode?.startsWith("data:image")
-                              ? product.barcode
-                              : generateBarcode(product.barcode || product.product_code)) ||
+                            generateBarcode(product.barcode || "") ||
                             "/placeholder.svg"
                           }
                           alt="Product Barcode"
                           className="w-full h-auto max-w-[300px]"
                         />
                       </div>
-                      <p className="text-center font-mono text-sm mt-2">{product.product_code}</p>
+                      <p className="text-center font-mono text-sm mt-2">{product.barcode}</p>
                     </div>
 
                     <div className="flex space-x-2">
@@ -555,10 +533,10 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                 ) : (
                   <div className="text-center py-8">
                     <Barcode className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground mb-4">No barcode available</p>
+                    <p className="text-sm text-muted-foreground mb-4">No 11-digit barcode found for this product</p>
                     <Button size="sm" onClick={handleGenerateBarcode}>
                       <Barcode className="h-4 w-4 mr-2" />
-                      Generate Barcode
+                      Generate Barcode Image
                     </Button>
                   </div>
                 )}
@@ -575,8 +553,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
           product={{
             id: product.id,
             name: product.name,
-            product_code: product.product_code,
-            barcode: generatedBarcode || product.barcode,
+            barcode: product.barcode || "",
           }}
         />
       )}

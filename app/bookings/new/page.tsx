@@ -53,7 +53,8 @@ interface Product {
   id: string
   name: string
   category: string
-  product_code: string
+  barcode?: string | null
+  product_code?: string
   rental_price: number
   sale_price: number
   stock_quantity: number
@@ -301,9 +302,11 @@ export default function NewBookingPage() {
 
   const filteredProducts = products.filter((product) => {
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+    const search = productSearchTerm.toLowerCase()
     const matchesSearch =
-      product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-      product.product_code.toLowerCase().includes(productSearchTerm.toLowerCase())
+      product.name.toLowerCase().includes(search) ||
+      (product.barcode ? String(product.barcode).toLowerCase().includes(search) : false) ||
+      (product.product_code ? String(product.product_code).toLowerCase().includes(search) : false)
     return matchesCategory && matchesSearch
   })
 
@@ -974,7 +977,9 @@ export default function NewBookingPage() {
                   <div key={product.id} className="border rounded-lg p-4">
                     <h3 className="font-medium">{product.name}</h3>
                     <p className="text-sm text-muted-foreground">{product.category}</p>
-                    <p className="text-xs text-muted-foreground">Code: {product.product_code}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Barcode: {product.barcode || product.product_code || "—"}
+                    </p>
                     <div className="mt-2 flex justify-between items-center">
                       <div>
                         <p className="font-semibold">

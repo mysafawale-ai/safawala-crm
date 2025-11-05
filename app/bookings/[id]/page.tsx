@@ -26,7 +26,7 @@ type BookingView = Booking & {
     quantity: number
     unit_price: number
     total_price: number
-    product?: { name?: string; category?: string; product_code?: string | null }
+    product?: { name?: string; category?: string; barcode?: string | null; product_code?: string | null }
   }>
   customer?: (Customer & { area?: string | null }) | null
   settlement_locked?: boolean
@@ -98,7 +98,7 @@ export default function BookingDetailPage() {
             quantity,
             unit_price,
             total_price,
-            product:products(name, category, product_code)
+            product:products(name, category, barcode, product_code)
           )
         `)
         .eq("id", bookingId)
@@ -577,8 +577,8 @@ export default function BookingDetailPage() {
                 <div className="flex-1">
                   <h3 className="font-medium">{item.product?.name}</h3>
                   <p className="text-sm text-muted-foreground">{item.product?.category}</p>
-                  {item.product?.product_code && (
-                    <p className="text-xs text-muted-foreground">Code: {item.product.product_code}</p>
+                  {(item.product?.barcode || item.product?.product_code) && (
+                    <p className="text-xs text-muted-foreground">Barcode: {item.product?.barcode || item.product?.product_code}</p>
                   )}
                 </div>
                 <div className="text-right">

@@ -139,27 +139,8 @@ export default function InventoryPage() {
       }
       const { data, error } = await query
       if (error) throw error
-      
-      // Fetch barcodes separately and match with products
-      const { data: barcodeData } = await supabase
-        .from("barcodes")
-        .select("product_id, barcode_number")
-      
-      // Create a map of product_id -> barcode_number
-      const barcodeMap = new Map()
-      if (barcodeData) {
-        barcodeData.forEach((b: any) => {
-          barcodeMap.set(b.product_id, b.barcode_number)
-        })
-      }
-      
-      // Add barcode to each product
-      const productsWithBarcodes = (data || []).map((product: any) => ({
-        ...product,
-        barcode: barcodeMap.get(product.id) || null
-      }))
-      
-      setProducts(productsWithBarcodes)
+      // Use barcode directly from products table
+      setProducts((data || []) as Product[])
     } catch (error) {
       console.error("Error fetching products:", error)
       toast.error("Failed to load products")
@@ -179,8 +160,8 @@ export default function InventoryPage() {
       if (catError) throw catError
       
       // Separate main categories and subcategories
-      const mainCats = cats?.filter(c => !c.parent_id) || []
-      const subCats = cats?.filter(c => c.parent_id) || []
+      const mainCats = cats?.filter((c: { id: string; name: string; parent_id: string | null }) => !c.parent_id) || []
+      const subCats = cats?.filter((c: { id: string; name: string; parent_id: string | null }) => c.parent_id) || []
       
       setCategories(mainCats)
       setSubcategories(subCats)
@@ -265,10 +246,9 @@ export default function InventoryPage() {
       // Search filter - includes barcode_number
       const matchesSearch =
         product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.product_code.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        (product.barcode && product.barcode.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
         product.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        (product.barcode_number && product.barcode_number.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
+        product.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
 
       if (!matchesSearch) return false
 
@@ -703,7 +683,6 @@ export default function InventoryPage() {
                           )}
                         </div>
                       </TableHead>
-                      <TableHead>Code</TableHead>
                       <TableHead>
                         <div className="flex items-center space-x-1">
                           <Barcode className="w-4 h-4" />
@@ -794,7 +773,7 @@ export default function InventoryPage() {
                   <TableBody>
                     {paginatedProducts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-12">
+                        <TableCell colSpan={8} className="text-center py-12">
                           <div className="flex flex-col items-center space-y-3">
                             {debouncedSearchTerm || stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all' ? (
                               <>
@@ -881,9 +860,6 @@ export default function InventoryPage() {
                                 <div className="font-medium">{product.name}</div>
                                 {product.brand && <div className="text-sm text-muted-foreground">{product.brand}</div>}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <code className="text-sm">{product.product_code}</code>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">

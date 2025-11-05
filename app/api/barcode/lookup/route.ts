@@ -2,8 +2,8 @@
  * Barcode Lookup API
  * 
  * Handles barcode scanning and lookup
- * Queries the dedicated barcodes table to find products
- * Supports multiple barcodes per product
+ * Primary lookup is products.barcode (11-digit unique code)
+ * No dependency on the legacy barcodes table for scanning
  * 
  * Usage:
  * POST /api/barcode/lookup
@@ -33,103 +33,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerComponentClient({ cookies })
 
-    // ===== STEP 1: Search in dedicated barcodes table (BEST) =====
-    // This table has proper indexes and is designed for fast lookups
-    console.log('[API] Step 1: Searching dedicated barcodes table...')
-
-    let barcodeQuery = supabase
-      .from('barcodes')
-      .select(`
-        id,
-        product_id,
-        barcode_number,
-        barcode_type,
-        is_active,
-        products!inner(
-          id,
-          name,
-          product_code,
-          category,
-          category_id,
-          subcategory_id,
-          image_url,
-          price,
-          rental_price,
-          security_deposit,
-          stock_available,
-          franchise_id
-        )
-      `)
-      .eq('barcode_number', searchBarcode)
-      .eq('is_active', true)
-      .limit(1)
-      .single()
-
-    const { data: barcodeRecord, error: barcodeError } = await barcodeQuery
-
-    if (barcodeRecord && barcodeRecord.products) {
-      const product = barcodeRecord.products as any
-      
-      // If franchise filtering is enabled, check franchise match
-      if (franchiseId && product.franchise_id !== franchiseId) {
-        console.log('[API] Barcode found but franchise mismatch:', {
-          barcodeProductFranchise: product.franchise_id,
-          requestedFranchise: franchiseId
-        })
-        return NextResponse.json(
-          { error: "Product not available for your franchise", details: null },
-          { status: 404 }
-        )
-      }
-
-      console.log('[API] ✅ Found in barcodes table:', {
-        barcode: searchBarcode,
-        product: product.name,
-        productId: product.id,
-        barcodeType: barcodeRecord.barcode_type
-      })
-
-      return NextResponse.json({
-        success: true,
-        source: 'barcodes_table',
-        barcode: searchBarcode,
-        product: {
-          id: product.id,
-          name: product.name,
-          product_code: product.product_code,
-          category: product.category,
-          category_id: product.category_id,
-          subcategory_id: product.subcategory_id,
-          image_url: product.image_url,
-          price: product.price,
-          rental_price: product.rental_price,
-          sale_price: product.price, // Use price field (no separate sale_price in schema)
-          security_deposit: product.security_deposit,
-          stock_available: product.stock_available,
-          franchise_id: product.franchise_id
-        },
-        barcode_type: barcodeRecord.barcode_type
-      })
-    }
-
-    if (barcodeError && barcodeError.code !== 'PGRST116') {
-      console.warn('[API] Error querying barcodes table:', barcodeError)
-    }
-
-    // ===== STEP 2: Search in products table fields (FALLBACK) =====
-    console.log('[API] Step 2: Searching products table fields...')
+    // ===== PRIMARY LOOKUP: Search in products table by barcode =====
+    console.log('[API] Step 1: Searching products.barcode...')
 
     let productsQuery = supabase
       .from('products')
       .select('*')
-      .or(
-        `product_code.eq.${searchBarcode},` +
-        `barcode_number.eq.${searchBarcode},` +
-        `alternate_barcode_1.eq.${searchBarcode},` +
-        `alternate_barcode_2.eq.${searchBarcode},` +
-        `sku.eq.${searchBarcode},` +
-        `code.eq.${searchBarcode}`
-      )
+      .eq('barcode', searchBarcode)
       .limit(1)
 
     if (franchiseId) {
@@ -140,19 +50,19 @@ export async function POST(request: NextRequest) {
 
     if (products && products.length > 0) {
       const product = products[0] as any
-      console.log('[API] ✅ Found in products table:', {
+      console.log('[API] ✅ Found in products table (barcode):', {
         barcode: searchBarcode,
         product: product.name
       })
 
       return NextResponse.json({
         success: true,
-        source: 'products_table',
+        source: 'barcode',
         barcode: searchBarcode,
         product: {
           id: product.id,
           name: product.name,
-          product_code: product.product_code,
+          barcode: product.barcode,
           category: product.category,
           category_id: product.category_id,
           subcategory_id: product.subcategory_id,
@@ -164,7 +74,7 @@ export async function POST(request: NextRequest) {
           stock_available: product.stock_available,
           franchise_id: product.franchise_id
         },
-        barcode_type: 'unknown'
+        barcode_type: 'primary'
       })
     }
 

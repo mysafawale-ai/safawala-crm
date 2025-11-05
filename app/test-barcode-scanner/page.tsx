@@ -8,7 +8,7 @@ import { AlertCircle, CheckCircle2, Package } from "lucide-react"
 interface ScannedProduct {
   id: string
   name: string
-  product_code: string
+  barcode: string
   price: number
   rental_price: number
   stock_available: number
@@ -31,7 +31,7 @@ export default function BarcodeTestPage() {
       return [...prev, {
         id: product.id,
         name: product.name,
-        product_code: product.product_code,
+        barcode: product.barcode,
         price: product.price,
         rental_price: product.rental_price,
         stock_available: product.stock_available,
@@ -98,7 +98,7 @@ export default function BarcodeTestPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                        <p className="text-sm text-gray-600">Code: {product.product_code}</p>
+                        <p className="text-sm text-gray-600">Barcode: {product.barcode}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-lg text-green-700">

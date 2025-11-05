@@ -19,7 +19,8 @@ interface BulkBarcodeGeneratorProps {
   product: {
     id: string
     name: string
-    product_code: string
+    product_code?: string
+    barcode?: string
     category: string
     stock_total: number
   }
@@ -125,8 +126,9 @@ export function BulkBarcodeGenerator({ product, open, onOpenChange, onItemsGener
       }
 
       // Download the combined image
-      const dataURL = canvas.toDataURL("image/png")
-      downloadQRCode(dataURL, `${product.product_code}_barcodes_${new Date().toISOString().split("T")[0]}.png`)
+  const dataURL = canvas.toDataURL("image/png")
+  const codeText = product.barcode || product.product_code || product.id
+  downloadQRCode(dataURL, `${codeText}_barcodes_${new Date().toISOString().split("T")[0]}.png`)
 
       toast({
         title: "Download Started",
@@ -174,7 +176,7 @@ export function BulkBarcodeGenerator({ product, open, onOpenChange, onItemsGener
               <CardHeader>
                 <CardTitle className="text-lg">{product.name}</CardTitle>
                 <CardDescription>
-                  Product Code: <span className="font-mono font-medium">{product.product_code}</span>
+                  Barcode: <span className="font-mono font-medium">{product.barcode || product.product_code || '—'}</span>
                 </CardDescription>
               </CardHeader>
               <CardContent>

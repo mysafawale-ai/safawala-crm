@@ -11,14 +11,14 @@ import { generateQRCode, generateBarcode, downloadQRCode, printQRCode } from '@/
 interface QRCodeGeneratorProps {
   item: {
     id: number
-    product_code: string
+    product_code?: string
+    barcode?: string
     name: string
     category: string
     size?: string
     color?: string
     rental_price: number
     qr_code?: string
-    barcode?: string
   }
   onClose: () => void
 }
@@ -31,12 +31,13 @@ export function QRCodeGenerator({ item, onClose }: QRCodeGeneratorProps) {
   useEffect(() => {
     const generateCodes = async () => {
       try {
+        const codeText = item.barcode || item.product_code || ""
         // Generate QR Code
-        const qrCode = await generateQRCode(item.product_code)
+        const qrCode = await generateQRCode(codeText)
         setQrCodeDataURL(qrCode)
 
         // Generate Barcode
-        const barcode = generateBarcode(item.product_code)
+        const barcode = generateBarcode(codeText)
         setBarcodeDataURL(barcode)
       } catch (error) {
         console.error('Error generating codes:', error)
@@ -46,17 +47,19 @@ export function QRCodeGenerator({ item, onClose }: QRCodeGeneratorProps) {
     }
 
     generateCodes()
-  }, [item.product_code])
+  }, [item.barcode, item.product_code])
 
   const handleDownloadQR = () => {
     if (qrCodeDataURL) {
-      downloadQRCode(qrCodeDataURL, `QR_${item.product_code}.png`)
+      const codeText = item.barcode || item.product_code || 'code'
+      downloadQRCode(qrCodeDataURL, `QR_${codeText}.png`)
     }
   }
 
   const handleDownloadBarcode = () => {
     if (barcodeDataURL) {
-      downloadQRCode(barcodeDataURL, `Barcode_${item.product_code}.png`)
+      const codeText = item.barcode || item.product_code || 'code'
+      downloadQRCode(barcodeDataURL, `Barcode_${codeText}.png`)
     }
   }
 
@@ -91,7 +94,7 @@ export function QRCodeGenerator({ item, onClose }: QRCodeGeneratorProps) {
             <CardHeader>
               <CardTitle className="text-lg">{item.name}</CardTitle>
               <CardDescription>
-                Product Code: <span className="font-mono font-medium">{item.product_code}</span>
+                Barcode: <span className="font-mono font-medium">{item.barcode || item.product_code || '—'}</span>
               </CardDescription>
             </CardHeader>
             <CardContent>

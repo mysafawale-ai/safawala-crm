@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         if (productIds.length > 0) {
           const { data: products } = await supabase
             .from('products')
-            .select('id, name, product_code, category, image_url, price, rental_price, stock_available, category_id')
+            .select('id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id')
             .in('id', productIds)
           
           const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
         if (productIds.length > 0) {
           const { data: products } = await supabase
             .from('products')
-            .select('id, name, product_code, category, image_url, price, rental_price, stock_available, category_id')
+            .select('id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id')
             .in('id', productIds)
           
           const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])

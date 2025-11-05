@@ -34,6 +34,10 @@ export interface Product {
   security_deposit: number
   stock_available: number
   image_url?: string
+  // Optional barcode fields for search
+  barcode?: string | null
+  product_code?: string | null
+  all_barcode_numbers?: string[]
 }
 
 export interface Category {
@@ -96,13 +100,19 @@ export function ProductSelector({
       result = result.filter((p) => p.subcategory_id === selectedSubcategory)
     }
 
-    // Filter by search
+    // Filter by search (supports name, category, barcode and known code fields)
     if (productSearch) {
       const term = productSearch.toLowerCase()
       result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(term) ||
-          p.category.toLowerCase().includes(term)
+        (p) => {
+          const matchesNameOrCategory = p.name.toLowerCase().includes(term) || p.category.toLowerCase().includes(term)
+          const matchesBarcode = p.barcode ? String(p.barcode).toLowerCase().includes(term) : false
+          const matchesProductCode = p.product_code ? String(p.product_code).toLowerCase().includes(term) : false
+          const matchesAnyBarcode = Array.isArray(p.all_barcode_numbers)
+            ? p.all_barcode_numbers.some((b) => String(b).toLowerCase().includes(term))
+            : false
+          return matchesNameOrCategory || matchesBarcode || matchesProductCode || matchesAnyBarcode
+        }
       )
     }
 

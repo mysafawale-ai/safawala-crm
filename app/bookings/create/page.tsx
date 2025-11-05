@@ -318,9 +318,11 @@ export default function CreateBookingPage() {
   )
 
   const filteredProducts = products.filter((product) => {
+    const search = productSearch.toLowerCase()
     const matchesSearch =
-      product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      product.product_code.toLowerCase().includes(productSearch.toLowerCase())
+      product.name.toLowerCase().includes(search) ||
+      (product.barcode ? String(product.barcode).toLowerCase().includes(search) : false) ||
+      (product.product_code ? String(product.product_code).toLowerCase().includes(search) : false)
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
     return matchesSearch && matchesCategory
   })
@@ -891,7 +893,7 @@ export default function CreateBookingPage() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h3 className="font-medium text-sm">{product.name}</h3>
-                          <p className="text-xs text-gray-500">{product.product_code}</p>
+                          <p className="text-xs text-gray-500">{product.barcode || product.product_code}</p>
                           <Badge variant="outline" className="text-xs">
                             {product.category}
                           </Badge>
@@ -940,7 +942,7 @@ export default function CreateBookingPage() {
                             <TableCell>
                               <div>
                                 <p className="font-medium">{item.product?.name}</p>
-                                <p className="text-sm text-gray-500">{item.product?.product_code}</p>
+                                <p className="text-sm text-gray-500">{item.product?.barcode || item.product?.product_code}</p>
                               </div>
                             </TableCell>
                             <TableCell>₹{item.unit_price}</TableCell>

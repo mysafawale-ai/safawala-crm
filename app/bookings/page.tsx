@@ -1533,6 +1533,7 @@ export default function BookingsPage() {
                                 product: {
                                   id: item.product_id || item.id,
                                   name: item.product_name || 'Item',
+                                  barcode: item.product?.barcode || item.barcode || item.product_code,
                                   product_code: item.product_code,
                                   category: item.category_name,
                                   image_url: item.product?.image_url,
@@ -1765,6 +1766,7 @@ export default function BookingsPage() {
                   product: {
                     id: item.product_id || item.id,
                     name: item.product?.name || item.product_name || 'Item',
+                    barcode: item.product?.barcode || item.barcode || item.product_code,
                     product_code: item.product?.product_code || item.product_code,
                     category: item.product?.category || item.category_name,
                     image_url: item.product?.image_url,

@@ -23,7 +23,7 @@ interface BarcodeSearchResult {
   product: {
     id: string
     name: string
-    product_code: string
+    barcode: string
     price: number
     rental_price: number
     cost_price: number

@@ -160,9 +160,9 @@ export function ItemsSelectionDialog({
             {product.name}
           </h4>
           
-          {product.product_code && (
+          {(product.barcode || product.product_code) && (
             <p className="text-[10px] text-gray-500">
-              {product.product_code}
+              {product.barcode || product.product_code}
             </p>
           )}
 
@@ -381,7 +381,7 @@ export function ItemsSelectionDialog({
                     : selectedItem.product?.name
                   const itemCode = 'package_id' in selectedItem 
                     ? selectedItem.package?.id
-                    : (selectedItem as any).product?.product_code
+                    : (selectedItem as any).product?.barcode || (selectedItem as any).product?.product_code
                   const quantity = selectedItem.quantity || 1
                   const price = 'package_id' in selectedItem 
                     ? (selectedItem.package?.base_price ?? 0)

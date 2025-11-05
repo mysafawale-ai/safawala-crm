@@ -32,6 +32,7 @@ interface ReturnItem {
   product_id: string
   product_name: string
   product_code?: string
+  barcode?: string
   category?: string
   image_url?: string
   qty_delivered: number
@@ -186,6 +187,7 @@ export function ReturnProcessingDialog({
             product_id: item.product_id,
             product_name: product?.name || "Unknown Product",
             product_code: product?.product_code,
+            barcode: product?.barcode,
             category: product?.category,
             image_url: product?.image_url,
             qty_delivered: qty_delivered_val,
@@ -460,7 +462,9 @@ export function ReturnProcessingDialog({
                       <div>
                         <h4 className="font-semibold">{item.product_name}</h4>
                         <div className="flex gap-2 text-sm text-muted-foreground">
-                          {item.product_code && <span>Code: {item.product_code}</span>}
+                          {(item.barcode || item.product_code) && (
+                            <span>Barcode: {item.barcode || item.product_code}</span>
+                          )}
                           {item.category && <Badge variant="outline">{item.category}</Badge>}
                         </div>
                       </div>

@@ -2,13 +2,13 @@
  * Simple Barcode Search API (v2)
  * 
  * ULTRA-SIMPLIFIED approach:
- * - Search by product_code (primary)
- * - This is the main field used for barcode scanning
+ * - Search by products.barcode (primary, 11-digit numeric string)
+ * - This is the main field used for barcode scanning across the app
  * - No complex joins, just direct product lookup
  * 
  * Why this works:
- * - product_code field is indexed and fast
- * - Already populated with barcode-like values
+ * - barcode field is unique and indexed
+ * - Already populated for all products via migration/trigger
  * - No dependency on separate barcodes table
  * - Simple, reliable, debuggable
  */
@@ -30,15 +30,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerComponentClient({ cookies })
 
-    // Direct search by product_code (simple and effective)
-    console.log("[Barcode Search V2] Querying products by product_code...")
+    // Direct search by products.barcode (simple and effective)
+    console.log("[Barcode Search V2] Querying products by barcode...")
     const { data: products, error } = await supabase
       .from("products")
       .select(
         `
         id,
         name,
-        product_code,
+        barcode,
         price,
         rental_price,
         cost_price,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         image_url
       `
       )
-      .eq("product_code", barcode)
+      .eq("barcode", barcode)
       .limit(1)
 
     if (error) {
@@ -68,11 +68,11 @@ export async function POST(request: NextRequest) {
     // Return success with product details
     return NextResponse.json({
       success: true,
-      source: "product_code",
+      source: "barcode",
       product: {
         id: product.id,
         name: product.name,
-        product_code: product.product_code,
+        barcode: product.barcode,
         price: product.price || 0,
         rental_price: product.rental_price || 0,
         cost_price: product.cost_price || 0,
