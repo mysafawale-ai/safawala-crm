@@ -638,35 +638,42 @@ export default function BookingsPage() {
     }
   }
 
-  // Helper function to fetch and load items for a booking into the compact display
-  const handleOpenCompactDisplay = async (booking: Booking) => {
+  // Helper function to load items for a booking into the compact display
+  // Use already-fetched items from bookingItems state instead of re-fetching
+  const handleOpenCompactDisplay = (booking: Booking) => {
     try {
       console.log('[Bookings] Opening compact display for booking:', booking.id)
       
-      // Determine source
-      const bookingType = (booking as any).type || 'product'
-      const source = bookingType === 'package' ? 'package_booking' : 'product_order'
+      // Use the items that were already fetched during initial load
+      const items = bookingItems[booking.id] || []
+      console.log('[Bookings] Using cached items from bookingItems state:', items.length, 'items')
       
-      // Fetch latest items from database
-      const response = await fetch(`/api/bookings/${booking.id}/items?source=${source}`)
+      // Transform items to SelectedItem format if needed
+      const selectedItemsFormatted = items.map((item: any) => ({
+        id: item.id || item.product_id || item.package_id || `item-${Math.random()}`,
+        product_id: item.product_id,
+        package_id: item.package_id,
+        product: item.product,
+        package: item.package,
+        quantity: item.quantity || 1,
+        unit_price: item.unit_price || 0,
+        total_price: item.total_price || 0,
+        variant_id: item.variant_id,
+        variant_name: item.variant_name,
+        extra_safas: item.extra_safas || 0,
+        variant_inclusions: item.variant_inclusions || [],
+      }))
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch items: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
-      console.log('[Bookings] Fetched items from database:', data.items)
-      
-      // Update state with fresh data from database
+      // Update state with cached data
       setCurrentBookingForItems(booking)
-      setSelectedItems(data.items || [])
+      setSelectedItems(selectedItemsFormatted)
       setShowCompactDisplay(true)
       
     } catch (err) {
       console.error('[Bookings] Error opening compact display:', err)
       toast({
         title: 'Error loading items',
-        description: 'Failed to fetch booking items',
+        description: 'Failed to load booking items',
         variant: 'destructive',
       })
     }
