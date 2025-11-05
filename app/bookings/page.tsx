@@ -415,6 +415,9 @@ export default function BookingsPage() {
       
       console.log('[Bookings] Transformed items to save:', JSON.stringify(itemsToSave, null, 2))
       
+      // Normalize source for API (remove trailing 's')
+      const normalizedApiSource = source.endsWith('s') ? source.slice(0, -1) : source
+      
       const response = await fetch(`/api/bookings/${bookingId}/items`, {
         method: 'POST',
         headers: {
@@ -422,7 +425,7 @@ export default function BookingsPage() {
         },
         body: JSON.stringify({
           items: itemsToSave,
-          source,
+          source: normalizedApiSource,
         }),
       })
 
@@ -478,7 +481,9 @@ export default function BookingsPage() {
       }
       
       // Refresh booking items to show the saved data
-      const itemsResponse = await fetch(`/api/bookings/${bookingId}/items?source=${source}`)
+      // Normalize source for API call (remove trailing 's')
+      const normalizedSource = source.endsWith('s') ? source.slice(0, -1) : source
+      const itemsResponse = await fetch(`/api/bookings/${bookingId}/items?source=${normalizedSource}`)
       if (itemsResponse.ok) {
         const itemsData = await itemsResponse.json()
         console.log('[Bookings] Fetched updated items from DB:', itemsData)
@@ -640,7 +645,7 @@ export default function BookingsPage() {
       
       // Determine source
       const bookingType = (booking as any).type || 'product'
-      const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
+      const source = bookingType === 'package' ? 'package_booking' : 'product_order'
       
       // Fetch latest items from database
       const response = await fetch(`/api/bookings/${booking.id}/items?source=${source}`)
@@ -2115,12 +2120,14 @@ export default function BookingsPage() {
 
                 try {
                   console.log('[Bookings] Saving to API:', { itemsToSave, source })
+                  // Normalize source for API (remove trailing 's')
+                  const normalizedApiSource = source.endsWith('s') ? source.slice(0, -1) : source
                   const response = await fetch(`/api/bookings/${currentBookingForItems.id}/items`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       items: itemsToSave,
-                      source,
+                      source: normalizedApiSource,
                     }),
                   })
 
