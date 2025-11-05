@@ -1513,16 +1513,6 @@ export default function CreateProductOrderPage() {
             </Card>
             )}
 
-            {formData.booking_type === "rental" && (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded">
-                    ℹ️ Barcode scanning is only available for direct sales
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Product Selection Options */}
             <Card>
               <CardHeader>
