@@ -362,140 +362,17 @@ export default function BookingsPage() {
     packageCount: (bookings || []).filter(b => (b as any).source === 'package_bookings').length,
   }
 
-  // Save selected items to database
+  // Save selected items to local state (no API call needed)
   const saveSelectedItems = async (bookingId: string, items: SelectedItem[], source: 'product_orders' | 'package_bookings') => {
     try {
       console.log(`[Bookings] Saving ${items.length} items for booking ${bookingId}`)
-      console.log('[Bookings] Items to save:', JSON.stringify(items, null, 2))
       
-      // Transform items to ensure they have the correct structure
-      const itemsToSave = items.map((item: any, idx: number) => {
-        console.log(`[Bookings] Item ${idx}:`, { 
-          has_product_id: !!item.product_id, 
-          product_id: item.product_id,
-          has_package_id: !!item.package_id,
-          package_id: item.package_id,
-          item_keys: Object.keys(item)
-        })
-        
-        if (source === 'product_orders') {
-          // For product orders
-          return {
-            product_id: item.product_id,
-            quantity: item.quantity || 1,
-            unit_price: item.unit_price || 0,
-            total_price: (item.unit_price || 0) * (item.quantity || 1),
-          }
-        } else {
-          // For package bookings - now supporting individual products
-          // Check if this is a product item or package item
-          if (item.product_id) {
-            // Individual product in package booking
-            console.log(`[Bookings] Item ${idx} is PRODUCT:`, item.product_id)
-            return {
-              product_id: item.product_id,
-              quantity: item.quantity || 1,
-              unit_price: item.unit_price || 0,
-              total_price: (item.unit_price || 0) * (item.quantity || 1),
-            }
-          } else {
-            // Package item (legacy - if ever used)
-            console.log(`[Bookings] Item ${idx} is PACKAGE:`, item.package_id)
-            return {
-              package_id: item.package_id,
-              variant_id: item.variant_id,
-              quantity: item.quantity || 1,
-              unit_price: item.unit_price || 0,
-              total_price: (item.unit_price || 0) * (item.quantity || 1),
-              extra_safas: item.extra_safas || 0,
-            }
-          }
-        }
-      })
-      
-      console.log('[Bookings] Transformed items to save:', JSON.stringify(itemsToSave, null, 2))
-      
-      // Normalize source for API (remove trailing 's')
-      const normalizedApiSource = source.endsWith('s') ? source.slice(0, -1) : source
-      
-      const response = await fetch(`/api/bookings/${bookingId}/items`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: itemsToSave,
-          source: normalizedApiSource,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        console.error('[Bookings] Error saving items:', error)
-        throw new Error(error.error || 'Failed to save items')
-      }
-
-      const result = await response.json()
-      console.log('[Bookings] Items saved successfully:', result)
-      
-      // Immediately mark this booking as having items (UI update)
-      setBookingsWithItems(prev => new Set([...prev, bookingId]))
-      console.log('[Bookings] Marked booking as having items:', bookingId)
-      
-      // Adjust inventory - reserve items for this booking
-      if (source === 'product_orders' && itemsToSave.length > 0) {
-        const inventoryItems = itemsToSave
-          .filter((item: any) => item.product_id)
-          .map((item: any) => ({
-            product_id: item.product_id,
-            quantity: item.quantity || 0
-          }))
-
-        if (inventoryItems.length > 0) {
-          console.log('[Bookings] Reserving inventory for products:', inventoryItems)
-          
-          const inventoryResponse = await fetch('/api/inventory/reserve', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              operation: 'reserve',
-              items: inventoryItems,
-              bookingId
-            })
-          })
-
-          if (!inventoryResponse.ok) {
-            const invError = await inventoryResponse.json()
-            console.warn('[Bookings] Inventory reservation failed:', invError)
-            // Don't fail the entire operation if inventory fails, but warn user
-            toast({
-              title: 'Items saved but inventory warning',
-              description: invError.error || 'Could not reserve inventory. Please check stock levels.',
-              variant: 'destructive',
-            })
-          } else {
-            const invResult = await inventoryResponse.json()
-            console.log('[Bookings] Inventory reserved successfully:', invResult)
-          }
-        }
-      }
-      
-      // Refresh booking items to show the saved data
-      // Normalize source for API call (remove trailing 's')
-      const normalizedSource = source.endsWith('s') ? source.slice(0, -1) : source
-      const itemsResponse = await fetch(`/api/bookings/${bookingId}/items?source=${normalizedSource}`)
-      if (itemsResponse.ok) {
-        const itemsData = await itemsResponse.json()
-        console.log('[Bookings] Fetched updated items from DB:', itemsData)
-        setBookingItems(prev => ({
-          ...prev,
-          [bookingId]: itemsData.items || []
-        }))
-        
-        // Also update selectedItems for the display dialog
-        const transformedItems = itemsData.items.map((item: any) => ({
+      // Update local bookingItems state with the new items
+      setBookingItems(prev => ({
+        ...prev,
+        [bookingId]: items.map((item: any) => ({
           id: item.id || `item-${Math.random()}`,
-          product_id: item.product_id || item.package_id,
+          product_id: item.product_id,
           package_id: item.package_id,
           quantity: item.quantity || 1,
           unit_price: item.unit_price || 0,
@@ -503,25 +380,25 @@ export default function BookingsPage() {
           product: item.product,
           package: item.package,
           variant_name: item.variant_name,
+          extra_safas: item.extra_safas || 0,
+          variant_inclusions: item.variant_inclusions || [],
         }))
-        setSelectedItems(transformedItems)
-        console.log('[Bookings] Updated selectedItems state:', transformedItems)
-      }
-
-      // Refresh the bookings list to update has_items flag
-      refresh()
-
+      }))
+      
+      // Mark booking as having items
+      setBookingsWithItems(prev => new Set([...prev, bookingId]))
+      
       toast({
-        title: 'Items saved successfully!',
-        description: `${itemsToSave.length} item(s) saved and inventory reserved`,
+        title: 'Items updated successfully!',
+        description: `${items.length} item(s) selected`,
       })
-
+      
       return true
     } catch (error: any) {
       console.error('[Bookings] Error saving items:', error)
       toast({
-        title: 'Error saving items',
-        description: error.message || 'Failed to save items',
+        title: 'Error updating items',
+        description: error.message || 'Failed to update items',
         variant: 'destructive',
       })
       return false
@@ -1995,7 +1872,7 @@ export default function BookingsPage() {
           open={showItemsSelection}
           onOpenChange={async (open) => {
             // When modal closes (open === false), save the selected items
-            if (!open && selectedItems.length > 0) {
+            if (!open && currentBookingForItems) {
               // Determine source based on booking type
               const bookingType = (currentBookingForItems as any).type || 'product'
               const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
