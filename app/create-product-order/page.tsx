@@ -1295,20 +1295,69 @@ export default function CreateProductOrderPage() {
                   </div>
                 )}
 
-                {/* Delivery Address - for Direct Sales */}
+                {/* Delivery Address & Date/Time - for Direct Sales */}
                 {formData.booking_type === "sale" && (
-                  <div>
-                    <Label className="text-xs">Delivery Address *</Label>
-                    <Textarea
-                      rows={3}
-                      value={formData.delivery_address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, delivery_address: e.target.value })
-                      }
-                      className="mt-1"
-                      placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <Label className="text-xs">Delivery Address *</Label>
+                      <Textarea
+                        rows={3}
+                        value={formData.delivery_address}
+                        onChange={(e) =>
+                          setFormData({ ...formData, delivery_address: e.target.value })
+                        }
+                        className="mt-1"
+                        placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
+                      />
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Delivery Date *</Label>
+                        <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start text-left"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {formData.delivery_date
+                                ? format(
+                                    new Date(formData.delivery_date),
+                                    "dd/MM/yyyy"
+                                  )
+                                : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={
+                                formData.delivery_date
+                                  ? new Date(formData.delivery_date)
+                                  : undefined
+                              }
+                              onSelect={(d) => {
+                                setFormData({
+                                  ...formData,
+                                  delivery_date: d?.toISOString() || "",
+                                })
+                                setDeliveryDateOpen(false)
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <Input
+                          type="time"
+                          value={formData.delivery_time}
+                          onChange={(e) =>
+                            setFormData({ ...formData, delivery_time: e.target.value })
+                          }
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Modifications - for Direct Sales */}
