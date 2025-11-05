@@ -165,6 +165,9 @@ export default function CreateProductOrderPage() {
     bride_whatsapp: "",
     bride_address: "",
     notes: "",
+    delivery_address: "",
+    has_modifications: false,
+    modifications_details: "",
   })
 
   // Scroll to top when page loads
@@ -351,6 +354,9 @@ export default function CreateProductOrderPage() {
         bride_whatsapp: quote.bride_whatsapp || "",
         bride_address: quote.bride_address || "",
         notes: quote.notes || quote.special_instructions || "",
+        delivery_address: quote.delivery_address || "",
+        has_modifications: quote.has_modifications || false,
+        modifications_details: quote.modifications_details || "",
       })
 
       // Pre-fill items - find products and create order items
@@ -612,15 +618,20 @@ export default function CreateProductOrderPage() {
       toast.error("Select customer")
       return
     }
-    if (!formData.event_date) {
+    if (!formData.event_date && formData.booking_type === "rental") {
       toast.error("Event date required")
       return
     }
-    // ✅ Product selection is now optional - can skip or add later
-    // if (items.length === 0) {
-    //   toast.error("Add at least one product")
-    //   return
-    // }
+    if (!formData.delivery_address && formData.booking_type === "sale") {
+      toast.error("Delivery address required")
+      return
+    }
+    // For direct sales, products are mandatory
+    if (formData.booking_type === "sale" && items.length === 0) {
+      toast.error("Add at least one product for direct sale")
+      return
+    }
+    // ✅ For rentals, product selection is optional
     // ✅ BUG FIX #1: Validate user session loaded
     if (!currentUser?.franchise_id) {
       toast.error("Session error: Please refresh the page")
@@ -1032,10 +1043,10 @@ export default function CreateProductOrderPage() {
             {/* Booking Details */}
             <Card>
               <CardHeader>
-                <CardTitle>Event & Wedding Details</CardTitle>
+                <CardTitle>{formData.booking_type === "sale" ? "Direct Sale Details" : "Event & Wedding Details"}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
-                {/* Row 1: Booking Type, Event Type, Event Participant */}
+                {/* Row 1: Booking Type */}
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs">Booking Type</Label>
@@ -1054,238 +1065,294 @@ export default function CreateProductOrderPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {/* Only show Event Type and Event Participant for rentals */}
+                  {formData.booking_type === "rental" && (
+                    <>
+                      <div>
+                        <Label className="text-xs">Event Type</Label>
+                        <Select
+                          value={formData.event_type}
+                          onValueChange={(v) =>
+                            setFormData({ ...formData, event_type: v })
+                          }
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Wedding">Wedding</SelectItem>
+                            <SelectItem value="Engagement">Engagement</SelectItem>
+                            <SelectItem value="Reception">Reception</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Event Participant</Label>
+                        <Select
+                          value={formData.event_participant}
+                          onValueChange={(v) =>
+                            setFormData({ ...formData, event_participant: v })
+                          }
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Groom">Groom Only</SelectItem>
+                            <SelectItem value="Bride">Bride Only</SelectItem>
+                            <SelectItem value="Both">Both</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Payment Type - only for rentals */}
+                {formData.booking_type === "rental" && (
                   <div>
-                    <Label className="text-xs">Event Type</Label>
+                    <Label className="text-xs">Payment Type</Label>
                     <Select
-                      value={formData.event_type}
+                      value={formData.payment_type}
                       onValueChange={(v) =>
-                        setFormData({ ...formData, event_type: v })
+                        setFormData({ ...formData, payment_type: v as any })
                       }
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Wedding">Wedding</SelectItem>
-                        <SelectItem value="Engagement">Engagement</SelectItem>
-                        <SelectItem value="Reception">Reception</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        <SelectItem value="full">Full Payment</SelectItem>
+                        <SelectItem value="advance">Advance Payment</SelectItem>
+                        <SelectItem value="partial">Deposit Only</SelectItem>
                       </SelectContent>
                     </Select>
+                    {formData.payment_type === "partial" && (
+                      <Input
+                        type="number"
+                        min={0}
+                        value={formData.custom_amount}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            custom_amount: Number(e.target.value || 0),
+                          })
+                        }
+                        className="mt-2"
+                        placeholder="Custom amount"
+                      />
+                    )}
                   </div>
+                )}
+
+                {/* Dates & Times - only for rentals */}
+                {formData.booking_type === "rental" && (
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Event Date & Time *</Label>
+                      <Popover open={eventDateOpen} onOpenChange={setEventDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.event_date
+                              ? format(new Date(formData.event_date), "dd/MM/yyyy")
+                              : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={
+                              formData.event_date
+                                ? new Date(formData.event_date)
+                                : undefined
+                            }
+                            onSelect={(d) => {
+                              setFormData({
+                                ...formData,
+                                event_date: d?.toISOString() || "",
+                              })
+                              setEventDateOpen(false)
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={formData.event_time}
+                        onChange={(e) =>
+                          setFormData({ ...formData, event_time: e.target.value })
+                        }
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Delivery Date & Time</Label>
+                      <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.delivery_date
+                              ? format(
+                                  new Date(formData.delivery_date),
+                                  "dd/MM/yyyy"
+                                )
+                              : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={
+                              formData.delivery_date
+                                ? new Date(formData.delivery_date)
+                                : undefined
+                            }
+                            onSelect={(d) => {
+                              setFormData({
+                                ...formData,
+                                delivery_date: d?.toISOString() || "",
+                              })
+                              setDeliveryDateOpen(false)
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={formData.delivery_time}
+                        onChange={(e) =>
+                          setFormData({ ...formData, delivery_time: e.target.value })
+                        }
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Return Date & Time</Label>
+                      <Popover open={returnDateOpen} onOpenChange={setReturnDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.return_date
+                              ? format(new Date(formData.return_date), "dd/MM/yyyy")
+                              : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={
+                              formData.return_date
+                                ? new Date(formData.return_date)
+                                : undefined
+                            }
+                            onSelect={(d) => {
+                              setFormData({
+                                ...formData,
+                                return_date: d?.toISOString() || "",
+                              })
+                              setReturnDateOpen(false)
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="time"
+                        value={formData.return_time}
+                        onChange={(e) =>
+                          setFormData({ ...formData, return_time: e.target.value })
+                        }
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Venue Address - only for rentals */}
+                {formData.booking_type === "rental" && (
                   <div>
-                    <Label className="text-xs">Event Participant</Label>
-                    <Select
-                      value={formData.event_participant}
-                      onValueChange={(v) =>
-                        setFormData({ ...formData, event_participant: v })
-                      }
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Groom">Groom Only</SelectItem>
-                        <SelectItem value="Bride">Bride Only</SelectItem>
-                        <SelectItem value="Both">Both</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Row 2: Payment Type */}
-                <div>
-                  <Label className="text-xs">Payment Type</Label>
-                  <Select
-                    value={formData.payment_type}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, payment_type: v as any })
-                    }
-                    disabled={formData.booking_type === "sale"}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="full">Full Payment</SelectItem>
-                      {formData.booking_type === "rental" && (
-                        <>
-                          <SelectItem value="advance">Advance Payment</SelectItem>
-                          <SelectItem value="partial">Deposit Only</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {formData.booking_type === "sale" && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Direct sales always require full payment
-                    </p>
-                  )}
-                  {formData.payment_type === "partial" && (
-                    <Input
-                      type="number"
-                      min={0}
-                      value={formData.custom_amount}
+                    <Label className="text-xs">Venue Address</Label>
+                    <Textarea
+                      rows={2}
+                      value={formData.venue_address}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          custom_amount: Number(e.target.value || 0),
-                        })
+                        setFormData({ ...formData, venue_address: e.target.value })
                       }
-                      className="mt-2"
-                      placeholder="Custom amount"
+                      className="mt-1"
+                      placeholder="Enter venue address (e.g., Grand Palace Banquet, Connaught Place, Delhi - 110001)"
                     />
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Row 3: Dates & Times */}
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Event Date & Time *</Label>
-                    <Popover open={eventDateOpen} onOpenChange={setEventDateOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.event_date
-                            ? format(new Date(formData.event_date), "dd/MM/yyyy")
-                            : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            formData.event_date
-                              ? new Date(formData.event_date)
-                              : undefined
-                          }
-                          onSelect={(d) => {
+                {/* Delivery Address - for Direct Sales */}
+                {formData.booking_type === "sale" && (
+                  <div>
+                    <Label className="text-xs">Delivery Address *</Label>
+                    <Textarea
+                      rows={3}
+                      value={formData.delivery_address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, delivery_address: e.target.value })
+                      }
+                      className="mt-1"
+                      placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
+                    />
+                  </div>
+                )}
+
+                {/* Modifications - for Direct Sales */}
+                {formData.booking_type === "sale" && (
+                  <div className="space-y-3 border-t pt-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasModifications"
+                        checked={formData.has_modifications}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            has_modifications: checked === true,
+                          })
+                        }
+                      />
+                      <Label htmlFor="hasModifications" className="text-sm font-medium cursor-pointer">
+                        Modifications Required
+                      </Label>
+                    </div>
+                    {formData.has_modifications && (
+                      <div>
+                        <Label className="text-xs">Modification Details</Label>
+                        <Textarea
+                          rows={2}
+                          value={formData.modifications_details}
+                          onChange={(e) =>
                             setFormData({
                               ...formData,
-                              event_date: d?.toISOString() || "",
+                              modifications_details: e.target.value,
                             })
-                            setEventDateOpen(false)
-                          }}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      type="time"
-                      value={formData.event_time}
-                      onChange={(e) =>
-                        setFormData({ ...formData, event_time: e.target.value })
-                      }
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Delivery Date & Time</Label>
-                    <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.delivery_date
-                            ? format(
-                                new Date(formData.delivery_date),
-                                "dd/MM/yyyy"
-                              )
-                            : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            formData.delivery_date
-                              ? new Date(formData.delivery_date)
-                              : undefined
                           }
-                          onSelect={(d) => {
-                            setFormData({
-                              ...formData,
-                              delivery_date: d?.toISOString() || "",
-                            })
-                            setDeliveryDateOpen(false)
-                          }}
+                          className="mt-1"
+                          placeholder="Describe any modifications needed (e.g., color change, size adjustment, special embroidery, etc.)"
                         />
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      type="time"
-                      value={formData.delivery_time}
-                      onChange={(e) =>
-                        setFormData({ ...formData, delivery_time: e.target.value })
-                      }
-                      className="text-sm"
-                    />
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Return Date & Time</Label>
-                    <Popover open={returnDateOpen} onOpenChange={setReturnDateOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.return_date
-                            ? format(new Date(formData.return_date), "dd/MM/yyyy")
-                            : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            formData.return_date
-                              ? new Date(formData.return_date)
-                              : undefined
-                          }
-                          onSelect={(d) => {
-                            setFormData({
-                              ...formData,
-                              return_date: d?.toISOString() || "",
-                            })
-                            setReturnDateOpen(false)
-                          }}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      type="time"
-                      value={formData.return_time}
-                      onChange={(e) =>
-                        setFormData({ ...formData, return_time: e.target.value })
-                      }
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* Venue Address */}
-                <div>
-                  <Label className="text-xs">Venue Address</Label>
-                  <Textarea
-                    rows={2}
-                    value={formData.venue_address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, venue_address: e.target.value })
-                    }
-                    className="mt-1"
-                    placeholder="Enter venue address (e.g., Grand Palace Banquet, Connaught Place, Delhi - 110001)"
-                  />
-                </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Groom Information - Show only if Groom or Both */}
-            {(formData.event_participant === "Groom" || formData.event_participant === "Both") && (
+            {/* Groom Information - Show only for rentals */}
+            {formData.booking_type === "rental" && (formData.event_participant === "Groom" || formData.event_participant === "Both") && (
               <Card>
                 <CardHeader>
                   <CardTitle>Groom Information</CardTitle>
@@ -1334,8 +1401,8 @@ export default function CreateProductOrderPage() {
               </Card>
             )}
 
-            {/* Bride Information - Show only if Bride or Both */}
-            {(formData.event_participant === "Bride" || formData.event_participant === "Both") && (
+            {/* Bride Information - Show only for rentals */}
+            {formData.booking_type === "rental" && (formData.event_participant === "Bride" || formData.event_participant === "Both") && (
               <Card>
                 <CardHeader>
                   <CardTitle>Bride Information</CardTitle>
@@ -1520,41 +1587,43 @@ export default function CreateProductOrderPage() {
             </Card>
             )}
 
-            {/* Product Selection Options */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Product Selection</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="skipProducts" 
-                    checked={skipProductSelection} 
-                    onCheckedChange={(checked) => setSkipProductSelection(checked === true)} 
-                  />
-                  <Label htmlFor="skipProducts" className="text-sm">
-                    Skip product selection for now (can be done later)
-                  </Label>
-                </div>
+            {/* Product Selection Options - Only for rentals */}
+            {formData.booking_type === "rental" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Selection</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="skipProducts" 
+                      checked={skipProductSelection} 
+                      onCheckedChange={(checked) => setSkipProductSelection(checked === true)} 
+                    />
+                    <Label htmlFor="skipProducts" className="text-sm">
+                      Skip product selection for now (can be done later)
+                    </Label>
+                  </div>
 
-                {skipProductSelection ? (
-                  <div className="p-4 bg-yellow-50 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      ⏳ Product selection will be done later. Booking status will be "Selection Pending" until products are chosen.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-green-800">
-                      ✓ Product selection will be completed now. You can add items using barcode or product selector below.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {skipProductSelection ? (
+                    <div className="p-4 bg-yellow-50 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        ⏳ Product selection will be done later. Booking status will be "Selection Pending" until products are chosen.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        ✓ Product selection will be completed now. You can add items using barcode or product selector below.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Product Selection */}
-            {!skipProductSelection && (
+            {(formData.booking_type === "rental" ? !skipProductSelection : true) && (
             <ProductSelector
               products={products}
               categories={categories}
