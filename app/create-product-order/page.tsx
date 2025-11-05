@@ -616,10 +616,11 @@ export default function CreateProductOrderPage() {
       toast.error("Event date required")
       return
     }
-    if (items.length === 0) {
-      toast.error("Add at least one product")
-      return
-    }
+    // ✅ Product selection is now optional - can skip or add later
+    // if (items.length === 0) {
+    //   toast.error("Add at least one product")
+    //   return
+    // }
     // ✅ BUG FIX #1: Validate user session loaded
     if (!currentUser?.franchise_id) {
       toast.error("Session error: Please refresh the page")
@@ -1831,19 +1832,19 @@ export default function CreateProductOrderPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200">
                       <span className="flex items-center gap-1">
-                        <span>🔒 Refundable Security Deposit</span>
+                        <span>� Security Deposit Amount</span>
                       </span>
                       <span className="font-medium text-blue-700">₹{totals.deposit.toFixed(2)}</span>
                     </div>
                     {totals.autoDeposit > 0 && (
                       <div className="flex justify-between text-xs bg-blue-100 p-1.5 rounded pl-4">
-                        <span>Auto-calculated from products:</span>
+                        <span>From products:</span>
                         <span className="text-blue-600">₹{totals.autoDeposit.toFixed(2)}</span>
                       </div>
                     )}
                     {totals.customDeposit > 0 && (
                       <div className="flex justify-between text-xs bg-blue-100 p-1.5 rounded pl-4">
-                        <span>Additional custom deposit:</span>
+                        <span>Additional amount:</span>
                         <span className="text-blue-600">₹{totals.customDeposit.toFixed(2)}</span>
                       </div>
                     )}
@@ -1901,10 +1902,10 @@ export default function CreateProductOrderPage() {
                       <span className="font-bold text-orange-700 text-lg">₹{totals.remaining.toFixed(2)}</span>
                     </div>
 
-                    {/* Refundable Amount */}
+                    {/* Security Deposit Amount */}
                     {totals.deposit > 0 && (
                       <div className="flex justify-between text-base bg-blue-50 p-3 rounded border border-blue-200">
-                        <span className="font-medium">🔒 Refundable Amount:</span>
+                        <span className="font-medium">� Security Deposit:</span>
                         <span className="font-bold text-blue-700 text-lg">₹{totals.deposit.toFixed(2)}</span>
                       </div>
                     )}
