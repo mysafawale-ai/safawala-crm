@@ -75,10 +75,14 @@ export async function GET(request: NextRequest) {
 // POST: Create new coupon
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Coupons API] POST request received');
     const supabase = createClient();
     const { userId, franchiseId } = await getUserFromSession(request);
+    console.log('[Coupons API] User authenticated:', { userId, franchiseId });
 
     const body = await request.json();
+    console.log('[Coupons API] Request body:', body);
+    
     const {
       code,
       description,
@@ -95,6 +99,7 @@ export async function POST(request: NextRequest) {
 
     // Validation
     if (!code || !discount_type || discount_value === undefined) {
+      console.error('[Coupons API] Validation failed: missing required fields');
       return NextResponse.json(
         { error: 'Code, discount type, and discount value are required' },
         { status: 400 }
@@ -103,6 +108,7 @@ export async function POST(request: NextRequest) {
 
     // Validate percentage discount
     if (discount_type === 'percentage' && discount_value > 100) {
+      console.error('[Coupons API] Validation failed: discount value exceeds 100%');
       return NextResponse.json(
         { error: 'Percentage discount cannot exceed 100%' },
         { status: 400 }
@@ -125,6 +131,7 @@ export async function POST(request: NextRequest) {
       franchise_id: franchiseId,
       created_by: userId,
     };
+    console.log('[Coupons API] Sanitized data:', sanitizedData);
 
     // Insert coupon
     const { data: coupon, error } = await supabase
@@ -134,7 +141,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error creating coupon:', error);
+      console.error('[Coupons API] Supabase error:', { code: error.code, message: error.message, hint: error.hint });
       
       // Handle duplicate code error
       if (error.code === '23505') {
@@ -150,10 +157,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[Coupons API] Coupon created successfully:', coupon);
     return NextResponse.json({ coupon }, { status: 201 });
 
   } catch (error: any) {
-    console.error('Error in POST /api/coupons:', error);
+    console.error('[Coupons API] Exception:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
