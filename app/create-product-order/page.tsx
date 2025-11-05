@@ -147,7 +147,6 @@ export default function CreateProductOrderPage() {
     payment_type: "full" as "full" | "advance" | "partial",
     payment_method: "Cash / Offline Payment",
     custom_amount: 0,
-    customer_amount: 0,
     discount_amount: 0,
     coupon_code: "",
     coupon_discount: 0,
@@ -333,7 +332,6 @@ export default function CreateProductOrderPage() {
         payment_type: quote.payment_type || "full",
         payment_method: quote.payment_method || "Cash / Offline Payment",
         custom_amount: quote.custom_amount || 0,
-        customer_amount: quote.customer_amount || 0,
         discount_amount: quote.discount_amount || 0,
         coupon_code: quote.coupon_code || "",
         coupon_discount: quote.coupon_discount || 0,
@@ -508,7 +506,6 @@ export default function CreateProductOrderPage() {
     const subtotalAfterDiscount = Math.max(0, subtotal - totalDiscount)
     const gst = subtotalAfterDiscount * 0.05
     const grand = subtotalAfterDiscount + gst
-    const customerAmountPaid = formData.customer_amount || 0
 
     let payable = grand
     if (formData.payment_type === "advance") payable = grand * 0.5
@@ -525,8 +522,7 @@ export default function CreateProductOrderPage() {
       gst,
       grand,
       payable,
-      customerAmountPaid,
-      remaining: Math.max(0, grand - payable - customerAmountPaid),
+      remaining: grand - payable,
     }
   }, [items, formData])
 
@@ -1685,29 +1681,6 @@ export default function CreateProductOrderPage() {
                   </Select>
                 </div>
 
-                {/* Customer Amount - Amount that customer is paying in advance or partial payment */}
-                <div>
-                  <Label className="text-sm">Customer Amount / Advance Payment (₹)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={formData.customer_amount}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        customer_amount: Number(e.target.value || 0),
-                      })
-                    }
-                    className="mt-1"
-                    placeholder="Amount received from customer (will be deducted from final bill)"
-                  />
-                  {formData.customer_amount > 0 && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      ✓ Customer has paid: ₹{formData.customer_amount.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
                 {/* Discount */}
                 <div>
                   <Label className="text-sm">Discount Amount (₹)</Label>
@@ -1828,14 +1801,6 @@ export default function CreateProductOrderPage() {
                   <span>Grand Total</span>
                   <span className="text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
                 </div>
-
-                {/* Customer Amount Received */}
-                {totals.customerAmountPaid > 0 && (
-                  <div className="flex justify-between text-sm bg-blue-100 p-2 rounded border border-blue-300">
-                    <span>💵 Customer Amount Received</span>
-                    <span className="font-medium text-blue-700">-₹{totals.customerAmountPaid.toFixed(2)}</span>
-                  </div>
-                )}
 
                 {/* Security Deposit for Rentals */}
                 {formData.booking_type === "rental" && totals.deposit > 0 && (
