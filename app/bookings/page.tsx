@@ -244,7 +244,7 @@ export default function BookingsPage() {
           
           for (let attempt = 0; attempt <= retries; attempt++) {
             try {
-              const url = `/api/bookings/${bookingId}/items?source=${normalizedSource}`
+              const url = `/api/bookings-items?id=${bookingId}&source=${normalizedSource}`
               console.log(`[Bookings] Attempt ${attempt + 1}/${retries + 1}: GET ${url}`)
               
               const res = await fetch(url)
@@ -265,9 +265,9 @@ export default function BookingsPage() {
               
               const data = await res.json()
               
-              if (data.success && Array.isArray(data.items)) {
+              if (Array.isArray(data.items)) {
                 items[bookingId] = data.items
-                console.log(`[Bookings] ✓ Loaded ${data.items.length} items for ${bookingNumber} (source: ${normalizedSource}, took ${data.duration_ms}ms)`)
+                console.log(`[Bookings] ✓ Loaded ${data.items.length} items for ${bookingNumber} (source: ${normalizedSource})`)
                 loading[bookingId] = false
                 return
               } else {
