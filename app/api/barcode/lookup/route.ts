@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
           image_url,
           price,
           rental_price,
-          sale_price,
           security_deposit,
           stock_available,
           franchise_id
@@ -104,7 +103,7 @@ export async function POST(request: NextRequest) {
           image_url: product.image_url,
           price: product.price,
           rental_price: product.rental_price,
-          sale_price: product.sale_price,
+          sale_price: product.price, // Use price field (no separate sale_price in schema)
           security_deposit: product.security_deposit,
           stock_available: product.stock_available,
           franchise_id: product.franchise_id
@@ -160,7 +159,7 @@ export async function POST(request: NextRequest) {
           image_url: product.image_url,
           price: product.price,
           rental_price: product.rental_price,
-          sale_price: product.sale_price,
+          sale_price: product.price, // Use price field (no separate sale_price in schema)
           security_deposit: product.security_deposit,
           stock_available: product.stock_available,
           franchise_id: product.franchise_id
