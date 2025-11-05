@@ -65,6 +65,7 @@ interface Product {
   usage_count: number
   damage_count: number
   barcode?: string
+  barcode_number?: string
   qr_code?: string
   is_active: boolean
   created_at: string
@@ -261,12 +262,13 @@ export default function InventoryPage() {
 
   const filteredProducts = useMemo(() => {
     let filtered = products.filter((product) => {
-      // Search filter
+      // Search filter - includes barcode_number
       const matchesSearch =
         product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         product.product_code.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         product.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+        product.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        (product.barcode_number && product.barcode_number.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
 
       if (!matchesSearch) return false
 
