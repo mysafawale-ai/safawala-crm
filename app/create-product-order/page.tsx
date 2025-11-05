@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectTrigger,
@@ -132,6 +133,7 @@ export default function CreateProductOrderPage() {
   const [paidAmount, setPaidAmount] = useState(0)
   const [damageAmount, setDamageAmount] = useState(0)
   const [lossAmount, setLossAmount] = useState(0)
+  const [skipProductSelection, setSkipProductSelection] = useState(false)
   
   // Calendar popover states for auto-close
   const [eventDateOpen, setEventDateOpen] = useState(false)
@@ -145,6 +147,7 @@ export default function CreateProductOrderPage() {
     payment_type: "full" as "full" | "advance" | "partial",
     payment_method: "Cash / Offline Payment",
     custom_amount: 0,
+    customer_amount: 0,
     discount_amount: 0,
     coupon_code: "",
     coupon_discount: 0,
@@ -330,6 +333,7 @@ export default function CreateProductOrderPage() {
         payment_type: quote.payment_type || "full",
         payment_method: quote.payment_method || "Cash / Offline Payment",
         custom_amount: quote.custom_amount || 0,
+        customer_amount: quote.customer_amount || 0,
         discount_amount: quote.discount_amount || 0,
         coupon_code: quote.coupon_code || "",
         coupon_discount: quote.coupon_discount || 0,
@@ -504,6 +508,7 @@ export default function CreateProductOrderPage() {
     const subtotalAfterDiscount = Math.max(0, subtotal - totalDiscount)
     const gst = subtotalAfterDiscount * 0.05
     const grand = subtotalAfterDiscount + gst
+    const customerAmountPaid = formData.customer_amount || 0
 
     let payable = grand
     if (formData.payment_type === "advance") payable = grand * 0.5
@@ -520,7 +525,8 @@ export default function CreateProductOrderPage() {
       gst,
       grand,
       payable,
-      remaining: grand - payable,
+      customerAmountPaid,
+      remaining: Math.max(0, grand - payable - customerAmountPaid),
     }
   }, [items, formData])
 
@@ -1392,7 +1398,8 @@ export default function CreateProductOrderPage() {
               </CardContent>
             </Card>
 
-            {/* Quick Barcode Scanner */}
+            {/* Quick Barcode Scanner - Only show for Rental type */}
+            {formData.booking_type === "rental" && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1508,8 +1515,53 @@ export default function CreateProductOrderPage() {
                 </p>
               </CardContent>
             </Card>
+            )}
+
+            {formData.booking_type === "sale" && (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded">
+                    ℹ️ Barcode scanning is only available for rental bookings
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Product Selection Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Product Selection</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="skipProducts" 
+                    checked={skipProductSelection} 
+                    onCheckedChange={(checked) => setSkipProductSelection(checked === true)} 
+                  />
+                  <Label htmlFor="skipProducts" className="text-sm">
+                    Skip product selection for now (can be done later)
+                  </Label>
+                </div>
+
+                {skipProductSelection ? (
+                  <div className="p-4 bg-yellow-50 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      ⏳ Product selection will be done later. Booking status will be "Selection Pending" until products are chosen.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-800">
+                      ✓ Product selection will be completed now. You can add items using barcode or product selector below.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Product Selection */}
+            {!skipProductSelection && (
             <ProductSelector
               products={products}
               categories={categories}
@@ -1523,6 +1575,7 @@ export default function CreateProductOrderPage() {
               onProductSelect={addProduct}
               onCheckAvailability={checkAvailability}
             />
+            )}
 
             {/* Order Items */}
             <Card>
@@ -1630,6 +1683,29 @@ export default function CreateProductOrderPage() {
                       <SelectItem value="International Payment Method">International Payment Method</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Customer Amount - Amount that customer is paying in advance or partial payment */}
+                <div>
+                  <Label className="text-sm">Customer Amount / Advance Payment (₹)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={formData.customer_amount}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        customer_amount: Number(e.target.value || 0),
+                      })
+                    }
+                    className="mt-1"
+                    placeholder="Amount received from customer (will be deducted from final bill)"
+                  />
+                  {formData.customer_amount > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      ✓ Customer has paid: ₹{formData.customer_amount.toFixed(2)}
+                    </p>
+                  )}
                 </div>
 
                 {/* Discount */}
@@ -1752,6 +1828,14 @@ export default function CreateProductOrderPage() {
                   <span>Grand Total</span>
                   <span className="text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
                 </div>
+
+                {/* Customer Amount Received */}
+                {totals.customerAmountPaid > 0 && (
+                  <div className="flex justify-between text-sm bg-blue-100 p-2 rounded border border-blue-300">
+                    <span>💵 Customer Amount Received</span>
+                    <span className="font-medium text-blue-700">-₹{totals.customerAmountPaid.toFixed(2)}</span>
+                  </div>
+                )}
 
                 {/* Security Deposit for Rentals */}
                 {formData.booking_type === "rental" && totals.deposit > 0 && (
