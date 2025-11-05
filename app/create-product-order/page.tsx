@@ -622,8 +622,8 @@ export default function CreateProductOrderPage() {
       toast.error("Event date required")
       return
     }
-    if (!formData.delivery_address && formData.booking_type === "sale") {
-      toast.error("Delivery address required")
+    if (!formData.delivery_date && formData.booking_type === "sale") {
+      toast.error("Delivery date required")
       return
     }
     // For direct sales, products are mandatory
@@ -1295,22 +1295,9 @@ export default function CreateProductOrderPage() {
                   </div>
                 )}
 
-                {/* Delivery Address & Date/Time - for Direct Sales */}
+                {/* Delivery Date/Time & Address - for Direct Sales */}
                 {formData.booking_type === "sale" && (
                   <>
-                    <div>
-                      <Label className="text-xs">Delivery Address *</Label>
-                      <Textarea
-                        rows={3}
-                        value={formData.delivery_address}
-                        onChange={(e) =>
-                          setFormData({ ...formData, delivery_address: e.target.value })
-                        }
-                        className="mt-1"
-                        placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
-                      />
-                    </div>
-
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">Delivery Date *</Label>
@@ -1356,6 +1343,19 @@ export default function CreateProductOrderPage() {
                           className="text-sm"
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs">Delivery Address</Label>
+                      <Textarea
+                        rows={3}
+                        value={formData.delivery_address}
+                        onChange={(e) =>
+                          setFormData({ ...formData, delivery_address: e.target.value })
+                        }
+                        className="mt-1"
+                        placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
+                      />
                     </div>
                   </>
                 )}
