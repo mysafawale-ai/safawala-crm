@@ -1664,7 +1664,7 @@ export default function CreateProductOrderPage() {
                     }
                   }}
                   placeholder="Scan product barcode..."
-                  debounceMs={300}
+                  debounceMs={800}
                   autoFocus={true}
                 />
                 <p className="text-xs text-muted-foreground mt-2">

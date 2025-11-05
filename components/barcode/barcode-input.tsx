@@ -32,7 +32,7 @@ export function BarcodeInput({
   className = "",
   disabled = false,
   autoFocus = true,
-  debounceMs = 300,
+  debounceMs = 800,
 }: BarcodeInputProps) {
   const [value, setValue] = useState("")
   const [isScanning, setIsScanning] = useState(false)
@@ -92,6 +92,10 @@ export function BarcodeInput({
             totalLength: newValue.length,
             fullValue: newValue
           })
+          if (!value) {
+            // mark start of scan window
+            scanStartTimeRef.current = Date.now()
+          }
           setValue(newValue)
         }}
         onKeyDown={(e) => {
@@ -117,21 +121,19 @@ export function BarcodeInput({
           }
         }}
         onPaste={(e) => {
-          // Handle paste events (some scanners use paste)
+          // Handle paste events (some scanners paste the full code). Defer to debounce.
           e.preventDefault()
           const pastedText = e.clipboardData.getData('text')
-          const finalValue = (value + pastedText).trim()
+          const combined = (value + pastedText)
           console.log('[BarcodeInput] Paste detected:', {
             pastedText,
-            combinedValue: finalValue,
-            length: finalValue.length
+            combinedValue: combined,
+            length: combined.length
           })
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
+          if (!value) {
+            scanStartTimeRef.current = Date.now()
           }
-          onScan(finalValue)
-          setValue("")
-          setIsScanning(false)
+          setValue(combined)
         }}
         placeholder={placeholder}
         className={`pl-10 pr-10 font-mono text-sm tracking-wide ${className}`}

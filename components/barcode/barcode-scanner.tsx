@@ -47,6 +47,7 @@ interface BarcodeScannerProps {
   placeholder?: string
   className?: string
   autoFocus?: boolean
+  debounceMs?: number
 }
 
 export function BarcodeScanner({
@@ -57,6 +58,7 @@ export function BarcodeScanner({
   placeholder = "Scan barcode or enter product code...",
   className = "",
   autoFocus = true,
+  debounceMs = 800,
 }: BarcodeScannerProps) {
   const [scanInput, setScanInput] = useState("")
   const [isSearching, setIsSearching] = useState(false)
@@ -123,17 +125,17 @@ export function BarcodeScanner({
       clearTimeout(scanTimeoutRef.current)
     }
 
-    // Set new timeout (300ms debounce)
+    // Set new timeout (configurable debounce)
     scanTimeoutRef.current = setTimeout(() => {
       handleUsbScan(scanInput)
-    }, 300)
+    }, debounceMs)
 
     return () => {
       if (scanTimeoutRef.current) {
         clearTimeout(scanTimeoutRef.current)
       }
     }
-  }, [scanInput, handleUsbScan])
+  }, [scanInput, handleUsbScan, debounceMs])
 
   // Auto-focus input on mount if enabled
   useEffect(() => {
