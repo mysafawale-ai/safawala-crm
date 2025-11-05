@@ -257,7 +257,19 @@ export default function CreateProductOrderPage() {
 
         console.log('✅ Loaded customers:', customersData.length, customersData)
         setCustomers(customersData)
-        setProducts(productsWithBarcodes)
+        // ✅ Map ProductWithBarcodes to Product interface
+        const mappedProducts = productsWithBarcodes.map(p => ({
+          id: p.id,
+          name: p.name,
+          category: '', // ProductWithBarcodes doesn't include full category data
+          category_id: p.category_id,
+          subcategory_id: undefined,
+          rental_price: p.rental_price || 0,
+          sale_price: p.sale_price || 0,
+          security_deposit: p.security_deposit || 0,
+          stock_available: p.stock_available || 0
+        })) as Product[]
+        setProducts(mappedProducts)
         
         // Fetch categories and subcategories from database
         const mainCats = categoriesData.data?.filter((c: any) => !c.parent_id) || []
@@ -1533,7 +1545,9 @@ export default function CreateProductOrderPage() {
                       console.log('[Barcode Scan] Starting scan:', {
                         fullBarcode: code,
                         length: code.length,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        currentUser: currentUser?.email,
+                        franchiseId: currentUser?.franchise_id
                       })
                       
                       // ===== STEP 1: QUERY DEDICATED API (BEST) =====
@@ -1545,7 +1559,7 @@ export default function CreateProductOrderPage() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                           barcode: code,
-                          franchiseId: formData.franchise_id
+                          franchiseId: currentUser?.franchise_id  // ✅ FIXED: Use currentUser instead of formData
                         })
                       })
 
@@ -1558,18 +1572,35 @@ export default function CreateProductOrderPage() {
                           productId: result.product.id
                         })
 
+                        // ✅ Check for duplicates - increment quantity instead
+                        const existingItem = items.find(item => item.product_id === result.product.id)
+                        if (existingItem) {
+                          console.log('[Barcode Scan] ⚠️ Product already in cart, incrementing quantity')
+                          const updatedItems = items.map(item =>
+                            item.product_id === result.product.id
+                              ? { ...item, quantity: item.quantity + 1 }
+                              : item
+                          )
+                          setItems(updatedItems)
+                          toast.success("Quantity increased!", {
+                            description: `${result.product.name} - Quantity: ${existingItem.quantity + 1}`,
+                            duration: 2000
+                          })
+                          return
+                        }
+
+                        // ✅ Defensive mapping with fallback values
                         addProduct({
-                          id: result.product.id,
-                          name: result.product.name,
-                          category: result.product.category,
-                          category_id: result.product.category_id,
-                          subcategory_id: result.product.subcategory_id,
-                          rental_price: result.product.rental_price,
-                          sale_price: result.product.sale_price,
-                          security_deposit: result.product.security_deposit,
-                          stock_available: result.product.stock_available,
-                          image_url: result.product.image_url,
-                          product_code: result.product.product_code
+                          id: result.product.id || '',
+                          name: result.product.name || 'Unknown Product',
+                          category: result.product.category || '',
+                          category_id: result.product.category_id || undefined,
+                          subcategory_id: result.product.subcategory_id || undefined,
+                          rental_price: result.product.rental_price || 0,
+                          sale_price: result.product.sale_price || 0,
+                          security_deposit: result.product.security_deposit || 0,
+                          stock_available: result.product.stock_available || 0,
+                          image_url: result.product.image_url || ''
                         })
 
                         toast.success("Product added!", {
