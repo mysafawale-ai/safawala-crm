@@ -55,6 +55,10 @@ export function BarcodeInput({
 
   // Debounced scan trigger
   useEffect(() => {
+    // If minDigits is defined, we DO NOT use time-based debounce at all.
+    // Scans will trigger only when minDigits are reached (or on Enter with >= minDigits).
+    if (typeof minDigits === 'number') return
+
     if (!value.trim()) return
 
     setIsScanning(true)
@@ -90,7 +94,7 @@ export function BarcodeInput({
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [value, onScan, debounceMs])
+  }, [value, onScan, debounceMs, minDigits])
 
   return (
     <div className="relative">
@@ -131,7 +135,12 @@ export function BarcodeInput({
           if (e.key === 'Enter' && value.trim()) {
             e.preventDefault()
             const finalValue = (digitsOnly ? value.replace(/\D/g, "") : value).trim()
-            const code = minDigits ? finalValue.slice(0, minDigits) : finalValue
+            // If minDigits is set, only allow Enter to trigger when threshold met
+            if (typeof minDigits === 'number' && finalValue.length < minDigits) {
+              console.log('[BarcodeInput] Enter pressed but below minDigits, ignoring', { length: finalValue.length, minDigits })
+              return
+            }
+            const code = typeof minDigits === 'number' ? finalValue.slice(0, minDigits) : finalValue
             console.log('[BarcodeInput] Enter key pressed, triggering scan:', {
               fullValue: code,
               length: code.length
