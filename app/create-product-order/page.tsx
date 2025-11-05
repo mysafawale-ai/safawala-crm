@@ -147,6 +147,7 @@ export default function CreateProductOrderPage() {
     payment_type: "full" as "full" | "advance" | "partial",
     payment_method: "Cash / Offline Payment",
     custom_amount: 0,
+    deposit_amount: 0,
     discount_amount: 0,
     coupon_code: "",
     coupon_discount: 0,
@@ -332,6 +333,7 @@ export default function CreateProductOrderPage() {
         payment_type: quote.payment_type || "full",
         payment_method: quote.payment_method || "Cash / Offline Payment",
         custom_amount: quote.custom_amount || 0,
+        deposit_amount: quote.deposit_amount || 0,
         discount_amount: quote.discount_amount || 0,
         coupon_code: quote.coupon_code || "",
         coupon_discount: quote.coupon_discount || 0,
@@ -499,7 +501,9 @@ export default function CreateProductOrderPage() {
   // Calculate totals
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + i.total_price, 0)
-    const deposit = items.reduce((s, i) => s + i.security_deposit, 0)
+    const autoDeposit = items.reduce((s, i) => s + i.security_deposit, 0)
+    const customDeposit = formData.deposit_amount || 0
+    const totalDeposit = autoDeposit + customDeposit
     const discount = formData.discount_amount || 0
     const couponDiscount = formData.coupon_discount || 0
     const totalDiscount = discount + couponDiscount
@@ -518,7 +522,9 @@ export default function CreateProductOrderPage() {
       couponDiscount,
       totalDiscount,
       subtotalAfterDiscount,
-      deposit,
+      autoDeposit,
+      customDeposit,
+      deposit: totalDeposit,
       gst,
       grand,
       payable,
@@ -1671,6 +1677,34 @@ export default function CreateProductOrderPage() {
                   </Select>
                 </div>
 
+                {/* Deposit Amount - Only for Rental Type */}
+                {formData.booking_type === "rental" && (
+                  <div>
+                    <Label className="text-sm">Deposit Amount (₹) - Additional/Custom Deposit</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formData.deposit_amount || 0}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          deposit_amount: Number(e.target.value || 0),
+                        })
+                      }
+                      className="mt-1"
+                      placeholder="Enter custom deposit amount (will be added to auto-calculated deposit)"
+                    />
+                    {(formData.deposit_amount || 0) > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        ✓ Additional Deposit: ₹{(formData.deposit_amount || 0).toFixed(2)}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Note: Auto-calculated security deposit from products will be added to this amount
+                    </p>
+                  </div>
+                )}
+
                 {/* Discount */}
                 <div>
                   <Label className="text-sm">Discount Amount (₹)</Label>
@@ -1794,11 +1828,25 @@ export default function CreateProductOrderPage() {
 
                 {/* Security Deposit for Rentals */}
                 {formData.booking_type === "rental" && totals.deposit > 0 && (
-                  <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200">
-                    <span className="flex items-center gap-1">
-                      <span>🔒 Refundable Security Deposit</span>
-                    </span>
-                    <span className="font-medium text-blue-700">₹{totals.deposit.toFixed(2)}</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200">
+                      <span className="flex items-center gap-1">
+                        <span>🔒 Refundable Security Deposit</span>
+                      </span>
+                      <span className="font-medium text-blue-700">₹{totals.deposit.toFixed(2)}</span>
+                    </div>
+                    {totals.autoDeposit > 0 && (
+                      <div className="flex justify-between text-xs bg-blue-100 p-1.5 rounded pl-4">
+                        <span>Auto-calculated from products:</span>
+                        <span className="text-blue-600">₹{totals.autoDeposit.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {totals.customDeposit > 0 && (
+                      <div className="flex justify-between text-xs bg-blue-100 p-1.5 rounded pl-4">
+                        <span>Additional custom deposit:</span>
+                        <span className="text-blue-600">₹{totals.customDeposit.toFixed(2)}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
