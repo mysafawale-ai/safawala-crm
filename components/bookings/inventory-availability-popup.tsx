@@ -123,8 +123,8 @@ export function InventoryAvailabilityPopup({
           customer_id,
           customers(name)
         `)
-        .gte('event_date', format(startDate, 'yyyy-MM-dd'))
-        .lte('event_date', format(endDate, 'yyyy-MM-dd'))
+        .lte('delivery_date', format(endDate, 'yyyy-MM-dd'))
+        .gte('return_date', format(startDate, 'yyyy-MM-dd'))
         .neq('status', 'cancelled')
 
       // Get package booking items
@@ -147,8 +147,8 @@ export function InventoryAvailabilityPopup({
           customer_id,
           customers(name)
         `)
-        .gte('event_date', format(startDate, 'yyyy-MM-dd'))
-        .lte('event_date', format(endDate, 'yyyy-MM-dd'))
+        .lte('delivery_date', format(endDate, 'yyyy-MM-dd'))
+        .gte('return_date', format(startDate, 'yyyy-MM-dd'))
         .neq('status', 'cancelled')
 
       // Get product order items
@@ -164,9 +164,13 @@ export function InventoryAvailabilityPopup({
         const dailyBookings: DailyBooking[] = dates.map(date => {
           const bookings: DailyBooking['bookings'] = []
 
-          // Check package bookings for this date
+          // Check package bookings for this date - check if date falls within delivery_date to return_date
           packageBookings?.forEach(booking => {
-            if (booking.event_date === date) {
+            const deliveryDate = booking.delivery_date || booking.event_date
+            const returnDate = booking.return_date || booking.event_date
+            
+            // Check if the current date falls within the booking period
+            if (date >= deliveryDate && date <= returnDate) {
               // Check if any package items have this product in reserved_products
               const items = packageItems?.filter(item => item.booking_id === booking.id) || []
               items.forEach(item => {
@@ -191,9 +195,13 @@ export function InventoryAvailabilityPopup({
             }
           })
 
-          // Check product orders for this date
+          // Check product orders for this date - check if date falls within delivery_date to return_date
           productOrders?.forEach(order => {
-            if (order.event_date === date) {
+            const deliveryDate = order.delivery_date || order.event_date
+            const returnDate = order.return_date || order.event_date
+            
+            // Check if the current date falls within the booking period
+            if (date >= deliveryDate && date <= returnDate) {
               const items = productOrderItems?.filter(item => 
                 item.order_id === order.id && item.product_id === product.id
               ) || []
