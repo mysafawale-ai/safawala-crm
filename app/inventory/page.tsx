@@ -138,7 +138,27 @@ export default function InventoryPage() {
       }
       const { data, error } = await query
       if (error) throw error
-      setProducts(data || [])
+      
+      // Fetch barcodes separately and match with products
+      const { data: barcodeData } = await supabase
+        .from("barcodes")
+        .select("product_id, barcode_number")
+      
+      // Create a map of product_id -> barcode_number
+      const barcodeMap = new Map()
+      if (barcodeData) {
+        barcodeData.forEach((b: any) => {
+          barcodeMap.set(b.product_id, b.barcode_number)
+        })
+      }
+      
+      // Add barcode to each product
+      const productsWithBarcodes = (data || []).map((product: any) => ({
+        ...product,
+        barcode: barcodeMap.get(product.id) || null
+      }))
+      
+      setProducts(productsWithBarcodes)
     } catch (error) {
       console.error("Error fetching products:", error)
       toast.error("Failed to load products")
@@ -684,6 +704,12 @@ export default function InventoryPage() {
                       <TableHead>Code</TableHead>
                       <TableHead>
                         <div className="flex items-center space-x-1">
+                          <Barcode className="w-4 h-4" />
+                          <span>11-Digit Barcode</span>
+                        </div>
+                      </TableHead>
+                      <TableHead>
+                        <div className="flex items-center space-x-1">
                           <span>Stock Status</span>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -766,7 +792,7 @@ export default function InventoryPage() {
                   <TableBody>
                     {paginatedProducts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12">
+                        <TableCell colSpan={9} className="text-center py-12">
                           <div className="flex flex-col items-center space-y-3">
                             {debouncedSearchTerm || stockFilter !== 'all' || categoryFilter !== 'all' || subcategoryFilter !== 'all' ? (
                               <>
@@ -856,6 +882,20 @@ export default function InventoryPage() {
                             </TableCell>
                             <TableCell>
                               <code className="text-sm">{product.product_code}</code>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {product.barcode ? (
+                                  <>
+                                    <Barcode className="w-4 h-4 text-blue-600" />
+                                    <code className="text-sm font-mono font-bold text-blue-700">
+                                      {product.barcode}
+                                    </code>
+                                  </>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">-</span>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Badge variant={stockStatus.variant} className="flex items-center space-x-1 w-fit">

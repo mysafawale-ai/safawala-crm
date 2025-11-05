@@ -6,6 +6,8 @@
  * - Auto-triggers on newline (barcode scanner terminator)
  * - Shows loading/error states
  * - Provides clear feedback
+ * - Debounce delay: waits 500ms before searching if more than 2 chars
+ *   This allows time for full barcode entry before triggering search
  */
 
 "use client"
@@ -37,14 +39,17 @@ interface SimpleBarcodeInputProps {
   onScanSuccess: (product: BarcodeSearchResult["product"]) => void
   onError?: (error: string) => void
   disabled?: boolean
+  debounceMs?: number  // Debounce delay in milliseconds (default: 500ms)
 }
 
 export function SimpleBarcodeInput({
   onScanSuccess,
   onError,
   disabled = false,
+  debounceMs = 500,  // 500ms delay to allow full barcode entry
 }: SimpleBarcodeInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [barcode, setBarcode] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle")
@@ -53,6 +58,15 @@ export function SimpleBarcodeInput({
   // Auto-focus input
   useEffect(() => {
     inputRef.current?.focus()
+  }, [])
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
   }, [])
 
   const performSearch = async (code: string) => {
@@ -116,15 +130,44 @@ export function SimpleBarcodeInput({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Enter key triggers search
+    // Enter key triggers search immediately (barcode scanner terminator)
     if (e.key === "Enter") {
       e.preventDefault()
+      // Cancel any pending debounce
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
       performSearch(barcode)
     }
-    // Barcode scanners usually send Enter/Return at the end
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setBarcode(newValue)
+
+    // Cancel previous debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+
+    // If less than 3 characters, don't search yet (waiting for more input)
+    if (newValue.length < 3) {
+      return
+    }
+
+    // Set new debounce timer
+    debounceTimerRef.current = setTimeout(() => {
+      performSearch(newValue)
+    }, debounceMs)
   }
 
   const handleManualSearch = () => {
+    // Cancel any pending debounce
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
     performSearch(barcode)
   }
 
@@ -136,7 +179,7 @@ export function SimpleBarcodeInput({
           type="text"
           placeholder="Scan barcode or type code..."
           value={barcode}
-          onChange={(e) => setBarcode(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || isLoading}
           autoFocus
