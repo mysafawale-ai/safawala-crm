@@ -58,7 +58,7 @@ export function BarcodeScanner({
   placeholder = "Scan barcode or enter product code...",
   className = "",
   autoFocus = true,
-  debounceMs = 800,
+  debounceMs = 1000,
 }: BarcodeScannerProps) {
   const [scanInput, setScanInput] = useState("")
   const [isSearching, setIsSearching] = useState(false)
