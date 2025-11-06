@@ -462,59 +462,71 @@ export function BarcodeManagementDialog({
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
                 @page { margin: 0; padding: 0; size: A4; }
-                body { font-family: Arial, sans-serif; background: white; margin: 0; padding: 0; }
+                body { font-family: Arial, sans-serif; background: white; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                .container { width: 100%; padding: 20px; display: flex; justify-content: center; }
+                .barcode-grid { width: fit-content; }
                 .barcode-row {
                   display: flex;
                   margin: 0;
                   padding: 0;
-                  border-bottom: 2px solid #333;
-                  height: 140px;
+                  border-bottom: 1px solid #333;
+                  height: 100px;
                   page-break-inside: avoid;
+                }
+                .barcode-row:last-child {
+                  border-bottom: 1px solid #333;
                 }
                 .barcode-column {
                   flex: 1;
-                  padding: 12px 10px;
+                  width: 200px;
+                  padding: 8px 6px;
                   text-align: center;
                   display: flex;
                   flex-direction: column;
                   justify-content: center;
                   align-items: center;
-                  border-right: 2px solid #333;
+                  border-right: 1px solid #333;
                 }
                 .barcode-column:last-child {
                   border-right: none;
                 }
                 .barcode-image {
-                  width: 90%;
+                  width: 80%;
                   height: auto;
-                  max-height: 50%;
+                  max-height: 40%;
                   display: block;
-                  margin-bottom: 6px;
+                  margin-bottom: 4px;
                 }
                 .barcode-code {
                   font-family: 'Courier New', monospace;
-                  font-size: 10px;
+                  font-size: 8px;
                   font-weight: 700;
                   margin: 0;
                   line-height: 1;
                 }
                 .barcode-name {
                   font-family: Arial, sans-serif;
-                  font-size: 7px;
+                  font-size: 5px;
                   color: #333;
-                  margin-top: 2px;
+                  margin-top: 1px;
                   line-height: 1;
                   word-break: break-word;
+                  max-width: 100%;
                 }
                 @media print {
-                  html, body { margin: 0; padding: 0; }
-                  body { margin: 0; padding: 0; }
+                  html, body { margin: 0; padding: 0; display: block; }
+                  body { padding: 20px; }
+                  .container { padding: 0; }
                   .barcode-row { page-break-inside: avoid; }
                 }
               </style>
             </head>
             <body>
-              ${barcodeHTML}
+              <div class="container">
+                <div class="barcode-grid">
+                  ${barcodeHTML}
+                </div>
+              </div>
             </body>
           </html>
         `)
@@ -550,13 +562,22 @@ export function BarcodeManagementDialog({
         format: 'A4'
       })
 
-      const pageWidth = doc.internal.pageSize.getWidth()
-      const pageHeight = doc.internal.pageSize.getHeight()
+      const pageWidth = doc.internal.pageSize.getWidth() // 210mm
+      const pageHeight = doc.internal.pageSize.getHeight() // 297mm
       const cols = 2
       const rows = 5
-      const margin = 5
-      const rowHeight = (pageHeight - 2 * margin) / rows
-      const colWidth = (pageWidth - 2 * margin) / cols
+      
+      // Calculate dimensions for smaller, centered layout
+      const barcodeWidth = 50 // Reduced from ~80mm
+      const barcodeHeight = 20 // Reduced from ~30mm
+      const totalWidth = barcodeWidth * cols // 100mm
+      const totalHeight = barcodeHeight * rows // 100mm
+      
+      // Center on page
+      const startX = (pageWidth - totalWidth) / 2
+      const startY = (pageHeight - totalHeight) / 2
+      const colWidth = barcodeWidth
+      const rowHeight = barcodeHeight
 
       let barcodeIndex = 0
 
@@ -565,8 +586,8 @@ export function BarcodeManagementDialog({
           if (barcodeIndex >= selectedBarcodesData.length) break
 
           const barcode = selectedBarcodesData[barcodeIndex]
-          const x = margin + colIdx * colWidth
-          const y = margin + rowIdx * rowHeight
+          const x = startX + colIdx * colWidth
+          const y = startY + rowIdx * rowHeight
 
           // Generate barcode
           const canvas = document.createElement('canvas')
@@ -580,45 +601,45 @@ export function BarcodeManagementDialog({
 
           JsBarcode(canvas, barcode.barcode_number, {
             format: 'CODE128',
-            width: 2,
-            height: 40,
+            width: 1.5,
+            height: 30,
             displayValue: false,
             margin: 0,
           })
 
           // Add barcode to PDF
           const imgData = canvas.toDataURL('image/png')
-          const barcodeWidth = colWidth - 4
-          const barcodeHeight = 15
+          const imgWidth = colWidth - 2
+          const imgHeight = 10
 
           doc.addImage(
             imgData,
             'PNG',
-            x + 2,
-            y + 5,
-            barcodeWidth,
-            barcodeHeight,
+            x + 1,
+            y + 2,
+            imgWidth,
+            imgHeight,
             undefined,
             'FAST'
           )
 
           // Add barcode code
-          doc.setFontSize(7)
+          doc.setFontSize(6)
           doc.setFont('courier', 'bold')
-          doc.text(barcode.barcode_number, x + colWidth / 2, y + 23, { align: 'center' })
+          doc.text(barcode.barcode_number, x + colWidth / 2, y + 13, { align: 'center' })
 
           // Add product name
-          doc.setFontSize(5)
+          doc.setFontSize(4)
           doc.setFont('helvetica', 'normal')
-          const maxWidth = colWidth - 4
-          doc.text(productName.substring(0, 30), x + colWidth / 2, y + 28, {
+          const maxWidth = colWidth - 2
+          doc.text(productName.substring(0, 20), x + colWidth / 2, y + 17, {
             align: 'center',
             maxWidth
           })
 
-          // Add borders
-          doc.setDrawColor(200, 200, 200)
-          doc.setLineWidth(0.3)
+          // Add thin borders
+          doc.setDrawColor(150, 150, 150)
+          doc.setLineWidth(0.2)
           doc.rect(x, y, colWidth, rowHeight)
 
           barcodeIndex++
