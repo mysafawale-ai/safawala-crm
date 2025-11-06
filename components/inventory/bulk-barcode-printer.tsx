@@ -151,7 +151,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
 
               .barcode-code {
                 font-family: 'Cinzel', serif;
-                font-size: 10.47px;
+                font-size: 17.8px;
                 font-weight: 700;
                 margin: 0;
                 word-break: break-all;
@@ -160,7 +160,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
 
               .barcode-name {
                 font-family: 'Cinzel', serif;
-                font-size: 8.97px;
+                font-size: 15.25px;
                 color: #333;
                 line-height: 1;
                 word-break: break-word;
