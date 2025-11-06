@@ -73,8 +73,8 @@ export default function Barcode2x5PrintPage() {
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
                 @page { margin: 0; padding: 0; size: A4; }
-                body { font-family: Arial, sans-serif; background: white; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                .container { width: 100%; padding: 20px; display: flex; justify-content: center; }
+                body { font-family: Arial, sans-serif; background: white; margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; }
+                .container { width: 100%; padding: 0; display: flex; justify-content: center; }
                 .barcode-grid { width: fit-content; }
                 .barcode-row {
                   display: flex;
@@ -126,7 +126,7 @@ export default function Barcode2x5PrintPage() {
                 }
                 @media print {
                   html, body { margin: 0; padding: 0; display: block; }
-                  body { padding: 20px; }
+                  body { padding: 0; }
                   .container { padding: 0; }
                   .barcode-row { page-break-inside: avoid; }
                 }
