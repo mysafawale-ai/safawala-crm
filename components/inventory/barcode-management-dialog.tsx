@@ -304,6 +304,115 @@ export function BarcodeManagementDialog({
     }
   }
 
+  const handlePrintCompact2Column = async () => {
+    if (filteredBarcodes.length === 0) {
+      toast.error("No barcodes to print")
+      return
+    }
+
+    try {
+      const printWindow = window.open("", "_blank")
+      if (printWindow) {
+        // Generate compact 2-column layout with attached rows
+        let barcodeHTML = ""
+
+        for (let i = 0; i < filteredBarcodes.length; i += 2) {
+          const barcode1 = filteredBarcodes[i]
+          const barcode2 = i + 1 < filteredBarcodes.length ? filteredBarcodes[i + 1] : null
+          
+          // Generate barcode images
+          const JsBarcode = (await import('jsbarcode')).default
+          const canvas1 = document.createElement('canvas')
+          canvas1.width = 800
+          canvas1.height = 200
+          JsBarcode(canvas1, barcode1.barcode_number, {
+            format: 'CODE128',
+            width: 2,
+            height: 50,
+            displayValue: false,
+            margin: 0,
+          })
+          const barcodeImage1 = canvas1.toDataURL('image/png')
+
+          let barcodeImage2 = null
+          if (barcode2) {
+            const canvas2 = document.createElement('canvas')
+            canvas2.width = 800
+            canvas2.height = 200
+            JsBarcode(canvas2, barcode2.barcode_number, {
+              format: 'CODE128',
+              width: 2,
+              height: 50,
+              displayValue: false,
+              margin: 0,
+            })
+            barcodeImage2 = canvas2.toDataURL('image/png')
+          }
+
+          // Row with 2 columns, no gaps, attached together
+          barcodeHTML += `
+            <div class="barcode-row" style="display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333;">
+              <div class="barcode-column" style="flex: 1; border-right: 2px solid #333; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px;">
+                <img src="${barcodeImage1}" alt="Barcode" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 8px;" />
+                <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; margin: 0;">
+                  ${barcode1.barcode_number}
+                </div>
+                <div style="font-family: Arial, sans-serif; font-size: 11px; color: #333; margin-top: 4px;">
+                  ${productName}
+                </div>
+              </div>
+              ${barcode2 ? `
+              <div class="barcode-column" style="flex: 1; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px;">
+                <img src="${barcodeImage2}" alt="Barcode" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 8px;" />
+                <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; margin: 0;">
+                  ${barcode2.barcode_number}
+                </div>
+                <div style="font-family: Arial, sans-serif; font-size: 11px; color: #333; margin-top: 4px;">
+                  ${productName}
+                </div>
+              </div>
+              ` : `
+              <div class="barcode-column" style="flex: 1; padding: 15px;"></div>
+              `}
+            </div>
+          `
+        }
+
+        printWindow.document.write(`
+        <html>
+          <head>
+            <title>Barcodes - 2 Column Print</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+              @page { margin: 0; padding: 0; size: A4; }
+              body { font-family: Arial, sans-serif; background: white; margin: 0; padding: 0; }
+              .barcode-row { display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333; page-break-inside: avoid; }
+              .barcode-column { flex: 1; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px; border-right: 2px solid #333; }
+              .barcode-column:last-child { border-right: none; }
+              @media print { html, body { margin: 0; padding: 0; } body { margin: 0; padding: 0; } .barcode-row { page-break-inside: avoid; } }
+            </style>
+          </head>
+          <body>
+            ${barcodeHTML}
+          </body>
+        </html>
+        `)
+        printWindow.document.close()
+        
+        setTimeout(() => {
+          printWindow.print()
+          printWindow.close()
+        }, 500)
+
+        toast.success(`Prepared ${filteredBarcodes.length} barcodes for printing (2-column layout)`)
+      }
+    } catch (error) {
+      console.error("Error printing barcodes:", error)
+      toast.error("Failed to prepare barcodes for printing")
+    }
+  }
+
   const getStatusBadge = (barcode: ProductBarcode) => {
     // Status represents physical condition
     switch (barcode.status) {
@@ -480,6 +589,18 @@ export function BarcodeManagementDialog({
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download All Barcodes ({stats.total})
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start bg-blue-50 hover:bg-blue-100 border-blue-200"
+                  onClick={() => {
+                    setStatusFilter("all")
+                    setTimeout(() => handlePrintCompact2Column(), 100)
+                  }}
+                  disabled={stats.total === 0}
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print 2-Column Layout ({stats.total})
                 </Button>
               </CardContent>
             </Card>
