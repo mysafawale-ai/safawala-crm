@@ -180,8 +180,8 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
             {/* Payment Method and Type */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-3 border-b border-gray-200 dark:border-gray-800">
               <div>
-                <p className="text-sm text-muted-foreground">Payment Method</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-medium text-muted-foreground uppercase">Payment Method</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">
                   {(booking as any).payment_method ? 
                     ((booking as any).payment_method === 'cash' ? '💵 Cash' : 
                      (booking as any).payment_method === 'card' ? '💳 Card' : 
@@ -193,8 +193,8 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Payment Type</p>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-medium text-muted-foreground uppercase">Payment Type</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">
                   {(booking as any).payment_type ? 
                     ((booking as any).payment_type === 'full' ? '💰 Full Payment' : 
                      (booking as any).payment_type === 'advance' ? '💵 Advance Payment' : 
@@ -208,27 +208,27 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
             {/* Amount Breakdown */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground font-medium">Subtotal</span>
                 <span className="font-medium">{formatCurrency((booking as any).subtotal || booking.total_amount)}</span>
               </div>
 
               {(booking as any).discount_amount && (booking as any).discount_amount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">💸 Discount</span>
+                  <span className="text-muted-foreground font-medium">💸 Discount</span>
                   <span className="font-medium text-green-600">-{formatCurrency((booking as any).discount_amount)}</span>
                 </div>
               )}
 
               {booking.coupon_code && booking.coupon_discount && booking.coupon_discount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">🎟️ Coupon ({booking.coupon_code})</span>
+                  <span className="text-muted-foreground font-medium">🎟️ Coupon ({booking.coupon_code})</span>
                   <span className="font-medium text-green-600">-{formatCurrency(booking.coupon_discount)}</span>
                 </div>
               )}
 
               {booking.tax_amount && booking.tax_amount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">📊 Tax ({(booking as any).tax_percentage || 5}%)</span>
+                  <span className="text-muted-foreground font-medium">📊 Tax ({(booking as any).tax_percentage || 5}%)</span>
                   <span className="font-medium">+{formatCurrency(booking.tax_amount)}</span>
                 </div>
               )}
@@ -389,35 +389,39 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
           <CardHeader className="bg-orange-50 dark:bg-orange-950">
             <CardTitle className="text-lg flex items-center gap-2">
               <Wrench className="h-5 w-5" />
-              🔧 Modifications
+              🔧 Modifications Required
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Has Modifications</p>
-                <Badge className={(booking as any).has_modifications ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                  {(booking as any).has_modifications ? '✅ Yes' : '❌ No'}
-                </Badge>
-              </div>
-
               {(booking as any).modifications_details && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Modification Details</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-950/30 p-3 rounded">
+                  <p className="text-sm font-medium text-muted-foreground uppercase">Details</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100 bg-orange-50 dark:bg-orange-950/30 p-3 rounded mt-1">
                     {(booking as any).modifications_details}
                   </p>
                 </div>
               )}
 
-              {(booking as any).modification_date && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Modification Date & Time</p>
-                  <p className="font-medium">
-                    {formatDateTime((booking as any).modification_date, (booking as any).modification_time)}
-                  </p>
-                </div>
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(booking as any).modification_date && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground uppercase">Date</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">
+                      {formatDate((booking as any).modification_date)}
+                    </p>
+                  </div>
+                )}
+
+                {(booking as any).modification_time && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground uppercase">Time</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100 mt-1">
+                      {(booking as any).modification_time}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

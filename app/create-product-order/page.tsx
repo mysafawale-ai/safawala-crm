@@ -1354,157 +1354,171 @@ export default function CreateProductOrderPage() {
                 {/* Delivery Date/Time & Address - for Direct Sales */}
                 {formData.booking_type === "sale" && (
                   <>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs">Delivery Date *</Label>
-                        <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start text-left"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {formData.delivery_date
-                                ? format(
-                                    new Date(formData.delivery_date),
-                                    "dd/MM/yyyy"
-                                  )
-                                : "Pick a date"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={
-                                formData.delivery_date
-                                  ? new Date(formData.delivery_date)
-                                  : undefined
-                              }
-                              onSelect={(d) => {
-                                setFormData({
-                                  ...formData,
-                                  delivery_date: d?.toISOString() || "",
-                                })
-                                setDeliveryDateOpen(false)
-                              }}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <Input
-                          type="time"
-                          value={formData.delivery_time}
+                    {/* 🚚 Delivery Details Section */}
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                        🚚 Delivery Details
+                      </h3>
+                      
+                      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Delivery Date *</Label>
+                          <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {formData.delivery_date
+                                  ? format(
+                                      new Date(formData.delivery_date),
+                                      "dd/MM/yyyy"
+                                    )
+                                  : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  formData.delivery_date
+                                    ? new Date(formData.delivery_date)
+                                    : undefined
+                                }
+                                onSelect={(d) => {
+                                  setFormData({
+                                    ...formData,
+                                    delivery_date: d?.toISOString() || "",
+                                  })
+                                  setDeliveryDateOpen(false)
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Delivery Time</Label>
+                          <Input
+                            type="time"
+                            value={formData.delivery_time}
+                            onChange={(e) =>
+                              setFormData({ ...formData, delivery_time: e.target.value })
+                            }
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs font-medium">Delivery Address</Label>
+                        <Textarea
+                          rows={3}
+                          value={formData.delivery_address}
                           onChange={(e) =>
-                            setFormData({ ...formData, delivery_time: e.target.value })
+                            setFormData({ ...formData, delivery_address: e.target.value })
                           }
-                          className="text-sm"
+                          className="mt-1"
+                          placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <Label className="text-xs">Delivery Address</Label>
-                      <Textarea
-                        rows={3}
-                        value={formData.delivery_address}
-                        onChange={(e) =>
-                          setFormData({ ...formData, delivery_address: e.target.value })
-                        }
-                        className="mt-1"
-                        placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
-                      />
-                    </div>
-                  </>
-                )}
+                    {/* 🔧 Modifications Section */}
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                        🔧 Modifications & Requirements
+                      </h3>
 
-                {/* Modifications - for Direct Sales */}
-                {formData.booking_type === "sale" && (
-                  <div className="space-y-3 border-t pt-4">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="hasModifications"
-                        checked={formData.has_modifications}
-                        onCheckedChange={(checked) =>
-                          setFormData({
-                            ...formData,
-                            has_modifications: checked === true,
-                          })
-                        }
-                      />
-                      <Label htmlFor="hasModifications" className="text-sm font-medium cursor-pointer">
-                        Modifications Required
-                      </Label>
-                    </div>
-                    {formData.has_modifications && (
-                      <div className="space-y-4">
-                        <div>
-                          <Label className="text-xs">Modification Details</Label>
-                          <Textarea
-                            rows={2}
-                            value={formData.modifications_details}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                modifications_details: e.target.value,
-                              })
-                            }
-                            className="mt-1"
-                            placeholder="Describe any modifications needed (e.g., color change, size adjustment, special embroidery, etc.)"
-                          />
-                        </div>
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Checkbox
+                          id="hasModifications"
+                          checked={formData.has_modifications}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              has_modifications: checked === true,
+                            })
+                          }
+                        />
+                        <Label htmlFor="hasModifications" className="text-sm font-medium cursor-pointer">
+                          Modifications Required
+                        </Label>
+                      </div>
 
-                        <div className="grid sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="text-xs">Modification Date</Label>
-                            <Popover open={modificationDateOpen} onOpenChange={setModificationDateOpen}>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className="w-full justify-start text-left"
-                                >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {formData.modification_date
-                                    ? format(
-                                        new Date(formData.modification_date),
-                                        "dd/MM/yyyy"
-                                      )
-                                    : "Pick a date"}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                  mode="single"
-                                  selected={
-                                    formData.modification_date
-                                      ? new Date(formData.modification_date)
-                                      : undefined
-                                  }
-                                  onSelect={(d) => {
-                                    setFormData({
-                                      ...formData,
-                                      modification_date: d?.toISOString() || "",
-                                    })
-                                    setModificationDateOpen(false)
-                                  }}
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-
+                      {formData.has_modifications && (
+                        <div className="space-y-4">
                           <div>
-                            <Label className="text-xs">Modification Time</Label>
-                            <Input
-                              type="time"
-                              value={formData.modification_time}
+                            <Label className="text-xs font-medium">Modification Details *</Label>
+                            <Textarea
+                              rows={3}
+                              value={formData.modifications_details}
                               onChange={(e) =>
-                                setFormData({ ...formData, modification_time: e.target.value })
+                                setFormData({
+                                  ...formData,
+                                  modifications_details: e.target.value,
+                                })
                               }
-                              className="text-sm"
+                              className="mt-1"
+                              placeholder="Describe any modifications needed (e.g., color change, size adjustment, special embroidery, etc.)"
                             />
                           </div>
+
+                          <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Modification Date *</Label>
+                              <Popover open={modificationDateOpen} onOpenChange={setModificationDateOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    className="w-full justify-start text-left"
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {formData.modification_date
+                                      ? format(
+                                          new Date(formData.modification_date),
+                                          "dd/MM/yyyy"
+                                        )
+                                      : "Pick a date"}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                  <Calendar
+                                    mode="single"
+                                    selected={
+                                      formData.modification_date
+                                        ? new Date(formData.modification_date)
+                                        : undefined
+                                    }
+                                    onSelect={(d) => {
+                                      setFormData({
+                                        ...formData,
+                                        modification_date: d?.toISOString() || "",
+                                      })
+                                      setModificationDateOpen(false)
+                                    }}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Modification Time *</Label>
+                              <Input
+                                type="time"
+                                value={formData.modification_time}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, modification_time: e.target.value })
+                                }
+                                className="text-sm"
+                              />
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -1612,7 +1626,9 @@ export default function CreateProductOrderPage() {
             {/* Notes */}
             <Card>
               <CardHeader>
-                <CardTitle>Notes</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  📝 Notes & Special Instructions
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Textarea

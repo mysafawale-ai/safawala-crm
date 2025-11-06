@@ -1269,7 +1269,7 @@ export default function BookingsPage() {
           {selectedBooking && (
             <>
               {/* Direct Sales Order - Using New Dedicated Component */}
-              {((selectedBooking as any).booking_type === 'sale' || (selectedBooking as any).booking_subtype === 'sale' || (selectedBooking as any).source === 'product_orders') ? (
+              {((selectedBooking as any).booking_type === 'sale' || (selectedBooking as any).booking_subtype === 'sale' || (selectedBooking as any).source === 'product_orders' || (selectedBooking.booking_number && (selectedBooking.booking_number as string).startsWith('ORD'))) ? (
                 <DirectSalesBookingDetails 
                   booking={{
                     ...selectedBooking,
