@@ -122,7 +122,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                width: 2.99in;
+                width: 1.95in;
                 height: 1.495in;
               }
 
