@@ -275,6 +275,7 @@ export default function CreateProductOrderPage() {
           sale_price: p.sale_price || 0,
           security_deposit: p.security_deposit || 0,
           stock_available: p.stock_available || 0,
+          image_url: (p as any).image_url || undefined,
           barcode: (p as any).barcode || (p as any).barcode_number || null,
           product_code: p.product_code || null,
           all_barcode_numbers: p.all_barcode_numbers || []
@@ -623,8 +624,8 @@ export default function CreateProductOrderPage() {
   }
 
   // Combine date and time into ISO string
-  const combineDateAndTime = (dateStr: string, timeStr: string): string => {
-    if (!dateStr) return ""
+  const combineDateAndTime = (dateStr: string, timeStr: string): string | null => {
+    if (!dateStr || dateStr.trim() === "") return null
     const date = new Date(dateStr)
     const [hours, minutes] = timeStr.split(":")
     date.setHours(parseInt(hours), parseInt(minutes), 0, 0)
@@ -644,11 +645,7 @@ export default function CreateProductOrderPage() {
       return
     }
     if (!formData.event_date && formData.booking_type === "rental") {
-      toast.error("Event date required")
-      return
-    }
-    if (!formData.delivery_date && formData.booking_type === "sale") {
-      toast.error("Delivery date required")
+      toast.error("Event date required for rental")
       return
     }
     // For direct sales, products are mandatory
@@ -657,6 +654,7 @@ export default function CreateProductOrderPage() {
       return
     }
     // ✅ For rentals, product selection is optional
+    // ✅ For sales, event_date and delivery_date are both optional
     // ✅ BUG FIX #1: Validate user session loaded
     if (!currentUser?.franchise_id) {
       toast.error("Session error: Please refresh the page")
@@ -670,7 +668,19 @@ export default function CreateProductOrderPage() {
       // ==================================================================
       if (isEditMode && editQuoteId) {
         // Combine dates with times
-        const eventDateTime = combineDateAndTime(formData.event_date, formData.event_time)
+        // ✅ For rentals: event_date is required. For sales: use delivery_date or current date as fallback
+        let eventDateTime = combineDateAndTime(formData.event_date, formData.event_time)
+        if (!eventDateTime && formData.booking_type === "sale") {
+          // For direct sales, use delivery_date if available
+          if (formData.delivery_date) {
+            eventDateTime = combineDateAndTime(formData.delivery_date, formData.delivery_time)
+          } else {
+            // If both are empty, use today's date to satisfy NOT NULL constraint
+            const today = new Date().toISOString().split('T')[0]
+            eventDateTime = combineDateAndTime(today, formData.event_time)
+          }
+        }
+        
         const deliveryDateTime = formData.delivery_date 
           ? combineDateAndTime(formData.delivery_date, formData.delivery_time)
           : null
@@ -759,7 +769,19 @@ export default function CreateProductOrderPage() {
       const orderNumber = `${prefix}${Date.now().toString().slice(-8)}`
 
       // Combine dates with times
-      const eventDateTime = combineDateAndTime(formData.event_date, formData.event_time)
+      // ✅ For rentals: event_date is required. For sales: use delivery_date or current date as fallback
+      let eventDateTime = combineDateAndTime(formData.event_date, formData.event_time)
+      if (!eventDateTime && formData.booking_type === "sale") {
+        // For direct sales, use delivery_date if available
+        if (formData.delivery_date) {
+          eventDateTime = combineDateAndTime(formData.delivery_date, formData.delivery_time)
+        } else {
+          // If both are empty, use today's date to satisfy NOT NULL constraint
+          const today = new Date().toISOString().split('T')[0]
+          eventDateTime = combineDateAndTime(today, formData.event_time)
+        }
+      }
+      
       const deliveryDateTime = formData.delivery_date 
         ? combineDateAndTime(formData.delivery_date, formData.delivery_time)
         : null
@@ -2164,22 +2186,25 @@ export default function CreateProductOrderPage() {
             </Card>
 
             {/* Submit Buttons */}
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled={loading}
-                onClick={() => handleSubmit(true)}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  isEditMode ? "Update Quote" : "Create Quote for Now"
-                )}
-              </Button>
+            <div className={`grid gap-4 ${formData.booking_type === "sale" ? "grid-cols-1" : "grid-cols-2"}`}>
+              {/* Create Quote button - only show for rentals */}
+              {formData.booking_type === "rental" && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={loading}
+                  onClick={() => handleSubmit(true)}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    isEditMode ? "Update Quote" : "Create Quote for Now"
+                  )}
+                </Button>
+              )}
               <Button
                 className="w-full"
                 disabled={loading}

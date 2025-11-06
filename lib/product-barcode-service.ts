@@ -20,6 +20,7 @@ export interface ProductWithBarcodes {
   alternate_barcode_2?: string
   sku?: string
   code?: string
+  image_url?: string
   // Extended fields with barcodes
   barcodes?: Array<{
     id: string

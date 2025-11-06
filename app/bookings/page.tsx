@@ -41,6 +41,7 @@ import { useData } from "@/hooks/use-data"
 import { useToast } from "@/hooks/use-toast"
 import { BookingCalendar } from "@/components/bookings/booking-calendar"
 import { BookingBarcodes } from "@/components/bookings/booking-barcodes"
+import { DirectSalesBookingDetails } from "@/components/bookings/direct-sales-booking-details"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { ItemsDisplayDialog, ItemsSelectionDialog, CompactItemsDisplayDialog } from "@/components/shared"
@@ -1047,6 +1048,11 @@ export default function BookingsPage() {
                             const hasItems = (booking as any).has_items || bookingsWithItems.has(booking.id)
                             const bookingType = (booking as any).type
                             
+                            // ✅ For direct sales: don't show items column at all
+                            if (bookingType === 'sale') {
+                              return <span className="text-muted-foreground text-sm">—</span>
+                            }
+                            
                             // Check if there are actually no items in the fetched data
                             // Priority: actual items array > has_items flag
                             const actuallyHasItems = items.length > 0
@@ -1068,8 +1074,8 @@ export default function BookingsPage() {
                               )
                             }
                             
-                            // For product sales and rentals: show just "items"
-                            if (bookingType === 'sale' || bookingType === 'rental') {
+                            // For product rentals: show "items" with click handler
+                            if (bookingType === 'rental') {
                               return (
                                 <Badge 
                                   variant="default"
@@ -1085,7 +1091,7 @@ export default function BookingsPage() {
                               )
                             }
                             
-                            // For packages: show just "items"
+                            // For packages: show "items"
                             if (items.length === 0) {
                               return (
                                 <Badge 
@@ -1261,9 +1267,20 @@ export default function BookingsPage() {
           </DialogHeader>
           
           {selectedBooking && (
-            <div className="space-y-4">
-              {/* Customer Information */}
-              <Card>
+            <>
+              {/* Direct Sales Order - Using New Dedicated Component */}
+              {((selectedBooking as any).booking_type === 'sale' || (selectedBooking as any).booking_subtype === 'sale' || (selectedBooking as any).source === 'product_orders') ? (
+                <DirectSalesBookingDetails 
+                  booking={{
+                    ...selectedBooking,
+                    bookingItems: bookingItems[selectedBooking.id] || []
+                  }}
+                />
+              ) : (
+                /* Rental/Package Booking - Original Dialog Content */
+                <div className="space-y-4">
+                  {/* Customer Information */}
+                  <Card>
                 <CardHeader className="bg-blue-50 dark:bg-blue-950">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <User className="h-5 w-5" />
@@ -1486,8 +1503,9 @@ export default function BookingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Booking Items - New Reusable Dialog */}
-              {selectedBooking && bookingItems[selectedBooking.id] && bookingItems[selectedBooking.id].length > 0 && (
+              {/* Booking Items - New Reusable Dialog (Only for Rentals/Packages) */}
+              {selectedBooking && bookingItems[selectedBooking.id] && bookingItems[selectedBooking.id].length > 0 && 
+               (((selectedBooking as any).booking_type !== 'sale' && (selectedBooking as any).booking_subtype !== 'sale' && (selectedBooking as any).source !== 'product_orders')) && (
                 <Card>
                   <CardHeader className="bg-green-50 dark:bg-green-950">
                     <CardTitle className="text-lg flex items-center gap-2">
@@ -1556,13 +1574,15 @@ export default function BookingsPage() {
                 </Card>
               )}
 
-              {/* Assigned Barcodes */}
-              <BookingBarcodes 
-                bookingId={selectedBooking.id} 
-                bookingType={(selectedBooking as any).source === 'package_bookings' ? 'package' : 'product'}
-                franchiseId={currentUser?.franchise_id}
-                userId={currentUser?.id}
-              />
+              {/* Assigned Barcodes (Only for Rentals/Packages) */}
+              {((selectedBooking as any).booking_type !== 'sale' && (selectedBooking as any).booking_subtype !== 'sale' && (selectedBooking as any).source !== 'product_orders') && (
+                <BookingBarcodes 
+                  bookingId={selectedBooking.id} 
+                  bookingType={(selectedBooking as any).source === 'package_bookings' ? 'package' : 'product'}
+                  franchiseId={currentUser?.franchise_id}
+                  userId={currentUser?.id}
+                />
+              )}
 
               {/* Enhanced Financial Summary */}
               <Card>
@@ -1723,7 +1743,9 @@ export default function BookingsPage() {
                   Close
                 </Button>
               </div>
-            </div>
+                </div>
+              )}
+            </>
           )}
         </DialogContent>
       </Dialog>

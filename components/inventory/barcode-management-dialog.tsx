@@ -351,28 +351,28 @@ export function BarcodeManagementDialog({
 
           // Row with 2 columns, no gaps, attached together
           barcodeHTML += `
-            <div class="barcode-row" style="display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333;">
-              <div class="barcode-column" style="flex: 1; border-right: 2px solid #333; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px;">
-                <img src="${barcodeImage1}" alt="Barcode" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 8px;" />
-                <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; margin: 0;">
+            <div class="barcode-row" style="display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333; height: 140px;">
+              <div class="barcode-column" style="flex: 1; border-right: 2px solid #333; padding: 12px 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <img src="${barcodeImage1}" alt="Barcode" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 6px;" />
+                <div style="font-family: 'Courier New', monospace; font-size: 10px; font-weight: 700; margin: 0; line-height: 1;">
                   ${barcode1.barcode_number}
                 </div>
-                <div style="font-family: Arial, sans-serif; font-size: 11px; color: #333; margin-top: 4px;">
+                <div style="font-family: Arial, sans-serif; font-size: 7px; color: #333; margin-top: 2px; line-height: 1;">
                   ${productName}
                 </div>
               </div>
               ${barcode2 ? `
-              <div class="barcode-column" style="flex: 1; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px;">
-                <img src="${barcodeImage2}" alt="Barcode" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 8px;" />
-                <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; margin: 0;">
+              <div class="barcode-column" style="flex: 1; padding: 12px 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <img src="${barcodeImage2}" alt="Barcode" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 6px;" />
+                <div style="font-family: 'Courier New', monospace; font-size: 10px; font-weight: 700; margin: 0; line-height: 1;">
                   ${barcode2.barcode_number}
                 </div>
-                <div style="font-family: Arial, sans-serif; font-size: 11px; color: #333; margin-top: 4px;">
+                <div style="font-family: Arial, sans-serif; font-size: 7px; color: #333; margin-top: 2px; line-height: 1;">
                   ${productName}
                 </div>
               </div>
               ` : `
-              <div class="barcode-column" style="flex: 1; padding: 15px;"></div>
+              <div class="barcode-column" style="flex: 1; padding: 12px 10px;"></div>
               `}
             </div>
           `
@@ -387,8 +387,8 @@ export function BarcodeManagementDialog({
               html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
               @page { margin: 0; padding: 0; size: A4; }
               body { font-family: Arial, sans-serif; background: white; margin: 0; padding: 0; }
-              .barcode-row { display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333; page-break-inside: avoid; }
-              .barcode-column { flex: 1; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px; border-right: 2px solid #333; }
+              .barcode-row { display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333; height: 140px; page-break-inside: avoid; }
+              .barcode-column { flex: 1; padding: 12px 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; border-right: 2px solid #333; }
               .barcode-column:last-child { border-right: none; }
               @media print { html, body { margin: 0; padding: 0; } body { margin: 0; padding: 0; } .barcode-row { page-break-inside: avoid; } }
             </style>

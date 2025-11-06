@@ -48,28 +48,28 @@ export function RandomBarcodePrinter({ open, onOpenChange }: RandomBarcodePrinte
 
           // Row with 2 columns, no gaps, attached together
           barcodeHTML += `
-            <div class="barcode-row" style="display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333;">
-              <div class="barcode-column" style="flex: 1; border-right: 2px solid #333; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px;">
-                <img src="${barcodeImage1}" alt="Barcode ${i + 1}" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 8px;" />
-                <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; margin: 0;">
+            <div class="barcode-row" style="display: flex; margin: 0; padding: 0; border-bottom: 2px solid #333; height: 140px;">
+              <div class="barcode-column" style="flex: 1; border-right: 2px solid #333; padding: 12px 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <img src="${barcodeImage1}" alt="Barcode ${i + 1}" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 6px;" />
+                <div style="font-family: 'Courier New', monospace; font-size: 10px; font-weight: 700; margin: 0; line-height: 1;">
                   ${randomBarcode1}
                 </div>
-                <div style="font-family: Arial, sans-serif; font-size: 11px; color: #333; margin-top: 4px;">
+                <div style="font-family: Arial, sans-serif; font-size: 7px; color: #333; margin-top: 2px; line-height: 1;">
                   ${productName1}
                 </div>
               </div>
               ${randomBarcode2 ? `
-              <div class="barcode-column" style="flex: 1; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px;">
-                <img src="${barcodeImage2}" alt="Barcode ${i + 2}" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 8px;" />
-                <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; margin: 0;">
+              <div class="barcode-column" style="flex: 1; padding: 12px 10px; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <img src="${barcodeImage2}" alt="Barcode ${i + 2}" style="width: 90%; height: auto; max-height: 50%; display: block; margin-bottom: 6px;" />
+                <div style="font-family: 'Courier New', monospace; font-size: 10px; font-weight: 700; margin: 0; line-height: 1;">
                   ${randomBarcode2}
                 </div>
-                <div style="font-family: Arial, sans-serif; font-size: 11px; color: #333; margin-top: 4px;">
+                <div style="font-family: Arial, sans-serif; font-size: 7px; color: #333; margin-top: 2px; line-height: 1;">
                   ${productName2}
                 </div>
               </div>
               ` : `
-              <div class="barcode-column" style="flex: 1; padding: 15px;"></div>
+              <div class="barcode-column" style="flex: 1; padding: 12px 10px;"></div>
               `}
             </div>
           `
@@ -111,18 +111,18 @@ export function RandomBarcodePrinter({ open, onOpenChange }: RandomBarcodePrinte
                 margin: 0;
                 padding: 0;
                 border-bottom: 2px solid #333;
+                height: 140px;
                 page-break-inside: avoid;
               }
 
               .barcode-column {
                 flex: 1;
-                padding: 15px;
+                padding: 12px 10px;
                 text-align: center;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                min-height: 180px;
                 border-right: 2px solid #333;
               }
 
@@ -135,21 +135,23 @@ export function RandomBarcodePrinter({ open, onOpenChange }: RandomBarcodePrinte
                 height: auto;
                 max-height: 50%;
                 display: block;
-                margin-bottom: 8px;
+                margin-bottom: 6px;
               }
 
               .barcode-code {
                 font-family: 'Courier New', monospace;
-                font-size: 13px;
+                font-size: 10px;
                 font-weight: 700;
                 margin: 0;
+                line-height: 1;
               }
 
               .barcode-name {
                 font-family: Arial, sans-serif;
-                font-size: 11px;
+                font-size: 7px;
                 color: #333;
-                margin-top: 4px;
+                margin-top: 2px;
+                line-height: 1;
               }
 
               @media print {
