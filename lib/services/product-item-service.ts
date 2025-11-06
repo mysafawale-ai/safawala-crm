@@ -78,7 +78,7 @@ export class ProductItemService {
           item_code: itemCode,
           barcode: barcode,
           qr_code: `QR-${itemCode}`,
-          condition: request.condition || "new",
+          condition: (request.condition || "new") as "new" | "good" | "fair" | "poor" | "damaged",
           location: request.location,
           notes: request.notes,
           franchise_id: product.franchise_id,
@@ -91,10 +91,7 @@ export class ProductItemService {
       const { data, error } = await supabase
         .from("product_items")
         .insert(items)
-        .select(`
-          *,
-          product:products(name, product_code, category)
-        `)
+        .select("*")
 
       if (error) throw error
 
@@ -109,10 +106,7 @@ export class ProductItemService {
     try {
       const { data, error } = await supabase
         .from("product_items")
-        .select(`
-          *,
-          product:products(name, product_code, category)
-        `)
+        .select("*")
         .eq("product_id", productId)
         .order("created_at", { ascending: false })
 
@@ -157,10 +151,7 @@ export class ProductItemService {
     try {
       const { data, error } = await supabase
         .from("product_items")
-        .select(`
-          *,
-          product:products(name, product_code, category)
-        `)
+        .select("*")
         .eq("barcode", barcode)
         .single()
 
