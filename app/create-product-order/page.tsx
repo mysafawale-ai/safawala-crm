@@ -143,6 +143,7 @@ export default function CreateProductOrderPage() {
   const [eventDateOpen, setEventDateOpen] = useState(false)
   const [deliveryDateOpen, setDeliveryDateOpen] = useState(false)
   const [returnDateOpen, setReturnDateOpen] = useState(false)
+  const [modificationDateOpen, setModificationDateOpen] = useState(false)
 
   const [formData, setFormData] = useState({
     booking_type: "rental" as "rental" | "sale",
@@ -172,6 +173,8 @@ export default function CreateProductOrderPage() {
     delivery_address: "",
     has_modifications: false,
     modifications_details: "",
+    modification_date: "",
+    modification_time: "10:00",
   })
 
   // Scroll to top when page loads
@@ -347,6 +350,7 @@ export default function CreateProductOrderPage() {
       const eventDateTime = quote.event_date ? new Date(quote.event_date) : null
       const deliveryDateTime = quote.delivery_date ? new Date(quote.delivery_date) : null
       const returnDateTime = quote.return_date ? new Date(quote.return_date) : null
+      const modificationDateTime = quote.modification_date ? new Date(quote.modification_date) : null
 
       setFormData({
         booking_type: quote.booking_type || "rental",
@@ -376,6 +380,8 @@ export default function CreateProductOrderPage() {
         delivery_address: quote.delivery_address || "",
         has_modifications: quote.has_modifications || false,
         modifications_details: quote.modifications_details || "",
+        modification_date: modificationDateTime ? modificationDateTime.toISOString().split('T')[0] : "",
+        modification_time: modificationDateTime ? format(modificationDateTime, "HH:mm") : "10:00",
       })
 
       // Pre-fill items - find products and create order items
@@ -706,6 +712,9 @@ export default function CreateProductOrderPage() {
             amount_paid: amountPaidNow,
             pending_amount: totals.remaining,
             sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null,
+            has_modifications: formData.has_modifications,
+            modifications_details: formData.modifications_details,
+            modification_date: formData.has_modifications && formData.modification_date ? combineDateAndTime(formData.modification_date, formData.modification_time) : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editQuoteId)
@@ -757,6 +766,9 @@ export default function CreateProductOrderPage() {
       const returnDateTime = formData.return_date
         ? combineDateAndTime(formData.return_date, formData.return_time)
         : null
+      const modificationDateTime = formData.has_modifications && formData.modification_date
+        ? combineDateAndTime(formData.modification_date, formData.modification_time)
+        : null
 
       // Calculate amount to save as paid now (includes deposit for rentals)
       const amountPaidNow = totals.payable + (formData.booking_type === "rental" ? totals.deposit : 0)
@@ -792,6 +804,9 @@ export default function CreateProductOrderPage() {
           security_deposit: totals.deposit, // Track order-level deposit (rental)
           amount_paid: amountPaidNow,  // Payable portion plus refundable deposit (if rental)
           pending_amount: totals.remaining,  // Remaining on the grand total (excludes deposit)
+          has_modifications: formData.has_modifications,
+          modifications_details: formData.modifications_details,
+          modification_date: modificationDateTime,
           status: isQuote ? "quote" : "confirmed",
           is_quote: isQuote,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
@@ -1398,20 +1413,73 @@ export default function CreateProductOrderPage() {
                       </Label>
                     </div>
                     {formData.has_modifications && (
-                      <div>
-                        <Label className="text-xs">Modification Details</Label>
-                        <Textarea
-                          rows={2}
-                          value={formData.modifications_details}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              modifications_details: e.target.value,
-                            })
-                          }
-                          className="mt-1"
-                          placeholder="Describe any modifications needed (e.g., color change, size adjustment, special embroidery, etc.)"
-                        />
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-xs">Modification Details</Label>
+                          <Textarea
+                            rows={2}
+                            value={formData.modifications_details}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                modifications_details: e.target.value,
+                              })
+                            }
+                            className="mt-1"
+                            placeholder="Describe any modifications needed (e.g., color change, size adjustment, special embroidery, etc.)"
+                          />
+                        </div>
+
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Modification Date</Label>
+                            <Popover open={modificationDateOpen} onOpenChange={setModificationDateOpen}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start text-left"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {formData.modification_date
+                                    ? format(
+                                        new Date(formData.modification_date),
+                                        "dd/MM/yyyy"
+                                      )
+                                    : "Pick a date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                  mode="single"
+                                  selected={
+                                    formData.modification_date
+                                      ? new Date(formData.modification_date)
+                                      : undefined
+                                  }
+                                  onSelect={(d) => {
+                                    setFormData({
+                                      ...formData,
+                                      modification_date: d?.toISOString() || "",
+                                    })
+                                    setModificationDateOpen(false)
+                                  }}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">Modification Time</Label>
+                            <Input
+                              type="time"
+                              value={formData.modification_time}
+                              onChange={(e) =>
+                                setFormData({ ...formData, modification_time: e.target.value })
+                              }
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
