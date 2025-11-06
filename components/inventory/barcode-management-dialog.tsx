@@ -413,6 +413,228 @@ export function BarcodeManagementDialog({
     }
   }
 
+  const handlePrint2x5Layout = async () => {
+    try {
+      const selectedBarcodesData = barcodes.filter((b) => selectedBarcodes.includes(b.id)).slice(0, 10)
+      
+      if (selectedBarcodesData.length === 0) {
+        toast.error("No barcodes selected")
+        return
+      }
+
+      const JsBarcode = (await import('jsbarcode')).default
+
+      // Generate barcode images
+      const barcodeImages: string[] = []
+      for (let i = 0; i < selectedBarcodesData.length; i++) {
+        const canvas = document.createElement('canvas')
+        canvas.width = 800
+        canvas.height = 200
+        JsBarcode(canvas, selectedBarcodesData[i].barcode_number, {
+          format: 'CODE128',
+          width: 2,
+          height: 50,
+          displayValue: false,
+          margin: 0,
+        })
+        barcodeImages[i] = canvas.toDataURL('image/png')
+      }
+
+      // Generate HTML with 2 columns × 5 rows layout
+      let barcodeHTML = ''
+
+      for (let rowIdx = 0; rowIdx < 5; rowIdx++) {
+        barcodeHTML += `
+          <div class="barcode-row">
+            ${generatePrintRowColumn(0 + rowIdx * 2, barcodeImages, selectedBarcodesData, productName)}
+            ${generatePrintRowColumn(1 + rowIdx * 2, barcodeImages, selectedBarcodesData, productName)}
+          </div>
+        `
+      }
+
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Barcode Print - 2x5 Layout</title>
+              <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+                @page { margin: 0; padding: 0; size: A4; }
+                body { font-family: Arial, sans-serif; background: white; margin: 0; padding: 0; }
+                .barcode-row {
+                  display: flex;
+                  margin: 0;
+                  padding: 0;
+                  border-bottom: 2px solid #333;
+                  height: 140px;
+                  page-break-inside: avoid;
+                }
+                .barcode-column {
+                  flex: 1;
+                  padding: 12px 10px;
+                  text-align: center;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: center;
+                  align-items: center;
+                  border-right: 2px solid #333;
+                }
+                .barcode-column:last-child {
+                  border-right: none;
+                }
+                .barcode-image {
+                  width: 90%;
+                  height: auto;
+                  max-height: 50%;
+                  display: block;
+                  margin-bottom: 6px;
+                }
+                .barcode-code {
+                  font-family: 'Courier New', monospace;
+                  font-size: 10px;
+                  font-weight: 700;
+                  margin: 0;
+                  line-height: 1;
+                }
+                .barcode-name {
+                  font-family: Arial, sans-serif;
+                  font-size: 7px;
+                  color: #333;
+                  margin-top: 2px;
+                  line-height: 1;
+                  word-break: break-word;
+                }
+                @media print {
+                  html, body { margin: 0; padding: 0; }
+                  body { margin: 0; padding: 0; }
+                  .barcode-row { page-break-inside: avoid; }
+                }
+              </style>
+            </head>
+            <body>
+              ${barcodeHTML}
+            </body>
+          </html>
+        `)
+        printWindow.document.close()
+
+        setTimeout(() => {
+          printWindow.print()
+        }, 500)
+
+        toast.success(`Print preview opened for ${selectedBarcodesData.length} barcodes`)
+      }
+    } catch (error) {
+      console.error("Error generating print layout:", error)
+      toast.error("Failed to generate print layout")
+    }
+  }
+
+  const handleDownload2x5PDF = async () => {
+    try {
+      const selectedBarcodesData = barcodes.filter((b) => selectedBarcodes.includes(b.id)).slice(0, 10)
+      
+      if (selectedBarcodesData.length === 0) {
+        toast.error("No barcodes selected")
+        return
+      }
+
+      const { default: jsPDF } = await import('jspdf')
+      const JsBarcode = (await import('jsbarcode')).default
+
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'A4'
+      })
+
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const cols = 2
+      const rows = 5
+      const margin = 5
+      const rowHeight = (pageHeight - 2 * margin) / rows
+      const colWidth = (pageWidth - 2 * margin) / cols
+
+      let barcodeIndex = 0
+
+      for (let rowIdx = 0; rowIdx < rows; rowIdx++) {
+        for (let colIdx = 0; colIdx < cols; colIdx++) {
+          if (barcodeIndex >= selectedBarcodesData.length) break
+
+          const barcode = selectedBarcodesData[barcodeIndex]
+          const x = margin + colIdx * colWidth
+          const y = margin + rowIdx * rowHeight
+
+          // Generate barcode
+          const canvas = document.createElement('canvas')
+          const scale = 2
+          canvas.width = 400 * scale
+          canvas.height = 100 * scale
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.scale(scale, scale)
+          }
+
+          JsBarcode(canvas, barcode.barcode_number, {
+            format: 'CODE128',
+            width: 2,
+            height: 40,
+            displayValue: false,
+            margin: 0,
+          })
+
+          // Add barcode to PDF
+          const imgData = canvas.toDataURL('image/png')
+          const barcodeWidth = colWidth - 4
+          const barcodeHeight = 15
+
+          doc.addImage(
+            imgData,
+            'PNG',
+            x + 2,
+            y + 5,
+            barcodeWidth,
+            barcodeHeight,
+            undefined,
+            'FAST'
+          )
+
+          // Add barcode code
+          doc.setFontSize(7)
+          doc.setFont('courier', 'bold')
+          doc.text(barcode.barcode_number, x + colWidth / 2, y + 23, { align: 'center' })
+
+          // Add product name
+          doc.setFontSize(5)
+          doc.setFont('helvetica', 'normal')
+          const maxWidth = colWidth - 4
+          doc.text(productName.substring(0, 30), x + colWidth / 2, y + 28, {
+            align: 'center',
+            maxWidth
+          })
+
+          // Add borders
+          doc.setDrawColor(200, 200, 200)
+          doc.setLineWidth(0.3)
+          doc.rect(x, y, colWidth, rowHeight)
+
+          barcodeIndex++
+        }
+      }
+
+      const filename = `${productCode}-barcodes-2x5-${new Date().toISOString().split('T')[0]}.pdf`
+      doc.save(filename)
+
+      toast.success('PDF downloaded successfully')
+    } catch (error) {
+      console.error("Error generating PDF:", error)
+      toast.error("Failed to generate PDF")
+    }
+  }
+
   const getStatusBadge = (barcode: ProductBarcode) => {
     // Status represents physical condition
     switch (barcode.status) {
@@ -469,9 +691,10 @@ export function BarcodeManagementDialog({
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="w-full flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="list">Barcode List</TabsTrigger>
+            <TabsTrigger value="print-2x5">Print 2×5</TabsTrigger>
             <TabsTrigger value="generate">Generate More</TabsTrigger>
           </TabsList>
 
@@ -777,6 +1000,91 @@ export function BarcodeManagementDialog({
             </div>
           </TabsContent>
 
+          {/* Print 2x5 Tab */}
+          <TabsContent value="print-2x5" className="space-y-4 overflow-y-auto flex-1">
+            <Card>
+              <CardHeader>
+                <CardTitle>Print 2 Columns × 5 Rows Layout</CardTitle>
+                <CardDescription>
+                  Select up to 10 barcodes to print in a compact 2×5 layout
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <Label>Select Barcodes to Print (Max 10)</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                    {filteredBarcodes.slice(0, 20).map((barcode, idx) => (
+                      <div key={barcode.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`print-select-${barcode.id}`}
+                          checked={selectedBarcodes.includes(barcode.id)}
+                          onCheckedChange={() => {
+                            if (selectedBarcodes.length >= 10 && !selectedBarcodes.includes(barcode.id)) {
+                              toast.error("Maximum 10 barcodes allowed")
+                              return
+                            }
+                            handleSelectBarcode(barcode.id)
+                          }}
+                        />
+                        <Label
+                          htmlFor={`print-select-${barcode.id}`}
+                          className="text-sm cursor-pointer flex-1"
+                        >
+                          <span className="font-mono font-bold">{barcode.barcode_number}</span>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Selected: {selectedBarcodes.length} / 10
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Button
+                    onClick={async () => {
+                      if (selectedBarcodes.length === 0) {
+                        toast.error("Please select at least one barcode")
+                        return
+                      }
+                      await handlePrint2x5Layout()
+                    }}
+                    size="lg"
+                    className="w-full"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Open Print Preview
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (selectedBarcodes.length === 0) {
+                        toast.error("Please select at least one barcode")
+                        return
+                      }
+                      await handleDownload2x5PDF()
+                    }}
+                    size="lg"
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-semibold text-blue-900">ℹ️ Layout Details:</p>
+                  <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                    <li>2 columns × 5 rows = 10 barcodes per page</li>
+                    <li>Barcode font: 10px (0.8x)</li>
+                    <li>Product name: 7px (0.6x)</li>
+                    <li>No gaps between rows for compact printing</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Generate Tab */}
           <TabsContent value="generate" className="space-y-4 overflow-y-auto flex-1">
             <Card>
@@ -828,4 +1136,30 @@ export function BarcodeManagementDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+function generatePrintRowColumn(
+  index: number,
+  barcodeImages: string[],
+  barcodes: ProductBarcode[],
+  productName?: string
+): string {
+  if (index >= barcodes.length || !barcodes[index].barcode_number) {
+    return `
+      <div class="barcode-column" style="flex: 1; padding: 12px 10px; border-right: 2px solid #333;">
+      </div>
+    `
+  }
+
+  return `
+    <div class="barcode-column">
+      ${
+        barcodeImages[index]
+          ? `<img src="${barcodeImages[index]}" alt="Barcode" class="barcode-image" />`
+          : ''
+      }
+      <div class="barcode-code">${barcodes[index].barcode_number}</div>
+      <div class="barcode-name">${productName || 'Product'}</div>
+    </div>
+  `
 }
