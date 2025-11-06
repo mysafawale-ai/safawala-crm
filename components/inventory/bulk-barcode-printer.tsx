@@ -96,7 +96,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               @page {
                 margin: 0;
                 padding: 0;
-                size: auto;
+                size: 105mm auto;
               }
               
               body {
@@ -124,8 +124,8 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                width: 50mm;
-                height: 60mm;
+                width: 25mm;
+                height: 50mm;
               }
 
               .barcode-wrapper {
@@ -140,33 +140,33 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               }
 
               .barcode-image {
-                width: 90%;
+                width: 85%;
                 height: auto;
-                max-height: 40mm;
+                max-height: 28mm;
                 display: block;
               }
 
               .barcode-text-overlay {
                 width: 100%;
-                margin-top: 2mm;
+                margin-top: 1mm;
               }
 
               .barcode-code {
                 font-family: 'Cinzel', serif;
-                font-size: 10px;
+                font-size: 7px;
                 font-weight: 700;
                 margin: 0;
                 word-break: break-all;
-                line-height: 1.1;
+                line-height: 1;
               }
 
               .barcode-name {
                 font-family: 'Cinzel', serif;
-                font-size: 8px;
+                font-size: 6px;
                 color: #333;
                 line-height: 1;
                 word-break: break-word;
-                margin: 1mm 0 0 0;
+                margin: 0.5mm 0 0 0;
               }
 
               @media print {
@@ -246,7 +246,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               className="mt-2"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Layout: 2 columns × freely sized barcodes (50mm × 60mm each)
+              Layout: 2 columns × freely sized barcodes (25mm × 50mm each)
             </p>
           </div>
 
