@@ -20,7 +20,7 @@ interface BulkBarcodePrinterProps {
 }
 
 export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodePrinterProps) {
-  const [quantity, setQuantity] = useState(2)
+  const [quantity, setQuantity] = useState(20)
 
   const handlePrintMultipleBarcodes = () => {
     if (quantity < 1) {
@@ -37,20 +37,22 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
 
       const printWindow = window.open("", "_blank")
       if (printWindow) {
-        // Create barcode items array
-        const barcodes = Array(quantity).fill(null)
-
-        // Calculate how many rows (each row has 2 columns)
-        const rows = Math.ceil(quantity / 2)
-
+        // Generate barcodes in 2x10 layout (2 columns, 10 rows max per section)
         let barcodeHTML = ""
-        for (let i = 0; i < rows; i++) {
-          barcodeHTML += '<div class="barcode-row">'
-          // First column
+        let currentRow = 0
+        let itemsInRow = 0
+
+        for (let i = 0; i < quantity; i++) {
+          // Start new row
+          if (itemsInRow === 0) {
+            if (i > 0) barcodeHTML += "</div>"
+            barcodeHTML += '<div class="barcode-row">'
+          }
+
           barcodeHTML += `
             <div class="barcode-item">
               <div class="barcode-wrapper">
-                <img src="${barcodeToUse}" alt="Barcode ${i * 2 + 1}" class="barcode-image" />
+                <img src="${barcodeToUse}" alt="Barcode ${i + 1}" class="barcode-image" />
                 <div class="barcode-text-overlay">
                   <div class="barcode-code">${product.barcode}</div>
                   <div class="barcode-name">${product.name}</div>
@@ -58,20 +60,17 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               </div>
             </div>
           `
-          // Second column (if exists)
-          if (i * 2 + 1 < quantity) {
-            barcodeHTML += `
-              <div class="barcode-item">
-                <div class="barcode-wrapper">
-                  <img src="${barcodeToUse}" alt="Barcode ${i * 2 + 2}" class="barcode-image" />
-                  <div class="barcode-text-overlay">
-                    <div class="barcode-code">${product.barcode}</div>
-                    <div class="barcode-name">${product.name}</div>
-                  </div>
-                </div>
-              </div>
-            `
+
+          itemsInRow++
+          if (itemsInRow === 2) {
+            barcodeHTML += "</div>"
+            itemsInRow = 0
+            currentRow++
           }
+        }
+
+        // Close last row if it's incomplete
+        if (itemsInRow > 0) {
           barcodeHTML += "</div>"
         }
 
@@ -87,28 +86,37 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 box-sizing: border-box;
               }
               
+              html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+              }
+              
               @page {
-                size: A5 landscape;
-                margin: 3mm;
+                margin: 0;
+                padding: 0;
+                size: auto;
               }
               
               body {
                 font-family: Arial, sans-serif;
                 background: white;
-                padding: 3mm;
+                padding: 0;
               }
 
               .barcode-row {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 0;
-                margin-bottom: 0;
+                margin: 0;
+                padding: 0;
                 page-break-inside: avoid;
               }
 
               .barcode-item {
                 border: 1px solid #ddd;
-                padding: 2mm;
+                padding: 0;
                 text-align: center;
                 background: white;
                 break-inside: avoid;
@@ -116,23 +124,25 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                min-height: 50mm;
+                width: 50mm;
+                height: 60mm;
               }
 
               .barcode-wrapper {
                 position: relative;
                 width: 100%;
-                height: auto;
+                height: 100%;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
+                padding: 2mm;
               }
 
               .barcode-image {
-                width: 100%;
+                width: 90%;
                 height: auto;
-                max-height: 35mm;
+                max-height: 40mm;
                 display: block;
               }
 
@@ -141,31 +151,39 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 margin-top: 2mm;
               }
 
-              /* Use Cinzel for barcode labels (Google Fonts). If you prefer offline usage, download Cinzel to /public/fonts and add @font-face as fallback. */
               .barcode-code {
                 font-family: 'Cinzel', serif;
-                font-size: 12px;
+                font-size: 10px;
                 font-weight: 700;
-                margin-bottom: 1mm;
+                margin: 0;
                 word-break: break-all;
                 line-height: 1.1;
               }
 
               .barcode-name {
                 font-family: 'Cinzel', serif;
-                font-size: 10.5px;
+                font-size: 8px;
                 color: #333;
                 line-height: 1;
                 word-break: break-word;
+                margin: 1mm 0 0 0;
               }
 
               @media print {
+                html, body {
+                  margin: 0;
+                  padding: 0;
+                  width: 100%;
+                }
+                
                 body {
                   margin: 0;
-                  padding: 1mm;
+                  padding: 0;
                 }
                 
                 .barcode-row {
+                  margin: 0;
+                  padding: 0;
                   page-break-inside: avoid;
                 }
                 
@@ -194,7 +212,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
         description: `${quantity} barcode(s) sent to printer`,
       })
       onOpenChange(false)
-      setQuantity(2)
+      setQuantity(20)
     } catch (error) {
       console.error("Error printing barcodes:", error)
       toast({
@@ -222,19 +240,19 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               id="quantity"
               type="number"
               min="1"
-              max="100"
+              max="200"
               value={quantity}
               onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
               className="mt-2"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Layout: A5 landscape, 2 columns per page
+              Layout: 2 columns × freely sized barcodes (50mm × 60mm each)
             </p>
           </div>
 
           <div className="bg-gray-50 p-3 rounded-lg">
             <p className="text-sm text-gray-600">
-              <strong>Preview:</strong> {Math.ceil(quantity / 2)} row(s) × 2 columns
+              <strong>Preview:</strong> {Math.ceil(quantity / 2)} row(s) × 2 columns (no page breaks)
             </p>
           </div>
 
