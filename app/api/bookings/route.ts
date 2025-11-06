@@ -29,7 +29,7 @@ function hasModuleAccess(perms: UserPermissions | null, key: keyof UserPermissio
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request, 'viewer')
+    const authResult = await requireAuth(request, 'readonly')
     if (!authResult.success) {
       return NextResponse.json(authResult.response, { status: 401 })
     }
