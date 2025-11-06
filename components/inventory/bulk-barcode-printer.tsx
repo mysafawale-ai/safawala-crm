@@ -101,14 +101,14 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               .barcode-row {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 4mm;
-                margin-bottom: 4mm;
+                gap: 0;
+                margin-bottom: 0;
                 page-break-inside: avoid;
               }
 
               .barcode-item {
                 border: 1px solid #ddd;
-                padding: 4mm;
+                padding: 2mm;
                 text-align: center;
                 background: white;
                 break-inside: avoid;
