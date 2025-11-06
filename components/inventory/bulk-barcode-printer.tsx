@@ -122,8 +122,8 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                width: 2.6in;
-                height: 1.3in;
+                width: 2.99in;
+                height: 1.495in;
               }
 
               .barcode-wrapper {
@@ -151,7 +151,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
 
               .barcode-code {
                 font-family: 'Cinzel', serif;
-                font-size: 9.1px;
+                font-size: 10.47px;
                 font-weight: 700;
                 margin: 0;
                 word-break: break-all;
@@ -160,7 +160,7 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
 
               .barcode-name {
                 font-family: 'Cinzel', serif;
-                font-size: 7.8px;
+                font-size: 8.97px;
                 color: #333;
                 line-height: 1;
                 word-break: break-word;
