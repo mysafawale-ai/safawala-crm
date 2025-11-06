@@ -37,29 +37,14 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
 
       const printWindow = window.open("", "_blank")
       if (printWindow) {
-        // Generate barcodes in 2x5 layout (2 columns, 5 rows per page = 10 barcodes per page)
+        // Generate barcodes in 2 columns layout
         let barcodeHTML = ""
         let itemsInRow = 0
-        let itemsOnPage = 0
 
         for (let i = 0; i < quantity; i++) {
-          // Start new page every 10 items
-          if (itemsOnPage === 10) {
-            barcodeHTML += "</div></div>" // Close row and page
-            itemsOnPage = 0
-            itemsInRow = 0
-          }
-
-          // Start new page
-          if (itemsOnPage === 0) {
-            barcodeHTML += '<div class="barcode-page">'
-          }
-
           // Start new row
           if (itemsInRow === 0) {
-            if (i > 0 && itemsInRow === 0 && itemsOnPage > 0) {
-              barcodeHTML += "</div>"
-            }
+            if (i > 0) barcodeHTML += "</div>"
             barcodeHTML += '<div class="barcode-row">'
           }
 
@@ -76,20 +61,14 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
           `
 
           itemsInRow++
-          itemsOnPage++
-
-          // Close row after 2 items
           if (itemsInRow === 2) {
             barcodeHTML += "</div>"
             itemsInRow = 0
           }
         }
 
-        // Close remaining open tags
+        // Close last row if it's incomplete
         if (itemsInRow > 0) {
-          barcodeHTML += "</div>"
-        }
-        if (itemsOnPage > 0) {
           barcodeHTML += "</div>"
         }
 
@@ -115,26 +94,13 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               @page {
                 margin: 0;
                 padding: 0;
-                size: A5 portrait;
+                size: auto;
               }
               
               body {
                 font-family: Arial, sans-serif;
                 background: white;
                 padding: 0;
-                display: flex;
-                flex-direction: column;
-              }
-
-              .barcode-page {
-                width: 100%;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                page-break-after: always;
-                padding: 0;
-                margin: 0;
-                overflow: hidden;
               }
 
               .barcode-row {
@@ -144,8 +110,6 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 margin: 0;
                 padding: 0;
                 page-break-inside: avoid;
-                flex: 1;
-                min-height: 0;
               }
 
               .barcode-item {
@@ -158,8 +122,8 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                flex: 1;
-                min-height: 0;
+                width: 2in;
+                height: 1in;
               }
 
               .barcode-wrapper {
@@ -170,11 +134,11 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                padding: 1.5mm;
+                padding: 2mm;
               }
 
               .barcode-image {
-                width: 80%;
+                width: 85%;
                 height: auto;
                 max-height: 55%;
                 display: block;
@@ -182,26 +146,25 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
 
               .barcode-text-overlay {
                 width: 100%;
-                margin-top: auto;
-                flex-shrink: 0;
+                margin-top: 1mm;
               }
 
               .barcode-code {
                 font-family: 'Cinzel', serif;
-                font-size: 0.6rem;
+                font-size: 7px;
                 font-weight: 700;
                 margin: 0;
                 word-break: break-all;
-                line-height: 1.1;
+                line-height: 1;
               }
 
               .barcode-name {
                 font-family: 'Cinzel', serif;
-                font-size: 0.5rem;
+                font-size: 6px;
                 color: #333;
                 line-height: 1;
                 word-break: break-word;
-                margin: 0.3mm 0 0 0;
+                margin: 0.5mm 0 0 0;
               }
 
               @media print {
@@ -214,10 +177,6 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
                 body {
                   margin: 0;
                   padding: 0;
-                }
-                
-                .barcode-page {
-                  page-break-after: always;
                 }
                 
                 .barcode-row {
@@ -285,13 +244,13 @@ export function BulkBarcodePrinter({ open, onOpenChange, product }: BulkBarcodeP
               className="mt-2"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Layout: 2 columns × 5 rows per page (10 barcodes per A5 page)
+              Layout: 2 columns (2" × 1" barcodes)
             </p>
           </div>
 
           <div className="bg-gray-50 p-3 rounded-lg">
             <p className="text-sm text-gray-600">
-              <strong>Preview:</strong> {Math.ceil(quantity / 10)} page(s) × 10 barcodes (A5 portrait)
+              <strong>Preview:</strong> {Math.ceil(quantity / 2)} row(s) × 2 columns
             </p>
           </div>
 
