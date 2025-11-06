@@ -19,7 +19,7 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { generateBarcode } from "@/lib/barcode-generator"
-import { BulkBarcodePrinter } from "@/components/inventory/bulk-barcode-printer"
+import { BarcodePrinter } from "@/components/inventory/barcode-printer"
 // Fixed import path for ProductItemService
 import { ProductItemService } from "@/lib/services/product-item-service"
 
@@ -64,7 +64,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const [printing, setPrinting] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloadingPDF, setDownloadingPDF] = useState(false)
-  const [bulkPrinterOpen, setBulkPrinterOpen] = useState(false)
+  const [barcodePrinterOpen, setBarcodePrinterOpen] = useState(false)
   const [generatedBarcode, setGeneratedBarcode] = useState<string>("")
   const [itemBarcodes, setItemBarcodes] = useState<
     Array<{
@@ -521,12 +521,11 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                     <div className="flex space-x-2">
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => setBulkPrinterOpen(true)}
-                        className="flex-1 bg-transparent"
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        onClick={() => setBarcodePrinterOpen(true)}
                       >
                         <Printer className="h-4 w-4 mr-1" />
-                        Print
+                        Print Barcodes
                       </Button>
                     </div>
                   </div>
@@ -547,14 +546,11 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
       </DialogContent>
       
       {product && (
-        <BulkBarcodePrinter
-          open={bulkPrinterOpen}
-          onOpenChange={setBulkPrinterOpen}
-          product={{
-            id: product.id,
-            name: product.name,
-            barcode: product.barcode || "",
-          }}
+        <BarcodePrinter
+          open={barcodePrinterOpen}
+          onOpenChange={setBarcodePrinterOpen}
+          productCode={product.barcode || product.product_code || ""}
+          productName={product.name}
         />
       )}
     </Dialog>
