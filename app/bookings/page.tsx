@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast"
 import { BookingCalendar } from "@/components/bookings/booking-calendar"
 import { BookingBarcodes } from "@/components/bookings/booking-barcodes"
 import { DirectSalesBookingDetails } from "@/components/bookings/direct-sales-booking-details"
+import { DirectSalesOrderDetails } from "@/components/bookings/direct-sales-order-details"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { ItemsDisplayDialog, ItemsSelectionDialog, CompactItemsDisplayDialog } from "@/components/shared"
@@ -1268,8 +1269,16 @@ export default function BookingsPage() {
           
           {selectedBooking && (
             <>
-              {/* Direct Sales Order - Using New Dedicated Component */}
-              {((selectedBooking as any).booking_type === 'sale' || (selectedBooking as any).booking_subtype === 'sale' || (selectedBooking as any).source === 'product_orders' || (selectedBooking.booking_number && (selectedBooking.booking_number as string).startsWith('ORD'))) ? (
+              {/* NEW: Direct Sales Order (DSL*) - Using New Dedicated DirectSalesOrderDetails Component */}
+              {(selectedBooking as any).source === 'direct_sales' ? (
+                <DirectSalesOrderDetails 
+                  booking={{
+                    ...selectedBooking,
+                    bookingItems: bookingItems[selectedBooking.id] || []
+                  }}
+                />
+              ) : /* Direct Sales Order - Using Rental Sales Component */
+              ((selectedBooking as any).booking_type === 'sale' || (selectedBooking as any).booking_subtype === 'sale' || (selectedBooking as any).source === 'product_orders' || (selectedBooking.booking_number && (selectedBooking.booking_number as string).startsWith('ORD'))) ? (
                 <DirectSalesBookingDetails 
                   booking={{
                     ...selectedBooking,
