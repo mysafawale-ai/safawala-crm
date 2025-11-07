@@ -168,6 +168,41 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ✅ NEW: Fetch direct_sales_orders for current franchise
+    let directSalesQuery = supabase
+      .from("direct_sales_orders")
+      .select(`
+        id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, delivery_time, venue_address,
+        total_amount, amount_paid, notes, created_at,
+        customer:customers(name, phone, email)
+      `)
+      .order("created_at", { ascending: false })
+
+    if (!isSuperAdmin && franchiseId) {
+      directSalesQuery = directSalesQuery.eq("franchise_id", franchiseId)
+    }
+
+    const directSalesRes = await directSalesQuery
+    if (directSalesRes.error) {
+      console.warn(`[Bookings API] Direct sales fetch warning (may be first run):`, directSalesRes.error?.message)
+    } else {
+      console.log(`[Bookings API] Direct sales orders fetched: ${(directSalesRes.data || []).length}`)
+    }
+
+    // Compute item totals for direct sales
+    const directSalesIds = (directSalesRes.data || []).map((r: any) => r.id)
+    let directSalesTotals: Record<string, number> = {}
+
+    if (directSalesIds.length > 0) {
+      const { data: dsiItems } = await supabase
+        .from('direct_sales_items')
+        .select('sale_id, quantity')
+        .in('sale_id', directSalesIds)
+      for (const row of dsiItems || []) {
+        directSalesTotals[row.sale_id] = (directSalesTotals[row.sale_id] || 0) + (Number(row.quantity) || 0)
+      }
+    }
+
     // Map to unified Booking shape with total_safas
     const productRows = (productRes.data || []).map((r: any) => ({
       id: r.id,
@@ -198,6 +233,35 @@ export async function GET(request: NextRequest) {
       security_deposit: Number((r as any).security_deposit || 0),
     }))
 
+    // Map direct sales orders to unified Booking shape
+    const directSalesRows = (directSalesRes.data || []).map((r: any) => ({
+      id: r.id,
+      booking_number: r.sale_number,
+      customer_id: r.customer_id,
+      franchise_id: r.franchise_id,
+      event_date: r.sale_date,
+      delivery_date: r.delivery_date,
+      delivery_time: r.delivery_time || null,
+      delivery_address: r.venue_address || null,
+      pickup_date: null,
+      event_type: 'Direct Sale',
+      status: r.status,
+      total_amount: Number(r.total_amount) || 0,
+      paid_amount: Number(r.amount_paid) || 0,
+      notes: r.notes,
+      created_at: r.created_at,
+      updated_at: r.created_at,
+      customer: r.customer || null,
+      venue_address: r.venue_address || null,
+      // Mark as direct_sales source
+      source: 'direct_sales' as const,
+      type: 'sale' as const,
+      booking_kind: 'product' as const,
+      total_safas: directSalesTotals[r.id] || 0,
+      has_items: (directSalesTotals[r.id] || 0) > 0,
+      security_deposit: 0, // Direct sales don't have deposits
+    }))
+
     const packageRows = (packageRes.data || []).map((r: any) => ({
       id: r.id,
       booking_number: r.package_number,
@@ -226,11 +290,11 @@ export async function GET(request: NextRequest) {
       security_deposit: Number((r as any).security_deposit || 0),
     }))
 
-    const data = [...productRows, ...packageRows].sort(
+    const data = [...productRows, ...packageRows, ...directSalesRows].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
 
-    console.log(`[Bookings API] Returning ${data.length} bookings`)
+    console.log(`[Bookings API] Returning ${data.length} bookings (${productRows.length} product, ${directSalesRows.length} direct sales, ${packageRows.length} package)`)
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error("[Bookings API] Error:", error)

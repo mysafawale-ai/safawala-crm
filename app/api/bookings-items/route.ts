@@ -29,7 +29,69 @@ export async function GET(request: NextRequest) {
     
     let items: any[] = []
     
-    if (source === 'product_order') {
+    if (source === 'direct_sale') {
+      console.log(`[Items API] Direct Sales: Checking rows for sale_id=${id}`)
+      // Lightweight count to aid diagnostics (subject to RLS)
+      try {
+        const { count: dsiCount } = await supabase
+          .from('direct_sales_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('sale_id', id)
+        console.log(`[Items API] direct_sales_items count (RLS-scoped): ${dsiCount ?? 'unknown'}`)
+      } catch (e: any) {
+        console.warn('[Items API] Unable to count direct_sales_items (likely RLS/head not supported):', e?.message)
+      }
+      
+      // First try a joined select to get product details inline
+      let { data: joined, error: joinError } = await supabase
+        .from('direct_sales_items')
+        .select(`
+          id, sale_id, product_id, quantity, unit_price, total_price, created_at,
+          product:products(id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id)
+        `)
+        .eq('sale_id', id)
+        .order('created_at', { ascending: true })
+
+      if (!joinError && joined) {
+        console.log(`[Items API] Joined fetch returned ${joined.length} item(s) for sale ${id}`)
+        items = joined
+      } else {
+        console.warn('[Items API] Join failed or not supported, falling back to two-step fetch:', joinError?.message)
+        // Fallback: fetch items then hydrate with product info
+        const { data, error } = await supabase
+          .from('direct_sales_items')
+          .select('*')
+          .eq('sale_id', id)
+          .order('created_at', { ascending: true })
+        
+        if (error) {
+          console.error('[Items API] Error fetching direct sales items:', error)
+          return NextResponse.json({ error: error.message }, { status: 500 })
+        }
+        
+        if (data && data.length > 0) {
+          console.log(`[Items API] Fallback base items: ${data.length}`)
+          const productIds = [...new Set(data.map((item: any) => item.product_id).filter(Boolean))]
+          console.log(`[Items API] Unique product IDs to hydrate: ${productIds.length}`)
+          if (productIds.length > 0) {
+            const { data: products } = await supabase
+              .from('products')
+              .select('id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id')
+              .in('id', productIds)
+            console.log(`[Items API] Products fetched for hydration: ${products?.length ?? 0}`)
+            const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])
+            items = data.map((item: any) => ({
+              ...item,
+              product: productsMap.get(item.product_id) || null
+            }))
+          } else {
+            items = data
+          }
+        } else {
+          console.log('[Items API] Fallback base items: 0')
+        }
+      }
+    } else if (source === 'product_order') {
       console.log(`[Items API] Product Order Items: Checking rows for order_id=${id}`)
       // Lightweight count to aid diagnostics (subject to RLS)
       try {
