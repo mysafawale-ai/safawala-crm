@@ -797,102 +797,69 @@ export default function CreateProductOrderPage() {
       // Calculate amount to save as paid now (includes deposit for rentals)
       const amountPaidNow = totals.payable + (formData.booking_type === "rental" ? totals.deposit : 0)
 
-      // ✅ NEW: Branch for direct sales (separate table)
+      // ✅ NEW: Branch for direct sales (separate table) - using server-side API
       if (formData.booking_type === "sale" && !isQuote) {
-        console.log('[Create Product Order] Saving direct sale to direct_sales_orders table...')
+        console.log('[Create Product Order] Saving direct sale via API...')
         
         // Generate DSL* prefix for direct sales
         const saleNumber = `DSL${Date.now().toString().slice(-8)}`
         
-        const { data: directSale, error: saleError } = await supabase
-          .from("direct_sales_orders")
-          .insert({
-            sale_number: saleNumber,
-            customer_id: selectedCustomer.id,
-            franchise_id: currentUser.franchise_id,
-            sale_date: eventDateTime || new Date().toISOString(),
-            delivery_date: deliveryDateTime,
-            venue_address: formData.venue_address || formData.delivery_address,
-            groom_name: formData.groom_name,
-            groom_whatsapp: formData.groom_whatsapp,
-            groom_address: formData.groom_address,
-            bride_name: formData.bride_name,
-            bride_whatsapp: formData.bride_whatsapp,
-            bride_address: formData.bride_address,
-            payment_method: formData.payment_method,
-            payment_type: formData.payment_type,
-            subtotal_amount: totals.subtotalAfterDiscount,
-            discount_amount: formData.discount_amount,
-            coupon_code: formData.coupon_code || null,
-            coupon_discount: formData.coupon_discount || 0,
-            tax_amount: totals.gst,
-            total_amount: totals.grand,
-            amount_paid: amountPaidNow,
-            pending_amount: totals.remaining,
-            security_deposit: 0, // No deposit for direct sales
-            status: "confirmed",
-            notes: formData.notes,
-            sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
-          })
-          .select()
-          .single()
-
-        if (saleError) {
-          console.error('[Create Product Order] Direct sale insert error:', saleError)
-          throw new Error(saleError.message || 'Failed to create direct sale')
+        // Prepare sale data
+        const saleData = {
+          sale_number: saleNumber,
+          customer_id: selectedCustomer.id,
+          sale_date: eventDateTime || new Date().toISOString(),
+          delivery_date: deliveryDateTime,
+          venue_address: formData.venue_address || formData.delivery_address,
+          groom_name: formData.groom_name,
+          groom_whatsapp: formData.groom_whatsapp,
+          groom_address: formData.groom_address,
+          bride_name: formData.bride_name,
+          bride_whatsapp: formData.bride_whatsapp,
+          bride_address: formData.bride_address,
+          payment_method: formData.payment_method,
+          payment_type: formData.payment_type,
+          subtotal_amount: totals.subtotalAfterDiscount,
+          discount_amount: formData.discount_amount,
+          coupon_code: formData.coupon_code || null,
+          coupon_discount: formData.coupon_discount || 0,
+          tax_amount: totals.gst,
+          total_amount: totals.grand,
+          amount_paid: amountPaidNow,
+          pending_amount: totals.remaining,
+          status: "confirmed",
+          notes: formData.notes,
+          sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
         }
 
-        // Insert direct sales items
-        const directSalesItems = items.map((it) => ({
-          sale_id: directSale.id,
+        // Prepare items data
+        const itemsData = items.map((it) => ({
           product_id: it.product_id,
           quantity: it.quantity,
           unit_price: it.unit_price,
           total_price: it.total_price,
         }))
 
-        const { error: directItemsErr } = await supabase
-          .from("direct_sales_items")
-          .insert(directSalesItems)
+        // Call server-side API (bypasses RLS issues)
+        const response = await fetch('/api/direct-sales', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sale: saleData,
+            items: itemsData
+          })
+        })
 
-        if (directItemsErr) {
-          console.error('[Create Product Order] Direct sales items insert error:', directItemsErr)
-          throw new Error(directItemsErr.message || 'Failed to create direct sales items')
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error('[Create Product Order] API error:', errorData)
+          throw new Error(errorData.error || 'Failed to create direct sale')
         }
 
-        console.log('[Create Product Order] ✅ Direct sale created successfully:', saleNumber)
-        
-        // Deduct inventory for direct sales
-        console.log('[Direct Sale] Deducting inventory for', items.length, 'items')
-        try {
-          for (const item of items) {
-            console.log(`[Direct Sale] Deducting ${item.quantity} units from product ${item.product_id}`)
-            
-            const { data: product, error: fetchError } = await supabase
-              .from('products')
-              .select('stock_available, name')
-              .eq('id', item.product_id)
-              .single()
-              
-            if (fetchError) {
-              console.warn(`[Direct Sale] Could not fetch product ${item.product_id}:`, fetchError)
-              continue
-            }
-
-            const newStock = Math.max(0, (product.stock_available || 0) - item.quantity)
-            const { error: updateError } = await supabase
-              .from('products')
-              .update({ stock_available: newStock })
-              .eq('id', item.product_id)
-
-            if (updateError) {
-              console.warn(`[Direct Sale] Failed to deduct stock for ${product.name}:`, updateError)
-            }
-          }
-        } catch (inventoryError) {
-          console.error('[Direct Sale] Inventory deduction error:', inventoryError)
-          // Don't fail the entire order if inventory update fails
-        }
+        const result = await response.json()
+        console.log('[Create Product Order] ✅ Direct sale created via API:', result)
 
         toast.success("Direct sale created successfully")
         router.push(`/bookings?refresh=${Date.now()}`)
