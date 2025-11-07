@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         payment_method, payment_type, discount_amount, tax_amount,
-        has_modifications, modifications_details, modification_date, modification_time,
+        has_modifications, modifications_details, modification_date,
         is_quote,
         customer:customers(name, phone, email),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
