@@ -50,7 +50,6 @@ CREATE TABLE IF NOT EXISTS direct_sales_orders (
   -- Status and metadata
   status text NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'delivered', 'order_complete', 'cancelled')),
   notes text,
-  special_instructions text,
   sales_closed_by_id uuid REFERENCES users(id) ON DELETE SET NULL,
   
   -- Timestamps
@@ -266,7 +265,7 @@ SELECT
   security_deposit,
   status,
   notes,
-  special_instructions,
+  notes AS special_instructions,
   sales_closed_by_id,
   created_at,
   updated_at
@@ -297,7 +296,7 @@ SELECT
   security_deposit,
   status,
   notes,
-  special_instructions,
+  notes AS special_instructions,
   sales_closed_by_id,
   created_at,
   updated_at

@@ -832,7 +832,6 @@ export default function CreateProductOrderPage() {
             security_deposit: 0, // No deposit for direct sales
             status: "confirmed",
             notes: formData.notes,
-            special_instructions: formData.modifications_details || null,
             sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
           })
           .select()
