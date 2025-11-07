@@ -30,35 +30,47 @@ export async function GET(request: NextRequest) {
     let items: any[] = []
     
     if (source === 'product_order') {
-      // Fetch product order items WITHOUT joins (FK doesn't exist yet)
-      const { data, error } = await supabase
+      // First try a joined select to get product details inline (handles most cases)
+      let { data: joined, error: joinError } = await supabase
         .from('product_order_items')
-        .select('*')
+        .select(`
+          id, order_id, product_id, quantity, unit_price, total_price, security_deposit, created_at,
+          product:products(id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id)
+        `)
         .eq('order_id', id)
         .order('created_at', { ascending: true })
-      
-      if (error) {
-        console.error('[Booking Items API] Error fetching product order items:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-      
-      // Fetch product details separately if there are items
-      if (data && data.length > 0) {
-        const productIds = [...new Set(data.map((item: any) => item.product_id).filter(Boolean))]
+
+      if (!joinError && joined) {
+        items = joined
+      } else {
+        console.warn('[Items API] Join failed or not supported, falling back to two-step fetch:', joinError?.message)
+        // Fallback: fetch items then hydrate with product info
+        const { data, error } = await supabase
+          .from('product_order_items')
+          .select('*')
+          .eq('order_id', id)
+          .order('created_at', { ascending: true })
         
-        if (productIds.length > 0) {
-          const { data: products } = await supabase
-            .from('products')
-            .select('id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id')
-            .in('id', productIds)
-          
-          const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])
-          items = data.map((item: any) => ({
-            ...item,
-            product: productsMap.get(item.product_id) || null
-          }))
-        } else {
-          items = data
+        if (error) {
+          console.error('[Booking Items API] Error fetching product order items:', error)
+          return NextResponse.json({ error: error.message }, { status: 500 })
+        }
+        
+        if (data && data.length > 0) {
+          const productIds = [...new Set(data.map((item: any) => item.product_id).filter(Boolean))]
+          if (productIds.length > 0) {
+            const { data: products } = await supabase
+              .from('products')
+              .select('id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id')
+              .in('id', productIds)
+            const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])
+            items = data.map((item: any) => ({
+              ...item,
+              product: productsMap.get(item.product_id) || null
+            }))
+          } else {
+            items = data
+          }
         }
       }
     } else if (source === 'package_booking') {
