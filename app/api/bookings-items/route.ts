@@ -30,6 +30,17 @@ export async function GET(request: NextRequest) {
     let items: any[] = []
     
     if (source === 'product_order') {
+      console.log(`[Items API] Product Order Items: Checking rows for order_id=${id}`)
+      // Lightweight count to aid diagnostics (subject to RLS)
+      try {
+        const { count: poiCount } = await supabase
+          .from('product_order_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('order_id', id)
+        console.log(`[Items API] product_order_items count (RLS-scoped): ${poiCount ?? 'unknown'}`)
+      } catch (e: any) {
+        console.warn('[Items API] Unable to count product_order_items (likely RLS/head not supported):', e?.message)
+      }
       // First try a joined select to get product details inline (handles most cases)
       let { data: joined, error: joinError } = await supabase
         .from('product_order_items')
@@ -41,6 +52,7 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: true })
 
       if (!joinError && joined) {
+        console.log(`[Items API] Joined fetch returned ${joined.length} item(s) for order ${id}`)
         items = joined
       } else {
         console.warn('[Items API] Join failed or not supported, falling back to two-step fetch:', joinError?.message)
@@ -57,12 +69,15 @@ export async function GET(request: NextRequest) {
         }
         
         if (data && data.length > 0) {
+          console.log(`[Items API] Fallback base items: ${data.length}`)
           const productIds = [...new Set(data.map((item: any) => item.product_id).filter(Boolean))]
+          console.log(`[Items API] Unique product IDs to hydrate: ${productIds.length}`)
           if (productIds.length > 0) {
             const { data: products } = await supabase
               .from('products')
               .select('id, name, barcode, product_code, category, image_url, price, rental_price, stock_available, category_id')
               .in('id', productIds)
+            console.log(`[Items API] Products fetched for hydration: ${products?.length ?? 0}`)
             const productsMap = new Map(products?.map((p: any) => [p.id, p]) || [])
             items = data.map((item: any) => ({
               ...item,
@@ -71,6 +86,8 @@ export async function GET(request: NextRequest) {
           } else {
             items = data
           }
+        } else {
+          console.log('[Items API] Fallback base items: 0')
         }
       }
     } else if (source === 'package_booking') {
