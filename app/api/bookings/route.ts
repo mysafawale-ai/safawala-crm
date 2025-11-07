@@ -56,10 +56,12 @@ export async function GET(request: NextRequest) {
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         payment_method, payment_type, discount_amount, tax_amount,
         has_modifications, modifications_details, modification_date, modification_time,
+        is_quote,
         customer:customers(name, phone, email),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
-      .eq("is_quote", false)
+      // Include legacy rows where is_quote is NULL as non-quotes
+      .or('is_quote.is.null,is_quote.eq.false')
       .order("created_at", { ascending: false })
 
     let packageQuery = supabase
@@ -75,7 +77,8 @@ export async function GET(request: NextRequest) {
 
     // CRITICAL: Filter by franchise_id unless super admin
     if (!isSuperAdmin && franchiseId) {
-      productQuery = productQuery.eq("franchise_id", franchiseId)
+      // Include legacy rows without franchise assignment (NULL)
+      productQuery = productQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
       packageQuery = packageQuery.eq("franchise_id", franchiseId)
       console.log(`[Bookings API] Applied franchise filter: ${franchiseId}`)
     } else {
@@ -92,6 +95,14 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Bookings API] Product orders fetched: ${(productRes.data || []).length}`)
     console.log(`[Bookings API] Package bookings fetched: ${(packageRes.data || []).length}`)
+    try {
+      const prod = (productRes.data || []) as any[]
+      const saleByType = prod.filter(r => r.booking_type === 'sale').length
+      const ordPrefix = prod.filter(r => (r.order_number || '').startsWith('ORD')).length
+      const nullFranchise = prod.filter(r => !r.franchise_id).length
+      const nullIsQuote = prod.filter(r => r.is_quote === null).length
+      console.log(`[Bookings API] Product stats → saleByType: ${saleByType}, ordPrefix: ${ordPrefix}, nullFranchise: ${nullFranchise}, nullIsQuote: ${nullIsQuote}`)
+    } catch {}
     if (productRes.error) console.log(`[Bookings API] Product error:`, productRes.error)
     if (packageRes.error) console.log(`[Bookings API] Package error:`, packageRes.error)
 
@@ -177,8 +188,10 @@ export async function GET(request: NextRequest) {
       updated_at: r.created_at,
       customer: r.customer || null,
       venue_address: r.venue_address || null,
-      source: 'product_order' as const,
-      type: r.booking_type || 'rental',
+      // Align source label with UI checks ('product_orders')
+      source: 'product_orders' as const,
+      // Detect sale even if booking_type is missing using ORD* prefix
+      type: (r.booking_type === 'sale' || ((r.order_number || '').startsWith('ORD'))) ? 'sale' : (r.booking_type || 'rental'),
       booking_kind: 'product' as const,
       total_safas: productTotals[r.id] || 0,
       has_items: (productTotals[r.id] || 0) > 0,
@@ -204,7 +217,8 @@ export async function GET(request: NextRequest) {
       updated_at: r.created_at,
       customer: r.customer || null,
       venue_address: r.venue_address || null,
-      source: 'package_booking' as const,
+      // Align source label with UI checks ('package_bookings')
+      source: 'package_bookings' as const,
       type: 'package' as const,
       booking_kind: 'package' as const,
       total_safas: packageTotals[r.id] || 0,
