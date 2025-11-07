@@ -90,6 +90,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 500 })
     }
 
+    console.log(`[Bookings API] Product orders fetched: ${(productRes.data || []).length}`)
+    console.log(`[Bookings API] Package bookings fetched: ${(packageRes.data || []).length}`)
+    if (productRes.error) console.log(`[Bookings API] Product error:`, productRes.error)
+    if (packageRes.error) console.log(`[Bookings API] Package error:`, packageRes.error)
+
     // Compute item quantity totals for each booking
     const productIds = (productRes.data || []).map((r: any) => r.id)
     const packageIds = (packageRes.data || []).map((r: any) => r.id)

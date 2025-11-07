@@ -703,7 +703,7 @@ export default function CreateProductOrderPage() {
             event_date: eventDateTime,
             delivery_date: deliveryDateTime,
             return_date: returnDateTime,
-            venue_address: formData.venue_address,
+            venue_address: formData.venue_address || formData.delivery_address,  // Use delivery_address as fallback
             groom_name: formData.groom_name,
             groom_whatsapp: formData.groom_whatsapp,
             groom_address: formData.groom_address,
@@ -725,6 +725,8 @@ export default function CreateProductOrderPage() {
             has_modifications: formData.has_modifications,
             modifications_details: formData.modifications_details,
             modification_date: formData.has_modifications && formData.modification_date ? combineDateAndTime(formData.modification_date, formData.modification_time) : null,
+            delivery_time: formData.delivery_time || null,
+            modification_time: formData.modification_time || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editQuoteId)
@@ -808,7 +810,7 @@ export default function CreateProductOrderPage() {
           event_date: eventDateTime,
           delivery_date: deliveryDateTime,
           return_date: returnDateTime,
-          venue_address: formData.venue_address,
+          venue_address: formData.venue_address || formData.delivery_address,  // Use delivery_address as fallback
           groom_name: formData.groom_name,
           groom_whatsapp: formData.groom_whatsapp,
           groom_address: formData.groom_address,
@@ -829,6 +831,8 @@ export default function CreateProductOrderPage() {
           has_modifications: formData.has_modifications,
           modifications_details: formData.modifications_details,
           modification_date: modificationDateTime,
+          delivery_time: formData.delivery_time || null,
+          modification_time: formData.modification_time || null,
           status: isQuote ? "quote" : "confirmed",
           is_quote: isQuote,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
