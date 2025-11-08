@@ -196,7 +196,7 @@ export function SimpleBarcodePrinter({
                   <Label className="text-sm font-medium mb-2 block">
                     Number of Barcodes: {barcodes.length}
                   </Label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mb-2">
                     <Input
                       type="number"
                       min="1"
@@ -225,7 +225,6 @@ export function SimpleBarcodePrinter({
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        const newCount = barcodes.length + 5
                         const newBarcodes = Array.from({ length: 5 }, (_, i) => ({
                           id: `${Date.now()}_${i}`,
                           code: `${parseInt(productCode) + barcodes.length + i}`,
@@ -240,7 +239,6 @@ export function SimpleBarcodePrinter({
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        const newCount = barcodes.length + 10
                         const newBarcodes = Array.from({ length: 10 }, (_, i) => ({
                           id: `${Date.now()}_${i}`,
                           code: `${parseInt(productCode) + barcodes.length + i}`,
@@ -250,6 +248,129 @@ export function SimpleBarcodePrinter({
                       }}
                     >
                       +10
+                    </Button>
+                  </div>
+                  {/* Quick Page Options */}
+                  <div className="grid grid-cols-3 gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        const perPage = layout.barcodesPerPage
+                        const newCount = perPage * 1
+                        const currentCount = barcodes.length
+                        if (newCount > currentCount) {
+                          const newBarcodes = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                            id: `${Date.now()}_${i}`,
+                            code: `${parseInt(productCode) + currentCount + i}`,
+                            productName: productName,
+                          }))
+                          setBarcodes([...barcodes, ...newBarcodes])
+                        }
+                      }}
+                    >
+                      1 Page
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        const perPage = layout.barcodesPerPage
+                        const newCount = perPage * 2
+                        const currentCount = barcodes.length
+                        if (newCount > currentCount) {
+                          const newBarcodes = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                            id: `${Date.now()}_${i}`,
+                            code: `${parseInt(productCode) + currentCount + i}`,
+                            productName: productName,
+                          }))
+                          setBarcodes([...barcodes, ...newBarcodes])
+                        }
+                      }}
+                    >
+                      2 Pages
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        const perPage = layout.barcodesPerPage
+                        const newCount = perPage * 3
+                        const currentCount = barcodes.length
+                        if (newCount > currentCount) {
+                          const newBarcodes = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                            id: `${Date.now()}_${i}`,
+                            code: `${parseInt(productCode) + currentCount + i}`,
+                            productName: productName,
+                          }))
+                          setBarcodes([...barcodes, ...newBarcodes])
+                        }
+                      }}
+                    >
+                      3 Pages
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        const perPage = layout.barcodesPerPage
+                        const newCount = perPage * 5
+                        const currentCount = barcodes.length
+                        if (newCount > currentCount) {
+                          const newBarcodes = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                            id: `${Date.now()}_${i}`,
+                            code: `${parseInt(productCode) + currentCount + i}`,
+                            productName: productName,
+                          }))
+                          setBarcodes([...barcodes, ...newBarcodes])
+                        }
+                      }}
+                    >
+                      5 Pages
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        const perPage = layout.barcodesPerPage
+                        const newCount = perPage * 10
+                        const currentCount = barcodes.length
+                        if (newCount > currentCount) {
+                          const newBarcodes = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                            id: `${Date.now()}_${i}`,
+                            code: `${parseInt(productCode) + currentCount + i}`,
+                            productName: productName,
+                          }))
+                          setBarcodes([...barcodes, ...newBarcodes])
+                        }
+                      }}
+                    >
+                      10 Pages
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        const perPage = layout.barcodesPerPage
+                        const newCount = perPage * 20
+                        const currentCount = barcodes.length
+                        if (newCount > currentCount) {
+                          const newBarcodes = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                            id: `${Date.now()}_${i}`,
+                            code: `${parseInt(productCode) + currentCount + i}`,
+                            productName: productName,
+                          }))
+                          setBarcodes([...barcodes, ...newBarcodes])
+                        }
+                      }}
+                    >
+                      20 Pages
                     </Button>
                   </div>
                 </div>
@@ -296,47 +417,130 @@ export function SimpleBarcodePrinter({
                   </div>
                 </div>
 
-                {/* Margins */}
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">
-                    Top Margin: {settings.marginTop}mm
-                  </Label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="20"
-                    value={settings.marginTop}
-                    onChange={(e) => updateSetting("marginTop", parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                {/* Margins - Enhanced with Quick Presets */}
+                <div className="pt-2 border-t bg-amber-50 -mx-4 px-4 py-3 rounded">
+                  <Label className="text-sm font-medium mb-3 block">📐 Margins</Label>
+                  
+                  {/* Quick Margin Presets */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        updateSetting("marginTop", 0)
+                        updateSetting("marginLeft", 0)
+                        updateSetting("marginRight", 0)
+                      }}
+                    >
+                      No Margin
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        updateSetting("marginTop", 5)
+                        updateSetting("marginLeft", 5)
+                        updateSetting("marginRight", 5)
+                      }}
+                    >
+                      Compact
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        updateSetting("marginTop", 10)
+                        updateSetting("marginLeft", 10)
+                        updateSetting("marginRight", 10)
+                      }}
+                    >
+                      Standard
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        updateSetting("marginTop", 15)
+                        updateSetting("marginLeft", 15)
+                        updateSetting("marginRight", 15)
+                      }}
+                    >
+                      Wide
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        updateSetting("marginTop", 20)
+                        updateSetting("marginLeft", 20)
+                        updateSetting("marginRight", 20)
+                      }}
+                    >
+                      Extra Wide
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        updateSetting("marginTop", 8)
+                        updateSetting("marginLeft", 12)
+                        updateSetting("marginRight", 12)
+                      }}
+                    >
+                      Custom
+                    </Button>
+                  </div>
 
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">
-                    Left Margin: {settings.marginLeft}mm
-                  </Label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="20"
-                    value={settings.marginLeft}
-                    onChange={(e) => updateSetting("marginLeft", parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
+                  {/* Individual Margin Sliders */}
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs font-medium">
+                        ↑ Top: {settings.marginTop}mm
+                      </Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        value={settings.marginTop}
+                        onChange={(e) => updateSetting("marginTop", parseInt(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
 
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">
-                    Right Margin: {settings.marginRight}mm
-                  </Label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="20"
-                    value={settings.marginRight}
-                    onChange={(e) => updateSetting("marginRight", parseInt(e.target.value))}
-                    className="w-full"
-                  />
+                    <div>
+                      <Label className="text-xs font-medium">
+                        ← Left: {settings.marginLeft}mm
+                      </Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        value={settings.marginLeft}
+                        onChange={(e) => updateSetting("marginLeft", parseInt(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-medium">
+                        → Right: {settings.marginRight}mm
+                      </Label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        value={settings.marginRight}
+                        onChange={(e) => updateSetting("marginRight", parseInt(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Barcode Scale */}
