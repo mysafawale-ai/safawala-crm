@@ -111,6 +111,8 @@ export function createPrintHTML(config: PrintConfig): string {
           margin: 0;
           padding: 0;
           background: white;
+          width: 100%;
+          height: 100%;
         }
         
         .page {
@@ -118,15 +120,20 @@ export function createPrintHTML(config: PrintConfig): string {
           height: 297mm;
           page-break-after: always;
           position: relative;
-          padding: ${topMargin}cm ${rightMargin}cm 1cm ${leftMargin}cm;
+          padding: ${topMargin}cm ${rightMargin}cm 0.5cm ${leftMargin}cm;
+          display: flex;
+          flex-direction: column;
+          margin: 0;
         }
         
         .barcode-grid {
           display: grid;
-          grid-template-columns: repeat(${columns}, ${BARCODE_WIDTH_MM}mm);
+          grid-template-columns: repeat(${columns}, 1fr);
           grid-gap: ${VERTICAL_GAP_MM}mm ${HORIZONTAL_GAP_MM}mm;
           width: 100%;
+          height: 100%;
           background: white;
+          flex: 1;
         }
         
         .barcode-item {
@@ -136,12 +143,12 @@ export function createPrintHTML(config: PrintConfig): string {
           flex-direction: column;
           justify-content: center;
           align-items: center;
-          padding: 1mm;
-          border: 1px solid #ddd;
+          padding: 0.5mm;
+          border: 1px solid #eee;
           background: white;
           page-break-inside: avoid;
           font-size: ${6 * barcodeScale}px;
-          line-height: 1.1;
+          line-height: 1;
           text-align: center;
           overflow: hidden;
           transform: rotate(${barcodeRotation}deg);
@@ -151,45 +158,48 @@ export function createPrintHTML(config: PrintConfig): string {
         .barcode-image {
           width: ${IMAGE_WIDTH_MM}mm;
           height: ${IMAGE_HEIGHT_MM}mm;
-          margin-bottom: 2mm;
+          margin-bottom: 1mm;
           display: block;
           image-rendering: pixelated;
         }
         
         .barcode-code {
           font-family: 'Courier New', monospace;
-          font-size: 5px;
+          font-size: ${5 * barcodeScale}px;
           font-weight: bold;
           letter-spacing: 0.3px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
-          margin-bottom: 0.5mm;
+          margin-bottom: 0.2mm;
+          line-height: 1;
         }
         
         .product-name {
           font-family: Arial, sans-serif;
-          font-size: 4px;
+          font-size: ${4 * barcodeScale}px;
           color: #333;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           width: 100%;
+          line-height: 1;
         }
         
         @media print {
           body { 
             margin: 0;
             padding: 0;
+            background: white;
           }
           .page {
             margin: 0;
-            padding: ${topMargin}cm ${rightMargin}cm 1cm ${leftMargin}cm;
+            padding: ${topMargin}cm ${rightMargin}cm 0.5cm ${leftMargin}cm;
             page-break-after: always;
           }
           .barcode-item {
-            border: 1px solid #999;
+            border: 1px solid #eee;
             page-break-inside: avoid;
           }
         }
