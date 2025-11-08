@@ -29,6 +29,7 @@ interface PrintSettings {
   marginTop: number
   marginLeft: number
   marginRight: number
+  barcodeScale: number // 1 = 50×25mm, 1.5 = 75×37.5mm, 2 = 100×50mm
 }
 
 export function SimpleBarcodePrinter({
@@ -51,6 +52,7 @@ export function SimpleBarcodePrinter({
     marginTop: 10,
     marginLeft: 10,
     marginRight: 10,
+    barcodeScale: 1,
   })
 
   // Paper size presets
@@ -73,9 +75,13 @@ export function SimpleBarcodePrinter({
     const availableWidth = paperSize.width - settings.marginLeft - settings.marginRight
     const availableHeight = paperSize.height - settings.marginTop - 10 // 10mm bottom margin
 
+    // Apply scale to barcode dimensions
+    const scaledBarcodeWidth = BARCODE_WIDTH * settings.barcodeScale
+    const scaledBarcodeHeight = BARCODE_HEIGHT * settings.barcodeScale
+
     const cols = settings.columns
-    const barcodeWidthWithGap = BARCODE_WIDTH + 2 // 2mm gap
-    const rowHeight = BARCODE_HEIGHT + 3 // 3mm gap
+    const barcodeWidthWithGap = scaledBarcodeWidth + 2 // 2mm gap
+    const rowHeight = scaledBarcodeHeight + 2 // 2mm gap
 
     const rows = Math.floor(availableHeight / rowHeight)
     const barcodesPerPage = cols * rows
@@ -90,6 +96,8 @@ export function SimpleBarcodePrinter({
       totalPages,
       barcodeWidthWithGap,
       rowHeight,
+      scaledBarcodeWidth,
+      scaledBarcodeHeight,
     }
   }
 
@@ -133,6 +141,7 @@ export function SimpleBarcodePrinter({
         leftMargin: settings.marginLeft / 10,
         rightMargin: settings.marginRight / 10,
         topMargin: settings.marginTop / 10,
+        barcodeScale: settings.barcodeScale,
       })
 
       toast.success(
@@ -236,6 +245,28 @@ export function SimpleBarcodePrinter({
                     className="w-full"
                   />
                 </div>
+
+                {/* Barcode Scale */}
+                <div className="pt-2 border-t">
+                  <Label className="text-sm font-medium mb-2 block">
+                    Barcode Size: {(settings.barcodeScale * 50).toFixed(0)}×{(settings.barcodeScale * 25).toFixed(0)}mm
+                  </Label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="3"
+                    step="0.1"
+                    value={settings.barcodeScale}
+                    onChange={(e) => updateSetting("barcodeScale", parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="text-xs text-gray-500 mt-2 flex justify-between">
+                    <span>0.5x (25×12.5mm)</span>
+                    <span>1x (50×25mm)</span>
+                    <span>2x (100×50mm)</span>
+                    <span>3x (150×75mm)</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -307,14 +338,14 @@ export function SimpleBarcodePrinter({
                   {Array.from({ length: layout.barcodesPerPage }).map((_, idx) => {
                     const col = idx % layout.cols
                     const row = Math.floor(idx / layout.cols)
-                    const x = settings.marginLeft + col * (BARCODE_WIDTH + 2)
-                    const y = settings.marginTop + row * (BARCODE_HEIGHT + 3)
+                    const x = settings.marginLeft + col * (layout.scaledBarcodeWidth + 2)
+                    const y = settings.marginTop + row * (layout.scaledBarcodeHeight + 2)
 
                     const scaleX = (Math.min(paperSize.width * 2, 500) / paperSize.width)
                     const scaledX = x * scaleX
                     const scaledY = y * scaleX
-                    const scaledWidth = BARCODE_WIDTH * scaleX
-                    const scaledHeight = BARCODE_HEIGHT * scaleX
+                    const scaledWidth = layout.scaledBarcodeWidth * scaleX
+                    const scaledHeight = layout.scaledBarcodeHeight * scaleX
 
                     return (
                       <div

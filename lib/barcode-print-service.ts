@@ -14,6 +14,7 @@ interface PrintConfig {
   leftMargin?: number // in cm
   rightMargin?: number // in cm
   topMargin?: number // in cm
+  barcodeScale?: number // 1 = 50×25mm, 1.5 = 75×37.5mm, 2 = 100×50mm
 }
 
 /**
@@ -66,13 +67,24 @@ export function createPrintHTML(config: PrintConfig): string {
     leftMargin = 1,
     rightMargin = 1,
     topMargin = 1,
+    barcodeScale = 1,
   } = config
 
-  // Fixed dimensions for barcode labels
-  const BARCODE_WIDTH_MM = 50 // FIXED
-  const BARCODE_HEIGHT_MM = 25 // FIXED
+  // Base dimensions for barcode labels (50mm × 25mm)
+  const BASE_BARCODE_WIDTH_MM = 50
+  const BASE_BARCODE_HEIGHT_MM = 25
+  
+  // Apply scale
+  const BARCODE_WIDTH_MM = BASE_BARCODE_WIDTH_MM * barcodeScale
+  const BARCODE_HEIGHT_MM = BASE_BARCODE_HEIGHT_MM * barcodeScale
   const HORIZONTAL_GAP_MM = 2
   const VERTICAL_GAP_MM = 2
+
+  // Base image dimensions (for 50mm × 25mm barcode)
+  const BASE_IMAGE_WIDTH_MM = 48
+  const BASE_IMAGE_HEIGHT_MM = 14
+  const IMAGE_WIDTH_MM = BASE_IMAGE_WIDTH_MM * barcodeScale
+  const IMAGE_HEIGHT_MM = BASE_IMAGE_HEIGHT_MM * barcodeScale
 
   let html = `
     <!DOCTYPE html>
@@ -121,15 +133,15 @@ export function createPrintHTML(config: PrintConfig): string {
           border: 1px solid #ddd;
           background: white;
           page-break-inside: avoid;
-          font-size: 6px;
+          font-size: ${6 * barcodeScale}px;
           line-height: 1.1;
           text-align: center;
           overflow: hidden;
         }
         
         .barcode-image {
-          width: 48mm;
-          height: 14mm;
+          width: ${IMAGE_WIDTH_MM}mm;
+          height: ${IMAGE_HEIGHT_MM}mm;
           margin-bottom: 2mm;
           display: block;
           image-rendering: pixelated;
