@@ -309,7 +309,7 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Advanced Barcode Printer</span>
@@ -325,16 +325,19 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="barcodes" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="barcodes">Barcodes</TabsTrigger>
-            <TabsTrigger value="presets">Presets</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-          </TabsList>
+        {/* Main Split-Screen Layout */}
+        <div className="flex gap-4 flex-1 overflow-hidden">
+          {/* LEFT SIDE - Settings & Controls */}
+          <div className="flex-1 overflow-y-auto pr-2">
+            <Tabs defaultValue="barcodes" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="barcodes">Barcodes</TabsTrigger>
+                <TabsTrigger value="presets">Presets</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
+              </TabsList>
 
-          {/* Barcodes Tab */}
-          <TabsContent value="barcodes" className="space-y-4">
+              {/* Barcodes Tab */}
+              <TabsContent value="barcodes" className="space-y-4">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -739,10 +742,132 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+            </Tabs>
+          </div>
+
+          {/* RIGHT SIDE - Live Preview Panel */}
+          <div className="w-96 border-l pl-4 overflow-y-auto bg-slate-50 rounded-lg p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-sm">Live Preview</h3>
+              <Button
+                variant={showLivePreview ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowLivePreview(!showLivePreview)}
+                className="h-7 px-2 text-xs gap-1"
+              >
+                {showLivePreview ? (
+                  <>
+                    <Eye className="w-3 h-3" />
+                    ON
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-3 h-3" />
+                    OFF
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {showLivePreview ? (
+              <div className="flex-1 flex flex-col gap-4 min-h-0">
+                {/* Preview Visualization */}
+                <Card className="flex-1 flex items-center justify-center overflow-hidden">
+                  <CardContent className="p-2 flex items-center justify-center w-full h-full">
+                    <div
+                      className="border-2 border-gray-400 bg-white shadow-lg"
+                      style={{
+                        width: Math.min((settings.paperWidth / 20), 250),
+                        aspectRatio: `${settings.paperWidth} / ${settings.paperHeight}`,
+                        position: 'relative',
+                      }}
+                    >
+                      {/* Margins visualization */}
+                      <div
+                        className="absolute border border-red-300 bg-red-50 opacity-40"
+                        style={{
+                          left: `${(settings.marginLeft / settings.paperWidth) * 100}%`,
+                          top: `${(settings.marginTop / settings.paperHeight) * 100}%`,
+                          width: `${(layout.availableWidth / settings.paperWidth) * 100}%`,
+                          height: `${(layout.availableHeight / settings.paperHeight) * 100}%`,
+                        }}
+                      />
+
+                      {/* Barcode grid preview */}
+                      {Array.from({ length: Math.min(layout.barcodesPerPage, 12) }).map((_, idx) => {
+                        const col = idx % layout.cols
+                        const row = Math.floor(idx / layout.cols)
+                        const x = settings.marginLeft + col * layout.columnWidth
+                        const y = settings.marginTop + row * layout.rowHeight
+
+                        return (
+                          <div
+                            key={idx}
+                            className="absolute bg-blue-100 border border-blue-400 flex items-center justify-center text-blue-700 font-bold"
+                            style={{
+                              left: `${(x / settings.paperWidth) * 100}%`,
+                              top: `${(y / settings.paperHeight) * 100}%`,
+                              width: `${(layout.scaledBarcodeWidth / settings.paperWidth) * 100}%`,
+                              height: `${(layout.scaledBarcodeHeight / settings.paperHeight) * 100}%`,
+                              fontSize: '6px',
+                            }}
+                          >
+                            {idx + 1}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Layout Statistics */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs">Layout Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Paper:</span>
+                      <span className="font-mono">{settings.paperWidth}×{settings.paperHeight}mm</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Barcode:</span>
+                      <span className="font-mono">{settings.barcodeWidth}×{settings.barcodeHeight}mm</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Scale:</span>
+                      <span className="font-mono">{(settings.scale * 100).toFixed(0)}%</span>
+                    </div>
+                    <hr className="my-2" />
+                    <div className="flex justify-between font-bold">
+                      <span className="text-gray-600">Columns:</span>
+                      <span className="text-blue-600">{layout.cols}</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span className="text-gray-600">Rows:</span>
+                      <span className="text-blue-600">{layout.rows}</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span className="text-gray-600">Per Page:</span>
+                      <span className="text-green-600">{layout.barcodesPerPage}</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span className="text-gray-600">Pages:</span>
+                      <span className="text-orange-600">{layout.pagesNeeded}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+                <p>Live preview is disabled. Click ON to enable.</p>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Print Button */}
-        <div className="flex gap-2 justify-end pt-4 border-t">
+        <div className="flex gap-2 justify-end pt-4 border-t mt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
