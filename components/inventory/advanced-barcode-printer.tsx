@@ -1,0 +1,652 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Printer, Plus, Trash2, Eye, Settings, Copy } from "lucide-react"
+import { toast } from "sonner"
+import { printBarcodes } from "@/lib/barcode-print-service"
+
+interface BarcodeItem {
+  id: string
+  code: string
+  productName: string
+}
+
+interface BarcodePrinterProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  productCode: string
+  productName: string
+}
+
+interface PrintSettings {
+  // Paper settings
+  paperSize: "a4" | "a3" | "custom"
+  paperWidth: number // mm
+  paperHeight: number // mm
+  
+  // Barcode settings
+  barcodeWidth: number // mm
+  barcodeHeight: number // mm
+  
+  // Layout settings
+  columns: number
+  marginTop: number // mm
+  marginBottom: number // mm
+  marginLeft: number // mm
+  marginRight: number // mm
+  horizontalGap: number // mm
+  verticalGap: number // mm
+  
+  // Scale & quality
+  scale: number // 0.5 to 2.0
+  barcodeQuality: "low" | "medium" | "high"
+}
+
+const DEFAULT_SETTINGS: PrintSettings = {
+  paperSize: "a4",
+  paperWidth: 210,
+  paperHeight: 297,
+  barcodeWidth: 50,
+  barcodeHeight: 25,
+  columns: 2,
+  marginTop: 10,
+  marginBottom: 10,
+  marginLeft: 10,
+  marginRight: 10,
+  horizontalGap: 0,
+  verticalGap: 2,
+  scale: 1,
+  barcodeQuality: "high",
+}
+
+const PRESETS = {
+  "2col-50x25": {
+    name: "2 Column - 50×25mm (Standard)",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      columns: 2,
+      barcodeWidth: 50,
+      barcodeHeight: 25,
+      verticalGap: 2,
+    },
+  },
+  "3col-40x20": {
+    name: "3 Column - 40×20mm",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      columns: 3,
+      barcodeWidth: 40,
+      barcodeHeight: 20,
+      verticalGap: 2,
+    },
+  },
+  "4col-30x20": {
+    name: "4 Column - 30×20mm",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      columns: 4,
+      barcodeWidth: 30,
+      barcodeHeight: 20,
+      verticalGap: 1,
+    },
+  },
+  "1col-100x30": {
+    name: "1 Column - 100×30mm (Large)",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      columns: 1,
+      barcodeWidth: 100,
+      barcodeHeight: 30,
+      verticalGap: 5,
+    },
+  },
+  "thermal-4x6": {
+    name: "Thermal - 4×6 inch (Shipping)",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      paperSize: "custom",
+      paperWidth: 101.6,
+      paperHeight: 152.4,
+      barcodeWidth: 90,
+      barcodeHeight: 130,
+      columns: 1,
+      marginTop: 5,
+      marginBottom: 5,
+      marginLeft: 5,
+      marginRight: 5,
+      verticalGap: 0,
+    },
+  },
+}
+
+export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, productName }: BarcodePrinterProps) {
+  const [barcodes, setBarcodes] = useState<BarcodeItem[]>([
+    { id: "1", code: productCode, productName: productName },
+  ])
+  const [settings, setSettings] = useState<PrintSettings>(DEFAULT_SETTINGS)
+  const [previewMode, setPreviewMode] = useState<"grid" | "page">("page")
+  const [selectedPreset, setSelectedPreset] = useState("2col-50x25")
+
+  const addBarcode = () => {
+    const newBarcode: BarcodeItem = {
+      id: Date.now().toString(),
+      code: productCode,
+      productName: productName,
+    }
+    setBarcodes([...barcodes, newBarcode])
+  }
+
+  const removeBarcode = (id: string) => {
+    setBarcodes(barcodes.filter((b) => b.id !== id))
+  }
+
+  const updateBarcode = (id: string, field: "code" | "productName", value: string) => {
+    setBarcodes(
+      barcodes.map((b) =>
+        b.id === id ? { ...b, [field]: value } : b
+      )
+    )
+  }
+
+  const updateSetting = (key: keyof PrintSettings, value: any) => {
+    setSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const applyPreset = (presetKey: string) => {
+    setSelectedPreset(presetKey)
+    const preset = PRESETS[presetKey as keyof typeof PRESETS]
+    if (preset) {
+      setSettings(preset.settings as PrintSettings)
+    }
+  }
+
+  const calculateLayout = () => {
+    const availableWidth = settings.paperWidth - settings.marginLeft - settings.marginRight
+    const availableHeight = settings.paperHeight - settings.marginTop - settings.marginBottom
+
+    const scaledBarcodeWidth = settings.barcodeWidth * settings.scale
+    const scaledBarcodeHeight = settings.barcodeHeight * settings.scale
+    const scaledHGap = settings.horizontalGap * settings.scale
+    const scaledVGap = settings.verticalGap * settings.scale
+
+    const columnWidth = scaledBarcodeWidth + scaledHGap
+    const rowHeight = scaledBarcodeHeight + scaledVGap
+
+    const cols = Math.floor(availableWidth / columnWidth)
+    const rows = Math.floor(availableHeight / rowHeight)
+    const barcodesPerPage = cols * rows
+    const pagesNeeded = Math.ceil(barcodes.length / barcodesPerPage)
+
+    return {
+      cols,
+      rows,
+      barcodesPerPage,
+      pagesNeeded,
+      scaledBarcodeWidth,
+      scaledBarcodeHeight,
+      columnWidth,
+      rowHeight,
+      availableWidth,
+      availableHeight,
+    }
+  }
+
+  const layout = calculateLayout()
+
+  const handlePrint = async () => {
+    if (barcodes.length === 0) {
+      toast.error("Add at least one barcode")
+      return
+    }
+
+    try {
+      await printBarcodes({
+        barcodes,
+        columns: settings.columns,
+        leftMargin: settings.marginLeft / 10, // Convert mm to cm
+        rightMargin: settings.marginRight / 10,
+        topMargin: settings.marginTop / 10,
+      })
+
+      toast.success(`Printing ${barcodes.length} barcodes (${layout.pagesNeeded} page${layout.pagesNeeded > 1 ? "s" : ""})`)
+    } catch (error) {
+      console.error("Print error:", error)
+      toast.error("Failed to print barcodes")
+    }
+  }
+
+  const exportSettings = () => {
+    const settingsJson = JSON.stringify(settings, null, 2)
+    const blob = new Blob([settingsJson], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `barcode-settings-${Date.now()}.json`
+    a.click()
+    toast.success("Settings exported")
+  }
+
+  const copySettings = () => {
+    const settingsJson = JSON.stringify(settings, null, 2)
+    navigator.clipboard.writeText(settingsJson)
+    toast.success("Settings copied to clipboard")
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Advanced Barcode Printer</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={copySettings}>
+                <Copy className="w-3 h-3 mr-1" />
+                Copy Settings
+              </Button>
+              <Button size="sm" variant="outline" onClick={exportSettings}>
+                Export
+              </Button>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="barcodes" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="barcodes">Barcodes</TabsTrigger>
+            <TabsTrigger value="presets">Presets</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+          </TabsList>
+
+          {/* Barcodes Tab */}
+          <TabsContent value="barcodes" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm">Barcodes ({barcodes.length})</CardTitle>
+                    <CardDescription>Add or edit barcode items to print</CardDescription>
+                  </div>
+                  <Button size="sm" onClick={addBarcode}>
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+                {barcodes.map((barcode) => (
+                  <div key={barcode.id} className="flex gap-2 items-end pb-2 border-b">
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs">Barcode Code</Label>
+                      <Input
+                        value={barcode.code}
+                        onChange={(e) => updateBarcode(barcode.id, "code", e.target.value)}
+                        placeholder="Barcode code"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs">Product Name</Label>
+                      <Input
+                        value={barcode.productName}
+                        onChange={(e) => updateBarcode(barcode.id, "productName", e.target.value)}
+                        placeholder="Product name"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => removeBarcode(barcode.id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Presets Tab */}
+          <TabsContent value="presets" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Print Presets</CardTitle>
+                <CardDescription>Quick templates for common layouts</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.entries(PRESETS).map(([key, preset]) => (
+                  <Button
+                    key={key}
+                    variant={selectedPreset === key ? "default" : "outline"}
+                    className="h-auto py-3 px-4 text-left justify-start flex-col items-start"
+                    onClick={() => applyPreset(key)}
+                  >
+                    <div className="font-medium text-sm">{preset.name}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {preset.settings.columns}col • {preset.settings.barcodeWidth}×{preset.settings.barcodeHeight}mm • {Math.floor((preset.settings.paperWidth - preset.settings.marginLeft - preset.settings.marginRight) / (preset.settings.barcodeWidth * preset.settings.scale + preset.settings.horizontalGap * preset.settings.scale)) * Math.floor((preset.settings.paperHeight - preset.settings.marginTop - preset.settings.marginBottom) / (preset.settings.barcodeHeight * preset.settings.scale + preset.settings.verticalGap * preset.settings.scale))}/page
+                    </div>
+                  </Button>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Paper Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Paper Settings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Paper Size</Label>
+                    <select
+                      value={settings.paperSize}
+                      onChange={(e) => {
+                        updateSetting("paperSize", e.target.value)
+                        if (e.target.value === "a4") {
+                          updateSetting("paperWidth", 210)
+                          updateSetting("paperHeight", 297)
+                        } else if (e.target.value === "a3") {
+                          updateSetting("paperWidth", 297)
+                          updateSetting("paperHeight", 420)
+                        }
+                      }}
+                      className="w-full px-2 py-1.5 border rounded text-xs"
+                    >
+                      <option value="a4">A4 (210×297mm)</option>
+                      <option value="a3">A3 (297×420mm)</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+
+                  {settings.paperSize === "custom" && (
+                    <>
+                      <div>
+                        <Label className="text-xs">Width (mm)</Label>
+                        <Input
+                          type="number"
+                          value={settings.paperWidth}
+                          onChange={(e) => updateSetting("paperWidth", Number(e.target.value))}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Height (mm)</Label>
+                        <Input
+                          type="number"
+                          value={settings.paperHeight}
+                          onChange={(e) => updateSetting("paperHeight", Number(e.target.value))}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Barcode Dimensions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Barcode Dimensions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Width (mm)</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      value={settings.barcodeWidth}
+                      onChange={(e) => updateSetting("barcodeWidth", Number(e.target.value))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Height (mm)</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      value={settings.barcodeHeight}
+                      onChange={(e) => updateSetting("barcodeHeight", Number(e.target.value))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Columns</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="6"
+                      value={settings.columns}
+                      onChange={(e) => updateSetting("columns", Number(e.target.value))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Margins */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Margins (mm)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Top</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        value={settings.marginTop}
+                        onChange={(e) => updateSetting("marginTop", Number(e.target.value))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Bottom</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        value={settings.marginBottom}
+                        onChange={(e) => updateSetting("marginBottom", Number(e.target.value))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Left</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        value={settings.marginLeft}
+                        onChange={(e) => updateSetting("marginLeft", Number(e.target.value))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Right</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        value={settings.marginRight}
+                        onChange={(e) => updateSetting("marginRight", Number(e.target.value))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Gaps & Scale */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Gaps & Scale</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Horizontal Gap (mm)</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      value={settings.horizontalGap}
+                      onChange={(e) => updateSetting("horizontalGap", Number(e.target.value))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Vertical Gap (mm)</Label>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      value={settings.verticalGap}
+                      onChange={(e) => updateSetting("verticalGap", Number(e.target.value))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Scale: {(settings.scale * 100).toFixed(0)}%</Label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2"
+                      step="0.1"
+                      value={settings.scale}
+                      onChange={(e) => updateSetting("scale", Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Quality</Label>
+                    <select
+                      value={settings.barcodeQuality}
+                      onChange={(e) => updateSetting("barcodeQuality", e.target.value)}
+                      className="w-full px-2 py-1.5 border rounded text-xs"
+                    >
+                      <option value="low">Low (Fast)</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High (Clear)</option>
+                    </select>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Preview Tab */}
+          <TabsContent value="preview" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Layout Calculations</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Columns</p>
+                    <p className="text-lg font-bold">{layout.cols}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Rows</p>
+                    <p className="text-lg font-bold">{layout.rows}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Per Page</p>
+                    <p className="text-lg font-bold">{layout.barcodesPerPage}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pages Needed</p>
+                    <p className="text-lg font-bold">{layout.pagesNeeded}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Page Preview (Scaled)</CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                <div
+                  className="border-2 border-gray-300 bg-white relative"
+                  style={{
+                    width: Math.min(layout.availableWidth * 0.3, 300),
+                    aspectRatio: `${settings.paperWidth} / ${settings.paperHeight}`,
+                  }}
+                >
+                  {/* Margins visualization */}
+                  <div
+                    className="absolute border border-red-200 bg-red-50 opacity-50"
+                    style={{
+                      left: `${(settings.marginLeft / settings.paperWidth) * 100}%`,
+                      top: `${(settings.marginTop / settings.paperHeight) * 100}%`,
+                      width: `${(layout.availableWidth / settings.paperWidth) * 100}%`,
+                      height: `${(layout.availableHeight / settings.paperHeight) * 100}%`,
+                    }}
+                  />
+
+                  {/* Barcode grid */}
+                  {Array.from({ length: Math.min(layout.barcodesPerPage, 6) }).map((_, idx) => {
+                    const col = idx % layout.cols
+                    const row = Math.floor(idx / layout.cols)
+                    const x = settings.marginLeft + col * layout.columnWidth
+                    const y = settings.marginTop + row * layout.rowHeight
+
+                    return (
+                      <div
+                        key={idx}
+                        className="absolute border border-blue-300 bg-blue-50 flex items-center justify-center"
+                        style={{
+                          left: `${(x / settings.paperWidth) * 100}%`,
+                          top: `${(y / settings.paperHeight) * 100}%`,
+                          width: `${(layout.scaledBarcodeWidth / settings.paperWidth) * 100}%`,
+                          height: `${(layout.scaledBarcodeHeight / settings.paperHeight) * 100}%`,
+                          fontSize: "8px",
+                        }}
+                      >
+                        {idx + 1}
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Settings Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs space-y-1 font-mono">
+                <p><strong>Paper:</strong> {settings.paperWidth}mm × {settings.paperHeight}mm</p>
+                <p><strong>Barcode:</strong> {settings.barcodeWidth}mm × {settings.barcodeHeight}mm (scaled {(settings.scale * 100).toFixed(0)}%)</p>
+                <p><strong>Layout:</strong> {layout.cols} columns × {layout.rows} rows</p>
+                <p><strong>Barcodes/Page:</strong> {layout.barcodesPerPage}</p>
+                <p><strong>Total Pages:</strong> {layout.pagesNeeded}</p>
+                <p><strong>Margins:</strong> T:{settings.marginTop}mm R:{settings.marginRight}mm B:{settings.marginBottom}mm L:{settings.marginLeft}mm</p>
+                <p><strong>Gaps:</strong> H:{settings.horizontalGap}mm V:{settings.verticalGap}mm</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Print Button */}
+        <div className="flex gap-2 justify-end pt-4 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
+            <Printer className="w-4 h-4 mr-2" />
+            Print {barcodes.length} Barcodes ({layout.pagesNeeded} Page{layout.pagesNeeded > 1 ? "s" : ""})
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

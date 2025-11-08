@@ -723,6 +723,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       }
       const { data: allVariants, error: variantsError } = await variantsQuery.order("display_order")
       if (variantsError) throw variantsError
+      
+      console.log("[v0] Variants fetched:", allVariants?.length || 0, "variants")
+      console.log("[v0] Sample variant data:", allVariants?.[0])
 
       // Fetch distance pricing directly for all variants (no more levels)
       const variantIds = (allVariants || []).map((v: any) => v.id)
@@ -745,6 +748,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       const categoriesWithVariants = (categoriesData || []).map((category:any) => {
         const variants = (allVariants || []).filter((v:any) => v.category_id === category.id)
+        console.log(`[v0] Category "${category.name}" has ${variants.length} matching variants`)
         const variantsWithPricing = variants.map((v:any) => ({
           ...v,
           distance_pricing: pricingData.filter((dp:any) => dp.package_variant_id === v.id),
@@ -958,8 +962,12 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         size="sm"
                         className="border-green-300 text-green-700 hover:bg-green-50 bg-green-50/30"
                         onClick={() => {
+                          // Set category with proper state update, then switch tabs
                           setSelectedCategory(category)
-                          setActiveTab("variants")
+                          // Use setTimeout to ensure state updates before tab switch
+                          setTimeout(() => {
+                            setActiveTab("variants")
+                          }, 0)
                         }}
                       >
                         <Eye className="w-4 h-4 mr-2" />
@@ -1063,7 +1071,10 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           size="sm"
                           onClick={() => {
                             setSelectedVariant(variant)
-                            setActiveTab("pricing")
+                            // Use setTimeout to ensure state updates before tab switch
+                            setTimeout(() => {
+                              setActiveTab("pricing")
+                            }, 0)
                           }}
                         >
                           <MapPin className="w-4 h-4 mr-2" />

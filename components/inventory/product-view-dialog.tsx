@@ -1,379 +1,579 @@
 "use client"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { User, Truck, Package, DollarSign, MapPin, Phone, Calendar, Wrench, FileText } from "lucide-react"
-
-interface OrderItem {
-  id: string
-  product_id: string
-  product_name: string
-  category: string
-  quantity: number
-  unit_price: number
-  total_price: number
-  security_deposit: number
-}
-
-interface Customer {
-  id: string
-  name: string
-  phone: string
-  email?: string
-  address?: string
-  city?: string
-  state?: string
-  pincode?: string
-}
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Package,
+  Barcode,
+  Printer,
+  Download,
+  Archive,
+  AlertTriangle,
+  CheckCircle,
+  FileText,
+  ImageIcon,
+  Settings,
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+import { supabase } from "@/lib/supabase"
+import { generateBarcode } from "@/lib/barcode-generator"
+import { BarcodePrinter } from "@/components/inventory/barcode-printer"
+import { AdvancedBarcodePrinter } from "@/components/inventory/advanced-barcode-printer"
+// Fixed import path for ProductItemService
+import { ProductItemService } from "@/lib/services/product-item-service"
 
 interface Product {
   id: string
+  product_code?: string
   name: string
-}
-
-interface DirectSaleOrder {
-  id: string
-  order_number: string
-  customer_id: string
-  customer?: Customer
-  delivery_date?: string
-  delivery_time?: string
-  delivery_address?: string
-  venue_address?: string
-  total_amount: number
-  paid_amount?: number
-  discount_amount?: number
-  tax_amount?: number
-  payment_method?: string
-  payment_type?: string
-  notes?: string
-  booking_items?: OrderItem[]
-  status?: string
-  created_at?: string
-  has_modifications?: boolean
-  modifications_details?: string
-  modification_date?: string
-  modification_time?: string
-  sales_closed_by_id?: string
+  description?: string
+  brand?: string
+  size?: string
+  color?: string
+  material?: string
+  price: number
+  rental_price: number
+  cost_price: number
+  security_deposit: number
+  stock_total: number
+  stock_available: number
+  stock_booked: number
+  stock_damaged: number
+  stock_in_laundry: number
+  reorder_level: number
+  usage_count: number
+  damage_count: number
+  barcode?: string
+  qr_code?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  category_id?: string
+  subcategory_id?: string
+  image_url?: string // Added image_url field
 }
 
 interface ProductViewDialogProps {
-  product: DirectSaleOrder | null
+  product: Product | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDialogProps) {
+  const [printing, setPrinting] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadingPDF, setDownloadingPDF] = useState(false)
+  const [barcodePrinterOpen, setBarcodePrinterOpen] = useState(false)
+  const [advancedPrinterOpen, setAdvancedPrinterOpen] = useState(false)
+  const [generatedBarcode, setGeneratedBarcode] = useState<string>("")
+  const [itemBarcodes, setItemBarcodes] = useState<
+    Array<{
+      id: string
+      item_code: string
+      barcode: string
+      status: string
+    }>
+  >([])
+  const [loadingItems, setLoadingItems] = useState(false)
+  const [showAllBarcodes, setShowAllBarcodes] = useState(false)
+
+  useEffect(() => {
+    if (open && product) {
+      loadItemBarcodes()
+    }
+  }, [open, product])
+
   if (!product) return null
 
-  const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined || amount === null) return "₹0"
-    return `₹${amount.toLocaleString("en-IN")}`
+  const handlePrintBarcode = async () => {
+    setPrinting(true)
+    try {
+      const barcodeToUse = generatedBarcode || generateBarcode(product.barcode || "")
+
+      const printWindow = window.open("", "_blank")
+      if (printWindow) {
+        printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Barcode - ${product.name}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+              /* Using Cinzel for printed barcode labels. For offline use, download Cinzel to /public/fonts and add @font-face fallback. */
+              body { 
+                font-family: Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px;
+                margin: 0;
+              }
+              .barcode-container {
+                border: 1px solid #ccc;
+                padding: 20px;
+                margin: 20px auto;
+                width: fit-content;
+                background: white;
+              }
+              .product-info {
+                margin-bottom: 15px;
+              }
+              .product-name {
+                font-family: 'Cinzel', serif;
+                font-size: 16px;
+                font-weight: 700;
+                margin-bottom: 5px;
+              }
+              .product-code {
+                font-family: 'Cinzel', serif;
+                font-size: 14px;
+                color: #666;
+              }
+              img {
+                max-width: 100%;
+                height: auto;
+              }
+              @media print {
+                body { margin: 0; padding: 10px; }
+                .barcode-container { border: none; margin: 0; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="barcode-container">
+              <img src="${barcodeToUse}" alt="Barcode for ${product.name}" />
+              <div class="product-info">
+                <div class="product-code">${product.barcode ?? ""}</div>
+                <div class="product-name">${product.name}</div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `)
+        printWindow.document.close()
+        printWindow.print()
+        printWindow.close()
+      }
+      toast({
+        title: "Success",
+        description: "Barcode sent to printer",
+      })
+    } catch (error) {
+      console.error("Error printing barcode:", error)
+      toast({
+        title: "Error",
+        description: "Failed to print barcode",
+        variant: "destructive",
+      })
+    } finally {
+      setPrinting(false)
+    }
   }
 
-  const formatDate = (date: string | undefined) => {
-    if (!date) return "N/A"
-    return new Date(date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
+  const handleDownloadBarcode = async () => {
+    setDownloading(true)
+    try {
+      const barcodeDataURL = generatedBarcode || generateBarcode(product.barcode || "")
+
+      const link = document.createElement("a")
+      link.href = barcodeDataURL
+  link.download = `barcode-${product.name.replace(/[^a-zA-Z0-9]/g, "_")}-${product.barcode ?? ""}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({
+        title: "Success",
+  description: `Barcode downloaded: ${product.name} (${product.barcode ?? ""})`,
+      })
+    } catch (error) {
+      console.error("Error downloading barcode:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download barcode",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloading(false)
+    }
   }
 
-  const pendingAmount = (product.total_amount || 0) - (product.paid_amount || 0)
+  const handleGenerateBarcode = async () => {
+    try {
+      const barcodeDataURL = generateBarcode(product.barcode || "")
+      setGeneratedBarcode(barcodeDataURL)
+      toast({
+        title: "Success",
+        description: "Barcode image generated for printing/downloading.",
+      })
+    } catch (error) {
+      console.error("Error generating barcode:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate barcode",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Fixed barcode generation to use correct generateBarcode function
+  const loadItemBarcodes = async () => {
+    setLoadingItems(true)
+    try {
+      const items = await ProductItemService.getProductItems(product.id)
+      const itemsWithBarcodes = await Promise.all(
+        items.map(async (item) => {
+          try {
+            const barcodeDataUrl = generateBarcode(item.item_code)
+            return {
+              ...item,
+              barcode: barcodeDataUrl,
+            }
+          } catch (error) {
+            console.error(`Error generating barcode for ${item.item_code}:`, error)
+            return {
+              ...item,
+              barcode: "", // Will fallback to placeholder
+            }
+          }
+        }),
+      )
+      setItemBarcodes(itemsWithBarcodes)
+    } catch (error) {
+      console.error("Error loading item barcodes:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load item barcodes",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingItems(false)
+    }
+  }
+
+  const downloadBarcodesAsPDF = async () => {
+    setDownloadingPDF(true)
+    try {
+      // Dynamic import of jsPDF to avoid SSR issues
+      const { jsPDF } = await import("jspdf")
+
+      if (itemBarcodes.length === 0) {
+        toast({
+          title: "No Barcodes",
+          description: "No item barcodes available to download",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+
+      // Configuration
+      const margin = 10
+      const barcodeWidth = 60
+      const barcodeHeight = 20
+      const textHeight = 8
+      const itemHeight = barcodeHeight + textHeight + 5
+      const itemsPerRow = Math.floor((pageWidth - 2 * margin) / (barcodeWidth + 5))
+      const itemsPerPage = Math.floor((pageHeight - 2 * margin - 20) / itemHeight) * itemsPerRow
+
+      // Add title
+      pdf.setFontSize(16)
+      pdf.setFont("helvetica", "bold")
+      pdf.text(`${product.name} - Item Barcodes`, margin, margin + 10)
+
+      pdf.setFontSize(10)
+      pdf.setFont("helvetica", "normal")
+  pdf.text(`Barcode: ${product.barcode ?? ""}`, margin, margin + 18)
+      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, margin + 25)
+
+      let currentPage = 1
+      let yPosition = margin + 35
+
+      for (let i = 0; i < itemBarcodes.length; i++) {
+        const item = itemBarcodes[i]
+        const row = Math.floor((i % itemsPerPage) / itemsPerRow)
+        const col = (i % itemsPerPage) % itemsPerRow
+
+        // Check if we need a new page
+        if (i > 0 && i % itemsPerPage === 0) {
+          pdf.addPage()
+          currentPage++
+          yPosition = margin + 10
+        }
+
+        const xPosition = margin + col * (barcodeWidth + 5)
+        const currentYPosition = yPosition + row * itemHeight
+
+        // Add barcode image if available
+        if (item.barcode && item.barcode.startsWith("data:image")) {
+          try {
+            pdf.addImage(item.barcode, "PNG", xPosition, currentYPosition, barcodeWidth, barcodeHeight)
+          } catch (error) {
+            console.error(`Error adding barcode image for ${item.item_code}:`, error)
+            // Draw a placeholder rectangle if image fails
+            pdf.rect(xPosition, currentYPosition, barcodeWidth, barcodeHeight)
+            pdf.text("Barcode Error", xPosition + 5, currentYPosition + 10)
+          }
+        } else {
+          // Draw placeholder rectangle
+          pdf.rect(xPosition, currentYPosition, barcodeWidth, barcodeHeight)
+          pdf.text("No Barcode", xPosition + 5, currentYPosition + 10)
+        }
+
+        // Add serial code below barcode
+        pdf.setFontSize(8)
+        pdf.setFont("helvetica", "normal")
+        const textX = xPosition + barcodeWidth / 2
+        pdf.text(item.item_code, textX, currentYPosition + barcodeHeight + 5, { align: "center" })
+
+        // Add status
+        pdf.setFontSize(6)
+        pdf.text(item.status.toUpperCase(), textX, currentYPosition + barcodeHeight + 10, { align: "center" })
+      }
+
+      // Add page numbers
+      const totalPages = Math.ceil(itemBarcodes.length / itemsPerPage)
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i)
+        pdf.setFontSize(8)
+        pdf.text(`Page ${i} of ${totalPages}`, pageWidth - margin - 20, pageHeight - 5)
+      }
+
+      // Save the PDF
+      const fileName = `${product.name.replace(/[^a-zA-Z0-9]/g, "_")}_barcodes_${new Date().toISOString().split("T")[0]}.pdf`
+      pdf.save(fileName)
+
+      toast({
+        title: "Success",
+        description: `PDF downloaded: ${itemBarcodes.length} barcodes`,
+      })
+    } catch (error) {
+      console.error("Error generating PDF:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingPDF(false)
+    }
+  }
+
+  const getStockStatus = () => {
+    if (product.stock_available <= 0) {
+      return { label: "Out of Stock", color: "destructive", icon: AlertTriangle }
+    } else if (product.stock_available <= product.reorder_level) {
+      return { label: "Low Stock", color: "warning", icon: AlertTriangle }
+    } else {
+      return { label: "In Stock", color: "success", icon: CheckCircle }
+    }
+  }
+
+  const stockStatus = getStockStatus()
+  const StockIcon = stockStatus.icon
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Order #{product.order_number || "N/A"}</DialogTitle>
-          <p className="text-sm text-muted-foreground mt-2">
-            Ordered on {formatDate(product.created_at)}
-          </p>
+          <DialogTitle className="flex items-center space-x-2">
+            <Package className="h-5 w-5" />
+            <span>{product.name}</span>
+          </DialogTitle>
+          <DialogDescription>
+            Barcode: {product.barcode || "—"} • Created: {new Date(product.created_at).toLocaleDateString()}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Order Status & Total */}
-          <Card className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Status</p>
-                  <Badge className="mt-1 bg-green-100 text-green-800">
-                    {product.status || "Confirmed"}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Order Total</p>
-                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-400 mt-1">
-                    {formatCurrency(product.total_amount)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Paid</p>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">
-                    {formatCurrency(product.paid_amount || 0)}
-                  </p>
-                </div>
-              </div>
-              {pendingAmount > 0 && (
-                <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
-                  <p className="text-sm font-semibold text-orange-600">
-                    Pending: {formatCurrency(pendingAmount)}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Customer Information */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Customer Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Name</p>
-                  <p className="font-medium text-lg">{product.customer?.name || "N/A"}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> Phone
-                  </p>
-                  <p className="font-medium">{product.customer?.phone || "N/A"}</p>
-                </div>
-              </div>
-              {product.customer?.email && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Email</p>
-                  <p className="font-medium">{product.customer.email}</p>
-                </div>
-              )}
-              {product.customer && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> Address
-                  </p>
-                  <p className="font-medium">
-                    {[
-                      product.customer.address,
-                      product.customer.city,
-                      product.customer.state,
-                      product.customer.pincode,
-                    ]
-                      .filter(Boolean)
-                      .join(", ") || "N/A"}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Delivery Information */}
-          {product.delivery_date && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Truck className="h-5 w-5" />
-                  Delivery Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                      <Calendar className="h-3 w-3" /> Delivery Date
-                    </p>
-                    <p className="font-medium">{formatDate(product.delivery_date)}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Basic Information */}
+          <div className="lg:col-span-2 space-y-6">
+            {product.image_url && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center space-x-2">
+                    <ImageIcon className="h-4 w-4" />
+                    <span>Product Image</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-center">
+                    <img
+                      src={product.image_url || "/placeholder.svg"}
+                      alt={product.name}
+                      className="max-w-full h-auto max-h-64 rounded-lg border object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = "none"
+                      }}
+                    />
                   </div>
-                  {product.delivery_time && (
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Basic Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Product Name</label>
+                    <p className="font-medium">{product.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Barcode</label>
+                    <p className="font-mono">{product.barcode || "—"}</p>
+                  </div>
+                  {product.brand && (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase">Delivery Time</p>
-                      <p className="font-medium">{product.delivery_time}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Brand</label>
+                      <p>{product.brand}</p>
+                    </div>
+                  )}
+                  {product.size && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Size</label>
+                      <p>{product.size}</p>
                     </div>
                   )}
                 </div>
-                {product.delivery_address && (
+                {product.description && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> Delivery Address
-                    </p>
-                    <p className="font-medium">{product.delivery_address}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Description</label>
+                    <p className="text-sm">{product.description}</p>
                   </div>
                 )}
               </CardContent>
             </Card>
-          )}
 
-          {/* Products */}
-          {product.booking_items && product.booking_items.length > 0 && (
+            {/* Stock Information */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Items Ordered ({product.booking_items.length})
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center space-x-2">
+                  <Archive className="h-4 w-4" />
+                  <span>Stock Information</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                        <th className="text-left py-3 px-2 font-semibold">Product</th>
-                        <th className="text-center py-3 px-2 font-semibold">Qty</th>
-                        <th className="text-right py-3 px-2 font-semibold">Price</th>
-                        <th className="text-right py-3 px-2 font-semibold">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {product.booking_items.map((item: OrderItem) => (
-                        <tr
-                          key={item.id}
-                          className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50"
-                        >
-                          <td className="py-3 px-2">
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-gray-100">
-                                {item.product_name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{item.category}</p>
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 text-center font-medium">{item.quantity}</td>
-                          <td className="py-3 px-2 text-right">{formatCurrency(item.unit_price)}</td>
-                          <td className="py-3 px-2 text-right font-semibold">
-                            {formatCurrency(item.total_price)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Stock Status</span>
+                    <Badge variant={stockStatus.color as any} className="flex items-center space-x-1">
+                      <StockIcon className="h-3 w-3" />
+                      <span>{stockStatus.label}</span>
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Total Stock</label>
+                      <p className="text-lg font-semibold">{product.stock_total}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Available</label>
+                      <p className="text-lg font-semibold text-green-600">{product.stock_available}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Booked</label>
+                      <p className="text-lg font-semibold text-blue-600">{product.stock_booked}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Damaged</label>
+                      <p className="text-lg font-semibold text-red-600">{product.stock_damaged}</p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* Payment Breakdown */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Payment Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-medium">
-                  {formatCurrency(
-                    (product.total_amount || 0) - (product.tax_amount || 0) + (product.discount_amount || 0)
-                  )}
-                </span>
-              </div>
-
-              {product.discount_amount && product.discount_amount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Discount</span>
-                  <span className="font-medium text-green-600">-{formatCurrency(product.discount_amount)}</span>
-                </div>
-              )}
-
-              {product.tax_amount && product.tax_amount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">+{formatCurrency(product.tax_amount)}</span>
-                </div>
-              )}
-
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2 flex justify-between font-bold">
-                <span>Total</span>
-                <span className="text-lg text-green-600 dark:text-green-400">
-                  {formatCurrency(product.total_amount)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Payment Method & Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {product.payment_method && (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Payment Method</p>
-                  <p className="font-medium mt-1">{product.payment_method}</p>
-                </CardContent>
-              </Card>
-            )}
-            {product.payment_type && (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Payment Type</p>
-                  <p className="font-medium mt-1">{product.payment_type}</p>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
-          {/* Modifications Section */}
-          {product.has_modifications && (
+          {/* Barcode & QR Code */}
+          <div className="lg:col-span-1">
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Wrench className="h-5 w-5" />
-                  Modifications Required
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center space-x-2">
+                  <Barcode className="h-4 w-4" />
+                  <span>Barcode & QR Code</span>
                 </CardTitle>
+                <CardDescription>Auto-generated product identifiers</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {product.modifications_details && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Modification Details</p>
-                    <p className="font-medium mt-1 bg-orange-50 dark:bg-orange-950/30 p-3 rounded">
-                      {product.modifications_details}
-                    </p>
+              <CardContent className="space-y-4">
+                {(product.barcode && product.barcode.startsWith("data:image")) || generatedBarcode ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Barcode</label>
+                      <div className="border rounded-lg p-4 bg-white mt-2 flex items-center justify-center min-h-[100px]">
+                        <img
+                          src={
+                            generatedBarcode ||
+                            generateBarcode(product.barcode || "") ||
+                            "/placeholder.svg"
+                          }
+                          alt="Product Barcode"
+                          className="w-full h-auto max-w-[300px]"
+                        />
+                      </div>
+                      <p className="text-center font-mono text-sm mt-2">{product.barcode}</p>
+                    </div>
+
+                    <div className="flex flex-col space-y-2">
+                      <Button
+                        size="sm"
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        onClick={() => setBarcodePrinterOpen(true)}
+                      >
+                        <Printer className="h-4 w-4 mr-1" />
+                        Quick Print
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setAdvancedPrinterOpen(true)}
+                      >
+                        <Settings className="h-4 w-4 mr-1" />
+                        Advanced Settings
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Barcode className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground mb-4">No 11-digit barcode found for this product</p>
+                    <Button size="sm" onClick={handleGenerateBarcode}>
+                      <Barcode className="h-4 w-4 mr-2" />
+                      Generate Barcode Image
+                    </Button>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {product.modification_date && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> Modification Date
-                      </p>
-                      <p className="font-medium mt-1">{formatDate(product.modification_date)}</p>
-                    </div>
-                  )}
-                  {product.modification_time && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase">Modification Time</p>
-                      <p className="font-medium mt-1">{product.modification_time}</p>
-                    </div>
-                  )}
-                </div>
               </CardContent>
             </Card>
-          )}
-
-          {product.notes && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Special Notes & Instructions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                  {product.notes}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          </div>
         </div>
       </DialogContent>
+      
+      {product && (
+        <BarcodePrinter
+          open={barcodePrinterOpen}
+          onOpenChange={setBarcodePrinterOpen}
+          productCode={product.barcode || product.product_code || ""}
+          productName={product.name}
+        />
+      )}
+
+      {product && (
+        <AdvancedBarcodePrinter
+          open={advancedPrinterOpen}
+          onOpenChange={setAdvancedPrinterOpen}
+          productCode={product.barcode || product.product_code || ""}
+          productName={product.name}
+        />
+      )}
     </Dialog>
   )
 }

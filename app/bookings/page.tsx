@@ -72,7 +72,7 @@ export default function BookingsPage() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 25
+  const [itemsPerPage, setItemsPerPage] = useState(25)
 
   const { data: bookings = [], loading, error, refresh } = useData<Booking[]>("bookings")
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -565,14 +565,18 @@ export default function BookingsPage() {
       confirmText: "Delete",
       variant: "destructive",
       onConfirm: async () => {
-        const url = `/api/bookings/${bookingId}${source ? `?type=${source}` : ''}`
-        const res = await fetch(url, { method: 'DELETE' })
-        if (!res.ok) {
-          const { error } = await res.json().catch(() => ({ error: 'Failed to delete' }))
-          throw new Error(error || 'Failed to delete booking')
+        try {
+          const url = `/api/bookings/${bookingId}${source ? `?type=${source}` : ''}`
+          const res = await fetch(url, { method: 'DELETE' })
+          if (!res.ok) {
+            const { error } = await res.json().catch(() => ({ error: 'Failed to delete' }))
+            throw new Error(error || 'Failed to delete booking')
+          }
+          toast({ title: 'Deleted', description: 'Booking deleted successfully' })
+          refresh()
+        } catch (error: any) {
+          toast({ title: 'Error', description: error.message || 'Failed to delete booking', variant: 'destructive' })
         }
-        toast({ title: 'Deleted', description: 'Booking deleted successfully' })
-        refresh()
       }
     })
   }
@@ -734,27 +738,40 @@ export default function BookingsPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
+    const isUnauthorized = typeof error === 'string' && (error.includes("Unauthorized") || error.includes("401"));
+    
     return (
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <Card>
-          <CardContent className="flex items-center justify-center h-64">
-            <div className="text-center space-y-2">
-              <Package className="w-12 h-12 mx-auto text-muted-foreground" />
-              <h3 className="text-lg font-semibold">Error Loading Bookings</h3>
-              <p className="text-muted-foreground">{error}</p>
-              <Button variant="outline" onClick={refresh}>
+      <div className="container mx-auto p-6">
+        <Card className="text-center p-8 border-destructive/30 bg-destructive/5">
+          <CardHeader>
+            <div className="mx-auto bg-destructive/10 rounded-full p-3 w-fit">
+              <AlertCircle className="h-10 w-10 text-destructive" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-destructive mt-4">
+              Error Loading Bookings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-destructive/80 mb-6">"{error}"</p>
+            {isUnauthorized ? (
+              <Button onClick={() => router.push('/auth/login')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Login
+              </Button>
+            ) : (
+              <Button onClick={refresh}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Try Again
               </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   if (loading) {
@@ -784,7 +801,7 @@ export default function BookingsPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -1170,8 +1187,26 @@ export default function BookingsPage() {
               {/* Pagination Controls */}
               {totalItems > 0 && (
                 <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} results
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} results
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Per page:</span>
+                      <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                        setItemsPerPage(parseInt(value))
+                        setCurrentPage(1)
+                      }}>
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-2">
@@ -1551,6 +1586,8 @@ export default function BookingsPage() {
                                 quantity: item.quantity || 1,
                                 extra_safas: item.extra_safas || 0,
                                 variant_inclusions: item.variant_inclusions || [],
+                                unit_price: item.unit_price || item.price || 0,
+                                total_price: item.price || item.total_price || 0,
                               } as any
                             } else {
                               // Product item
@@ -1567,6 +1604,7 @@ export default function BookingsPage() {
                                 },
                                 quantity: item.quantity || 1,
                                 unit_price: item.unit_price || item.price || 0,
+                                total_price: (item.unit_price || item.price || 0) * (item.quantity || 1),
                               } as any
                             }
                           })
@@ -1660,7 +1698,7 @@ export default function BookingsPage() {
                     {/* Grand Total */}
                     <div className="flex justify-between font-bold text-lg bg-green-50 dark:bg-green-950 p-3 rounded">
                       <span>Grand Total</span>
-                      <span className="text-green-700 dark:text-green-400">₹{(selectedBooking.total_amount || 0).toLocaleString()}</span>
+                      <span>₹{(selectedBooking.total_amount || 0).toLocaleString()}</span>
                     </div>
 
                     {/* Total with Security Deposit */}

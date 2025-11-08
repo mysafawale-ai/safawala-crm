@@ -21,27 +21,8 @@ export default function AuthLoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const user = await getCurrentUser()
-        if (user) {
-          const urlParams = new URLSearchParams(window.location.search)
-          const redirectTo = urlParams.get("redirect")
-
-          if (redirectTo) {
-            console.log("[v0] User already authenticated, redirecting to:", redirectTo)
-            router.push(redirectTo)
-            return
-          }
-        }
-      } catch (error) {
-        console.log("[v0] No existing authentication found")
-      } finally {
-        setIsCheckingAuth(false)
-      }
-    }
-
-    checkAuth()
+    // Auto-login disabled - users must manually enter credentials
+    setIsCheckingAuth(false)
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {

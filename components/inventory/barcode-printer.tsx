@@ -27,7 +27,7 @@ export function BarcodePrinter({ open, onOpenChange, productCode, productName }:
   const [barcodes, setBarcodes] = useState<BarcodeItem[]>([
     { id: "1", code: productCode, productName: productName },
   ])
-  const [columns, setColumns] = useState(2)
+  const [columns, setColumns] = useState(2)  // Fixed to 2 columns for 50mm × 25mm labels
 
   const addBarcode = () => {
     const newBarcode: BarcodeItem = {
@@ -59,13 +59,13 @@ export function BarcodePrinter({ open, onOpenChange, productCode, productName }:
     try {
       await printBarcodes({
         barcodes,
-        columns,
-        leftMargin: 1.5,
-        rightMargin: 1.5,
-        topMargin: 1.5,
+        columns: 2,  // Fixed 2-column layout
+        leftMargin: 1,
+        rightMargin: 1,
+        topMargin: 1,
       })
 
-      toast.success(`Printing ${barcodes.length} barcodes in ${columns} columns`)
+      toast.success(`Printing ${barcodes.length} barcodes (${Math.ceil(barcodes.length / 20)} page${Math.ceil(barcodes.length / 20) > 1 ? 's' : ''})`)
     } catch (error) {
       console.error("Print error:", error)
       toast.error("Failed to print barcodes")
@@ -84,21 +84,19 @@ export function BarcodePrinter({ open, onOpenChange, productCode, productName }:
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Layout Settings</CardTitle>
+              <CardDescription className="text-xs">Optimized for 50mm × 25mm label sheets</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <Label htmlFor="columns">Columns per Row</Label>
-                <select
-                  id="columns"
-                  value={columns}
-                  onChange={(e) => setColumns(Number(e.target.value))}
-                  className="w-full px-3 py-2 border rounded-md text-sm"
-                >
-                  <option value={1}>1 Column</option>
-                  <option value={2}>2 Columns</option>
-                  <option value={3}>3 Columns</option>
-                  <option value={4}>4 Columns</option>
-                </select>
+                <p className="text-xs text-muted-foreground">
+                  <strong>2-Column Fixed Layout</strong>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  • 2 columns per row<br/>
+                  • 50mm × 25mm per barcode<br/>
+                  • 10 rows per page = 20 barcodes/page<br/>
+                  • 40 products = 2 pages
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -109,7 +107,7 @@ export function BarcodePrinter({ open, onOpenChange, productCode, productName }:
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm">Barcodes ({barcodes.length})</CardTitle>
-                  <CardDescription className="text-xs">5cm × 2.5cm each, A4 paper, 1.5cm margins</CardDescription>
+                  <CardDescription className="text-xs">50mm × 25mm labels, 2 columns, 20 per page</CardDescription>
                 </div>
                 <Button size="sm" onClick={addBarcode} className="h-8">
                   <Plus className="w-3 h-3 mr-1" />
@@ -159,13 +157,14 @@ export function BarcodePrinter({ open, onOpenChange, productCode, productName }:
             <CardContent className="space-y-2 text-xs text-muted-foreground">
               <div className="p-3 bg-gray-50 rounded border space-y-2">
                 <p><strong>Paper:</strong> A4 (210mm × 297mm)</p>
-                <p><strong>Barcode Size:</strong> 5cm × 2.5cm</p>
-                <p><strong>Margins:</strong> 1.5cm from both sides</p>
-                <p><strong>Gap Between Columns:</strong> None (0mm)</p>
-                <p><strong>Columns:</strong> {columns}</p>
+                <p><strong>Barcode Size:</strong> 50mm × 25mm</p>
+                <p><strong>Margins:</strong> 10mm from all sides</p>
+                <p><strong>Vertical Gap:</strong> 2mm between rows</p>
+                <p><strong>Columns:</strong> 2 (fixed)</p>
+                <p><strong>Rows per Page:</strong> 10</p>
+                <p><strong>Barcodes per Page:</strong> 20 (10 rows × 2 columns)</p>
                 <p><strong>Total Barcodes:</strong> {barcodes.length}</p>
-                <p><strong>Rows Needed:</strong> {Math.ceil(barcodes.length / columns)}</p>
-                <p className="text-xs pt-2 border-t">Barcodes per page: ~{Math.floor(297 / 25) * columns}</p>
+                <p><strong>Pages Needed:</strong> {Math.ceil(barcodes.length / 20)}</p>
               </div>
             </CardContent>
           </Card>

@@ -132,8 +132,8 @@ export async function DELETE(
     const supabase = createClient()
     const type = request.nextUrl.searchParams.get('type') || 'unified'
     let table = 'bookings'
-    if (type === 'product_order') table = 'product_orders'
-    if (type === 'package_booking') table = 'package_bookings'
+    if (type === 'product_orders' || type === 'product_order') table = 'product_orders'
+    if (type === 'package_bookings' || type === 'package_booking') table = 'package_bookings'
 
     // Check franchise ownership before delete
     const { data: existing, error: fetchErr } = await supabase
@@ -148,6 +148,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Delete related items first
+    if (table === 'product_orders') {
+      await supabase.from('booking_items').delete().eq('order_id', params.id)
+    } else if (table === 'package_bookings') {
+      await supabase.from('package_booking_items').delete().eq('package_id', params.id)
+    }
+
+    // Delete the booking
     const { error } = await supabase
       .from(table)
       .delete()
@@ -158,7 +166,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ message: "Booking deleted successfully" })
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to delete booking" }, { status: 500 })
+  } catch (error: any) {
+    console.error('[Bookings DELETE] Error:', error)
+    return NextResponse.json({ error: error.message || "Failed to delete booking" }, { status: 500 })
   }
 }

@@ -85,9 +85,8 @@ export function ConfirmationDialog({
       await onConfirm()
 
       setSuccess(true)
-      setTimeout(() => {
-        onOpenChange(false)
-      }, 1000)
+      // Close dialog immediately after successful action
+      onOpenChange(false)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred"
       setError(errorMessage)

@@ -49,13 +49,13 @@ export async function GET(request: NextRequest) {
     console.log(`[Bookings API] Fetching bookings for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
     // Build queries with franchise filter (unless super admin)
+    // NOTE: Only show confirmed bookings (is_quote = false) for consistency with package bookings
     let productQuery = supabase
       .from("product_orders")
       .select(`
-        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
+        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, return_date, booking_type,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         payment_method, payment_type, discount_amount, tax_amount,
-        has_modifications, modifications_details, modification_date,
         is_quote,
         customer:customers(name, phone, email),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
@@ -77,9 +77,9 @@ export async function GET(request: NextRequest) {
 
     // CRITICAL: Filter by franchise_id unless super admin
     if (!isSuperAdmin && franchiseId) {
-      // Include legacy rows without franchise assignment (NULL)
+      // Include legacy rows without franchise assignment (NULL) for all booking types
       productQuery = productQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-      packageQuery = packageQuery.eq("franchise_id", franchiseId)
+      packageQuery = packageQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
       console.log(`[Bookings API] Applied franchise filter: ${franchiseId}`)
     } else {
       console.log(`[Bookings API] Super admin mode - showing all bookings`)
@@ -179,7 +179,8 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (!isSuperAdmin && franchiseId) {
-      directSalesQuery = directSalesQuery.eq("franchise_id", franchiseId)
+      // Include legacy rows without franchise assignment (NULL) for consistency
+      directSalesQuery = directSalesQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
     }
 
     const directSalesRes = await directSalesQuery
@@ -223,10 +224,8 @@ export async function GET(request: NextRequest) {
       updated_at: r.created_at,
       customer: r.customer || null,
       venue_address: r.venue_address || null,
-      // Align source label with UI checks ('product_orders')
       source: 'product_orders' as const,
-      // Detect sale even if booking_type is missing using ORD* prefix
-      type: (r.booking_type === 'sale' || ((r.order_number || '').startsWith('ORD'))) ? 'sale' : (r.booking_type || 'rental'),
+      type: r.booking_type === 'sale' ? 'sale' : 'rental',
       booking_kind: 'product' as const,
       total_safas: productTotals[r.id] || 0,
       has_items: (productTotals[r.id] || 0) > 0,
@@ -290,7 +289,7 @@ export async function GET(request: NextRequest) {
       security_deposit: Number((r as any).security_deposit || 0),
     }))
 
-    const data = [...productRows, ...packageRows, ...directSalesRows].sort(
+    const data = [...productRows, ...directSalesRows, ...packageRows].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
 
