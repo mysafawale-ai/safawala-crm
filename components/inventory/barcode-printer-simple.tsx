@@ -1,0 +1,381 @@
+"use client"
+
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Printer, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
+import { printBarcodes } from "@/lib/barcode-print-service"
+
+interface BarcodeItem {
+  id: string
+  code: string
+  productName: string
+}
+
+interface BarcodePrinterProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  productCode: string
+  productName: string
+}
+
+interface PrintSettings {
+  paperSize: "thermal-4x6" | "a4" | "a5" | "a6" | "custom"
+  columns: number
+  marginTop: number
+  marginLeft: number
+  marginRight: number
+}
+
+export function SimpleBarcodePrinter({
+  open,
+  onOpenChange,
+  productCode,
+  productName,
+}: BarcodePrinterProps) {
+  const [barcodes, setBarcodes] = useState<BarcodeItem[]>([
+    {
+      id: "1",
+      code: productCode,
+      productName: productName,
+    },
+  ])
+
+  const [settings, setSettings] = useState<PrintSettings>({
+    paperSize: "a4",
+    columns: 2,
+    marginTop: 10,
+    marginLeft: 10,
+    marginRight: 10,
+  })
+
+  // Paper size presets
+  const PAPER_SIZES = {
+    "thermal-4x6": { name: "Thermal 4×6 inch", width: 101.6, height: 152.4 },
+    a4: { name: "A4 (210×297mm)", width: 210, height: 297 },
+    a5: { name: "A5 (148×210mm)", width: 148, height: 210 },
+    a6: { name: "A6 (105×148mm)", width: 105, height: 148 },
+    custom: { name: "Custom", width: 100, height: 150 },
+  }
+
+  const paperSize = PAPER_SIZES[settings.paperSize]
+
+  // Barcode dimensions
+  const BARCODE_WIDTH = 40 // mm
+  const BARCODE_HEIGHT = 20 // mm
+
+  // Calculate layout
+  const calculateLayout = () => {
+    const availableWidth = paperSize.width - settings.marginLeft - settings.marginRight
+    const availableHeight = paperSize.height - settings.marginTop - 10 // 10mm bottom margin
+
+    const cols = settings.columns
+    const barcodeWidthWithGap = BARCODE_WIDTH + 2 // 2mm gap
+    const rowHeight = BARCODE_HEIGHT + 3 // 3mm gap
+
+    const rows = Math.floor(availableHeight / rowHeight)
+    const barcodesPerPage = cols * rows
+    const totalPages = Math.ceil(barcodes.length / barcodesPerPage)
+
+    return {
+      availableWidth,
+      availableHeight,
+      cols,
+      rows,
+      barcodesPerPage,
+      totalPages,
+      barcodeWidthWithGap,
+      rowHeight,
+    }
+  }
+
+  const layout = calculateLayout()
+
+  const addBarcode = () => {
+    setBarcodes([
+      ...barcodes,
+      {
+        id: Date.now().toString(),
+        code: "",
+        productName: "",
+      },
+    ])
+  }
+
+  const updateBarcode = (id: string, field: keyof BarcodeItem, value: string) => {
+    setBarcodes(
+      barcodes.map((b) => (b.id === id ? { ...b, [field]: value } : b))
+    )
+  }
+
+  const removeBarcode = (id: string) => {
+    setBarcodes(barcodes.filter((b) => b.id !== id))
+  }
+
+  const updateSetting = (field: keyof PrintSettings, value: any) => {
+    setSettings({ ...settings, [field]: value })
+  }
+
+  const handlePrint = async () => {
+    if (barcodes.length === 0) {
+      toast.error("Add at least one barcode")
+      return
+    }
+
+    try {
+      await printBarcodes({
+        barcodes,
+        columns: settings.columns,
+        leftMargin: settings.marginLeft / 10,
+        rightMargin: settings.marginRight / 10,
+        topMargin: settings.marginTop / 10,
+      })
+
+      toast.success(
+        `Printing ${barcodes.length} barcodes (${layout.totalPages} page${layout.totalPages > 1 ? "s" : ""})`
+      )
+    } catch (error) {
+      console.error("Print error:", error)
+      toast.error("Failed to print barcodes")
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Barcode Printer</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex gap-6 flex-1 overflow-hidden">
+          {/* LEFT: Settings & Barcodes */}
+          <div className="w-96 flex flex-col gap-4 overflow-y-auto pr-2">
+            {/* Paper & Layout Settings */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Print Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Paper Size */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Paper Size</Label>
+                  <select
+                    value={settings.paperSize}
+                    onChange={(e) => updateSetting("paperSize", e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md text-sm"
+                  >
+                    {Object.entries(PAPER_SIZES).map(([key, size]) => (
+                      <option key={key} value={key}>
+                        {size.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {paperSize.width}×{paperSize.height}mm
+                  </div>
+                </div>
+
+                {/* Columns */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Columns: {settings.columns}
+                  </Label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="4"
+                    value={settings.columns}
+                    onChange={(e) => updateSetting("columns", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Margins */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Top Margin: {settings.marginTop}mm
+                  </Label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={settings.marginTop}
+                    onChange={(e) => updateSetting("marginTop", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Left Margin: {settings.marginLeft}mm
+                  </Label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={settings.marginLeft}
+                    onChange={(e) => updateSetting("marginLeft", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Right Margin: {settings.marginRight}mm
+                  </Label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={settings.marginRight}
+                    onChange={(e) => updateSetting("marginRight", parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Barcodes List */}
+            <Card className="flex-1 overflow-hidden flex flex-col">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Barcodes ({barcodes.length})</CardTitle>
+                  <Button size="sm" onClick={addBarcode}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto space-y-3 pb-4">
+                {barcodes.map((barcode, idx) => (
+                  <div key={barcode.id} className="border rounded-md p-3 space-y-2 bg-slate-50">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-gray-500">#{idx + 1}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeBarcode(barcode.id)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Code</Label>
+                      <Input
+                        value={barcode.code}
+                        onChange={(e) => updateBarcode(barcode.id, "code", e.target.value)}
+                        placeholder="80010001002"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Product Name</Label>
+                      <Input
+                        value={barcode.productName}
+                        onChange={(e) => updateBarcode(barcode.id, "productName", e.target.value)}
+                        placeholder="Feather - Peacock Blue"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* RIGHT: Live Preview */}
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {/* Preview Canvas */}
+            <Card className="flex-1 flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+              <CardContent className="p-8 w-full h-full flex items-center justify-center">
+                {/* Paper Preview */}
+                <div
+                  className="border-4 border-gray-800 bg-white shadow-2xl"
+                  style={{
+                    width: `${Math.min(paperSize.width * 2, 500)}px`,
+                    aspectRatio: `${paperSize.width} / ${paperSize.height}`,
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Grid of barcodes */}
+                  {Array.from({ length: layout.barcodesPerPage }).map((_, idx) => {
+                    const col = idx % layout.cols
+                    const row = Math.floor(idx / layout.cols)
+                    const x = settings.marginLeft + col * (BARCODE_WIDTH + 2)
+                    const y = settings.marginTop + row * (BARCODE_HEIGHT + 3)
+
+                    const scaleX = (Math.min(paperSize.width * 2, 500) / paperSize.width)
+                    const scaledX = x * scaleX
+                    const scaledY = y * scaleX
+                    const scaledWidth = BARCODE_WIDTH * scaleX
+                    const scaledHeight = BARCODE_HEIGHT * scaleX
+
+                    return (
+                      <div
+                        key={idx}
+                        className="absolute bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 flex items-center justify-center text-blue-700 font-bold text-xs rounded-sm overflow-hidden"
+                        style={{
+                          left: `${scaledX}px`,
+                          top: `${scaledY}px`,
+                          width: `${scaledWidth}px`,
+                          height: `${scaledHeight}px`,
+                        }}
+                        title={`Position ${idx + 1}`}
+                      >
+                        {idx + 1}
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Stats */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-3 gap-4 text-center text-sm">
+                  <div className="p-2 bg-blue-50 rounded">
+                    <div className="text-gray-600 font-medium">Layout</div>
+                    <div className="text-lg font-bold text-blue-600">
+                      {layout.cols}×{layout.rows}
+                    </div>
+                  </div>
+                  <div className="p-2 bg-green-50 rounded">
+                    <div className="text-gray-600 font-medium">Per Page</div>
+                    <div className="text-lg font-bold text-green-600">
+                      {layout.barcodesPerPage}
+                    </div>
+                  </div>
+                  <div className="p-2 bg-orange-50 rounded">
+                    <div className="text-gray-600 font-medium">Total Pages</div>
+                    <div className="text-lg font-bold text-orange-600">
+                      {layout.totalPages}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 justify-end pt-4 border-t mt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
+            <Printer className="w-4 h-4 mr-2" />
+            Print {barcodes.length} Barcodes ({layout.totalPages} Page
+            {layout.totalPages > 1 ? "s" : ""})
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

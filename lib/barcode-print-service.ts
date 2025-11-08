@@ -56,16 +56,8 @@ export async function generateMultipleBarcodeImages(
 }
 
 /**
- * Create print HTML with barcode grid layout
- * OPTIMIZED FOR: 2 columns × 50mm × 25mm barcodes
- * Paper: A4 (210mm × 297mm)
- * Margins: 10mm from all sides
- * Vertical Gap: 2mm between rows
- * 
- * Results:
- * - 10 rows per page
- * - 20 barcodes per page (2 columns × 10 rows)
- * - 40 products = 2 pages
+ * Create print HTML with proper barcode grid layout
+ * Supports both thermal (4x6") and standard paper (A4, A5, A6)
  */
 export function createPrintHTML(config: PrintConfig): string {
   const {
@@ -76,123 +68,147 @@ export function createPrintHTML(config: PrintConfig): string {
     topMargin = 1,
   } = config
 
-  // Constants for 50mm × 25mm layout
-  const BARCODE_WIDTH_MM = 50
-  const BARCODE_HEIGHT_MM = 25
-  const VERTICAL_GAP_MM = 2
-  const MARGIN_MM = 10
+  // Fixed dimensions for barcode labels
+  const BARCODE_WIDTH_MM = 40
+  const BARCODE_HEIGHT_MM = 20
+  const HORIZONTAL_GAP_MM = 2
+  const VERTICAL_GAP_MM = 3
 
   let html = `
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Barcodes Print - 2 Column Layout</title>
+      <title>Barcodes Print</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; }
         
         @page { 
           size: A4; 
-          margin: ${MARGIN_MM}mm;
+          margin: 0;
         }
         
         body {
           font-family: Arial, sans-serif;
-          background: white;
           margin: 0;
-          padding: ${MARGIN_MM}mm;
+          padding: 0;
+          background: white;
+        }
+        
+        .page {
           width: 210mm;
           height: 297mm;
+          page-break-after: always;
+          position: relative;
+          padding: ${topMargin}cm ${rightMargin}cm 1cm ${leftMargin}cm;
         }
         
         .barcode-grid {
           display: grid;
-          grid-template-columns: repeat(2, ${BARCODE_WIDTH_MM}mm);
-          grid-gap: ${VERTICAL_GAP_MM}mm 0;
+          grid-template-columns: repeat(${columns}, ${BARCODE_WIDTH_MM}mm);
+          grid-gap: ${VERTICAL_GAP_MM}mm ${HORIZONTAL_GAP_MM}mm;
           width: 100%;
-          place-items: center;
           background: white;
         }
         
         .barcode-item {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-around;
-          align-items: center;
-          padding: 1mm;
           width: ${BARCODE_WIDTH_MM}mm;
           height: ${BARCODE_HEIGHT_MM}mm;
-          border: 0.5pt dashed #ccc;
-          page-break-inside: avoid;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 1mm;
+          border: 1px solid #ddd;
           background: white;
+          page-break-inside: avoid;
+          font-size: 6px;
+          line-height: 1.1;
+          text-align: center;
+          overflow: hidden;
         }
         
         .barcode-image {
-          width: 40mm;
-          height: 12mm;
+          width: 38mm;
+          height: 10mm;
+          margin-bottom: 1mm;
           display: block;
-          margin: 0;
-          padding: 0;
+          image-rendering: pixelated;
         }
         
         .barcode-code {
           font-family: 'Courier New', monospace;
-          font-size: 6pt;
+          font-size: 5px;
           font-weight: bold;
-          margin-top: 0.5mm;
-          text-align: center;
-          letter-spacing: 0.2pt;
-          line-height: 1;
+          letter-spacing: 0.3px;
           white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          margin-bottom: 0.5mm;
         }
         
         .product-name {
           font-family: Arial, sans-serif;
-          font-size: 5pt;
-          margin-top: 0.2mm;
-          text-align: center;
+          font-size: 4px;
           color: #333;
-          max-width: 48mm;
+          white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          white-space: nowrap;
-          line-height: 1;
+          width: 100%;
         }
         
         @media print {
           body { 
-            margin: 0; 
-            padding: ${MARGIN_MM}mm;
+            margin: 0;
+            padding: 0;
           }
-          .barcode-item { 
-            border: 0.5pt dashed #999;
+          .page {
+            margin: 0;
+            padding: ${topMargin}cm ${rightMargin}cm 1cm ${leftMargin}cm;
+            page-break-after: always;
+          }
+          .barcode-item {
+            border: 1px solid #999;
             page-break-inside: avoid;
           }
         }
       </style>
     </head>
     <body>
-      <div class="barcode-grid">
   `
 
-  barcodes.forEach((barcode, index) => {
-    html += `
-      <div class="barcode-item">
-        <img src="IMAGE_PLACEHOLDER_${index}" alt="Barcode" class="barcode-image" />
-        <div class="barcode-code">${barcode.code}</div>
-        <div class="product-name">${barcode.productName}</div>
-      </div>
-    `
-  })
+  // Split barcodes into pages
+  const barcodesPerPage = columns * 10 // 10 rows per page
+  const pages = Math.ceil(barcodes.length / barcodesPerPage)
+
+  for (let pageNum = 0; pageNum < pages; pageNum++) {
+    html += `<div class="page"><div class="barcode-grid">`
+
+    const startIdx = pageNum * barcodesPerPage
+    const endIdx = Math.min(startIdx + barcodesPerPage, barcodes.length)
+
+    for (let i = startIdx; i < endIdx; i++) {
+      const barcode = barcodes[i]
+      html += `
+        <div class="barcode-item">
+          <img src="IMAGE_PLACEHOLDER_${i}" alt="Barcode" class="barcode-image" />
+          <div class="barcode-code">${barcode.code}</div>
+          <div class="product-name">${barcode.productName}</div>
+        </div>
+      `
+    }
+
+    html += `</div></div>`
+  }
 
   html += `
-      </div>
     </body>
     </html>
   `
 
   return html
 }
+
 
 /**
  * Print barcodes to printer
