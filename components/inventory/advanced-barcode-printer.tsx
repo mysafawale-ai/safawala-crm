@@ -326,18 +326,18 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
         </DialogHeader>
 
         {/* Main Split-Screen Layout */}
-        <div className="flex gap-4 flex-1 overflow-hidden">
-          {/* LEFT SIDE - Settings & Controls */}
-          <div className="flex-1 overflow-y-auto pr-2">
+        <div className="flex gap-6 flex-1 overflow-hidden h-[80vh]">
+          {/* LEFT SIDE - Settings & Controls (Compact) */}
+          <div className="w-80 overflow-y-auto pr-2 border-r">
             <Tabs defaultValue="barcodes" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="barcodes">Barcodes</TabsTrigger>
-                <TabsTrigger value="presets">Presets</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="barcodes" className="text-xs">Barcodes</TabsTrigger>
+                <TabsTrigger value="presets" className="text-xs">Presets</TabsTrigger>
+                <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
               </TabsList>
 
               {/* Barcodes Tab */}
-              <TabsContent value="barcodes" className="space-y-4">
+              <TabsContent value="barcodes" className="space-y-3">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -747,122 +747,133 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
 
           {/* RIGHT SIDE - Live Preview Panel */}
           <div className="w-96 border-l pl-4 overflow-y-auto bg-slate-50 rounded-lg p-4 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-sm">Live Preview</h3>
-              <Button
-                variant={showLivePreview ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowLivePreview(!showLivePreview)}
-                className="h-7 px-2 text-xs gap-1"
-              >
-                {showLivePreview ? (
-                  <>
-                    <Eye className="w-3 h-3" />
-                    ON
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="w-3 h-3" />
-                    OFF
-                  </>
-                )}
-              </Button>
-            </div>
+            {/* RIGHT SIDE - Large Canva-Style Design Canvas */}
+            <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+              {/* Preview Header */}
+              <div className="flex items-center justify-between px-4 py-2 border-b">
+                <h3 className="font-bold text-lg">Live Preview</h3>
+                <Button
+                  variant={showLivePreview ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowLivePreview(!showLivePreview)}
+                  className="gap-2"
+                >
+                  {showLivePreview ? (
+                    <>
+                      <Eye className="w-4 h-4" />
+                      Preview ON
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4" />
+                      Preview OFF
+                    </>
+                  )}
+                </Button>
+              </div>
 
-            {showLivePreview ? (
-              <div className="flex-1 flex flex-col gap-4 min-h-0">
-                {/* Preview Visualization */}
-                <Card className="flex-1 flex items-center justify-center overflow-hidden">
-                  <CardContent className="p-2 flex items-center justify-center w-full h-full">
-                    <div
-                      className="border-2 border-gray-400 bg-white shadow-lg"
-                      style={{
-                        width: Math.min((settings.paperWidth / 20), 250),
-                        aspectRatio: `${settings.paperWidth} / ${settings.paperHeight}`,
-                        position: 'relative',
-                      }}
-                    >
-                      {/* Margins visualization */}
+              {showLivePreview ? (
+                <div className="flex-1 flex flex-col gap-3 overflow-hidden px-4">
+                  {/* Large Canvas Area - Canva Style */}
+                  <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg overflow-hidden border-2 border-slate-200 shadow-inner">
+                    <div className="flex items-center justify-center w-full h-full p-4">
                       <div
-                        className="absolute border border-red-300 bg-red-50 opacity-40"
+                        className="border-4 border-slate-800 bg-white shadow-2xl flex items-center justify-center"
                         style={{
-                          left: `${(settings.marginLeft / settings.paperWidth) * 100}%`,
-                          top: `${(settings.marginTop / settings.paperHeight) * 100}%`,
-                          width: `${(layout.availableWidth / settings.paperWidth) * 100}%`,
-                          height: `${(layout.availableHeight / settings.paperHeight) * 100}%`,
+                          width: `${Math.max(300, Math.min((settings.paperWidth / 10), 600))}px`,
+                          aspectRatio: `${settings.paperWidth} / ${settings.paperHeight}`,
+                          position: 'relative',
+                          overflow: 'hidden',
                         }}
-                      />
+                      >
+                        {/* Margins visualization - Red transparent areas */}
+                        <div
+                          className="absolute border-2 border-dashed border-red-400 bg-red-50 opacity-30"
+                          style={{
+                            left: `${(settings.marginLeft / settings.paperWidth) * 100}%`,
+                            top: `${(settings.marginTop / settings.paperHeight) * 100}%`,
+                            width: `${(layout.availableWidth / settings.paperWidth) * 100}%`,
+                            height: `${(layout.availableHeight / settings.paperHeight) * 100}%`,
+                          }}
+                        />
 
-                      {/* Barcode grid preview */}
-                      {Array.from({ length: Math.min(layout.barcodesPerPage, 12) }).map((_, idx) => {
-                        const col = idx % layout.cols
-                        const row = Math.floor(idx / layout.cols)
-                        const x = settings.marginLeft + col * layout.columnWidth
-                        const y = settings.marginTop + row * layout.rowHeight
+                        {/* Barcode grid - LARGE VISIBLE */}
+                        <div className="absolute w-full h-full">
+                          {Array.from({ length: layout.barcodesPerPage }).map((_, idx) => {
+                            const col = idx % layout.cols
+                            const row = Math.floor(idx / layout.cols)
+                            const x = settings.marginLeft + col * layout.columnWidth
+                            const y = settings.marginTop + row * layout.rowHeight
 
-                        return (
-                          <div
-                            key={idx}
-                            className="absolute bg-blue-100 border border-blue-400 flex items-center justify-center text-blue-700 font-bold"
-                            style={{
-                              left: `${(x / settings.paperWidth) * 100}%`,
-                              top: `${(y / settings.paperHeight) * 100}%`,
-                              width: `${(layout.scaledBarcodeWidth / settings.paperWidth) * 100}%`,
-                              height: `${(layout.scaledBarcodeHeight / settings.paperHeight) * 100}%`,
-                              fontSize: '6px',
-                            }}
-                          >
-                            {idx + 1}
-                          </div>
-                        )
-                      })}
+                            return (
+                              <div
+                                key={idx}
+                                className="absolute bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-500 flex items-center justify-center text-blue-700 font-bold rounded-sm hover:from-blue-100 hover:to-blue-200 transition-colors"
+                                style={{
+                                  left: `${(x / settings.paperWidth) * 100}%`,
+                                  top: `${(y / settings.paperHeight) * 100}%`,
+                                  width: `${(layout.scaledBarcodeWidth / settings.paperWidth) * 100}%`,
+                                  height: `${(layout.scaledBarcodeHeight / settings.paperHeight) * 100}%`,
+                                  fontSize: Math.max(10, (layout.scaledBarcodeWidth / 10)) + 'px',
+                                }}
+                                title={`Barcode ${idx + 1}`}
+                              >
+                                {idx + 1}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
 
-                {/* Layout Statistics */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xs">Layout Stats</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Paper:</span>
-                      <span className="font-mono">{settings.paperWidth}×{settings.paperHeight}mm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Barcode:</span>
-                      <span className="font-mono">{settings.barcodeWidth}×{settings.barcodeHeight}mm</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Scale:</span>
-                      <span className="font-mono">{(settings.scale * 100).toFixed(0)}%</span>
-                    </div>
-                    <hr className="my-2" />
-                    <div className="flex justify-between font-bold">
-                      <span className="text-gray-600">Columns:</span>
-                      <span className="text-blue-600">{layout.cols}</span>
-                    </div>
-                    <div className="flex justify-between font-bold">
-                      <span className="text-gray-600">Rows:</span>
-                      <span className="text-blue-600">{layout.rows}</span>
-                    </div>
-                    <div className="flex justify-between font-bold">
-                      <span className="text-gray-600">Per Page:</span>
-                      <span className="text-green-600">{layout.barcodesPerPage}</span>
-                    </div>
-                    <div className="flex justify-between font-bold">
-                      <span className="text-gray-600">Pages:</span>
-                      <span className="text-orange-600">{layout.pagesNeeded}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-                <p>Live preview is disabled. Click ON to enable.</p>
-              </div>
-            )}
+                  {/* Layout Statistics - Bottom Card */}
+                  <Card className="bg-slate-50">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold">Design Layout Stats</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex justify-between p-2 bg-white rounded border border-slate-200">
+                          <span className="text-gray-600 font-medium">Paper:</span>
+                          <span className="font-mono font-bold">{settings.paperWidth}×{settings.paperHeight}mm</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-white rounded border border-slate-200">
+                          <span className="text-gray-600 font-medium">Barcode:</span>
+                          <span className="font-mono font-bold">{settings.barcodeWidth}×{settings.barcodeHeight}mm</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-white rounded border border-slate-200">
+                          <span className="text-gray-600 font-medium">Scale:</span>
+                          <span className="font-mono font-bold text-purple-600">{(settings.scale * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-white rounded border border-slate-200">
+                          <span className="text-gray-600 font-medium">Cols:</span>
+                          <span className="font-mono font-bold text-blue-600">{layout.cols}</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                        <div className="flex justify-between p-2 bg-blue-50 rounded border border-blue-200">
+                          <span className="text-gray-600 font-medium">Rows:</span>
+                          <span className="font-mono font-bold text-blue-700">{layout.rows}</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-green-50 rounded border border-green-200">
+                          <span className="text-gray-600 font-medium">Per Page:</span>
+                          <span className="font-mono font-bold text-green-700">{layout.barcodesPerPage}</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-orange-50 rounded border border-orange-200 col-span-2">
+                          <span className="text-gray-600 font-medium">Total Pages Needed:</span>
+                          <span className="font-mono font-bold text-orange-700">{layout.pagesNeeded} pages</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg border-2 border-dashed border-slate-300">
+                  <p className="text-gray-500 text-lg font-semibold">Live preview is disabled. Click ON to enable.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
