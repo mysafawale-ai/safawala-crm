@@ -129,7 +129,7 @@ export function createPrintHTML(config: PrintConfig): string {
         .barcode-grid {
           display: grid;
           grid-template-columns: repeat(${columns}, 1fr);
-          grid-gap: 0;
+          grid-gap: 4mm 0;
           grid-auto-rows: auto;
           width: 100%;
           height: 100%;
@@ -168,7 +168,7 @@ export function createPrintHTML(config: PrintConfig): string {
         
         .barcode-code {
           font-family: 'Courier New', monospace;
-          font-size: ${5 * barcodeScale}px;
+          font-size: ${5 * 2.2 * barcodeScale}px;
           font-weight: bold;
           letter-spacing: 0.3px;
           white-space: nowrap;
@@ -181,7 +181,7 @@ export function createPrintHTML(config: PrintConfig): string {
         
         .product-name {
           font-family: Arial, sans-serif;
-          font-size: ${4 * barcodeScale}px;
+          font-size: ${4 * 1.7 * barcodeScale}px;
           color: #333;
           white-space: nowrap;
           overflow: hidden;
