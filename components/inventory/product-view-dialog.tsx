@@ -21,7 +21,7 @@ import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { generateBarcode } from "@/lib/barcode-generator"
 import { BarcodePrinter } from "@/components/inventory/barcode-printer"
-import { AdvancedBarcodePrinter } from "@/components/inventory/advanced-barcode-printer"
+import { SimpleBarcodePrinter } from "@/components/inventory/barcode-printer-simple"
 // Fixed import path for ProductItemService
 import { ProductItemService } from "@/lib/services/product-item-service"
 
@@ -567,7 +567,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
       )}
 
       {product && (
-        <AdvancedBarcodePrinter
+        <SimpleBarcodePrinter
           open={advancedPrinterOpen}
           onOpenChange={setAdvancedPrinterOpen}
           productCode={product.barcode || product.product_code || ""}
