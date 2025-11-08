@@ -64,9 +64,9 @@ export function SimpleBarcodePrinter({
 
   const paperSize = PAPER_SIZES[settings.paperSize]
 
-  // Barcode dimensions
-  const BARCODE_WIDTH = 40 // mm
-  const BARCODE_HEIGHT = 20 // mm
+  // Barcode dimensions - FIXED
+  const BARCODE_WIDTH = 50 // mm - FIXED
+  const BARCODE_HEIGHT = 25 // mm - FIXED
 
   // Calculate layout
   const calculateLayout = () => {

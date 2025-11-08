@@ -69,10 +69,10 @@ export function createPrintHTML(config: PrintConfig): string {
   } = config
 
   // Fixed dimensions for barcode labels
-  const BARCODE_WIDTH_MM = 40
-  const BARCODE_HEIGHT_MM = 20
+  const BARCODE_WIDTH_MM = 50 // FIXED
+  const BARCODE_HEIGHT_MM = 25 // FIXED
   const HORIZONTAL_GAP_MM = 2
-  const VERTICAL_GAP_MM = 3
+  const VERTICAL_GAP_MM = 2
 
   let html = `
     <!DOCTYPE html>
@@ -128,9 +128,9 @@ export function createPrintHTML(config: PrintConfig): string {
         }
         
         .barcode-image {
-          width: 38mm;
-          height: 10mm;
-          margin-bottom: 1mm;
+          width: 48mm;
+          height: 14mm;
+          margin-bottom: 2mm;
           display: block;
           image-rendering: pixelated;
         }
