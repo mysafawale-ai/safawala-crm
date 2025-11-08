@@ -191,6 +191,69 @@ export function SimpleBarcodePrinter({
                   </div>
                 </div>
 
+                {/* Number of Barcodes */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Number of Barcodes: {barcodes.length}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="1000"
+                      value={barcodes.length}
+                      onChange={(e) => {
+                        const newCount = parseInt(e.target.value) || 1
+                        const currentCount = barcodes.length
+                        
+                        if (newCount > currentCount) {
+                          // Add new barcodes
+                          const newBarcodes = Array.from({ length: newCount - currentCount }, (_, i) => ({
+                            id: `${Date.now()}_${i}`,
+                            code: `${parseInt(productCode) + currentCount + i}`,
+                            productName: productName,
+                          }))
+                          setBarcodes([...barcodes, ...newBarcodes])
+                        } else if (newCount < currentCount) {
+                          // Remove barcodes from the end
+                          setBarcodes(barcodes.slice(0, newCount))
+                        }
+                      }}
+                      className="h-9 text-sm flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const newCount = barcodes.length + 5
+                        const newBarcodes = Array.from({ length: 5 }, (_, i) => ({
+                          id: `${Date.now()}_${i}`,
+                          code: `${parseInt(productCode) + barcodes.length + i}`,
+                          productName: productName,
+                        }))
+                        setBarcodes([...barcodes, ...newBarcodes])
+                      }}
+                    >
+                      +5
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const newCount = barcodes.length + 10
+                        const newBarcodes = Array.from({ length: 10 }, (_, i) => ({
+                          id: `${Date.now()}_${i}`,
+                          code: `${parseInt(productCode) + barcodes.length + i}`,
+                          productName: productName,
+                        }))
+                        setBarcodes([...barcodes, ...newBarcodes])
+                      }}
+                    >
+                      +10
+                    </Button>
+                  </div>
+                </div>
+
                 {/* Columns */}
                 <div>
                   <Label className="text-sm font-medium mb-2 block">
@@ -204,6 +267,33 @@ export function SimpleBarcodePrinter({
                     onChange={(e) => updateSetting("columns", parseInt(e.target.value))}
                     className="w-full"
                   />
+                </div>
+
+                {/* Barcode Rotation - PROMINENT */}
+                <div className="pt-2 border-t border-b pb-3 bg-blue-50 -mx-4 px-4 py-3">
+                  <Label className="text-sm font-medium mb-3 block">🔄 Barcode Rotation</Label>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => updateSetting("barcodeRotation", 0)}
+                      className={`w-full p-2 text-sm border rounded-md font-medium transition-all ${
+                        settings.barcodeRotation === 0
+                          ? "bg-blue-600 text-white border-blue-700 shadow-md"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"
+                      }`}
+                    >
+                      📷 Portrait (Normal)
+                    </button>
+                    <button
+                      onClick={() => updateSetting("barcodeRotation", 90)}
+                      className={`w-full p-2 text-sm border rounded-md font-medium transition-all ${
+                        settings.barcodeRotation === 90
+                          ? "bg-blue-600 text-white border-blue-700 shadow-md"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"
+                      }`}
+                    >
+                      🔄 Landscape (Rotated 90°)
+                    </button>
+                  </div>
                 </div>
 
                 {/* Margins */}
@@ -268,33 +358,6 @@ export function SimpleBarcodePrinter({
                     <span>1x (50×25mm)</span>
                     <span>2x (100×50mm)</span>
                     <span>3x (150×75mm)</span>
-                  </div>
-                </div>
-
-                {/* Barcode Rotation */}
-                <div className="pt-2 border-t">
-                  <Label className="text-sm font-medium mb-3 block">Barcode Orientation</Label>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => updateSetting("barcodeRotation", 0)}
-                      className={`w-full p-2 text-sm border rounded-md transition-colors ${
-                        settings.barcodeRotation === 0
-                          ? "bg-blue-500 text-white border-blue-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                      }`}
-                    >
-                      📷 Portrait (Normal)
-                    </button>
-                    <button
-                      onClick={() => updateSetting("barcodeRotation", 90)}
-                      className={`w-full p-2 text-sm border rounded-md transition-colors ${
-                        settings.barcodeRotation === 90
-                          ? "bg-blue-500 text-white border-blue-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
-                      }`}
-                    >
-                      🔄 Landscape (90° Rotated)
-                    </button>
                   </div>
                 </div>
               </CardContent>
