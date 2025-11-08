@@ -129,22 +129,25 @@ export function createPrintHTML(config: PrintConfig): string {
         .barcode-grid {
           display: grid;
           grid-template-columns: repeat(${columns}, 1fr);
-          grid-gap: ${VERTICAL_GAP_MM}mm ${HORIZONTAL_GAP_MM}mm;
+          grid-gap: 0;
+          grid-auto-rows: auto;
           width: 100%;
           height: 100%;
           background: white;
           flex: 1;
+          border: 2px solid #333;
+          border-collapse: collapse;
         }
         
         .barcode-item {
-          width: ${BARCODE_WIDTH_MM}mm;
+          width: 100%;
           height: ${BARCODE_HEIGHT_MM}mm;
           display: flex;
           flex-direction: column;
           justify-content: center;
           align-items: center;
           padding: 0.5mm;
-          border: 1px solid #eee;
+          border: 1px solid #333;
           background: white;
           page-break-inside: avoid;
           font-size: ${6 * barcodeScale}px;

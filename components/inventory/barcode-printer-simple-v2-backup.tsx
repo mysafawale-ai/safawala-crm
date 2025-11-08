@@ -14,6 +14,7 @@ interface BarcodeItem {
   id: string
   code: string
   productName: string
+  scale: number // Individual scale per barcode
 }
 
 interface BarcodePrinterProps {
@@ -25,16 +26,17 @@ interface BarcodePrinterProps {
 
 interface PrintSettings {
   paperSize: string
-  barcodeScale: number // 1x to 4x - single global scale
+  columns: number
   marginTop: number
   marginBottom: number
   marginLeft: number
   marginRight: number
-  barcodeRotation: number
+  barcodeRotation: number // 0° (normal) or 90° (rotated)
 }
 
 // 18+ Paper Sizes
 const PAPER_SIZES: Record<string, { name: string; width: number; height: number }> = {
+  // Standard A-Series
   "a0": { name: "A0 (841×1189mm)", width: 841, height: 1189 },
   "a1": { name: "A1 (594×841mm)", width: 594, height: 841 },
   "a2": { name: "A2 (420×594mm)", width: 420, height: 594 },
@@ -44,14 +46,22 @@ const PAPER_SIZES: Record<string, { name: string; width: number; height: number 
   "a6": { name: "A6 (105×148mm)", width: 105, height: 148 },
   "a7": { name: "A7 (74×105mm)", width: 74, height: 105 },
   "a8": { name: "A8 (52×74mm)", width: 52, height: 74 },
+
+  // B-Series
   "b4": { name: "B4 (250×353mm)", width: 250, height: 353 },
   "b5": { name: "B5 (176×250mm)", width: 176, height: 250 },
   "b6": { name: "B6 (125×176mm)", width: 125, height: 176 },
+
+  // Thermal Printers
   "thermal-4x6": { name: "Thermal 4×6 in (101.6×152.4mm)", width: 101.6, height: 152.4 },
   "thermal-3x5": { name: "Thermal 3×5 in (76.2×127mm)", width: 76.2, height: 127 },
   "thermal-4x8": { name: "Thermal 4×8 in (101.6×203.2mm)", width: 101.6, height: 203.2 },
+
+  // Envelopes
   "envelope-dl": { name: "Envelope DL (110×220mm)", width: 110, height: 220 },
   "envelope-c5": { name: "Envelope C5 (162×229mm)", width: 162, height: 229 },
+
+  // Custom
   "custom": { name: "Custom Size", width: 100, height: 150 },
 }
 
@@ -66,12 +76,13 @@ export function SimpleBarcodePrinter({
       id: "1",
       code: productCode,
       productName: productName,
+      scale: 1,
     },
   ])
 
   const [settings, setSettings] = useState<PrintSettings>({
     paperSize: "a4",
-    barcodeScale: 1, // Single scale slider 1x-4x
+    columns: 2,
     marginTop: 10,
     marginBottom: 10,
     marginLeft: 10,
@@ -84,27 +95,28 @@ export function SimpleBarcodePrinter({
   // Barcode dimensions - FIXED
   const BARCODE_WIDTH = 50 // mm
   const BARCODE_HEIGHT = 25 // mm
-  const COLUMNS = 2 // FIXED - No changing
 
   // Calculate layout
   const calculateLayout = () => {
     const availableWidth = paperSize.width - settings.marginLeft - settings.marginRight
     const availableHeight = paperSize.height - settings.marginTop - settings.marginBottom
 
-    // Apply scale to barcode dimensions
-    const scaledBarcodeWidth = BARCODE_WIDTH * settings.barcodeScale
-    const scaledBarcodeHeight = BARCODE_HEIGHT * settings.barcodeScale
+    // Use average scale for layout calculation (or could use max)
+    const avgScale = barcodes.length > 0 ? barcodes.reduce((sum, b) => sum + b.scale, 0) / barcodes.length : 1
 
-    // NO gaps - barcodes connect
-    const barcodeWidthWithGap = scaledBarcodeWidth // 0 gap
-    const rowHeight = scaledBarcodeHeight // 0 gap
+    const scaledBarcodeWidth = BARCODE_WIDTH * avgScale
+    const scaledBarcodeHeight = BARCODE_HEIGHT * avgScale
+
+    const cols = settings.columns
+    const barcodeWidthWithGap = scaledBarcodeWidth + 2
+    const rowHeight = scaledBarcodeHeight + 2
 
     const rows = Math.floor(availableHeight / rowHeight)
-    const barcodesPerPage = COLUMNS * rows
+    const barcodesPerPage = cols * rows
     const totalPages = Math.ceil(barcodes.length / barcodesPerPage)
 
     return {
-      cols: COLUMNS,
+      cols,
       rows,
       barcodesPerPage,
       totalPages,
@@ -122,11 +134,12 @@ export function SimpleBarcodePrinter({
         id: newId,
         code: `${nextCode}`,
         productName: productName,
+        scale: 1,
       },
     ])
   }
 
-  const updateBarcode = (id: string, field: keyof BarcodeItem, value: string) => {
+  const updateBarcode = (id: string, field: keyof BarcodeItem, value: string | number) => {
     setBarcodes(
       barcodes.map((b) => (b.id === id ? { ...b, [field]: value } : b))
     )
@@ -147,16 +160,22 @@ export function SimpleBarcodePrinter({
     }
 
     try {
+      // Create barcode list with individual scales
+      const printBarcodeList = barcodes.map(b => ({
+        code: b.code,
+        productName: b.productName,
+        scale: b.scale,
+      }))
+
       await printBarcodes({
-        barcodes,
-        columns: COLUMNS, // Fixed 2 columns
+        barcodes: printBarcodeList,
+        columns: settings.columns,
         leftMargin: settings.marginLeft / 10,
         rightMargin: settings.marginRight / 10,
         topMargin: settings.marginTop / 10,
-        barcodeScale: settings.barcodeScale,
+        barcodeScale: 1, // Base scale (individual scales handled above)
         barcodeRotation: settings.barcodeRotation,
-        borderStyle: "grid", // Add borders connecting all vertices
-      } as any)
+      })
 
       toast.success(
         `Printing ${barcodes.length} barcodes (${layout.totalPages} page${layout.totalPages > 1 ? "s" : ""})`
@@ -175,6 +194,7 @@ export function SimpleBarcodePrinter({
         id: `${Date.now()}_${i}`,
         code: `${parseInt(barcodes[currentCount - 1]?.code || productCode) + i + 1}`,
         productName: productName,
+        scale: 1,
       }))
       setBarcodes([...barcodes, ...newBarcodes])
     } else if (newCount < currentCount) {
@@ -186,12 +206,12 @@ export function SimpleBarcodePrinter({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold">Barcode Printer - Connected Grid</DialogTitle>
+          <DialogTitle className="text-lg font-bold">Barcode Printer - Simple View</DialogTitle>
         </DialogHeader>
 
         <div className="flex gap-6 flex-1 overflow-hidden">
-          {/* LEFT: Simplified Controls */}
-          <div className="w-80 flex flex-col gap-3 overflow-y-auto pr-2">
+          {/* LEFT: Controls */}
+          <div className="w-96 flex flex-col gap-3 overflow-y-auto pr-2">
             {/* Main Controls Card */}
             <Card className="bg-gradient-to-br from-blue-50 to-indigo-50">
               <CardHeader className="pb-2">
@@ -217,13 +237,6 @@ export function SimpleBarcodePrinter({
                   </div>
                 </div>
 
-                {/* Columns - FIXED */}
-                <div className="bg-blue-100 p-2 rounded border border-blue-300">
-                  <Label className="text-sm font-semibold">📊 Columns</Label>
-                  <div className="text-lg font-bold text-blue-700 mt-1">2 Columns (Fixed)</div>
-                  <div className="text-xs text-gray-600 mt-1">Grid always 2 columns per page</div>
-                </div>
-
                 {/* Number of Barcodes */}
                 <div>
                   <Label className="text-sm font-semibold">🔢 Number of Barcodes</Label>
@@ -245,26 +258,17 @@ export function SimpleBarcodePrinter({
                   </div>
                 </div>
 
-                {/* Global Scale Slider - SINGLE */}
-                <div className="border-t pt-3 bg-purple-50 p-3 rounded">
-                  <Label className="text-sm font-semibold block mb-2">
-                    🎯 Scale All Barcodes: {(settings.barcodeScale * 50).toFixed(0)}×{(settings.barcodeScale * 25).toFixed(0)}mm
-                  </Label>
+                {/* Columns */}
+                <div>
+                  <Label className="text-sm font-semibold">📊 Columns: {settings.columns}</Label>
                   <input
                     type="range"
                     min="1"
-                    max="4"
-                    step="0.1"
-                    value={settings.barcodeScale}
-                    onChange={(e) => updateSetting("barcodeScale", parseFloat(e.target.value))}
-                    className="w-full"
+                    max="6"
+                    value={settings.columns}
+                    onChange={(e) => updateSetting("columns", parseInt(e.target.value))}
+                    className="w-full mt-1"
                   />
-                  <div className="text-xs text-gray-600 mt-2 flex justify-between">
-                    <span>1x (50×25mm)</span>
-                    <span>2x (100×50mm)</span>
-                    <span>3x (150×75mm)</span>
-                    <span>4x (200×100mm)</span>
-                  </div>
                 </div>
 
                 {/* Rotation */}
@@ -294,10 +298,10 @@ export function SimpleBarcodePrinter({
                   </div>
                 </div>
 
-                {/* Margins */}
+                {/* 4-Sided Margins */}
                 <div className="border-t pt-3">
-                  <Label className="text-sm font-semibold mb-3 block">📐 Margins</Label>
-
+                  <Label className="text-sm font-semibold mb-3 block">📐 Margins (4 Sides)</Label>
+                  
                   <div className="space-y-2">
                     <div>
                       <Label className="text-xs">↑ Top: {settings.marginTop}mm</Label>
@@ -359,7 +363,7 @@ export function SimpleBarcodePrinter({
               <CardContent className="text-xs space-y-1">
                 <div className="flex justify-between">
                   <span>Columns:</span>
-                  <span className="font-bold">2 (Fixed)</span>
+                  <span className="font-bold">{layout.cols}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Rows:</span>
@@ -383,7 +387,7 @@ export function SimpleBarcodePrinter({
             </Button>
           </div>
 
-          {/* RIGHT: Barcodes List - SIMPLIFIED */}
+          {/* RIGHT: Barcodes List with Individual Scale */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <Card className="flex-1 overflow-hidden flex flex-col">
               <CardHeader className="pb-3 border-b">
@@ -397,7 +401,7 @@ export function SimpleBarcodePrinter({
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto space-y-2 pb-4">
                 {barcodes.map((barcode, idx) => (
-                  <div key={barcode.id} className="border rounded-lg p-2 bg-white hover:bg-gray-50 transition-colors">
+                  <div key={barcode.id} className="border rounded-lg p-3 bg-white hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold text-gray-600">#{idx + 1}</span>
                       <Button
@@ -421,8 +425,30 @@ export function SimpleBarcodePrinter({
                       value={barcode.productName}
                       onChange={(e) => updateBarcode(barcode.id, "productName", e.target.value)}
                       placeholder="Product Name"
-                      className="h-8 text-xs"
+                      className="h-8 text-xs mb-2"
                     />
+
+                    {/* Individual Barcode Scale */}
+                    <div className="bg-purple-50 p-2 rounded">
+                      <Label className="text-xs font-semibold">
+                        🎯 Scale: {(barcode.scale * 50).toFixed(0)}×{(barcode.scale * 25).toFixed(0)}mm
+                      </Label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.1"
+                        value={barcode.scale}
+                        onChange={(e) => updateBarcode(barcode.id, "scale", parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-600 mt-1 flex justify-between">
+                        <span>0.5x</span>
+                        <span>1x</span>
+                        <span>2x</span>
+                        <span>3x</span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </CardContent>
