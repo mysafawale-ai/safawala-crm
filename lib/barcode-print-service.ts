@@ -15,6 +15,7 @@ interface PrintConfig {
   rightMargin?: number // in cm
   topMargin?: number // in cm
   barcodeScale?: number // 1 = 50×25mm, 1.5 = 75×37.5mm, 2 = 100×50mm
+  barcodeRotation?: number // 0° (normal) or 90° (rotated/landscape)
 }
 
 /**
@@ -68,6 +69,7 @@ export function createPrintHTML(config: PrintConfig): string {
     rightMargin = 1,
     topMargin = 1,
     barcodeScale = 1,
+    barcodeRotation = 0,
   } = config
 
   // Base dimensions for barcode labels (50mm × 25mm)
@@ -75,8 +77,13 @@ export function createPrintHTML(config: PrintConfig): string {
   const BASE_BARCODE_HEIGHT_MM = 25
   
   // Apply scale
-  const BARCODE_WIDTH_MM = BASE_BARCODE_WIDTH_MM * barcodeScale
-  const BARCODE_HEIGHT_MM = BASE_BARCODE_HEIGHT_MM * barcodeScale
+  let BARCODE_WIDTH_MM = BASE_BARCODE_WIDTH_MM * barcodeScale
+  let BARCODE_HEIGHT_MM = BASE_BARCODE_HEIGHT_MM * barcodeScale
+
+  // For 90° rotation, swap dimensions
+  if (barcodeRotation === 90) {
+    [BARCODE_WIDTH_MM, BARCODE_HEIGHT_MM] = [BARCODE_HEIGHT_MM, BARCODE_WIDTH_MM]
+  }
   const HORIZONTAL_GAP_MM = 2
   const VERTICAL_GAP_MM = 2
 
@@ -137,6 +144,8 @@ export function createPrintHTML(config: PrintConfig): string {
           line-height: 1.1;
           text-align: center;
           overflow: hidden;
+          transform: rotate(${barcodeRotation}deg);
+          transform-origin: center;
         }
         
         .barcode-image {

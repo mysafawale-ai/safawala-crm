@@ -30,6 +30,7 @@ interface PrintSettings {
   marginLeft: number
   marginRight: number
   barcodeScale: number // 1 = 50×25mm, 1.5 = 75×37.5mm, 2 = 100×50mm
+  barcodeRotation: number // 0° (normal) or 90° (rotated)
 }
 
 export function SimpleBarcodePrinter({
@@ -53,6 +54,7 @@ export function SimpleBarcodePrinter({
     marginLeft: 10,
     marginRight: 10,
     barcodeScale: 1,
+    barcodeRotation: 0,
   })
 
   // Paper size presets
@@ -142,6 +144,7 @@ export function SimpleBarcodePrinter({
         rightMargin: settings.marginRight / 10,
         topMargin: settings.marginTop / 10,
         barcodeScale: settings.barcodeScale,
+        barcodeRotation: settings.barcodeRotation,
       })
 
       toast.success(
@@ -267,6 +270,33 @@ export function SimpleBarcodePrinter({
                     <span>3x (150×75mm)</span>
                   </div>
                 </div>
+
+                {/* Barcode Rotation */}
+                <div className="pt-2 border-t">
+                  <Label className="text-sm font-medium mb-3 block">Barcode Orientation</Label>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => updateSetting("barcodeRotation", 0)}
+                      className={`w-full p-2 text-sm border rounded-md transition-colors ${
+                        settings.barcodeRotation === 0
+                          ? "bg-blue-500 text-white border-blue-600"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                      }`}
+                    >
+                      📷 Portrait (Normal)
+                    </button>
+                    <button
+                      onClick={() => updateSetting("barcodeRotation", 90)}
+                      className={`w-full p-2 text-sm border rounded-md transition-colors ${
+                        settings.barcodeRotation === 90
+                          ? "bg-blue-500 text-white border-blue-600"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                      }`}
+                    >
+                      🔄 Landscape (90° Rotated)
+                    </button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -347,6 +377,10 @@ export function SimpleBarcodePrinter({
                     const scaledWidth = layout.scaledBarcodeWidth * scaleX
                     const scaledHeight = layout.scaledBarcodeHeight * scaleX
 
+                    // For 90° rotation, swap width and height
+                    const displayWidth = settings.barcodeRotation === 90 ? scaledHeight : scaledWidth
+                    const displayHeight = settings.barcodeRotation === 90 ? scaledWidth : scaledHeight
+
                     return (
                       <div
                         key={idx}
@@ -354,8 +388,10 @@ export function SimpleBarcodePrinter({
                         style={{
                           left: `${scaledX}px`,
                           top: `${scaledY}px`,
-                          width: `${scaledWidth}px`,
-                          height: `${scaledHeight}px`,
+                          width: `${displayWidth}px`,
+                          height: `${displayHeight}px`,
+                          transform: `rotate(${settings.barcodeRotation}deg)`,
+                          transformOrigin: "center",
                         }}
                         title={`Position ${idx + 1}`}
                       >
