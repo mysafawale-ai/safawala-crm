@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Printer, Plus, Trash2, Eye, Settings, Copy } from "lucide-react"
+import { Printer, Plus, Trash2, Eye, Settings, Copy, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { printBarcodes } from "@/lib/barcode-print-service"
 
@@ -26,7 +26,7 @@ interface BarcodePrinterProps {
 
 interface PrintSettings {
   // Paper settings
-  paperSize: "a4" | "a3" | "custom"
+  paperSize: "a8" | "a7" | "a6" | "a5" | "a4" | "a3" | "custom"
   paperWidth: number // mm
   paperHeight: number // mm
   
@@ -66,6 +66,74 @@ const DEFAULT_SETTINGS: PrintSettings = {
 }
 
 const PRESETS = {
+  "a8-labels": {
+    name: "A8 Labels (52×74mm)",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      paperSize: "a8",
+      paperWidth: 52,
+      paperHeight: 74,
+      columns: 1,
+      barcodeWidth: 45,
+      barcodeHeight: 20,
+      marginTop: 2,
+      marginBottom: 2,
+      marginLeft: 2,
+      marginRight: 2,
+      verticalGap: 0,
+    },
+  },
+  "a7-labels": {
+    name: "A7 Labels (74×105mm)",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      paperSize: "a7",
+      paperWidth: 74,
+      paperHeight: 105,
+      columns: 1,
+      barcodeWidth: 60,
+      barcodeHeight: 22,
+      marginTop: 3,
+      marginBottom: 3,
+      marginLeft: 3,
+      marginRight: 3,
+      verticalGap: 1,
+    },
+  },
+  "a6-labels": {
+    name: "A6 Labels (105×148mm)",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      paperSize: "a6",
+      paperWidth: 105,
+      paperHeight: 148,
+      columns: 1,
+      barcodeWidth: 90,
+      barcodeHeight: 25,
+      marginTop: 5,
+      marginBottom: 5,
+      marginLeft: 5,
+      marginRight: 5,
+      verticalGap: 2,
+    },
+  },
+  "a5-labels": {
+    name: "A5 Labels (148×210mm)",
+    settings: {
+      ...DEFAULT_SETTINGS,
+      paperSize: "a5",
+      paperWidth: 148,
+      paperHeight: 210,
+      columns: 1,
+      barcodeWidth: 120,
+      barcodeHeight: 30,
+      marginTop: 5,
+      marginBottom: 5,
+      marginLeft: 5,
+      marginRight: 5,
+      verticalGap: 3,
+    },
+  },
   "2col-50x25": {
     name: "2 Column - 50×25mm (Standard)",
     settings: {
@@ -132,6 +200,7 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
   const [settings, setSettings] = useState<PrintSettings>(DEFAULT_SETTINGS)
   const [previewMode, setPreviewMode] = useState<"grid" | "page">("page")
   const [selectedPreset, setSelectedPreset] = useState("2col-50x25")
+  const [showLivePreview, setShowLivePreview] = useState(true)
 
   const addBarcode = () => {
     const newBarcode: BarcodeItem = {
@@ -354,7 +423,19 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
                       value={settings.paperSize}
                       onChange={(e) => {
                         updateSetting("paperSize", e.target.value)
-                        if (e.target.value === "a4") {
+                        if (e.target.value === "a8") {
+                          updateSetting("paperWidth", 52)
+                          updateSetting("paperHeight", 74)
+                        } else if (e.target.value === "a7") {
+                          updateSetting("paperWidth", 74)
+                          updateSetting("paperHeight", 105)
+                        } else if (e.target.value === "a6") {
+                          updateSetting("paperWidth", 105)
+                          updateSetting("paperHeight", 148)
+                        } else if (e.target.value === "a5") {
+                          updateSetting("paperWidth", 148)
+                          updateSetting("paperHeight", 210)
+                        } else if (e.target.value === "a4") {
                           updateSetting("paperWidth", 210)
                           updateSetting("paperHeight", 297)
                         } else if (e.target.value === "a3") {
@@ -364,6 +445,10 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
                       }}
                       className="w-full px-2 py-1.5 border rounded text-xs"
                     >
+                      <option value="a8">A8 (52×74mm)</option>
+                      <option value="a7">A7 (74×105mm)</option>
+                      <option value="a6">A6 (105×148mm)</option>
+                      <option value="a5">A5 (148×210mm)</option>
                       <option value="a4">A4 (210×297mm)</option>
                       <option value="a3">A3 (297×420mm)</option>
                       <option value="custom">Custom</option>
@@ -570,9 +655,28 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
             </Card>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-sm">Page Preview (Scaled)</CardTitle>
+                <Button
+                  variant={showLivePreview ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowLivePreview(!showLivePreview)}
+                  className="h-7 px-2 text-xs gap-1"
+                >
+                  {showLivePreview ? (
+                    <>
+                      <Eye className="w-3 h-3" />
+                      Live Preview: ON
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3 h-3" />
+                      Live Preview: OFF
+                    </>
+                  )}
+                </Button>
               </CardHeader>
+              {showLivePreview && (
               <CardContent className="flex justify-center">
                 <div
                   className="border-2 border-gray-300 bg-white relative"
@@ -617,6 +721,7 @@ export function AdvancedBarcodePrinter({ open, onOpenChange, productCode, produc
                   })}
                 </div>
               </CardContent>
+              )}
             </Card>
 
             <Card>
