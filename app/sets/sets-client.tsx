@@ -106,7 +106,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
   const [variantForm, setVariantForm] = useState({
     name: "",
-    description: "",
     extra_price: "0.00",
     extra_safa_price: "0.00",
     missing_safa_penalty: "0.00",
@@ -454,11 +453,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         return
       }
 
-      if (!variantForm.description.trim()) {
-        toast.error("Variant description is required")
-        return
-      }
-
       const basePrice = Number.parseFloat(variantForm.extra_price)
       if (isNaN(basePrice) || basePrice < 0) {
         toast.error("Please enter a valid base price")
@@ -491,7 +485,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       const payload: any = {
         name: variantForm.name.trim(),
-        description: variantForm.description.trim(),
         base_price: basePrice,
         extra_safa_price: extraSafaPrice,
         missing_safa_penalty: missingSafaPenalty,
@@ -534,7 +527,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       await refetchData()
       
-      setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", deposit_amount: "0.00", inclusions: "" })
+      setVariantForm({ name: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", deposit_amount: "0.00", inclusions: "" })
       setEditingVariant(null)
       setDialogs((prev) => ({ ...prev, createVariant: false }))
     } catch (error) {
@@ -550,7 +543,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     setEditingVariant(variant)
     setVariantForm({
       name: variant.name,
-      description: variant.description,
       extra_price: variant.base_price.toString(),
       extra_safa_price: (variant.extra_safa_price || 0).toString(),
       missing_safa_penalty: (variant.missing_safa_penalty || 0).toString(),
@@ -1121,7 +1113,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   setDialogs((prev) => ({ ...prev, createVariant: open }))
                   if (!open) {
                     setEditingVariant(null)
-                    setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", deposit_amount: "0.00", inclusions: "" })
+                    setVariantForm({ name: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", deposit_amount: "0.00", inclusions: "" })
                   }
                 }}
               >

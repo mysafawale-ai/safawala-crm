@@ -125,7 +125,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     const dateStr = format(date, "yyyy-MM-dd")
     return bookings.filter(
       (booking) =>
-        booking.event_date === dateStr || booking.delivery_date === dateStr || booking.return_date === dateStr,
+        booking.event_date === dateStr,
     )
   }
 

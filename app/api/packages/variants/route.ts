@@ -240,8 +240,8 @@ export async function PUT(request: NextRequest) {
       updated_at: new Date().toISOString()
     }
 
-    if (name !== undefined) updateData.name = name.trim()
-    if (description !== undefined) updateData.description = description.trim()
+    if (name !== undefined && name !== null) updateData.name = name.trim()
+    if (description !== undefined && description !== null) updateData.description = description.trim()
     if (base_price !== undefined) {
       const basePriceNum = Number(base_price)
       if (isNaN(basePriceNum) || basePriceNum < 0) {
