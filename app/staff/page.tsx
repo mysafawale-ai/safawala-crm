@@ -692,9 +692,21 @@ export default function StaffPage() {
   }
 
   const openEditDialog = (user: User) => {
-    // Prevent staff from editing their own profile
-    if (currentUser?.role !== 'super_admin' && currentUser?.id === user.id) {
-      toast.error('You cannot edit your own staff profile. Only super admin can manage staff permissions.')
+    // Super Admin can edit anyone
+    if (currentUser?.role === 'super_admin') {
+      // Allow edit
+    }
+    // Franchise Admin can edit their own franchise's staff (but not themselves)
+    else if (currentUser?.role === 'franchise_admin' && currentUser?.franchise_id === user.franchise_id && currentUser?.id !== user.id) {
+      // Allow edit
+    }
+    // Everyone else: deny
+    else {
+      if (currentUser?.id === user.id) {
+        toast.error('You cannot edit your own profile. Contact super admin or your franchise admin.')
+      } else {
+        toast.error('You do not have permission to edit this staff member.')
+      }
       return
     }
     
@@ -1161,7 +1173,14 @@ export default function StaffPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem 
                           onClick={() => openEditDialog(user)}
-                          disabled={currentUser?.role !== 'super_admin' && currentUser?.id === user.id}
+                          disabled={
+                            // Super admin can edit everyone
+                            currentUser?.role === 'super_admin' ? false :
+                            // Franchise admin can edit their own franchise's staff (except themselves)
+                            currentUser?.role === 'franchise_admin' && currentUser?.franchise_id === user.franchise_id && currentUser?.id !== user.id ? false :
+                            // Everyone else: disabled
+                            true
+                          }
                         >
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
