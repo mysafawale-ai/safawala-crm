@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       stock_available = 999,
       franchise_id,
       is_custom = true,
+      image_url,
     } = body
 
     if (!name || !franchise_id) {
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
           stock_available,
           franchise_id,
           is_custom,
+          image_url,
         },
       ])
       .select()
