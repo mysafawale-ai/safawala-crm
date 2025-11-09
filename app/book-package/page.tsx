@@ -17,7 +17,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  ArrowLeft, ArrowRight, User, Package, FileText, Search, X, Plus,
+  ArrowLeft, ArrowRight, User, Package, FileText, Search, X, Plus, Minus,
   CalendarIcon, Gift, ShoppingCart, Loader2, CheckCircle, Camera, ImageIcon
 } from "lucide-react"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
@@ -2964,13 +2964,37 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             </span>
           </DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 flex-1 min-h-0 overflow-hidden">
-          {/* Left: Products pane */}
-          <div className="lg:col-span-2 flex flex-col overflow-hidden">
-            {/* Toolbar */}
-            <div className="sticky top-0 z-10 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border rounded-md p-3 mb-3">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-1 min-h-0 overflow-hidden bg-gray-50">
+          {/* Left: Products pane - Clean & Spacious */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-white">
+            {/* Toolbar - Minimal & Clean */}
+            <div className="flex-shrink-0 bg-white border-b px-6 py-4 space-y-3">
+              {/* Search Bar - Prominent */}
+              <div className="relative max-w-md">
+                <Search className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Input
+                  className="pl-10 h-11 text-base border-gray-300 focus:border-black focus:ring-black"
+                  placeholder="Search products or scan barcode..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const q = search.trim().toLowerCase()
+                      if (!q) return
+                      const exact = products.find(p => (p.barcode && String(p.barcode).toLowerCase() === q) || (p.product_code && String(p.product_code).toLowerCase() === q))
+                      if (exact) {
+                        setSelection(prev => ({ ...prev, [exact.id]: (prev[exact.id] || 0) + 1 }))
+                        setSearch("")
+                        toast.success(`Added ${exact.name}`)
+                      }
+                    }
+                  }}
+                />
+              </div>
+              
+              {/* Category Pills - Horizontal Scroll */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
                   {categoryOptions.map(opt => {
                     const count = products.filter(p => {
                       if (opt.key.startsWith('legacy:')) {
@@ -2986,222 +3010,254 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                     return (
                       <button
                         key={opt.key}
-                        className={`inline-flex items-start gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border text-left max-w-[260px] whitespace-normal ${
+                        className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                           selectedCategoryKey === opt.key
-                            ? 'bg-black text-white border-black'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                            ? 'bg-black text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                         onClick={() => {
                           setSelectedCategoryKey(opt.key)
-                          setSelectedSubCategory(null) // open subcategory strip
-                          // Scroll into view to make it obvious
-                          setTimeout(() => subcatsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0)
+                          setSelectedSubCategory(null)
                         }}
-                        title={shown}
                       >
-                        <span
-                          className="leading-tight break-words whitespace-normal text-left block max-w-[220px]"
-                          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' as const }}
-                        >
-                          {shown}
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold">{count}</span>
+                        {shown}
                       </button>
                     )
                   })}
                 </div>
-                <div className="ml-auto flex items-center gap-3">
+                
+                {/* Right side controls */}
+                <div className="flex-shrink-0 flex items-center gap-3 ml-auto">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 select-none cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black" 
+                      checked={onlyInStock} 
+                      onChange={(e) => setOnlyInStock(e.target.checked)} 
+                    />
+                    In Stock Only
+                  </label>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowCustomProductDialog(true)}
-                    className="h-8 text-xs"
+                    className="border-gray-300"
                   >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add Custom Product
+                    <Plus className="h-4 w-4 mr-2" />
+                    Custom Product
                   </Button>
-                  <label className="flex items-center gap-2 text-xs text-gray-600 select-none">
-                    <input type="checkbox" className="accent-black" checked={onlyInStock} onChange={(e) => setOnlyInStock(e.target.checked)} />
-                    Only in stock
-                  </label>
-                  <div className="relative">
-                    <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      className="pl-8 w-56"
-                      placeholder="Search products / barcode / code..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const q = search.trim().toLowerCase()
-                          if (!q) return
-                          const exact = products.find(p => (p.barcode && String(p.barcode).toLowerCase() === q) || (p.product_code && String(p.product_code).toLowerCase() === q))
-                          if (exact) {
-                            setSelection(prev => ({ ...prev, [exact.id]: (prev[exact.id] || 0) + 1 }))
-                            setSearch("")
-                            toast.success(`Added ${exact.name}`)
-                          }
-                        }
-                      }}
-                    />
-                  </div>
                 </div>
               </div>
+              
+              {/* Subcategories */}
               {subCategoryOptions.length > 0 && (
-                <div ref={subcatsRef} className="mt-3 flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
                   <button
-                    className={`inline-flex items-start px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border text-left max-w-[240px] whitespace-normal ${
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                       !selectedSubCategory
-                        ? 'bg-black text-white border-black'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        ? 'bg-gray-200 text-gray-900'
+                        : 'bg-transparent text-gray-600 hover:bg-gray-100'
                     }`}
                     onClick={() => setSelectedSubCategory(null)}
-                    title="All Subcategories"
                   >
-                    <span
-                      className="leading-tight break-words whitespace-normal text-left block max-w-[200px]"
-                      style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' as const }}
-                    >
-                      All Subcategories
-                    </span>
+                    All
                   </button>
                   {subCategoryOptions.map(sc => (
                     <button
                       key={sc}
-                      className={`inline-flex items-start px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer border text-left max-w-[240px] whitespace-normal ${
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                         selectedSubCategory === sc
-                          ? 'bg-black text-white border-black'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                          ? 'bg-gray-200 text-gray-900'
+                          : 'bg-transparent text-gray-600 hover:bg-gray-100'
                       }`}
                       onClick={() => setSelectedSubCategory(sc)}
-                      title={toTitle(sc)}
                     >
-                      <span
-                        className="leading-tight break-words whitespace-normal text-left block max-w-[200px]"
-                        style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' as const }}
-                      >
-                        {toTitle(sc)}
-                      </span>
+                      {toTitle(sc)}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto overflow-x-hidden pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
+            {/* Product Grid - Clean & Spacious */}
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {productsLoading ? (
-                // Loading skeleton
-                Array.from({ length: 8 }).map((_, idx) => (
-                  <Card key={idx} className="p-0 overflow-hidden animate-pulse">
-                    <div className="aspect-square w-full bg-gray-200"></div>
-                    <div className="p-3 space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                      <div className="h-8 bg-gray-200 rounded"></div>
+                // Loading skeleton - Apple-like
+                Array.from({ length: 10 }).map((_, idx) => (
+                  <div key={idx} className="bg-white rounded-xl overflow-hidden border border-gray-200 animate-pulse">
+                    <div className="aspect-square w-full bg-gray-100"></div>
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-100 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+                      <div className="h-10 bg-gray-100 rounded-lg"></div>
                     </div>
-                  </Card>
+                  </div>
                 ))
               ) : (
                 filtered.map(p => {
-                const qty = selection[p.id] || 0
-                return (
-                  <Card key={p.id} className="group p-0 overflow-hidden">
-                    <div className="aspect-square w-full bg-gray-50 border-b overflow-hidden">
-                      {p.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center text-[11px] text-gray-400">No Image</div>
-                      )}
-                    </div>
-                    <div className="p-3 flex flex-col gap-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-medium text-sm truncate" title={p.name}>{p.name}</div>
-                          <div className="text-[11px] text-gray-500">Stock: {p.stock_available ?? 0}</div>
-                        </div>
-                        <div className="text-xs font-medium whitespace-nowrap"></div>
+                  const qty = selection[p.id] || 0
+                  const isSelected = qty > 0
+                  
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setQty(p.id, qty + 1)}
+                      className={`group relative bg-white rounded-xl overflow-hidden border transition-all text-left ${
+                        isSelected 
+                          ? 'border-black shadow-lg ring-2 ring-black ring-opacity-5' 
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+                      }`}
+                    >
+                      {/* Product Image */}
+                      <div className="aspect-square w-full bg-gray-50 relative overflow-hidden">
+                        {p.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.image_url} alt={p.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <Package className="h-12 w-12 text-gray-300" />
+                          </div>
+                        )}
+                        
+                        {/* Stock Badge */}
+                        {(p.stock_available ?? 0) > 0 ? (
+                          <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-gray-700">
+                            {p.stock_available} left
+                          </div>
+                        ) : (
+                          <div className="absolute top-2 right-2 bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-white">
+                            Out of stock
+                          </div>
+                        )}
+                        
+                        {/* Selection Indicator */}
+                        {isSelected && (
+                          <div className="absolute top-2 left-2 bg-black text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
+                            {qty}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-[11px] flex items-center gap-2">
-                        <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => checkAvailability(p.id, p.name)}>Check availability</Button>
+                      
+                      {/* Product Info */}
+                      <div className="p-4 space-y-2">
+                        <h3 className="font-semibold text-sm line-clamp-2 min-h-[2.5rem]" title={p.name}>
+                          {p.name}
+                        </h3>
+                        
+                        {/* Quantity Controls - Only show when selected */}
+                        {isSelected ? (
+                          <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setQty(p.id, qty - 1)
+                              }}
+                              className="w-8 h-8 rounded-md bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-transform"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <div className="flex-1 text-center font-bold text-lg">
+                              {qty}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setQty(p.id, qty + 1)
+                              }}
+                              disabled={(p.stock_available ?? 0) <= qty}
+                              className="w-8 h-8 rounded-md bg-black text-white flex items-center justify-center hover:bg-gray-800 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setQty(p.id, 1)
+                            }}
+                            disabled={(p.stock_available ?? 0) === 0}
+                            className="w-full py-2.5 bg-black text-white rounded-lg font-medium text-sm hover:bg-gray-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Add to Selection
+                          </button>
+                        )}
                       </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[11px] text-gray-600">Qty</div>
-                        <div className="flex items-center gap-2">
-                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setQty(p.id, qty - 1)} disabled={qty <= 0}>-</Button>
-                          <Input className="h-8 w-16 text-center" type="number" min={0} value={qty} onChange={e => setQty(p.id, Math.max(0, Number(e.target.value)))} />
-                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setQty(p.id, qty + 1)}>+</Button>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                )
-              })
+                    </button>
+                  )
+                })
               )}
-              {!productsLoading && filtered.length === 0 && <div className="p-4 text-sm text-gray-500">No matching products.</div>}
+              {!productsLoading && filtered.length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
+                  <Package className="h-20 w-20 mb-4" />
+                  <p className="text-lg font-medium">No products found</p>
+                  <p className="text-sm">Try adjusting your search or filters</p>
+                </div>
+              )}
+              </div>
             </div>
           </div>
 
-          {/* Right: Inclusions & summary */}
-          <div className="space-y-4 flex flex-col overflow-hidden">
-            <Card className="flex-shrink-0">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Variant Inclusions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {variantInclusions.length > 0 ? (
-                  <ul className="space-y-1 max-h-56 overflow-y-auto overflow-x-hidden pr-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-                    {variantInclusions.map((inc, idx) => (
-                      <li key={idx} className="text-xs text-gray-800 break-words whitespace-normal border rounded px-2 py-1 bg-gray-50">
-                        {inc}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-xs text-gray-500">No inclusions listed for this variant.</div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="flex-1 flex flex-col overflow-hidden">
-              <CardHeader className="pb-2 flex-shrink-0">
-                <CardTitle className="text-base">Selected Items ({totalSelected})</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 pr-1 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-50 hover:scrollbar-thumb-blue-400">
-                {selectedList.length > 0 ? (
-                  selectedList.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 border rounded p-2">
-                      <div className="h-10 w-10 rounded bg-gray-50 overflow-hidden flex items-center justify-center">
+          {/* Right: Selection Summary - Clean Sidebar */}
+          <div className="w-96 flex-shrink-0 bg-white border-l flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex-shrink-0 px-6 py-5 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">Selection Summary</h2>
+              <p className="text-sm text-gray-500 mt-1">{totalSelected} {totalSelected === 1 ? 'item' : 'items'} selected</p>
+            </div>
+            
+            {/* Selected Items List */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {selectedList.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedList.map(item => (
+                    <div key={item.id} className="bg-gray-50 rounded-lg p-3 flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-lg bg-white overflow-hidden flex-shrink-0">
                         {item.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
                         ) : (
-                          <span className="text-[10px] text-gray-400">No Image</span>
+                          <div className="h-full w-full flex items-center justify-center">
+                            <Package className="h-6 w-6 text-gray-300" />
+                          </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm truncate" title={item.name}>{item.name}</div>
-                        <div className="text-[11px] text-gray-500">Qty: {item.qty}</div>
+                        <p className="font-medium text-sm truncate" title={item.name}>{item.name}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">Quantity: {item.qty}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setSelection(prev => { const { [item.id]:_, ...rest } = prev; return rest })} title="Remove">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <button
+                        onClick={() => setSelection(prev => { const { [item.id]:_, ...rest } = prev; return rest })}
+                        className="w-8 h-8 rounded-full hover:bg-white flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors"
+                        title="Remove"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-gray-500">No items selected yet.</div>
-                )}
-              </CardContent>
-              <div className="px-6 py-3 border-t flex items-center justify-between flex-shrink-0">
-                <button className="text-xs text-gray-600 underline" onClick={() => setSelection({})} disabled={totalSelected === 0}>Clear</button>
-                <div className="text-sm text-gray-500">&nbsp;</div>
-              </div>
-            </Card>
-
-            <div className="flex justify-end gap-2 flex-shrink-0">
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                  <ShoppingCart className="h-16 w-16 mb-3" />
+                  <p className="text-sm font-medium">No items selected</p>
+                  <p className="text-xs mt-1">Select products to add them here</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer Actions */}
+            <div className="flex-shrink-0 border-t px-6 py-4 space-y-3 bg-white">
+              {selectedList.length > 0 && (
+                <button
+                  onClick={() => setSelection({})}
+                  className="text-sm text-gray-500 hover:text-gray-700 underline"
+                >
+                  Clear all selections
+                </button>
+              )}
+              
+              <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -3220,6 +3276,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               <Button onClick={handleSave} disabled={saving || totalSelected === 0}>
                 {saving ? "Saving..." : `Reserve ${totalSelected} Item${totalSelected>1 ? 's' : ''}`}
               </Button>
+            </div>
             </div>
           </div>
         </div>
