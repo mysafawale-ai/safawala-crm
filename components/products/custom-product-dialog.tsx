@@ -4,7 +4,8 @@
  * Custom Product Dialog - Create and save custom products to database
  * Features:
  * - Quick product creation during order entry
- * - Image upload support
+ * - Image upload with compression support
+ * - Camera capture option for mobile devices
  * - Save to database as franchise-specific product
  * - Optional barcode generation
  * - Automatic reuse in future orders
@@ -20,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { AlertCircle, Loader2, Check, Upload, X } from "lucide-react"
+import { AlertCircle, Loader2, Check, Upload, X, Camera } from "lucide-react"
 import { toast } from "sonner"
 
 interface CustomProductDialogProps {
@@ -43,7 +44,9 @@ export function CustomProductDialog({
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [useCameraFacing, setUseCameraFacing] = useState<"environment" | "user">("environment")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -52,9 +55,59 @@ export function CustomProductDialog({
     rental_price: 0,
     sale_price: 0,
     security_deposit: 0,
-    stock_available: 999, // Default high stock for custom products
+    stock_available: 999,
     barcode_number: "",
   })
+
+  // Compress image to base64 with size optimization
+  const compressImageToBase64 = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement("canvas")
+          let width = img.width
+          let height = img.height
+
+          // Max dimensions for compression
+          const maxWidth = 800
+          const maxHeight = 800
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height * maxWidth) / width
+              width = maxWidth
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width * maxHeight) / height
+              height = maxHeight
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          const ctx = canvas.getContext("2d")
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"))
+            return
+          }
+
+          ctx.drawImage(img, 0, 0, width, height)
+
+          // Convert to base64 with compression quality
+          const base64 = canvas.toDataURL("image/jpeg", 0.7)
+          resolve(base64)
+        }
+        img.onerror = () => reject(new Error("Failed to load image"))
+        img.src = e.target?.result as string
+      }
+      reader.onerror = () => reject(new Error("Failed to read file"))
+      reader.readAsDataURL(file)
+    })
+  }
 
   const categories = [
     "Miscellaneous",
@@ -95,29 +148,19 @@ export function CustomProductDialog({
     try {
       let imageUrl: string | null = null
 
-      // Step 1: Upload image if provided
-      if (imageFile) {
+      // Step 1: Compress and convert image to base64
+      if (imageFile && imagePreview) {
         setUploadingImage(true)
-        const uploadFormData = new FormData()
-        uploadFormData.append("file", imageFile)
-        uploadFormData.append("franchiseId", franchiseId)
-
-        const uploadRes = await fetch("/api/images/save", {
-          method: "POST",
-          body: uploadFormData,
-        })
-
-        if (!uploadRes.ok) {
-          const errorData = await uploadRes.json()
-          throw new Error(errorData.error || "Failed to upload image")
+        try {
+          imageUrl = await compressImageToBase64(imageFile)
+        } catch (error) {
+          console.error("Image compression error:", error)
+          toast.warning("Could not compress image, proceeding without image")
         }
-
-        const uploadData = await uploadRes.json()
-        imageUrl = uploadData.url
         setUploadingImage(false)
       }
 
-      // Step 2: Create product in database
+      // Step 2: Create product in database with base64 image
       const productRes = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -131,7 +174,7 @@ export function CustomProductDialog({
           stock_available: formData.stock_available,
           image_url: imageUrl,
           franchise_id: franchiseId,
-          is_custom: true, // Mark as custom product
+          is_custom: true,
         }),
       })
 
@@ -209,11 +252,25 @@ export function CustomProductDialog({
       return
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image size must be less than 5MB")
+    // Validate file size (max 10MB before compression)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image size must be less than 10MB")
       return
     }
+
+    setImageFile(file)
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
     setImageFile(file)
 
@@ -230,6 +287,17 @@ export function CustomProductDialog({
     setImagePreview(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = ""
+    }
+  }
+
+  const toggleCameraFacing = () => {
+    setUseCameraFacing(useCameraFacing === "environment" ? "user" : "environment")
+    // Reset camera input to allow re-triggering
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = ""
     }
   }
 
@@ -311,23 +379,60 @@ export function CustomProductDialog({
                   <p className="text-sm text-muted-foreground">
                     {imageFile?.name} ({((imageFile?.size || 0) / 1024 / 1024).toFixed(2)} MB)
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Change Image
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Change Image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => cameraInputRef.current?.click()}
+                    >
+                      <Camera className="h-4 w-4 mr-1" />
+                      Camera
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="cursor-pointer text-center"
-                >
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm font-medium text-gray-700">Click to upload or drag & drop</p>
-                  <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                <div className="space-y-3">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="cursor-pointer text-center p-3 rounded border border-dashed border-gray-300 hover:border-gray-400"
+                  >
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm font-medium text-gray-700">Click to upload or drag & drop</p>
+                    <p className="text-xs text-gray-500">PNG, JPG, GIF (will be compressed)</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="w-full"
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Take Photo
+                    </Button>
+                    {cameraInputRef.current && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleCameraFacing}
+                        title={useCameraFacing === "environment" ? "Switch to Front Camera" : "Switch to Back Camera"}
+                      >
+                        🔄
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
               <input
@@ -335,6 +440,14 @@ export function CustomProductDialog({
                 type="file"
                 accept="image/*"
                 onChange={handleImageSelect}
+                className="hidden"
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture={useCameraFacing === "environment" ? "environment" : "user"}
+                onChange={handleCameraCapture}
                 className="hidden"
               />
             </div>
