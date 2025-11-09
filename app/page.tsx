@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { signIn, getCurrentUser } from "@/lib/auth"
+import { signIn } from "@/lib/auth"
 import { toast } from "sonner"
 import { Crown, Sparkles, Star, Gem } from "lucide-react"
 
@@ -29,30 +29,9 @@ export default function LoginPage() {
   }
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const user = await getCurrentUser()
-        if (user) {
-          const urlParams = new URLSearchParams(window.location.search)
-          const redirectTo = urlParams.get("redirect") || "/dashboard"
-          
-          // Prevent redirect loop - don't redirect if already on login page
-          if (redirectTo === "/" || redirectTo === window.location.pathname) {
-            router.push("/dashboard")
-          } else {
-            router.push(redirectTo)
-          }
-          return
-        }
-      } catch (error) {
-        console.log("No existing authentication found")
-      } finally {
-        setIsCheckingAuth(false)
-      }
-    }
-
-    // Slight delay to avoid race conditions
-    setTimeout(checkAuth, 100)
+    // Auto-login disabled - users must manually enter credentials
+    // This prevents unnecessary redirects and error loops on the login page
+    setIsCheckingAuth(false)
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
