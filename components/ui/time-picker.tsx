@@ -80,7 +80,11 @@ export function TimePicker({ value, onChange, className, placeholder = "--:-- --
         <span className="text-xs text-muted-foreground">⏷</span>
       </button>
       {open && (
-        <div className="absolute z-[1200] mt-1 w-full rounded-md border bg-popover shadow-lg p-2 grid grid-cols-3 gap-2">
+        <div
+          className="absolute z-[1200] mt-1 w-full min-w-[260px] md:min-w-[320px] rounded-md border bg-popover shadow-lg p-2 grid grid-cols-3 gap-2"
+          role="listbox"
+          aria-label="Select time (hours, minutes, AM/PM)"
+        >
           <div className="max-h-56 overflow-y-auto pr-1 border-r">
             {hours.map((h) => (
               <div
@@ -119,6 +123,8 @@ export function TimePicker({ value, onChange, className, placeholder = "--:-- --
                   md === state.meridiem ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent"
                 )}
                 onClick={() => update({ meridiem: md })}
+                aria-pressed={md === state.meridiem}
+                aria-label={`Select ${md}`}
               >
                 {md}
               </button>
@@ -130,6 +136,7 @@ export function TimePicker({ value, onChange, className, placeholder = "--:-- --
                 onChange("")
                 setOpen(false)
               }}
+              aria-label="Clear time"
             >
               Clear
             </button>
@@ -137,6 +144,7 @@ export function TimePicker({ value, onChange, className, placeholder = "--:-- --
               type="button"
               className="px-2 py-1 text-xs rounded border hover:bg-accent"
               onClick={() => setOpen(false)}
+              aria-label="Close time picker"
             >
               Close
             </button>
