@@ -4,7 +4,7 @@
  * Custom Product Dialog - Create and save custom products to database
  * Features:
  * - Quick product creation during order entry
- * - Image upload with compression support
+ * - Image upload via /api/upload endpoint (same as inventory)
  * - Camera capture option for mobile devices
  * - Save to database as franchise-specific product
  * - Optional barcode generation
@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AlertCircle, Loader2, Check, Upload, X, Camera } from "lucide-react"
 import { toast } from "sonner"
+import { uploadWithProgress } from "@/lib/upload-with-progress"
 
 interface CustomProductDialogProps {
   open: boolean
@@ -148,19 +149,20 @@ export function CustomProductDialog({
     try {
       let imageUrl: string | null = null
 
-      // Step 1: Compress and convert image to base64
+      // Step 1: Upload image using the same endpoint as inventory
       if (imageFile && imagePreview) {
         setUploadingImage(true)
         try {
-          imageUrl = await compressImageToBase64(imageFile)
+          const uploadResult = await uploadWithProgress(imageFile, { folder: "products" })
+          imageUrl = uploadResult.url
         } catch (error) {
-          console.error("Image compression error:", error)
-          toast.warning("Could not compress image, proceeding without image")
+          console.error("Image upload error:", error)
+          toast.warning("Could not upload image, proceeding without image")
         }
         setUploadingImage(false)
       }
 
-      // Step 2: Create product in database with base64 image
+      // Step 2: Create product in database
       const productRes = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
