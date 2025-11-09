@@ -692,6 +692,12 @@ export default function StaffPage() {
   }
 
   const openEditDialog = (user: User) => {
+    // Prevent staff from editing their own profile
+    if (currentUser?.role !== 'super_admin' && currentUser?.id === user.id) {
+      toast.error('You cannot edit your own staff profile. Only super admin can manage staff permissions.')
+      return
+    }
+    
     setSelectedUser(user)
     setNewUserData({
       name: user.name,
@@ -1153,7 +1159,10 @@ export default function StaffPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                        <DropdownMenuItem 
+                          onClick={() => openEditDialog(user)}
+                          disabled={currentUser?.role !== 'super_admin' && currentUser?.id === user.id}
+                        >
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
