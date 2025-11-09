@@ -11,6 +11,7 @@ import {
   Palette, 
   Zap, 
   UserCog,
+  Lock,
   Settings,
   Loader2,
   ArrowLeft
@@ -21,6 +22,7 @@ import { CompanyInfoSection } from './company-info-section'
 import { BrandingSection } from './branding-section-new'
 import { BankingSection } from './banking-section-new'
 import { ProfileSection } from './profile-section'
+import { ChangePasswordSection } from './change-password-section'
 
 interface ComprehensiveSettingsProps {
   franchiseId?: string
@@ -32,7 +34,7 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
   const getInitialTab = () => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '')
-      if (['company', 'branding', 'banking', 'profile'].includes(hash)) {
+      if (['company', 'branding', 'banking', 'profile', 'security'].includes(hash)) {
         return hash
       }
     }
@@ -79,7 +81,7 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 bg-gray-100">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 bg-gray-100">
           <TabsTrigger value="company" className="flex items-center gap-2 data-[state=active]:bg-white">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Company</span>
@@ -95,6 +97,10 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
           <TabsTrigger value="profile" className="flex items-center gap-2 data-[state=active]:bg-white">
             <UserCog className="h-4 w-4" />
             <span className="hidden sm:inline">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2 data-[state=active]:bg-white">
+            <Lock className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
         </TabsList>
 
@@ -112,6 +118,10 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
 
         <TabsContent value="profile" className="space-y-6">
           <ProfileSection franchiseId={franchiseId} />
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-6">
+          <ChangePasswordSection />
         </TabsContent>
       </Tabs>
     </div>
