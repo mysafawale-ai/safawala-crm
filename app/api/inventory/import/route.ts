@@ -77,6 +77,8 @@ export async function POST(request: NextRequest) {
     // Process each product
     for (const sourceProduct of importData.products) {
       try {
+        console.log('[Import] Processing product:', sourceProduct.product_code)
+        
         const {
           id: sourceId,
           imageBase64,
@@ -84,19 +86,44 @@ export async function POST(request: NextRequest) {
           ...productData
         } = sourceProduct
 
+        // Ensure required fields exist
+        if (!productData.name) {
+          throw new Error('Product name is required')
+        }
+        if (!productData.product_code) {
+          throw new Error('Product code is required')
+        }
+
+        // Set default values for missing fields
+        const normalizedProduct = {
+          ...productData,
+          brand: productData.brand || 'N/A',
+          size: productData.size || '',
+          color: productData.color || '',
+          material: productData.material || '',
+          description: productData.description || '',
+          price: productData.price ? Number(productData.price) : 0,
+          rental_price: productData.rental_price ? Number(productData.rental_price) : 0,
+          cost_price: productData.cost_price ? Number(productData.cost_price) : 0,
+          security_deposit: productData.security_deposit ? Number(productData.security_deposit) : 0,
+          stock_total: productData.stock_total ? Number(productData.stock_total) : 0,
+          reorder_level: productData.reorder_level ? Number(productData.reorder_level) : 5,
+          is_active: productData.is_active !== false,
+        }
+
         // Check for duplicate product code
-        if (productData.product_code) {
+        if (normalizedProduct.product_code) {
           const { data: existing } = await supabase
             .from('products')
             .select('id')
-            .eq('product_code', productData.product_code)
+            .eq('product_code', normalizedProduct.product_code)
             .eq('franchise_id', franchiseId)
             .single()
 
           if (existing) {
             if (skipDuplicates) {
               failedImports.push({
-                code: productData.product_code,
+                code: normalizedProduct.product_code,
                 reason: 'Duplicate product code (skipped)',
               })
               continue
@@ -107,18 +134,21 @@ export async function POST(request: NextRequest) {
               const { error: updateError } = await supabase
                 .from('products')
                 .update({
-                  ...productData,
-                  stock_available: resetStock ? 0 : productData.stock_available,
+                  ...normalizedProduct,
+                  stock_available: resetStock ? 0 : normalizedProduct.stock_available,
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', existing.id)
 
-              if (updateError) throw updateError
+              if (updateError) {
+                console.error('[Import] Update error for', normalizedProduct.product_code, updateError)
+                throw updateError
+              }
 
               // Handle image if provided
               if (importImages && imageBase64) {
                 try {
-                  const imageUrl = await uploadImage(imageBase64, productData.product_code || 'product')
+                  const imageUrl = await uploadImage(imageBase64, normalizedProduct.product_code || 'product')
                   if (imageUrl) {
                     await supabase
                       .from('products')
@@ -127,18 +157,18 @@ export async function POST(request: NextRequest) {
                     imagesUploaded++
                   }
                 } catch (imgErr) {
-                  console.warn(`[Import] Image upload failed for ${productData.product_code}:`, imgErr)
+                  console.warn(`[Import] Image upload failed for ${normalizedProduct.product_code}:`, imgErr)
                 }
               }
 
               successfulImports.push({
-                code: productData.product_code,
+                code: normalizedProduct.product_code,
                 action: 'updated',
               })
               continue
             } else {
               failedImports.push({
-                code: productData.product_code,
+                code: normalizedProduct.product_code,
                 reason: 'Duplicate product code (use overwriteExisting option)',
               })
               continue
@@ -148,24 +178,26 @@ export async function POST(request: NextRequest) {
 
         // Create new product
         const newProduct = {
-          ...productData,
+          ...normalizedProduct,
           id: uuidv4(),
           franchise_id: franchiseId,
-          stock_available: resetStock ? 0 : productData.stock_available,
+          stock_available: resetStock ? 0 : normalizedProduct.stock_available,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }
 
+        console.log('[Import] Creating new product:', newProduct.product_code, 'with fields:', Object.keys(newProduct))
+
         // Handle image upload
         if (importImages && imageBase64) {
           try {
-            const imageUrl = await uploadImage(imageBase64, productData.product_code || 'product')
+            const imageUrl = await uploadImage(imageBase64, normalizedProduct.product_code || 'product')
             if (imageUrl) {
               newProduct.image_url = imageUrl
               imagesUploaded++
             }
           } catch (imgErr) {
-            console.warn(`[Import] Image upload failed for ${productData.product_code}:`, imgErr)
+            console.warn(`[Import] Image upload failed for ${normalizedProduct.product_code}:`, imgErr)
           }
         }
 
@@ -173,17 +205,22 @@ export async function POST(request: NextRequest) {
           .from('products')
           .insert([newProduct])
 
-        if (insertError) throw insertError
+        if (insertError) {
+          console.error('[Import] Insert error for', newProduct.product_code, insertError)
+          throw insertError
+        }
+
+        console.log('[Import] ✓ Successfully created product:', newProduct.product_code)
 
         successfulImports.push({
-          code: productData.product_code,
+          code: normalizedProduct.product_code,
           action: 'created',
           id: newProduct.id,
         })
       } catch (productError: any) {
-        console.error('[Import] Product error:', productError)
+        console.error('[Import] Product error for', sourceProduct?.product_code, ':', productError)
         failedImports.push({
-          code: sourceProduct.product_code || 'unknown',
+          code: sourceProduct?.product_code || 'unknown',
           reason: productError?.message || 'Unknown error',
         })
       }
