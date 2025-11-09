@@ -281,12 +281,13 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
   }
 
   const filterItemsByRole = (items: any[]) => {
-    // Get user permissions from localStorage
-    const userPermissions = currentUser?.permissions as UserPermissions | undefined
+    // Get user permissions from localStorage or state
+    let userPermissions = currentUser?.permissions as UserPermissions | undefined
     
-    // If no permissions loaded yet, show nothing (except for loading state)
-    if (!userPermissions) {
-      return []
+    // If no permissions loaded yet, use role-based defaults
+    if (!userPermissions || Object.keys(userPermissions).length === 0) {
+      console.log('[Sidebar] No permissions, using role defaults:', currentUser?.role)
+      userPermissions = getDefaultPermissionsForRole(currentUser?.role || 'staff')
     }
     
     return items.filter((item) => {
@@ -296,8 +297,109 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
       }
       
       // PERMISSION-ONLY CHECK: Show item if user has the permission enabled
-      return userPermissions[item.permission as keyof UserPermissions] === true
+      return userPermissions![item.permission as keyof UserPermissions] === true
     })
+  }
+
+  // Default permissions based on role (fallback when permissions not loaded)
+  const getDefaultPermissionsForRole = (role: string): UserPermissions => {
+    switch (role) {
+      case 'super_admin':
+        return {
+          dashboard: true,
+          bookings: true,
+          customers: true,
+          inventory: true,
+          packages: true,
+          vendors: true,
+          quotes: true,
+          invoices: true,
+          laundry: true,
+          expenses: true,
+          deliveries: true,
+          productArchive: true,
+          payroll: true,
+          attendance: true,
+          reports: true,
+          financials: true,
+          franchises: true,
+          staff: true,
+          integrations: true,
+          settings: true,
+        }
+      
+      case 'franchise_admin':
+        return {
+          dashboard: true,
+          bookings: true,
+          customers: true,
+          inventory: true,
+          packages: true,
+          vendors: true,
+          quotes: true,
+          invoices: true,
+          laundry: true,
+          expenses: true,
+          deliveries: true,
+          productArchive: true,
+          payroll: true,
+          attendance: true,
+          reports: true,
+          financials: true,
+          franchises: false,
+          staff: true,
+          integrations: false,
+          settings: true,
+        }
+      
+      case 'staff':
+        return {
+          dashboard: true,
+          bookings: true,
+          customers: true,
+          inventory: true,
+          packages: false,
+          vendors: false,
+          quotes: true,
+          invoices: true,
+          laundry: false,
+          expenses: false,
+          deliveries: false,
+          productArchive: false,
+          payroll: false,
+          attendance: false,
+          reports: false,
+          financials: false,
+          franchises: false,
+          staff: false,
+          integrations: false,
+          settings: true,
+        }
+      
+      default:
+        return {
+          dashboard: true,
+          bookings: false,
+          customers: false,
+          inventory: false,
+          packages: false,
+          vendors: false,
+          quotes: false,
+          invoices: false,
+          laundry: false,
+          expenses: false,
+          deliveries: false,
+          productArchive: false,
+          payroll: false,
+          attendance: false,
+          reports: false,
+          financials: false,
+          franchises: false,
+          staff: false,
+          integrations: false,
+          settings: true,
+        }
+    }
   }
 
   const isActiveItem = (url: string) => {

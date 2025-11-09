@@ -9,6 +9,109 @@ export const dynamic = 'force-dynamic'
 // Supabase client is lazy via supabaseServer
 
 /**
+ * Get default permissions based on role
+ */
+function getDefaultPermissions(role: string): Record<string, boolean> {
+  switch (role) {
+    case 'super_admin':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        packages: true,
+        vendors: true,
+        quotes: true,
+        invoices: true,
+        laundry: true,
+        expenses: true,
+        deliveries: true,
+        productArchive: true,
+        payroll: true,
+        attendance: true,
+        reports: true,
+        financials: true,
+        franchises: true,
+        staff: true,
+        integrations: true,
+        settings: true,
+      };
+    
+    case 'franchise_admin':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        packages: true,
+        vendors: true,
+        quotes: true,
+        invoices: true,
+        laundry: true,
+        expenses: true,
+        deliveries: true,
+        productArchive: true,
+        payroll: true,
+        attendance: true,
+        reports: true,
+        financials: true,
+        franchises: false,
+        staff: true,
+        integrations: false,
+        settings: true,
+      };
+    
+    case 'staff':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        packages: false,
+        vendors: false,
+        quotes: true,
+        invoices: true,
+        laundry: false,
+        expenses: false,
+        deliveries: false,
+        productArchive: false,
+        payroll: false,
+        attendance: false,
+        reports: false,
+        financials: false,
+        franchises: false,
+        staff: false,
+        integrations: false,
+        settings: true,
+      };
+    
+    default:
+      return {
+        dashboard: true,
+        bookings: false,
+        customers: false,
+        inventory: false,
+        packages: false,
+        vendors: false,
+        quotes: false,
+        invoices: false,
+        laundry: false,
+        expenses: false,
+        deliveries: false,
+        productArchive: false,
+        payroll: false,
+        attendance: false,
+        reports: false,
+        financials: false,
+        franchises: false,
+        staff: false,
+        integrations: false,
+        settings: true,
+      };
+  }
+}
+
+/**
  * GET /api/auth/user
  * Get current user info from session cookie
  */
@@ -57,6 +160,11 @@ export async function GET(request: NextRequest) {
     // Franchises is an array, get the first one
   const franchise = Array.isArray(user.franchises) ? user.franchises[0] : user.franchises
 
+    // Ensure permissions - if null or empty, use role defaults
+    const permissions = user.permissions && typeof user.permissions === 'object' && Object.keys(user.permissions).length > 0
+      ? user.permissions
+      : getDefaultPermissions(user.role);
+
     // Return user with franchise info
     return NextResponse.json({
   id: user.id,
@@ -68,7 +176,7 @@ export async function GET(request: NextRequest) {
       franchise_code: franchise?.code || null,
       franchise_city: franchise?.city || null,
       is_active: user.is_active,
-      permissions: user.permissions || {},
+      permissions: permissions,
       created_at: user.created_at,
       updated_at: user.updated_at,
       isSuperAdmin: user.role === "super_admin",

@@ -7,6 +7,109 @@ import bcrypt from "bcryptjs"
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+/**
+ * Get default permissions based on role
+ */
+function getDefaultPermissions(role: string): Record<string, boolean> {
+  switch (role) {
+    case 'super_admin':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        packages: true,
+        vendors: true,
+        quotes: true,
+        invoices: true,
+        laundry: true,
+        expenses: true,
+        deliveries: true,
+        productArchive: true,
+        payroll: true,
+        attendance: true,
+        reports: true,
+        financials: true,
+        franchises: true,
+        staff: true,
+        integrations: true,
+        settings: true,
+      };
+    
+    case 'franchise_admin':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        packages: true,
+        vendors: true,
+        quotes: true,
+        invoices: true,
+        laundry: true,
+        expenses: true,
+        deliveries: true,
+        productArchive: true,
+        payroll: true,
+        attendance: true,
+        reports: true,
+        financials: true,
+        franchises: false,
+        staff: true,
+        integrations: false,
+        settings: true,
+      };
+    
+    case 'staff':
+      return {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        packages: false,
+        vendors: false,
+        quotes: true,
+        invoices: true,
+        laundry: false,
+        expenses: false,
+        deliveries: false,
+        productArchive: false,
+        payroll: false,
+        attendance: false,
+        reports: false,
+        financials: false,
+        franchises: false,
+        staff: false,
+        integrations: false,
+        settings: true,
+      };
+    
+    default:
+      return {
+        dashboard: true,
+        bookings: false,
+        customers: false,
+        inventory: false,
+        packages: false,
+        vendors: false,
+        quotes: false,
+        invoices: false,
+        laundry: false,
+        expenses: false,
+        deliveries: false,
+        productArchive: false,
+        payroll: false,
+        attendance: false,
+        reports: false,
+        financials: false,
+        franchises: false,
+        staff: false,
+        integrations: false,
+        settings: true,
+      };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log("[v0] Login API called")
@@ -137,6 +240,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Account is inactive or missing profile" }, { status: 401 })
     }
 
+    // Ensure permissions - if null or empty, use role defaults
+    const permissions = userProfile.permissions && typeof userProfile.permissions === 'object' && Object.keys(userProfile.permissions).length > 0
+      ? userProfile.permissions
+      : getDefaultPermissions(userProfile.role);
+
     const user = {
       id: userProfile.id,
       name: userProfile.name,
@@ -146,7 +254,7 @@ export async function POST(request: NextRequest) {
       franchise_name: userProfile.franchises?.name || null,
       franchise_code: userProfile.franchises?.code || null,
       is_active: userProfile.is_active,
-      permissions: userProfile.permissions || {},
+      permissions: permissions,
       created_at: userProfile.created_at,
       updated_at: userProfile.updated_at,
     }
