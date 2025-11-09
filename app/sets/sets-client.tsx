@@ -38,7 +38,6 @@ interface DistancePricing {
 interface PackageVariant {
   id: string
   name: string
-  description: string
   base_price: number
   extra_safa_price?: number
   missing_safa_penalty?: number
@@ -165,7 +164,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             {
               id: "1-1-1",
               name: "Silk Banarasi Premium",
-              description: "Premium silk banarasi safas with gold thread work",
               base_price: 35000,
               inclusions: ["21 Silk Safas", "Gold Kalgis", "Premium Jewelry Set", "Storage Box", "Setup Service"],
               is_active: true,
@@ -1137,14 +1135,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       />
                     </div>
                     <div>
-                      <Label htmlFor="variant-description">Description</Label>
-                      <Textarea
-                        id="variant-description"
-                        placeholder="Variant description..."
-                        value={variantForm.description}
-                        onChange={(e) => setVariantForm((prev) => ({ ...prev, description: e.target.value }))}
-                      />
-                    </div>
                     <div>
                       <Label htmlFor="variant-price">Base Price (₹)</Label>
                       <Input
@@ -1333,14 +1323,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       />
                     </div>
                     <div>
-                      <Label htmlFor="variant-description">Description</Label>
-                      <Textarea
-                        id="variant-description"
-                        placeholder="Variant description..."
-                        value={variantForm.description}
-                        onChange={(e) => setVariantForm((prev) => ({ ...prev, description: e.target.value }))}
-                      />
-                    </div>
                     <div>
                       <Label htmlFor="variant-price">Base Price (₹)</Label>
                       <Input

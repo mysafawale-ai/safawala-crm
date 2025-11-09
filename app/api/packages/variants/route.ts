@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { 
       name, 
-      description, 
       base_price,
       extra_safa_price,
       missing_safa_penalty,
@@ -108,9 +107,6 @@ export async function POST(request: NextRequest) {
     // Validation
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'Variant name is required' }, { status: 400 })
-    }
-    if (!description || typeof description !== 'string' || !description.trim()) {
-      return NextResponse.json({ error: 'Variant description is required' }, { status: 400 })
     }
     if (!category_id || typeof category_id !== 'string') {
       return NextResponse.json({ error: 'category_id is required' }, { status: 400 })
@@ -151,7 +147,6 @@ export async function POST(request: NextRequest) {
 
     const insertData: any = {
       name: name.trim(),
-      description: description.trim(),
       base_price: basePriceNum,
       extra_safa_price: extraSafaPriceNum,
       missing_safa_penalty: missingSafaPenaltyNum,
@@ -198,7 +193,6 @@ export async function PUT(request: NextRequest) {
     const { 
       id,
       name, 
-      description, 
       base_price,
       extra_safa_price,
       missing_safa_penalty,
@@ -216,9 +210,6 @@ export async function PUT(request: NextRequest) {
     // Validation
     if (name !== undefined && (!name || typeof name !== 'string' || !name.trim())) {
       return NextResponse.json({ error: 'Invalid variant name' }, { status: 400 })
-    }
-    if (description !== undefined && (!description || typeof description !== 'string' || !description.trim())) {
-      return NextResponse.json({ error: 'Invalid variant description' }, { status: 400 })
     }
 
     const supabase = createClient()
@@ -241,7 +232,6 @@ export async function PUT(request: NextRequest) {
     }
 
     if (name !== undefined && name !== null) updateData.name = name.trim()
-    if (description !== undefined && description !== null) updateData.description = description.trim()
     if (base_price !== undefined) {
       const basePriceNum = Number(base_price)
       if (isNaN(basePriceNum) || basePriceNum < 0) {
