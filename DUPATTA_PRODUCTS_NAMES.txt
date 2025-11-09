@@ -1,0 +1,52 @@
+ELEGANT DUPATTA PRODUCT NAMES - WITH CATEGORY INTEGRATION
+═══════════════════════════════════════════════════════════════
+
+FINAL PRODUCT NAMES (Format: "Dupatta: [Name]")
+═════════════════════════════════════════════════════════════════
+
+₹1999  →  Dupatta Classic
+₹2250  →  Dupatta Radiant
+₹2950  →  Dupatta Royal
+₹3250  →  Dupatta Elegant
+₹3650  →  Dupatta Luxe
+₹3850  →  Dupatta Premium
+₹3950  →  Dupatta Exquisite
+₹4550  →  Dupatta Divine
+
+═════════════════════════════════════════════════════════════════
+
+PRODUCT DETAILS:
+═════════════════════════════════════════════════════════════════
+
+PRODUCT 1:  Dupatta Classic      | ₹1999 | SKU: DPT-001
+PRODUCT 2:  Dupatta Radiant      | ₹2250 | SKU: DPT-002
+PRODUCT 3:  Dupatta Royal        | ₹2950 | SKU: DPT-003
+PRODUCT 4:  Dupatta Elegant      | ₹3250 | SKU: DPT-004
+PRODUCT 5:  Dupatta Luxe         | ₹3650 | SKU: DPT-005
+PRODUCT 6:  Dupatta Premium      | ₹3850 | SKU: DPT-006
+PRODUCT 7:  Dupatta Exquisite    | ₹3950 | SKU: DPT-007
+PRODUCT 8:  Dupatta Divine       | ₹4550 | SKU: DPT-008
+
+═════════════════════════════════════════════════════════════════
+
+KEY DETAILS:
+─────────────
+✓ Category: DUPATTA (already exists)
+✓ Total Products: 8
+✓ Stock per Product: 100 units
+✓ Total Stock: 800 units
+✓ Franchise: Vadodara Branch
+✓ Brand: Safawala
+✓ Material: Premium Fabric
+✓ All Active & Ready
+
+COST CALCULATION (50% of rental price):
+──────────────────────────────────────
+₹1999 → Cost: ₹1000
+₹2250 → Cost: ₹1125
+₹2950 → Cost: ₹1475
+₹3250 → Cost: ₹1625
+₹3650 → Cost: ₹1825
+₹3850 → Cost: ₹1925
+₹3950 → Cost: ₹1975
+₹4550 → Cost: ₹2275

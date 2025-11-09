@@ -42,6 +42,7 @@ interface PackageVariant {
   base_price: number
   extra_safa_price?: number
   missing_safa_penalty?: number
+  deposit_amount?: number
   inclusions?: string[]
   distance_pricing?: DistancePricing[]
   is_active: boolean
@@ -109,6 +110,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     extra_price: "0.00",
     extra_safa_price: "0.00",
     missing_safa_penalty: "0.00",
+    deposit_amount: "0.00",
     inclusions: "",
   })
 
@@ -465,6 +467,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       const extraSafaPrice = Number.parseFloat(variantForm.extra_safa_price)
       const missingSafaPenalty = Number.parseFloat(variantForm.missing_safa_penalty)
+      const depositAmount = Number.parseFloat(variantForm.deposit_amount)
 
       if (isNaN(extraSafaPrice) || extraSafaPrice < 0) {
         toast.error("Please enter a valid extra safa price")
@@ -473,6 +476,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       if (isNaN(missingSafaPenalty) || missingSafaPenalty < 0) {
         toast.error("Please enter a valid missing safa penalty")
+        return
+      }
+
+      if (isNaN(depositAmount) || depositAmount < 0) {
+        toast.error("Please enter a valid deposit amount")
         return
       }
 
@@ -487,6 +495,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         base_price: basePrice,
         extra_safa_price: extraSafaPrice,
         missing_safa_penalty: missingSafaPenalty,
+        deposit_amount: depositAmount,
         inclusions,
         category_id: selectedCategory.id,
         package_id: selectedCategory.id,
@@ -525,7 +534,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
       await refetchData()
       
-      setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", inclusions: "" })
+      setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", deposit_amount: "0.00", inclusions: "" })
       setEditingVariant(null)
       setDialogs((prev) => ({ ...prev, createVariant: false }))
     } catch (error) {
@@ -545,6 +554,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       extra_price: variant.base_price.toString(),
       extra_safa_price: (variant.extra_safa_price || 0).toString(),
       missing_safa_penalty: (variant.missing_safa_penalty || 0).toString(),
+      deposit_amount: (variant.deposit_amount || 0).toString(),
       inclusions: variant.inclusions ? variant.inclusions.join(", ") : "",
     })
     setDialogs((prev) => ({ ...prev, createVariant: true }))
@@ -1111,7 +1121,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   setDialogs((prev) => ({ ...prev, createVariant: open }))
                   if (!open) {
                     setEditingVariant(null)
-                    setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", inclusions: "" })
+                    setVariantForm({ name: "", description: "", extra_price: "0.00", extra_safa_price: "0.00", missing_safa_penalty: "0.00", deposit_amount: "0.00", inclusions: "" })
                   }
                 }}
               >
@@ -1192,6 +1202,19 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           onChange={(e) => setVariantForm((prev) => ({ ...prev, missing_safa_penalty: e.target.value }))}
                         />
                         <p className="text-xs text-gray-500 mt-1">Charge if safas are lost/damaged</p>
+                      </div>
+                      <div>
+                        <Label htmlFor="deposit-amount">Security Deposit (₹)</Label>
+                        <Input
+                          id="deposit-amount"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Deposit amount for this package"
+                          value={variantForm.deposit_amount}
+                          onChange={(e) => setVariantForm((prev) => ({ ...prev, deposit_amount: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Security deposit collected for package booking</p>
                       </div>
                     </div>
                   </div>

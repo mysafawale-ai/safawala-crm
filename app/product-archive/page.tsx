@@ -649,7 +649,7 @@ export default function ProductArchivePage() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Archived Date</Label>
-                  <p>{new Date(selectedArchived.archived_at).toLocaleString()}</p>
+                  <p>{new Date(selectedArchived.archived_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', hour12: true })}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Original Rental Price</Label>

@@ -62,7 +62,7 @@ export function HealthCheckCard({ check }: HealthCheckCardProps) {
         {check.details && <p className="text-xs text-gray-500">{check.details}</p>}
         {check.responseTime && <p className="text-xs text-gray-500">Response time: {check.responseTime}ms</p>}
         {check.lastChecked && (
-          <p className="text-xs text-gray-500">Last checked: {check.lastChecked.toLocaleTimeString()}</p>
+          <p className="text-xs text-gray-500">Last checked: {check.lastChecked.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
         )}
       </CardContent>
     </Card>

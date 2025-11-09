@@ -562,7 +562,7 @@ export async function generateQuotePDF(data: QuoteData): Promise<Blob> {
     yPos += 5
     doc.setFontSize(7)
     doc.setFont("helvetica", "italic")
-    doc.text(`Generated on ${new Date().toLocaleString("en-IN", { dateStyle: 'medium', timeStyle: 'short' })}`, 105, yPos, { align: "center" })
+    doc.text(`Generated on ${new Date().toLocaleString("en-IN", { dateStyle: 'medium', timeStyle: 'short', hour12: true })}`, 105, yPos, { align: "center" })
 
     // Add watermark on first page
     doc.setPage(1)

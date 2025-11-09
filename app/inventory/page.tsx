@@ -95,7 +95,7 @@ export default function InventoryPage() {
   const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
   const [sortField, setSortField] = useState<'name' | 'stock' | 'price' | 'rental' | 'created_at'>('created_at')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
-  const [sortOption, setSortOption] = useState<'name_asc' | 'name_desc' | 'newest' | 'oldest'>('newest')
+  const [sortOption, setSortOption] = useState<'name_asc' | 'name_desc' | 'price_low_high' | 'price_high_low' | 'newest' | 'oldest'>('newest')
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
 
@@ -316,6 +316,14 @@ export default function InventoryPage() {
         break
       case 'name_desc':
         setSortField('name')
+        setSortDirection('desc')
+        break
+      case 'price_low_high':
+        setSortField('rental')
+        setSortDirection('asc')
+        break
+      case 'price_high_low':
+        setSortField('rental')
         setSortDirection('desc')
         break
       case 'newest':
@@ -594,6 +602,8 @@ export default function InventoryPage() {
                   <SelectContent>
                     <SelectItem value="name_asc">Name: A to Z</SelectItem>
                     <SelectItem value="name_desc">Name: Z to A</SelectItem>
+                    <SelectItem value="price_low_high">Price: Low to High</SelectItem>
+                    <SelectItem value="price_high_low">Price: High to Low</SelectItem>
                     <SelectItem value="newest">Newly Added First</SelectItem>
                     <SelectItem value="oldest">Oldest First</SelectItem>
                   </SelectContent>

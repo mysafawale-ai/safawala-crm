@@ -146,7 +146,7 @@ export default function TestsPage() {
       {result && (
         <div className="mt-8">
           <div className="text-sm text-gray-600">
-            Started {new Date(result.meta.startedAt).toLocaleString()} · Duration {result.meta.totalDurationMs} ms
+            Started {new Date(result.meta.startedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', hour12: true })} · Duration {result.meta.totalDurationMs} ms
           </div>
           <div className="mt-4 space-y-6">
             {result.suites.map((s) => (

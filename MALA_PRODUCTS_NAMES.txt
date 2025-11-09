@@ -1,0 +1,51 @@
+ELEGANT MALA PRODUCT NAMES - WITH CATEGORY INTEGRATION
+═══════════════════════════════════════════════════════════════
+
+FINAL PRODUCT NAMES (Format: "Mala: [Name]")
+═════════════════════════════════════════════════════════════════
+
+₹1150  →  Mala Classic
+₹1650  →  Mala Radiant
+₹1950  →  Mala Royal
+₹2550  →  Mala Elegant
+₹3550  →  Mala Luxe
+₹4250  →  Mala Premium
+₹4550  →  Mala Exquisite
+₹5500  →  Mala Divine
+
+═════════════════════════════════════════════════════════════════
+
+PRODUCT DETAILS:
+═════════════════════════════════════════════════════════════════
+
+PRODUCT 1:  Mala Classic        | ₹1150 | SKU: MAL-001
+PRODUCT 2:  Mala Radiant        | ₹1650 | SKU: MAL-002
+PRODUCT 3:  Mala Royal          | ₹1950 | SKU: MAL-003
+PRODUCT 4:  Mala Elegant        | ₹2550 | SKU: MAL-004
+PRODUCT 5:  Mala Luxe           | ₹3550 | SKU: MAL-005
+PRODUCT 6:  Mala Premium        | ₹4250 | SKU: MAL-006
+PRODUCT 7:  Mala Exquisite      | ₹4550 | SKU: MAL-007
+PRODUCT 8:  Mala Divine         | ₹5500 | SKU: MAL-008
+
+═════════════════════════════════════════════════════════════════
+
+KEY DETAILS:
+─────────────
+✓ Category: MALA (already exists)
+✓ Total Products: 8
+✓ Stock per Product: 100 units
+✓ Total Stock: 800 units
+✓ Franchise: Vadodara Branch
+✓ Brand: Safawala
+✓ All Active & Ready
+
+COST CALCULATION (50% of rental price):
+──────────────────────────────────────
+₹1150 → Cost: ₹575
+₹1650 → Cost: ₹825
+₹1950 → Cost: ₹975
+₹2550 → Cost: ₹1275
+₹3550 → Cost: ₹1775
+₹4250 → Cost: ₹2125
+₹4550 → Cost: ₹2275
+₹5500 → Cost: ₹2750

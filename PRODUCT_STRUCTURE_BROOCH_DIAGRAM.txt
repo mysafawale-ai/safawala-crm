@@ -1,0 +1,96 @@
+PRODUCT STRUCTURE DIAGRAM - BROOCH CATEGORY
+═══════════════════════════════════════════════════════════════
+
+FRANCHISE: Vadodara Branch
+└── CATEGORY: Brooch
+    │
+    ├── PRODUCT: Brooch - 550
+    │   ├── Price: ₹550
+    │   ├── SKU: BRCH-550
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 950
+    │   ├── Price: ₹950
+    │   ├── SKU: BRCH-950
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 1050
+    │   ├── Price: ₹1050
+    │   ├── SKU: BRCH-1050
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 1450
+    │   ├── Price: ₹1450
+    │   ├── SKU: BRCH-1450
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 1650
+    │   ├── Price: ₹1650
+    │   ├── SKU: BRCH-1650
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 1850
+    │   ├── Price: ₹1850
+    │   ├── SKU: BRCH-1850
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 2150
+    │   ├── Price: ₹2150
+    │   ├── SKU: BRCH-2150
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 2550
+    │   ├── Price: ₹2550
+    │   ├── SKU: BRCH-2550
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 3550
+    │   ├── Price: ₹3550
+    │   ├── SKU: BRCH-3550
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    ├── PRODUCT: Brooch - 4550
+    │   ├── Price: ₹4550
+    │   ├── SKU: BRCH-4550
+    │   ├── Stock: Demo
+    │   └── Status: Active
+    │
+    └── PRODUCT: Brooch - 6550
+        ├── Price: ₹6550
+        ├── SKU: BRCH-6550
+        ├── Stock: Demo
+        └── Status: Active
+
+═══════════════════════════════════════════════════════════════
+
+SUMMARY:
+✓ 1 Category: Brooch
+✓ 11 Products with different price points
+✓ Common name pattern: "Brooch - [Price]"
+✓ All products under Vadodara franchise
+✓ Ready for demo/testing
+
+PRICING BREAKDOWN:
+────────────────────────────
+₹550  (Entry level)
+₹950  (Budget friendly)
+₹1050 (Value range)
+₹1450 (Mid range)
+₹1650 (Mid-premium)
+₹1850 (Premium)
+₹2150 (Premium+)
+₹2550 (High end)
+₹3550 (Luxury)
+₹4550 (Ultra luxury)
+₹6550 (Premium luxury)
+────────────────────────────
+TOTAL PRICE POINTS: 11

@@ -25,6 +25,7 @@ import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, A
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
 import { DialogFooter } from "@/components/ui/dialog"
+import { formatTime12Hour } from "@/lib/utils"
 
 // Lazy import to avoid circular deps
 function HandoverDialog({
@@ -1496,7 +1497,7 @@ export default function DeliveriesPage() {
                           if (!ret) return null
                           try {
                             const d = new Date(ret)
-                            return ` • Return: ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            return ` • Return: ${d.toLocaleDateString()} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
                           } catch {
                             return ` • Return: ${ret}`
                           }
@@ -1784,7 +1785,7 @@ export default function DeliveriesPage() {
                               </p>
                               {returnDate && (
                                 <p className={`text-xs font-medium ${isOverdue ? 'text-red-700' : 'text-gray-700'}`}>
-                                  🔄 Return: {returnDate.toLocaleDateString()} at {returnDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  🔄 Return: {returnDate.toLocaleDateString()} at {returnDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                                 </p>
                               )}
                             </div>

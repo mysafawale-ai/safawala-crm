@@ -56,6 +56,7 @@ import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 import { ProductSelector } from "@/components/products/product-selector"
 import { BarcodeInput } from "@/components/barcode/barcode-input"
+import { CustomProductDialog } from "@/components/products/custom-product-dialog"
 import type { Product as ProductType, Category, Subcategory } from "@/components/products/product-selector"
 
 interface Customer {
@@ -128,6 +129,7 @@ export default function CreateProductOrderPage() {
   const [loading, setLoading] = useState(false)
   const [customersLoading, setCustomersLoading] = useState(true)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
+  const [showCustomProductDialog, setShowCustomProductDialog] = useState(false)
   const [couponValidating, setCouponValidating] = useState(false)
   const [couponError, setCouponError] = useState("")
   const [availabilityModalFor, setAvailabilityModalFor] = useState<{ id: string; name: string } | null>(null)
@@ -476,6 +478,17 @@ export default function CreateProductOrderPage() {
       },
     ])
     setLastAddedItemId(newItemId) // Track for focus
+  }
+
+  const handleCustomProductCreated = (customProduct: any) => {
+    // Add custom product to products list and immediately add to items
+    setProducts((prev) => [...prev, customProduct])
+    addProduct(customProduct)
+    toast.success(
+      customProduct.is_temporary
+        ? `"${customProduct.name}" added as temporary product`
+        : `Custom product "${customProduct.name}" created and added to order!`
+    )
   }
 
   const updateQuantity = (id: string, qty: number) => {
@@ -1906,6 +1919,7 @@ export default function CreateProductOrderPage() {
               eventDate={formData.event_date}
               onProductSelect={addProduct}
               onCheckAvailability={checkAvailability}
+              onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
             />
             )}
 
@@ -2323,6 +2337,17 @@ export default function CreateProductOrderPage() {
         onOpenChange={setShowNewCustomer}
         onCustomerCreated={handleCustomerCreated}
       />
+
+      {/* Custom Product Dialog */}
+      {currentUser && (
+        <CustomProductDialog
+          open={showCustomProductDialog}
+          onOpenChange={setShowCustomProductDialog}
+          franchiseId={currentUser.franchise_id}
+          bookingType={formData.booking_type}
+          onProductCreated={handleCustomProductCreated}
+        />
+      )}
 
       {/* Availability Modal */}
       {availabilityModalFor && (

@@ -1,0 +1,212 @@
+ELEGANT BROOCH PRODUCT NAMES - WITH CATEGORY INTEGRATION
+═══════════════════════════════════════════════════════════════
+
+FINAL RECOMMENDED SELECTIONS:
+═════════════════════════════════════════════════════════════════
+
+₹550   →  Brooch: Classic Radiance
+₹950   →  Brooch: Celestial Whisper
+₹1050  →  Brooch: Regal Essence
+₹1450  →  Brooch: Enchanted Splendor
+₹1650  →  Brooch: Mystique Royale
+₹1850  →  Brooch: Ethereal Nobility
+₹2150  →  Brooch: Moonstone Royalty
+₹2550  →  Brooch: Velvet Enchantment
+₹3550  →  Brooch: Empress Crown
+₹4550  →  Brooch: Platinum Dynasty
+₹6550  →  Brooch: Crown Jewel Legacy
+
+═════════════════════════════════════════════════════════════════
+
+ALTERNATIVE NAMING FORMATS:
+═════════════════════════════════════════════════════════════════
+
+OPTION 1: "Brooch: [Name]" (RECOMMENDED)
+─────────────────────────────────────────
+Brooch: Classic Radiance
+Brooch: Celestial Whisper
+Brooch: Regal Essence
+Brooch: Enchanted Splendor
+Brooch: Mystique Royale
+Brooch: Ethereal Nobility
+Brooch: Moonstone Royalty
+Brooch: Velvet Enchantment
+Brooch: Empress Crown
+Brooch: Platinum Dynasty
+Brooch: Crown Jewel Legacy
+
+OPTION 2: "[Name] Brooch"
+────────────────────────
+Classic Radiance Brooch
+Celestial Whisper Brooch
+Regal Essence Brooch
+Enchanted Splendor Brooch
+Mystique Royale Brooch
+Ethereal Nobility Brooch
+Moonstone Royalty Brooch
+Velvet Enchantment Brooch
+Empress Crown Brooch
+Platinum Dynasty Brooch
+Crown Jewel Legacy Brooch
+
+OPTION 3: "Brooch - [Adjective] [Name]"
+───────────────────────────────────────
+Brooch - Radiant Classic
+Brooch - Celestial Pearl
+Brooch - Regal Crown
+Brooch - Enchanted Gold
+Brooch - Mystique Pearl
+Brooch - Ethereal Diamond
+Brooch - Moonstone Pearl
+Brooch - Velvet Gold
+Brooch - Imperial Crown
+Brooch - Platinum Royal
+Brooch - Crown Heirloom
+
+OPTION 4: "[Adjective] Brooch"
+──────────────────────────────
+Radiant Brooch
+Celestial Brooch
+Royal Brooch
+Enchanted Brooch
+Mystique Brooch
+Ethereal Brooch
+Moonstone Brooch
+Velvet Brooch
+Imperial Brooch
+Platinum Brooch
+Legacy Brooch
+
+═════════════════════════════════════════════════════════════════
+
+DETAILED PRODUCT CARDS (Using Option 1 - RECOMMENDED):
+═════════════════════════════════════════════════════════════════
+
+PRODUCT 1
+─────────
+Name:        Brooch: Classic Radiance
+Price:       ₹550
+SKU:         BRCH-CLASSIC-550
+Category:    Brooch
+Description: Timeless elegance in an affordable price point
+Stock:       Demo
+Status:      Active
+
+PRODUCT 2
+─────────
+Name:        Brooch: Celestial Whisper
+Price:       ₹950
+SKU:         BRCH-CELESTIAL-950
+Category:    Brooch
+Description: Delicate charm inspired by starlit nights
+Stock:       Demo
+Status:      Active
+
+PRODUCT 3
+─────────
+Name:        Brooch: Regal Essence
+Price:       ₹1050
+SKU:         BRCH-REGAL-1050
+Category:    Brooch
+Description: Pure luxury with royal sophistication
+Stock:       Demo
+Status:      Active
+
+PRODUCT 4
+─────────
+Name:        Brooch: Enchanted Splendor
+Price:       ₹1450
+SKU:         BRCH-ENCHANTED-1450
+Category:    Brooch
+Description: Mystical beauty with premium craftsmanship
+Stock:       Demo
+Status:      Active
+
+PRODUCT 5
+─────────
+Name:        Brooch: Mystique Royale
+Price:       ₹1650
+SKU:         BRCH-MYSTIQUE-1650
+Category:    Brooch
+Description: Enigmatic elegance for the discerning taste
+Stock:       Demo
+Status:      Active
+
+PRODUCT 6
+─────────
+Name:        Brooch: Ethereal Nobility
+Price:       ₹1850
+SKU:         BRCH-ETHEREAL-1850
+Category:    Brooch
+Description: Heavenly grace meets aristocratic beauty
+Stock:       Demo
+Status:      Active
+
+PRODUCT 7
+─────────
+Name:        Brooch: Moonstone Royalty
+Price:       ₹2150
+SKU:         BRCH-MOONSTONE-2150
+Category:    Brooch
+Description: Luminous brilliance with regal prestige
+Stock:       Demo
+Status:      Active
+
+PRODUCT 8
+─────────
+Name:        Brooch: Velvet Enchantment
+Price:       ₹2550
+SKU:         BRCH-VELVET-2550
+Category:    Brooch
+Description: Luxurious charm with timeless allure
+Stock:       Demo
+Status:      Active
+
+PRODUCT 9
+─────────
+Name:        Brooch: Empress Crown
+Price:       ₹3550
+SKU:         BRCH-EMPRESS-3550
+Category:    Brooch
+Description: Supreme elegance worthy of royalty
+Stock:       Demo
+Status:      Active
+
+PRODUCT 10
+──────────
+Name:        Brooch: Platinum Dynasty
+Price:       ₹4550
+SKU:         BRCH-PLATINUM-4550
+Category:    Brooch
+Description: Ultimate luxury for the most demanding connoisseur
+Stock:       Demo
+Status:      Active
+
+PRODUCT 11
+──────────
+Name:        Brooch: Crown Jewel Legacy
+Price:       ₹6550
+SKU:         BRCH-CROWN-6550
+Category:    Brooch
+Description: Unparalleled splendor and timeless prestige
+Stock:       Demo
+Status:      Active
+
+═════════════════════════════════════════════════════════════════
+
+NAMING STRUCTURE BREAKDOWN:
+──────────────────────────
+✓ Format: "Brooch: [Elegant Adjective] [Elegant Noun]"
+✓ Category name appears first for clarity
+✓ Each name is unique and memorable
+✓ Names suggest quality level matching the price
+✓ SKU format: BRCH-[DESCRIPTOR]-[PRICE]
+✓ All products ready for database insertion
+
+BENEFITS:
+─────────
+✓ Clear category association
+✓ Easy to search and filter
+✓ Professional presentation
+✓ Luxury positioning at each tier
+✓ Consistent naming convention

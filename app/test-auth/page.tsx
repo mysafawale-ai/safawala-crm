@@ -11,7 +11,7 @@ export default function AuthTestPage() {
   const [testResult, setTestResult] = useState<string>('')
 
   const addLog = (message: string) => {
-    setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`])
+    setLogs(prev => [...prev, `${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}: ${message}`])
     console.log(message)
   }
 

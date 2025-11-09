@@ -172,15 +172,15 @@ export default function AttendancePage() {
         employee_id: record.user_id.slice(-6).toUpperCase(), // Use last 6 chars of user_id as employee_id
         date: record.date,
         check_in: record.check_in_time
-          ? new Date(record.check_in_time).toLocaleTimeString("en-US", {
-              hour12: false,
+          ? new Date(record.check_in_time).toLocaleTimeString("en-IN", {
+              hour12: true,
               hour: "2-digit",
               minute: "2-digit",
             })
           : "",
         check_out: record.check_out_time
-          ? new Date(record.check_out_time).toLocaleTimeString("en-US", {
-              hour12: false,
+          ? new Date(record.check_out_time).toLocaleTimeString("en-IN", {
+              hour12: true,
               hour: "2-digit",
               minute: "2-digit",
             })
@@ -438,7 +438,7 @@ export default function AttendancePage() {
       doc.text('Attendance Report', 14, 14)
       doc.setFontSize(10)
       doc.text(`Date: ${selectedDate}`, 14, 22)
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', hour12: true })}`, 14, 28)
       doc.text(`Total Records: ${filteredRecords.length}`, 14, 34)
 
       const tableBody = filteredRecords.map(r => [
@@ -503,7 +503,7 @@ export default function AttendancePage() {
       if (error) throw error
 
       toast.success(`Check-in recorded for ${employeeName}`, {
-        description: `Time: ${now.toLocaleTimeString()}`,
+        description: `Time: ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`,
       })
 
       await loadAttendanceData()
@@ -527,7 +527,7 @@ export default function AttendancePage() {
       if (error) throw error
 
       toast.success(`Check-out recorded for ${employeeName}`, {
-        description: `Time: ${now.toLocaleTimeString()}`,
+        description: `Time: ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`,
       })
 
       await loadAttendanceData()

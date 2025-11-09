@@ -1,0 +1,37 @@
+ELEGANT POCKET BROOCH PRODUCT NAMES - WITH CATEGORY INTEGRATION
+═══════════════════════════════════════════════════════════════
+
+FINAL PRODUCT NAMES (Format: "Pocket Brooch: [Name]")
+═════════════════════════════════════════════════════════════════
+
+₹250   →  Pocket Brooch Classic
+₹350   →  Pocket Brooch Radiant
+₹450   →  Pocket Brooch Royal
+
+═════════════════════════════════════════════════════════════════
+
+PRODUCT DETAILS:
+═════════════════════════════════════════════════════════════════
+
+PRODUCT 1:  Pocket Brooch Classic | ₹250   | SKU: PBR-001
+PRODUCT 2:  Pocket Brooch Radiant | ₹350   | SKU: PBR-002
+PRODUCT 3:  Pocket Brooch Royal   | ₹450   | SKU: PBR-003
+
+═════════════════════════════════════════════════════════════════
+
+KEY DETAILS:
+─────────────
+✓ Category: POCKET BROOCH
+✓ Total Products: 3
+✓ Stock per Product: 100 units
+✓ Total Stock: 300 units
+✓ Franchise: Vadodara Branch
+✓ Brand: Safawala
+✓ Material: Premium Metal
+✓ All Active & Ready
+
+COST CALCULATION (50% of rental price):
+──────────────────────────────────────
+₹250   → Cost: ₹125
+₹350   → Cost: ₹175
+₹450   → Cost: ₹225

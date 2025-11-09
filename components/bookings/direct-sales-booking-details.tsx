@@ -27,6 +27,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import type { Booking } from "@/lib/types"
+import { formatTime12Hour } from "@/lib/utils"
 
 interface DirectSalesBookingDetailsProps {
   booking: Booking & {
@@ -64,7 +65,7 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
   const formatDateTime = (date: string | undefined, time?: string) => {
     if (!date) return 'N/A'
     const dateStr = formatDate(date)
-    if (time) return `${dateStr} at ${time}`
+    if (time) return `${dateStr} at ${formatTime12Hour(time)}`
     return dateStr
   }
 

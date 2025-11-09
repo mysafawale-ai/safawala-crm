@@ -1,0 +1,49 @@
+ELEGANT KATAR PRODUCT NAMES - WITH CATEGORY INTEGRATION
+═══════════════════════════════════════════════════════════════
+
+FINAL PRODUCT NAMES (Format: "Katar: [Name]")
+═════════════════════════════════════════════════════════════════
+
+₹550   →  Katar Classic
+₹650   →  Katar Radiant
+₹1150  →  Katar Royal
+₹1750  →  Katar Elegant
+₹2250  →  Katar Luxe
+₹5500  →  Katar Premium
+₹7500  →  Katar Divine
+
+═════════════════════════════════════════════════════════════════
+
+PRODUCT DETAILS:
+═════════════════════════════════════════════════════════════════
+
+PRODUCT 1:  Katar Classic        | ₹550   | SKU: KTR-001
+PRODUCT 2:  Katar Radiant        | ₹650   | SKU: KTR-002
+PRODUCT 3:  Katar Royal          | ₹1150  | SKU: KTR-003
+PRODUCT 4:  Katar Elegant        | ₹1750  | SKU: KTR-004
+PRODUCT 5:  Katar Luxe           | ₹2250  | SKU: KTR-005
+PRODUCT 6:  Katar Premium        | ₹5500  | SKU: KTR-006
+PRODUCT 7:  Katar Divine         | ₹7500  | SKU: KTR-007
+
+═════════════════════════════════════════════════════════════════
+
+KEY DETAILS:
+─────────────
+✓ Category: KATAR (already exists)
+✓ Total Products: 7
+✓ Stock per Product: 100 units
+✓ Total Stock: 700 units
+✓ Franchise: Vadodara Branch
+✓ Brand: Safawala
+✓ Material: Premium Metal
+✓ All Active & Ready
+
+COST CALCULATION (50% of rental price):
+──────────────────────────────────────
+₹550   → Cost: ₹275
+₹650   → Cost: ₹325
+₹1150  → Cost: ₹575
+₹1750  → Cost: ₹875
+₹2250  → Cost: ₹1125
+₹5500  → Cost: ₹2750
+₹7500  → Cost: ₹3750

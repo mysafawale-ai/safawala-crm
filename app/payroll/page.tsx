@@ -470,7 +470,7 @@ export default function PayrollPage() {
       doc.text(`${companyName} - Payroll Summary`, logoUrl ? 40 : 14, 16)
       doc.setFontSize(10)
       doc.text(`Month: ${new Date().toISOString().slice(0,7)}`, logoUrl ? 40 : 14, 22)
-      doc.text(`Generated: ${new Date().toLocaleString()}`, logoUrl ? 40 : 14, 28)
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', hour12: true })}`, logoUrl ? 40 : 14, 28)
       if (companyPhone || companyEmail) {
         doc.text(`Contact: ${[companyPhone, companyEmail].filter(Boolean).join(' | ')}`, logoUrl ? 40 : 14, 34)
       }

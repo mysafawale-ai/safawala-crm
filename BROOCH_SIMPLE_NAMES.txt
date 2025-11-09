@@ -1,0 +1,138 @@
+SIMPLE ELEGANT PREMIUM BROOCH PRODUCT NAMES
+═══════════════════════════════════════════════════════════════
+
+FINAL SIMPLIFIED NAMES:
+═════════════════════════════════════════════════════════════════
+
+₹550   →  Brooch Classic
+₹950   →  Brooch Radiant
+₹1050  →  Brooch Royal
+₹1450  →  Brooch Elegant
+₹1650  →  Brooch Luxe
+₹1850  →  Brooch Premium
+₹2150  →  Brooch Exquisite
+₹2550  →  Brooch Divine
+₹3550  →  Brooch Regal
+₹4550  →  Brooch Majestic
+₹6550  →  Brooch Crown
+
+═════════════════════════════════════════════════════════════════
+
+PRODUCT DETAILS:
+═════════════════════════════════════════════════════════════════
+
+PRODUCT 1
+Name:        Brooch Classic
+Price:       ₹550
+SKU:         BRCH-001
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 2
+Name:        Brooch Radiant
+Price:       ₹950
+SKU:         BRCH-002
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 3
+Name:        Brooch Royal
+Price:       ₹1050
+SKU:         BRCH-003
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 4
+Name:        Brooch Elegant
+Price:       ₹1450
+SKU:         BRCH-004
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 5
+Name:        Brooch Luxe
+Price:       ₹1650
+SKU:         BRCH-005
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 6
+Name:        Brooch Premium
+Price:       ₹1850
+SKU:         BRCH-006
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 7
+Name:        Brooch Exquisite
+Price:       ₹2150
+SKU:         BRCH-007
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 8
+Name:        Brooch Divine
+Price:       ₹2550
+SKU:         BRCH-008
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 9
+Name:        Brooch Regal
+Price:       ₹3550
+SKU:         BRCH-009
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 10
+Name:        Brooch Majestic
+Price:       ₹4550
+SKU:         BRCH-010
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+PRODUCT 11
+Name:        Brooch Crown
+Price:       ₹6550
+SKU:         BRCH-011
+Category:    Brooch
+Stock:       Demo
+Status:      Active
+
+═════════════════════════════════════════════════════════════════
+
+KEY FEATURES:
+─────────────
+✓ Short & Simple (2 words max)
+✓ Elegant & Premium feel
+✓ Easy to remember
+✓ Clear category (Brooch)
+✓ Progressive quality tier
+✓ SKU pattern: BRCH-001 to BRCH-011
+✓ All same category: Brooch
+✓ Demo stock for testing
+✓ Ready for insertion
+
+WORD CHOICES MEANING:
+────────────────────
+Classic    → Timeless, entry-level elegance
+Radiant    → Shiny, glowing premium
+Royal      → Regal, sophisticated
+Elegant    → Refined, classy
+Luxe       → Luxury, upscale
+Premium    → High quality, valued
+Exquisite  → Finely crafted, beautiful
+Divine     → Heavenly, superior
+Regal      → Royal, majestic (higher tier)
+Majestic   → Grand, impressive
+Crown      → Ultimate, top-tier

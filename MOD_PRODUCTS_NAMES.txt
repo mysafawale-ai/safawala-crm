@@ -1,0 +1,37 @@
+ELEGANT MOD PRODUCT NAMES - WITH CATEGORY INTEGRATION
+═══════════════════════════════════════════════════════════════
+
+FINAL PRODUCT NAMES (Format: "Mod: [Name]")
+═════════════════════════════════════════════════════════════════
+
+₹350   →  Mod Classic
+₹650   →  Mod Radiant
+₹850   →  Mod Royal
+
+═════════════════════════════════════════════════════════════════
+
+PRODUCT DETAILS:
+═════════════════════════════════════════════════════════════════
+
+PRODUCT 1:  Mod Classic          | ₹350   | SKU: MOD-001
+PRODUCT 2:  Mod Radiant          | ₹650   | SKU: MOD-002
+PRODUCT 3:  Mod Royal            | ₹850   | SKU: MOD-003
+
+═════════════════════════════════════════════════════════════════
+
+KEY DETAILS:
+─────────────
+✓ Category: MOD
+✓ Total Products: 3
+✓ Stock per Product: 100 units
+✓ Total Stock: 300 units
+✓ Franchise: Vadodara Branch
+✓ Brand: Safawala
+✓ Material: Premium Design
+✓ All Active & Ready
+
+COST CALCULATION (50% of rental price):
+──────────────────────────────────────
+₹350   → Cost: ₹175
+₹650   → Cost: ₹325
+₹850   → Cost: ₹425

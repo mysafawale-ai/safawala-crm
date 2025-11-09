@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Package, AlertCircle, Eye } from "lucide-react"
+import { Search, Package, AlertCircle, Eye, Plus } from "lucide-react"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 
 export interface Product {
@@ -65,6 +65,7 @@ interface ProductSelectorProps {
   eventDate?: string
   onProductSelect: (product: Product) => void
   onCheckAvailability?: (productId: string, productName: string) => void
+  onOpenCustomProductDialog?: () => void
   className?: string
 }
 
@@ -77,6 +78,7 @@ export function ProductSelector({
   eventDate,
   onProductSelect,
   onCheckAvailability,
+  onOpenCustomProductDialog,
   className = "",
 }: ProductSelectorProps) {
   const [productSearch, setProductSearch] = useState("")
@@ -195,13 +197,26 @@ export function ProductSelector({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="h-5 w-5" />
-          Select Products
-          {filteredProducts.length > 0 && (
-            <Badge variant="secondary" className="ml-auto">
-              {filteredProducts.length} {filteredProducts.length === 1 ? "product" : "products"}
-            </Badge>
+        <CardTitle className="flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Select Products
+            {filteredProducts.length > 0 && (
+              <Badge variant="secondary">
+                {filteredProducts.length} {filteredProducts.length === 1 ? "product" : "products"}
+              </Badge>
+            )}
+          </div>
+          {onOpenCustomProductDialog && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onOpenCustomProductDialog}
+              className="gap-1.5 text-xs"
+            >
+              <Plus className="h-4 w-4" />
+              Quick Custom Product
+            </Button>
           )}
         </CardTitle>
       </CardHeader>

@@ -25,6 +25,7 @@ import {
   CheckCircle,
 } from "lucide-react"
 import type { Booking } from "@/lib/types"
+import { formatTime12Hour } from "@/lib/utils"
 
 interface DirectSalesOrderDetailsProps {
   booking: Booking & {
@@ -63,16 +64,7 @@ export function DirectSalesOrderDetails({ booking }: DirectSalesOrderDetailsProp
 
   // Helper function to format time
   const formatTime = (time: string | undefined) => {
-    if (!time) return 'N/A'
-    // Handle both HH:mm and full ISO formats
-    if (time.includes('T')) {
-      return new Date(time).toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      })
-    }
-    return time
+    return formatTime12Hour(time)
   }
 
   // Helper function to format datetime

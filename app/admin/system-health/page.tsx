@@ -247,7 +247,7 @@ export default function SystemHealthPage() {
                         )}
                         {check.lastChecked && (
                           <p className="text-xs text-gray-500">
-                            Last checked: {check.lastChecked.toLocaleTimeString()}
+                            Last checked: {check.lastChecked.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                           </p>
                         )}
                       </CardContent>

@@ -207,7 +207,7 @@ export function ExportDialog({
             <div class="logo">SAFAWALA CRM</div>
             <h1>${reportType}</h1>
             <p class="subtitle">Date Range: ${dateRange?.from?.toLocaleDateString()} - ${dateRange?.to?.toLocaleDateString()}</p>
-            <p class="subtitle">Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+            <p class="subtitle">Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
             ${selectedFranchise !== 'all' ? `<p class="subtitle">Franchise: ${selectedFranchise}</p>` : ''}
           </div>
           

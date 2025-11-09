@@ -1083,7 +1083,7 @@ function QuotesPageContent() {
                       </div>
                       <div>
                         <span className="font-medium">Event Time:</span>{" "}
-                        {selectedQuote.event_date ? new Date(selectedQuote.event_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
+                        {selectedQuote.event_date ? new Date(selectedQuote.event_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A"}
                       </div>
                       {selectedQuote.groom_name && (
                         <>
@@ -1191,7 +1191,7 @@ function QuotesPageContent() {
                       </div>
                       <div>
                         <span className="font-medium">Delivery Time:</span>{" "}
-                        {selectedQuote.delivery_date ? new Date(selectedQuote.delivery_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
+                        {selectedQuote.delivery_date ? new Date(selectedQuote.delivery_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A"}
                       </div>
                       <div>
                         <span className="font-medium">Return Date:</span>{" "}
@@ -1199,7 +1199,7 @@ function QuotesPageContent() {
                       </div>
                       <div>
                         <span className="font-medium">Return Time:</span>{" "}
-                        {selectedQuote.return_date ? new Date(selectedQuote.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
+                        {selectedQuote.return_date ? new Date(selectedQuote.return_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A"}
                       </div>
                       {selectedQuote.special_instructions && (
                         <div>

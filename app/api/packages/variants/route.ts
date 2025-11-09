@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
       base_price,
       extra_safa_price,
       missing_safa_penalty,
+      deposit_amount,
       inclusions,
       category_id,
       package_id,
@@ -122,12 +123,16 @@ export async function POST(request: NextRequest) {
 
     const extraSafaPriceNum = Number(extra_safa_price || 0)
     const missingSafaPenaltyNum = Number(missing_safa_penalty || 0)
+    const depositAmountNum = Number(deposit_amount || 0)
 
     if (isNaN(extraSafaPriceNum) || extraSafaPriceNum < 0) {
       return NextResponse.json({ error: 'Invalid extra_safa_price' }, { status: 400 })
     }
     if (isNaN(missingSafaPenaltyNum) || missingSafaPenaltyNum < 0) {
       return NextResponse.json({ error: 'Invalid missing_safa_penalty' }, { status: 400 })
+    }
+    if (isNaN(depositAmountNum) || depositAmountNum < 0) {
+      return NextResponse.json({ error: 'Invalid deposit_amount' }, { status: 400 })
     }
 
     // Process inclusions
@@ -150,6 +155,7 @@ export async function POST(request: NextRequest) {
       base_price: basePriceNum,
       extra_safa_price: extraSafaPriceNum,
       missing_safa_penalty: missingSafaPenaltyNum,
+      deposit_amount: depositAmountNum,
       inclusions: inclusionsArray,
       category_id,
       package_id: package_id || category_id, // For backward compat
@@ -196,6 +202,7 @@ export async function PUT(request: NextRequest) {
       base_price,
       extra_safa_price,
       missing_safa_penalty,
+      deposit_amount,
       inclusions,
       category_id,
       is_active,
@@ -255,6 +262,13 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid missing_safa_penalty' }, { status: 400 })
       }
       updateData.missing_safa_penalty = missingSafaPenaltyNum
+    }
+    if (deposit_amount !== undefined) {
+      const depositAmountNum = Number(deposit_amount)
+      if (isNaN(depositAmountNum) || depositAmountNum < 0) {
+        return NextResponse.json({ error: 'Invalid deposit_amount' }, { status: 400 })
+      }
+      updateData.deposit_amount = depositAmountNum
     }
     if (inclusions !== undefined) {
       let inclusionsArray: string[] = []

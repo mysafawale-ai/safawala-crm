@@ -702,7 +702,7 @@ function InvoicesPageContent() {
                     </div>
                     <div>
                       <span className="font-medium">Delivery Time:</span>{" "}
-                      {(selectedInvoice as any).delivery_time || (selectedInvoice.delivery_date ? new Date(selectedInvoice.delivery_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A")}
+                      {(selectedInvoice as any).delivery_time || (selectedInvoice.delivery_date ? new Date(selectedInvoice.delivery_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A")}
                     </div>
                     <div>
                       <span className="font-medium">Return Date:</span>{" "}
@@ -710,7 +710,7 @@ function InvoicesPageContent() {
                     </div>
                     <div>
                       <span className="font-medium">Return Time:</span>{" "}
-                      {(selectedInvoice as any).return_time || (selectedInvoice.return_date ? new Date(selectedInvoice.return_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A")}
+                      {(selectedInvoice as any).return_time || (selectedInvoice.return_date ? new Date(selectedInvoice.return_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A")}
                     </div>
                     {(selectedInvoice as any).special_instructions && (
                       <div>

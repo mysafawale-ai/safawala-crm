@@ -48,6 +48,7 @@ import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/ske
 import { ItemsDisplayDialog, ItemsSelectionDialog, CompactItemsDisplayDialog } from "@/components/shared"
 import type { SelectedItem, Product, PackageSet } from "@/components/shared/types/items"
 import { createClient } from "@/lib/supabase/client"
+import { formatTime12Hour } from "@/lib/utils"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
@@ -713,7 +714,7 @@ export default function BookingsPage() {
       try { const res = await fetch('/api/company-settings'); if(res.ok){ const json= await res.json(); companyName=json.company_name||companyName } } catch{}
       const doc = new jsPDF({orientation:'landscape'})
       doc.setFontSize(16); doc.text(`${companyName} - Bookings`, 14,14)
-      doc.setFontSize(10); doc.text(`Generated: ${new Date().toLocaleString()}`, 14,20)
+      doc.setFontSize(10); doc.text(`Generated: ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', hour12: true })}`, 14,20)
       autoTable(doc, { startY:26, head:[['Booking#','Customer','Type','Status','Amount','Event Date','Venue']], body: rows.map(b=>[
         b.booking_number,
         (b.customer?.name||'').slice(0,25),
@@ -1390,7 +1391,7 @@ export default function BookingsPage() {
                           month: 'short',
                           year: 'numeric'
                         }) : 'N/A'}
-                        {(selectedBooking as any).event_time && ` at ${(selectedBooking as any).event_time}`}
+                        {(selectedBooking as any).event_time && ` at ${formatTime12Hour((selectedBooking as any).event_time)}`}
                       </p>
                     </div>
                     {selectedBooking.groom_name && (
@@ -1516,7 +1517,7 @@ export default function BookingsPage() {
                             })}
                           </p>
                           {(selectedBooking as any).delivery_time && (
-                            <p className="text-sm text-blue-600 dark:text-blue-300 font-medium mt-1">🕒 {(selectedBooking as any).delivery_time}</p>
+                            <p className="text-sm text-blue-600 dark:text-blue-300 font-medium mt-1">🕒 {formatTime12Hour((selectedBooking as any).delivery_time)}</p>
                           )}
                         </div>
                       )}
@@ -1531,7 +1532,7 @@ export default function BookingsPage() {
                             })}
                           </p>
                           {(selectedBooking as any).return_time && (
-                            <p className="text-sm text-orange-600 dark:text-orange-300 font-medium mt-1">🕒 {(selectedBooking as any).return_time}</p>
+                            <p className="text-sm text-orange-600 dark:text-orange-300 font-medium mt-1">🕒 {formatTime12Hour((selectedBooking as any).return_time)}</p>
                           )}
                         </div>
                       )}
