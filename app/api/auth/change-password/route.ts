@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createServiceClient } from "@supabase/supabase-js"
 import bcrypt from "bcryptjs"
 import { authenticateRequest } from "@/lib/auth-middleware"
 
@@ -120,6 +121,23 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to update password' },
         { status: 500 }
       )
+    }
+
+    // Also update password in Supabase Auth for seamless login
+    try {
+      const serviceAdmin = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      
+      await serviceAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      })
+      console.log(`[Change Password] Supabase Auth password updated for user ${userId}`)
+    } catch (authError: any) {
+      console.error('[Change Password] Supabase Auth update error:', authError)
+      // Log but don't fail - users can still login via legacy auth with password_hash
+      console.warn('[Change Password] Supabase Auth password update failed, but legacy auth will work')
     }
 
     console.log(`[Change Password] Password changed successfully for user ${userId}`)
