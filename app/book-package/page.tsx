@@ -2937,8 +2937,8 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[98vw] max-w-[1400px]">
-        <DialogHeader>
+      <DialogContent className="w-[98vw] max-w-[1400px] h-[95vh] max-h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>
             {`Select Products for ${context.category.name}${(context.variant as any)?.name || (context.variant as any)?.variant_name ? ` – ${(context.variant as any).name || (context.variant as any).variant_name}` : ''}`}
             {context.eventDate ? (
@@ -2957,9 +2957,9 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             </span>
           </DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 flex-1 min-h-0 overflow-hidden">
           {/* Left: Products pane */}
-          <div className="lg:col-span-2 flex flex-col min-h-[70vh]">
+          <div className="lg:col-span-2 flex flex-col overflow-hidden">
             {/* Toolbar */}
             <div className="sticky top-0 z-10 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border rounded-md p-3 mb-3">
               <div className="flex items-center gap-3 flex-wrap">
@@ -3123,8 +3123,8 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
           </div>
 
           {/* Right: Inclusions & summary */}
-          <div className="space-y-4 min-h-[60vh] min-h-0 flex flex-col">
-            <Card>
+          <div className="space-y-4 flex flex-col overflow-hidden">
+            <Card className="flex-shrink-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Variant Inclusions</CardTitle>
               </CardHeader>
@@ -3143,11 +3143,11 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               </CardContent>
             </Card>
 
-            <Card className="flex-1 flex flex-col min-h-0">
-              <CardHeader className="pb-2">
+            <Card className="flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="pb-2 flex-shrink-0">
                 <CardTitle className="text-base">Selected Items ({totalSelected})</CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 min-h-0 space-y-3 overflow-y-auto overflow-x-hidden pr-1 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-50 hover:scrollbar-thumb-blue-400">
+              <CardContent className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 pr-1 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-50 hover:scrollbar-thumb-blue-400">
                 {selectedList.length > 0 ? (
                   selectedList.map(item => (
                     <div key={item.id} className="flex items-center gap-3 border rounded p-2">
@@ -3174,13 +3174,13 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                   <div className="text-xs text-gray-500">No items selected yet.</div>
                 )}
               </CardContent>
-              <div className="px-6 py-3 border-t flex items-center justify-between">
+              <div className="px-6 py-3 border-t flex items-center justify-between flex-shrink-0">
                 <button className="text-xs text-gray-600 underline" onClick={() => setSelection({})} disabled={totalSelected === 0}>Clear</button>
                 <div className="text-sm text-gray-500">&nbsp;</div>
               </div>
             </Card>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 flex-shrink-0">
               <Button
                 variant="outline"
                 onClick={() => {
