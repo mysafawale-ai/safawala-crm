@@ -74,6 +74,7 @@ interface Product {
   category_id?: string
   subcategory_id?: string
   image_url?: string // Added image_url field
+  is_custom?: boolean
 }
 
 export default function InventoryPage() {
@@ -142,7 +143,41 @@ export default function InventoryPage() {
       const { data, error } = await query
       if (error) throw error
       // Use barcode directly from products table
-      setProducts((data || []) as Product[])
+      // Merge in custom products (they are already in products table but may have minimal fields)
+      const normalized: Product[] = (data || []).map((p: any) => ({
+        // Assign defaults for missing inventory-centric fields (custom entries)
+        product_code: p.product_code || p.id?.slice(0,8) || "CUST",
+        price: typeof p.price === 'number' ? p.price : (typeof p.sale_price === 'number' ? p.sale_price : 0),
+        rental_price: typeof p.rental_price === 'number' ? p.rental_price : 0,
+        cost_price: typeof p.cost_price === 'number' ? p.cost_price : 0,
+        security_deposit: typeof p.security_deposit === 'number' ? p.security_deposit : 0,
+        stock_total: typeof p.stock_total === 'number' ? p.stock_total : (typeof p.stock_available === 'number' ? p.stock_available : 0),
+        stock_available: typeof p.stock_available === 'number' ? p.stock_available : 0,
+        stock_booked: typeof p.stock_booked === 'number' ? p.stock_booked : 0,
+        stock_damaged: typeof p.stock_damaged === 'number' ? p.stock_damaged : 0,
+        stock_in_laundry: typeof p.stock_in_laundry === 'number' ? p.stock_in_laundry : 0,
+        reorder_level: typeof p.reorder_level === 'number' ? p.reorder_level : 0,
+        usage_count: typeof p.usage_count === 'number' ? p.usage_count : 0,
+        damage_count: typeof p.damage_count === 'number' ? p.damage_count : 0,
+        barcode: p.barcode || p.barcode_number || undefined,
+        barcode_number: p.barcode_number || undefined,
+        qr_code: p.qr_code || undefined,
+        is_active: p.is_active !== false,
+        created_at: p.created_at || new Date().toISOString(),
+        updated_at: p.updated_at || p.created_at || new Date().toISOString(),
+        category_id: p.category_id || undefined,
+        subcategory_id: p.subcategory_id || undefined,
+        image_url: p.image_url || undefined,
+        description: p.description || '',
+        brand: p.brand || '',
+        size: p.size || '',
+        color: p.color || '',
+        material: p.material || '',
+        id: p.id,
+        name: p.name || 'Unnamed Product',
+        is_custom: p.is_custom === true,
+      }))
+      setProducts(normalized)
     } catch (error) {
       console.error("Error fetching products:", error)
       toast.error("Failed to load products")
@@ -878,7 +913,12 @@ export default function InventoryPage() {
                             <TableCell>
                               <div>
                                 <div className="font-medium">{product.name}</div>
-                                {product.brand && <div className="text-sm text-muted-foreground">{product.brand}</div>}
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {product.brand && <div className="text-sm text-muted-foreground">{product.brand}</div>}
+                                    {product.is_custom && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-50 border-amber-300 text-amber-700">Custom</Badge>
+                                    )}
+                                  </div>
                               </div>
                             </TableCell>
                             <TableCell>

@@ -40,6 +40,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Normalize values and provide safe defaults expected by inventory UI
+    const normalizedRental = Number.isFinite(Number(rental_price)) ? Number(rental_price) : 0
+    const normalizedSale = Number.isFinite(Number(sale_price)) ? Number(sale_price) : 0
+    const normalizedStock = Number.isFinite(Number(stock_available)) ? Number(stock_available) : 0
+
     // Create product in database
     const { data: product, error } = await supabase
       .from("products")
@@ -48,12 +53,17 @@ export async function POST(req: NextRequest) {
           name,
           category,
           description,
-          rental_price,
-          sale_price,
+          rental_price: normalizedRental,
+          sale_price: normalizedSale,
+          // Inventory table expects `price` (sale price) and `stock_total`
+          price: normalizedSale,
           security_deposit,
-          stock_available,
+          stock_available: normalizedStock,
+          stock_total: normalizedStock,
+          reorder_level: 0,
           franchise_id,
           is_custom,
+          is_active: true,
           image_url,
         },
       ])
