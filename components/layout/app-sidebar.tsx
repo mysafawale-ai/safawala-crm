@@ -281,20 +281,27 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
   }
 
   const filterItemsByRole = (items: any[]) => {
-    // Show all items by default - permissions are managed by super admin in staff page
-    // This allows all users to see all features
-    // Super admin can restrict access via the Staff management page
+    // Filter items based on user permissions
+    // Only show menu items where the permission is checked (true)
+    // Super admin manages what each staff member can access
     
-    // For now, show all items for all users
-    // Permission enforcement happens at the API level, not UI level
+    // If no user permissions, show minimal items (dashboard + settings only)
+    if (!currentUser?.permissions) {
+      return items.filter((item) => {
+        return item.permission === "dashboard" || item.permission === "settings"
+      })
+    }
+
+    // Filter items based on permissions - only show if permission is true
     return items.filter((item) => {
-      // If no permission field, skip this item (should not happen)
+      // If no permission field, skip this item
       if (!item.permission) {
         return false
       }
       
-      // Show all items to all users - let API handle permission enforcement
-      return true
+      // Check if this permission is enabled for the user
+      const userPermissions = currentUser.permissions
+      return userPermissions[item.permission] === true
     })
   }
 
