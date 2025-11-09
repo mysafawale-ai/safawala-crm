@@ -1135,7 +1135,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       />
                     </div>
                     <div>
-                    <div>
                       <Label htmlFor="variant-price">Base Price (₹)</Label>
                       <Input
                         id="variant-price"
@@ -1322,7 +1321,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         onChange={(e) => setVariantForm((prev) => ({ ...prev, name: e.target.value }))}
                       />
                     </div>
-                    <div>
                     <div>
                       <Label htmlFor="variant-price">Base Price (₹)</Label>
                       <Input
