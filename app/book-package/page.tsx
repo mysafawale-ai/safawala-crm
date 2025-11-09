@@ -2455,6 +2455,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   if (!context) return null
   type ProductRow = { id: string; name: string; image_url?: string; category?: string; category_id?: string | null; subcategory?: string | null; subcategory_id?: string | null; stock_available?: number; price?: number; rental_price?: number; barcode?: string | null; product_code?: string | null }
   const [products, setProducts] = useState<ProductRow[]>([])
+  const [productsLoading, setProductsLoading] = useState(false)
   const [selection, setSelection] = useState<Record<string, number>>({})
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState("")
@@ -2490,12 +2491,14 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
 
   useEffect(() => {
     const load = async () => {
-      // Load products with images and categories (no hard dependency on is_active column)
-      const { data } = await supabase
-        .from("products")
-        .select("id,name,image_url,category,category_id,subcategory,subcategory_id,stock_available,price,rental_price,barcode,product_code")
-        .order("name")
-      let rows: ProductRow[] = (data || []) as any
+      setProductsLoading(true)
+      try {
+        // Load products with images and categories (no hard dependency on is_active column)
+        const { data } = await supabase
+          .from("products")
+          .select("id,name,image_url,category,category_id,subcategory,subcategory_id,stock_available,price,rental_price,barcode,product_code")
+          .order("name")
+        let rows: ProductRow[] = (data || []) as any
       // Normalize: if legacy 'category' holds a UUID, treat it as category_id
       rows = rows.map(r => {
         const looksUUID = typeof r.category === 'string' && /^[0-9a-fA-F\-]{32,36}$/.test(r.category)
@@ -2548,7 +2551,11 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         : rows
       consider.forEach(r => { if (r.subcategory) subSet.add(r.subcategory) })
       setSubCategoryOptions(Array.from(subSet).sort((a,b) => a.localeCompare(b)))
-
+      } catch (error) {
+        console.error('Error loading products:', error)
+      } finally {
+        setProductsLoading(false)
+      }
     }
     if (open) load()
   }, [open])
@@ -3083,7 +3090,20 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
 
             {/* Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto overflow-x-hidden pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-              {filtered.map(p => {
+              {productsLoading ? (
+                // Loading skeleton
+                Array.from({ length: 8 }).map((_, idx) => (
+                  <Card key={idx} className="p-0 overflow-hidden animate-pulse">
+                    <div className="aspect-square w-full bg-gray-200"></div>
+                    <div className="p-3 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      <div className="h-8 bg-gray-200 rounded"></div>
+                    </div>
+                  </Card>
+                ))
+              ) : (
+                filtered.map(p => {
                 const qty = selection[p.id] || 0
                 return (
                   <Card key={p.id} className="group p-0 overflow-hidden">
@@ -3117,8 +3137,9 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                     </div>
                   </Card>
                 )
-              })}
-              {filtered.length === 0 && <div className="p-4 text-sm text-gray-500">No matching products.</div>}
+              })
+              )}
+              {!productsLoading && filtered.length === 0 && <div className="p-4 text-sm text-gray-500">No matching products.</div>}
             </div>
           </div>
 
