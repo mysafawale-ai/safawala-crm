@@ -129,6 +129,39 @@ export async function POST(request: NextRequest) {
     // 4) Perform deletion
     const doHardDelete = Boolean(hard)
 
+    // Handle customers with related returns
+    if (table === "customers") {
+      const { data: relatedReturns } = await supabase
+        .from("returns")
+        .select("id")
+        .eq("customer_id", id)
+
+      if (relatedReturns && relatedReturns.length > 0) {
+        if (doHardDelete) {
+          // Hard delete: cascade delete returns first
+          const { error: delReturnsError } = await supabase
+            .from("returns")
+            .delete()
+            .eq("customer_id", id)
+          if (delReturnsError) throw delReturnsError
+        } else {
+          // Soft delete: mark returns as inactive
+          const { error: updateReturnsError } = await supabase
+            .from("returns")
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq("customer_id", id)
+          if (updateReturnsError) {
+            // Fallback to hard delete returns if soft delete not supported
+            const { error: delReturnsError } = await supabase
+              .from("returns")
+              .delete()
+              .eq("customer_id", id)
+            if (delReturnsError) throw delReturnsError
+          }
+        }
+      }
+    }
+
     if (doHardDelete) {
       const { error: delError } = await supabase.from(table).delete().eq("id", id)
       if (delError) throw delError
