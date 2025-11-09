@@ -29,6 +29,7 @@ import {
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { ProductViewDialog } from "@/components/inventory/product-view-dialog"
 import { BulkBarcodeGenerator } from "@/components/inventory/bulk-barcode-generator"
+import { InventoryImportExportDialog } from "@/components/inventory/import-export-dialog"
 // import { StockMovementDialog } from "@/components/inventory/stock-movement-dialog"
 import { supabase } from "@/lib/supabase"
 
@@ -86,6 +87,7 @@ export default function InventoryPage() {
   const [viewMode, setViewMode] = useState<'list' | 'cards'>('list')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
+  const [importExportOpen, setImportExportOpen] = useState(false)
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock'>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all')
@@ -403,6 +405,14 @@ export default function InventoryPage() {
               <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
                 Refresh
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setImportExportOpen(true)}
+                title="Import/Export products with images"
+              >
+                <Package className="w-4 h-4 mr-2" />
+                Import/Export
               </Button>
               <Link href="/inventory/categories">
                 <Button variant="outline" className="flex items-center bg-transparent">
@@ -995,6 +1005,13 @@ export default function InventoryPage() {
               onItemsGenerated={fetchProductsForUser}
             />
           )}
+
+          {/* Import/Export Dialog */}
+          <InventoryImportExportDialog 
+            open={importExportOpen}
+            onOpenChange={setImportExportOpen}
+            onImportSuccess={fetchProductsForUser}
+          />
         </div>
       </TooltipProvider>
       <ConfirmationDialog />
