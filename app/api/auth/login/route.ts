@@ -177,15 +177,34 @@ export async function POST(request: NextRequest) {
         .ilike("email", email)
         .single()
 
-      if (legacyError || !legacyUser || !legacyUser.is_active) {
+      if (legacyError) {
+        console.log("[v0] Legacy user query error:", legacyError.message)
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
+      
+      if (!legacyUser) {
+        console.log("[v0] Legacy user not found for email:", email)
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
+      
+      if (!legacyUser.is_active) {
+        console.log("[v0] Legacy user is inactive:", email)
         return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
       }
 
       // Compare bcrypt hash
-      const passwordOk = await bcrypt.compare(password, legacyUser.password_hash || "")
-      if (!passwordOk) {
+      if (!legacyUser.password_hash) {
+        console.log("[v0] User has no password hash:", email)
         return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
       }
+      
+      const passwordOk = await bcrypt.compare(password, legacyUser.password_hash)
+      if (!passwordOk) {
+        console.log("[v0] Password mismatch for user:", email)
+        return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+      }
+      
+      console.log("[v0] Password verified successfully for legacy user:", email)
 
       // Create Supabase Auth user via Admin API (first-time migration)
       try {

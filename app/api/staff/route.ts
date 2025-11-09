@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
     // Build permissions safely (defaults by role, then override with provided)
     const safePermissions = sanitizePermissions(permissions, role)
 
-    // Insert new user
+    // Insert new user in database
     const { data, error } = await supabase
       .from("users")
       .insert([{
@@ -239,7 +239,43 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       console.error("Error creating staff member:", error)
-      return NextResponse.json({ error: "Failed to create staff member" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to create staff member", details: error.message }, { status: 500 })
+    }
+
+    // SYNC: Also create user in Supabase Auth so they can log in immediately
+    // This ensures the user can log in with their password
+    try {
+      const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+      const supabaseAdmin = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+
+      // Create user in Supabase Auth (avoid duplicate error if already exists)
+      try {
+        await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true, // Auto-confirm email so user can login immediately
+          user_metadata: {
+            app_user_id: data.id,
+            role,
+            franchise_id: staffFranchiseId
+          }
+        })
+        console.log(`[Staff API] Synced new staff member to Supabase Auth: ${email}`)
+      } catch (authErr: any) {
+        // If user already exists in auth, that's ok (happens if fallback path already created them)
+        if (authErr?.message?.includes('already exists')) {
+          console.log(`[Staff API] User ${email} already exists in Supabase Auth (this is ok)`)
+        } else {
+          // Log but don't fail - user can still login via legacy password hash fallback
+          console.warn(`[Staff API] Warning: Could not sync ${email} to Supabase Auth:`, authErr?.message)
+        }
+      }
+    } catch (syncErr) {
+      // Log but don't fail - user can still login via legacy password hash fallback
+      console.warn(`[Staff API] Warning: Could not sync to Supabase Auth:`, syncErr)
     }
     
     return NextResponse.json({ 
