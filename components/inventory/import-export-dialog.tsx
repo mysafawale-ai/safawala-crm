@@ -41,6 +41,7 @@ export function InventoryImportExportDialog({
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [importOptions, setImportOptions] = useState<ImportOptions>({
     overwriteExisting: false,
@@ -96,6 +97,7 @@ export function InventoryImportExportDialog({
 
     try {
       setIsLoading(true)
+      setUploadProgress(0)
       setImportResult(null)
 
       const fileContent = await file.text()
@@ -105,6 +107,9 @@ export function InventoryImportExportDialog({
       if (!importData.products || !Array.isArray(importData.products)) {
         throw new Error('Invalid import file format')
       }
+
+      // Simulate progress for file reading
+      setUploadProgress(20)
 
       // Call import API
       const response = await fetch('/api/inventory/import', {
@@ -116,6 +121,9 @@ export function InventoryImportExportDialog({
         }),
       })
 
+      // Update progress based on response status
+      setUploadProgress(80)
+
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Import failed')
@@ -123,6 +131,10 @@ export function InventoryImportExportDialog({
 
       const result = (await response.json()) as ImportResult
       setImportResult(result)
+      setUploadProgress(100)
+
+      // Reset progress after 1 second
+      setTimeout(() => setUploadProgress(0), 1000)
 
       toast({
         title: 'Import Complete',
@@ -137,6 +149,7 @@ export function InventoryImportExportDialog({
         description: error?.message || 'Failed to import inventory',
         variant: 'destructive',
       })
+      setUploadProgress(0)
     } finally {
       setIsLoading(false)
       if (fileInputRef.current) {
@@ -274,14 +287,31 @@ export function InventoryImportExportDialog({
               style={{ display: 'none' }}
             />
 
+            {/* Upload Progress Bar */}
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Uploading...</span>
+                  <span className="text-sm font-semibold text-green-700">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-green-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Import Button */}
             <Button
               onClick={handleImportClick}
               disabled={isLoading}
               variant="default"
-              className="mt-3"
+              className="mt-3 w-full"
             >
               {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Select File to Import
+              {isLoading ? 'Importing...' : 'Select File to Import'}
             </Button>
           </div>
 
