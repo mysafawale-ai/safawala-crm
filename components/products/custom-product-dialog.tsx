@@ -98,21 +98,22 @@ export function CustomProductDialog({
       // Step 1: Upload image if provided
       if (imageFile) {
         setUploadingImage(true)
-        const formData = new FormData()
-        formData.append("file", imageFile)
-        formData.append("folder", `products/${franchiseId}`)
+        const uploadFormData = new FormData()
+        uploadFormData.append("file", imageFile)
+        uploadFormData.append("franchiseId", franchiseId)
 
-        const uploadRes = await fetch("/api/uploads", {
+        const uploadRes = await fetch("/api/images/save", {
           method: "POST",
-          body: formData,
+          body: uploadFormData,
         })
 
         if (!uploadRes.ok) {
-          throw new Error("Failed to upload image")
+          const errorData = await uploadRes.json()
+          throw new Error(errorData.error || "Failed to upload image")
         }
 
         const uploadData = await uploadRes.json()
-        imageUrl = uploadData.url || uploadData.data?.url
+        imageUrl = uploadData.url
         setUploadingImage(false)
       }
 
