@@ -263,7 +263,7 @@ export function ItemsSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl h-[95vh] flex flex-col p-0">
+  <DialogContent className="max-w-7xl h-[95vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0 border-b">
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
@@ -277,7 +277,7 @@ export function ItemsSelectionDialog({
         {/* Two Column Layout */}
         <div className="flex-1 flex gap-0 min-h-0">
           {/* LEFT SIDE - Product Selection (Scrollable) */}
-          <div className="flex-1 overflow-y-auto min-h-0 border-r">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 border-r scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
             <div className="px-6 py-4 space-y-4">
               {/* Filters Section - Sticky */}
               <div className="space-y-3 sticky top-0 bg-white z-10 pb-4 border-b">
@@ -351,7 +351,7 @@ export function ItemsSelectionDialog({
                   <p>No {type}s found</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-4 gap-3 auto-rows-fr">
                   {filteredItems.map((item) =>
                     type === 'product'
                       ? renderProductCard(item as Product)
@@ -374,7 +374,7 @@ export function ItemsSelectionDialog({
 
             {/* Summary Content - Scrollable */}
             {selectedItems.length > 0 ? (
-              <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-3">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-h-[160px] px-4 py-4 space-y-3 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-50 hover:scrollbar-thumb-blue-400">
                 {selectedItems.map((selectedItem) => {
                   const itemName = 'package_id' in selectedItem 
                     ? selectedItem.package?.name 
@@ -458,7 +458,7 @@ export function ItemsSelectionDialog({
                 })}
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500">
+              <div className="flex-1 flex items-center justify-center text-gray-500 min-h-[160px]">
                 <p className="text-sm">No products selected</p>
               </div>
             )}

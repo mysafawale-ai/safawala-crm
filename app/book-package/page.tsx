@@ -3082,7 +3082,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto overflow-x-hidden pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
               {filtered.map(p => {
                 const qty = selection[p.id] || 0
                 return (
@@ -3123,14 +3123,14 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
           </div>
 
           {/* Right: Inclusions & summary */}
-          <div className="space-y-4 min-h-[60vh] flex flex-col">
+          <div className="space-y-4 min-h-[60vh] min-h-0 flex flex-col">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Variant Inclusions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {variantInclusions.length > 0 ? (
-                  <ul className="space-y-1 max-h-56 overflow-auto pr-1">
+                  <ul className="space-y-1 max-h-56 overflow-y-auto overflow-x-hidden pr-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
                     {variantInclusions.map((inc, idx) => (
                       <li key={idx} className="text-xs text-gray-800 break-words whitespace-normal border rounded px-2 py-1 bg-gray-50">
                         {inc}
@@ -3143,11 +3143,11 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               </CardContent>
             </Card>
 
-            <Card className="flex-1 flex flex-col">
+            <Card className="flex-1 flex flex-col min-h-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Selected Items ({totalSelected})</CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 space-y-3 overflow-auto pr-1">
+              <CardContent className="flex-1 min-h-0 space-y-3 overflow-y-auto overflow-x-hidden pr-1 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-50 hover:scrollbar-thumb-blue-400">
                 {selectedList.length > 0 ? (
                   selectedList.map(item => (
                     <div key={item.id} className="flex items-center gap-3 border rounded p-2">
