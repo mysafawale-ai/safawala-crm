@@ -84,7 +84,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseId, role, isSuperAdmin } = await getUser(request)
+    const auth = await requireAuth(request, 'staff')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.franchise_id || null
+    const role = user.role
+    const isSuperAdmin = user.role === 'super_admin'
+
     if (!['super_admin', 'franchise_admin', 'staff'].includes(role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -184,7 +192,15 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { franchiseId, role, isSuperAdmin } = await getUser(request)
+    const auth = await requireAuth(request, 'staff')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.franchise_id || null
+    const role = user.role
+    const isSuperAdmin = user.role === 'super_admin'
+
     if (!['super_admin', 'franchise_admin', 'staff'].includes(role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -297,7 +313,13 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { franchiseId, isSuperAdmin } = await getUser(request)
+    const auth = await requireAuth(request, 'staff')
+    if (!auth.success) {
+      return NextResponse.json(auth.response, { status: 401 })
+    }
+    const user = auth.authContext!.user
+    const franchiseId = user.franchise_id || null
+    const isSuperAdmin = user.role === 'super_admin'
     
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
