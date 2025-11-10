@@ -433,8 +433,8 @@ export default function BookingsPage() {
       await refresh()
       
       toast({
-        title: '✓ Products updated!',
-        description: `${items.length} item(s) saved to database`,
+        title: 'Products updated successfully',
+        description: `${items.length} product${items.length !== 1 ? 's' : ''} added to booking`,
       })
       
       return true
@@ -450,8 +450,19 @@ export default function BookingsPage() {
   }
 
   const getStatusBadge = (status: string, booking?: any) => {
+    // Check if payment is incomplete (advance/partial payment)
+    const totalAmount = booking?.total_amount || 0
+    const paidAmount = booking?.paid_amount || 0
+    const hasPartialPayment = paidAmount > 0 && paidAmount < totalAmount
+    
+    // Override status to "Payment Pending" if payment is incomplete
+    let displayStatus = status
+    if (status === 'confirmed' && hasPartialPayment) {
+      displayStatus = 'pending_payment'
+    }
+    
     const statusConfig = {
-      pending_payment: { label: "Pending Payment", variant: "warning" as const },
+      pending_payment: { label: "Payment Pending", variant: "warning" as const },
       pending_selection: { label: "Pending Selection", variant: "info" as const },
       confirmed: { label: "Confirmed", variant: "default" as const },
       delivered: { label: "Delivered", variant: "success" as const },
@@ -459,7 +470,7 @@ export default function BookingsPage() {
       order_complete: { label: "Order Complete", variant: "success" as const },
       cancelled: { label: "Cancelled", variant: "destructive" as const },
     }
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.confirmed
+    const config = statusConfig[displayStatus as keyof typeof statusConfig] || statusConfig.confirmed
     
     return (
       <div className="flex flex-col gap-1">
