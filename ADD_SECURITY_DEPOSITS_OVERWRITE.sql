@@ -6,6 +6,13 @@
 
 BEGIN;
 
+-- STEP 1: Add the security_deposit column if it doesn't exist
+ALTER TABLE package_variants
+ADD COLUMN IF NOT EXISTS security_deposit numeric(12,2) DEFAULT 0;
+
+-- Add comment for documentation
+COMMENT ON COLUMN package_variants.security_deposit IS 'Refundable security deposit amount for this variant';
+
 -- IMPORTANT: This will OVERWRITE any existing security deposits
 -- Remove the WHERE condition if you want to update ALL variants, even those with existing deposits
 

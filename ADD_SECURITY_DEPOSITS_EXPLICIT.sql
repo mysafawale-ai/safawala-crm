@@ -7,6 +7,13 @@
 
 BEGIN;
 
+-- STEP 1: Add the security_deposit column if it doesn't exist
+ALTER TABLE package_variants
+ADD COLUMN IF NOT EXISTS security_deposit numeric(12,2) DEFAULT 0;
+
+-- Add comment for documentation
+COMMENT ON COLUMN package_variants.security_deposit IS 'Refundable security deposit amount for this variant';
+
 -- First, let's identify the category IDs
 -- Run this first to see what categories exist
 /*
