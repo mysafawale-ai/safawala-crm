@@ -649,11 +649,9 @@ export default function BookPackageWizard() {
       let payable = grand
       let advanceDue = 0
       
-      // NEW ADVANCE LOGIC: Use security deposit as fixed amount + 50% of the rest
+      // ADVANCE LOGIC: 50% of grand total + deposit separate
       if (formData.payment_type === "advance") {
-        const fixedAdvance = securityDeposit > 0 ? securityDeposit : 5000
-        const restAmount = Math.max(0, grand - fixedAdvance)
-        advanceDue = fixedAdvance + (restAmount / 2)
+        advanceDue = grand / 2
         payable = advanceDue
       } else if (formData.payment_type === "partial") {
         payable = Math.min(grand, Math.max(0, formData.custom_amount))
@@ -2123,11 +2121,11 @@ export default function BookPackageWizard() {
                             </div>
                             <div className="flex justify-between font-bold text-lg border-t pt-2 text-blue-700">
                               <span>Payable Now (Total)</span>
-                              <span>{formatCurrency(totals.advanceDue)}</span>
+                              <span>{formatCurrency(totals.payableNowTotal)}</span>
                             </div>
                             <div className="flex justify-between text-sm text-gray-600 mt-2 pt-2 border-t">
                               <span>Remaining (Total)</span>
-                              <span>{formatCurrency(totals.remaining)}</span>
+                              <span>{formatCurrency(totals.remainingTotal)}</span>
                             </div>
                           </>
                         )}

@@ -294,13 +294,8 @@ export async function POST(request: NextRequest) {
             ...baseItem,
             security_deposit: item.security_deposit || 0,
           }
-        } else if (normalizedSource === 'package_booking') {
-          return {
-            ...baseItem,
-            extra_safas: item.extra_safas || 0,
-            variant_inclusions: item.variant_inclusions || [],
-          }
         }
+        // For package_bookings, just use base fields (no extra_safas column)
         
         return baseItem
       })
