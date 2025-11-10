@@ -2103,14 +2103,10 @@ export default function BookPackageWizard() {
                   {/* Payment Breakdown - Show only when items are added */}
                   {bookingItems.length > 0 && (
                     <>
-                      <div className="h-px bg-gray-200 my-2" />
+                      <div className="h-px bg-gray-200 my-3" />
                       <div className="space-y-2">
                         {formData.payment_type === 'full' && (
                           <>
-                            <div className="flex justify-between text-sm text-gray-700">
-                              <span>Grand Total</span>
-                              <span>{formatCurrency(totals.grand)}</span>
-                            </div>
                             {totals.securityDeposit > 0 && (
                               <div className="flex justify-between text-sm text-amber-700">
                                 <span>+ Deposit (Refundable, No GST)</span>
