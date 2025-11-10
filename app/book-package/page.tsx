@@ -63,7 +63,7 @@ const convert12to24 = (time12: string, period: 'AM' | 'PM'): string => {
   return `${hours24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
 }
 
-// Time Picker Component with AM/PM
+// Time Picker Component with AM/PM - Dropdown Version
 const TimePicker = ({ value, onChange, className }: { value: string; onChange: (value: string) => void; className?: string }) => {
   const { time12, period } = convert24to12(value)
   const [hours, minutes] = time12.split(':')
@@ -84,30 +84,14 @@ const TimePicker = ({ value, onChange, className }: { value: string; onChange: (
     onChange(convert12to24(time12, localPeriod))
   }
 
-  const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^0-9]/g, '')
-    if (val === '') {
-      setLocalHours('')
-      return
-    }
-    let num = parseInt(val)
-    if (num > 12) num = 12
-    if (num < 1) num = 1
-    const newHours = num.toString()
+  const handleHoursChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newHours = e.target.value
     setLocalHours(newHours)
     handleTimeChange(newHours, localMinutes)
   }
 
-  const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^0-9]/g, '')
-    if (val === '') {
-      setLocalMinutes('')
-      return
-    }
-    let num = parseInt(val)
-    if (num > 59) num = 59
-    if (num < 0) num = 0
-    const newMinutes = num.toString()
+  const handleMinutesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newMinutes = e.target.value
     setLocalMinutes(newMinutes)
     handleTimeChange(localHours, newMinutes)
   }
@@ -118,28 +102,39 @@ const TimePicker = ({ value, onChange, className }: { value: string; onChange: (
     onChange(convert12to24(time12, newPeriod))
   }
 
+  // Generate hours (1-12)
+  const hourOptions = Array.from({ length: 12 }, (_, i) => {
+    const hour = i + 1
+    return hour.toString().padStart(2, '0')
+  })
+
+  // Generate minutes (0-59)
+  const minuteOptions = Array.from({ length: 60 }, (_, i) => {
+    return i.toString().padStart(2, '0')
+  })
+
   return (
     <div className={`flex gap-2 ${className || ''}`}>
-      <div className="flex items-center gap-1 flex-1 border rounded-md px-3 py-2 bg-white">
-        <input
-          type="text"
+      <div className="flex items-center gap-1 flex-1">
+        <select
           value={localHours}
           onChange={handleHoursChange}
-          onBlur={() => setLocalHours(localHours.padStart(2, '0'))}
-          placeholder="HH"
-          maxLength={2}
-          className="w-8 text-sm text-center outline-none"
-        />
+          className="flex-1 h-9 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+        >
+          {hourOptions.map(hour => (
+            <option key={hour} value={hour}>{hour}</option>
+          ))}
+        </select>
         <span className="text-sm font-medium">:</span>
-        <input
-          type="text"
+        <select
           value={localMinutes}
           onChange={handleMinutesChange}
-          onBlur={() => setLocalMinutes(localMinutes.padStart(2, '0'))}
-          placeholder="MM"
-          maxLength={2}
-          className="w-8 text-sm text-center outline-none"
-        />
+          className="flex-1 h-9 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+        >
+          {minuteOptions.map(minute => (
+            <option key={minute} value={minute}>{minute}</option>
+          ))}
+        </select>
       </div>
       <div className="flex border rounded-md overflow-hidden">
         <button
