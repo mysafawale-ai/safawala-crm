@@ -2509,9 +2509,21 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                       </div>
                     )}
                     <div className="flex justify-between font-medium border-t pt-0.5 mt-1">
-                      <span>Total:</span>
+                      <span>Variant Total:</span>
                       <span>{formatCurrency(totalPrice)}</span>
                     </div>
+                    {(v.security_deposit || category.security_deposit) && (
+                      <>
+                        <div className="h-px bg-gray-300 my-1" />
+                        <div className="flex justify-between text-amber-700 font-medium">
+                          <span>Security Deposit:</span>
+                          <span>{formatCurrency(v.security_deposit || category.security_deposit || 0)}</span>
+                        </div>
+                        <div className="text-[9px] text-amber-600 italic">
+                          (Refundable, separate from price)
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Inclusions */}
