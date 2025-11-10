@@ -212,6 +212,134 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * POST /api/bookings-items
+ * Save/update booking items
+ */
 export async function POST(request: NextRequest) {
-  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 })
+  try {
+    const body = await request.json()
+    const { bookingId, items, source } = body
+    
+    if (!bookingId || !items || !source) {
+      return NextResponse.json({ error: 'bookingId, items, and source are required' }, { status: 400 })
+    }
+    
+    console.log(`[Items API] POST: Saving ${items.length} items for booking ${bookingId} (source: ${source})`)
+    
+    const supabase = createClient()
+    
+    // Normalize source
+    const normalizedSource = source.replace(/s$/, '')
+    
+    // Determine the correct table based on source
+    let tableName: string
+    let foreignKeyField: string
+    
+    if (normalizedSource === 'product_order') {
+      tableName = 'product_order_items'
+      foreignKeyField = 'order_id'
+    } else if (normalizedSource === 'package_booking') {
+      // Try the new table first, fall back to old one
+      tableName = 'package_booking_product_items'
+      foreignKeyField = 'package_booking_id'
+    } else if (normalizedSource === 'direct_sale') {
+      tableName = 'direct_sales_items'
+      foreignKeyField = 'sale_id'
+    } else {
+      return NextResponse.json({ error: `Invalid source: ${source}` }, { status: 400 })
+    }
+    
+    // Delete existing items for this booking
+    const { error: deleteError } = await supabase
+      .from(tableName)
+      .delete()
+      .eq(foreignKeyField, bookingId)
+    
+    if (deleteError) {
+      console.error(`[Items API] Error deleting existing items from ${tableName}:`, deleteError)
+      // If table doesn't exist and it's package_booking, try the old table
+      if (normalizedSource === 'package_booking' && deleteError.code === '42P01') {
+        tableName = 'package_booking_items'
+        const { error: oldDeleteError } = await supabase
+          .from(tableName)
+          .delete()
+          .eq(foreignKeyField, bookingId)
+        
+        if (oldDeleteError) {
+          console.error(`[Items API] Error deleting from old table ${tableName}:`, oldDeleteError)
+          return NextResponse.json({ error: oldDeleteError.message }, { status: 500 })
+        }
+      } else {
+        return NextResponse.json({ error: deleteError.message }, { status: 500 })
+      }
+    }
+    
+    // Insert new items if any
+    if (items.length > 0) {
+      const insertData = items.map((item: any) => {
+        const baseItem = {
+          [foreignKeyField]: bookingId,
+          product_id: item.product_id || null,
+          package_id: item.package_id || null,
+          variant_id: item.variant_id || null,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price || 0,
+          total_price: item.total_price || 0,
+        }
+        
+        // Add source-specific fields
+        if (normalizedSource === 'product_order') {
+          return {
+            ...baseItem,
+            security_deposit: item.security_deposit || 0,
+          }
+        } else if (normalizedSource === 'package_booking') {
+          return {
+            ...baseItem,
+            extra_safas: item.extra_safas || 0,
+            variant_inclusions: item.variant_inclusions || [],
+          }
+        }
+        
+        return baseItem
+      })
+      
+      const { error: insertError } = await supabase
+        .from(tableName)
+        .insert(insertData)
+      
+      if (insertError) {
+        console.error(`[Items API] Error inserting items into ${tableName}:`, insertError)
+        return NextResponse.json({ error: insertError.message }, { status: 500 })
+      }
+    }
+    
+    // Update the has_items flag on the parent booking
+    const parentTable = normalizedSource === 'product_order' ? 'product_orders' : 
+                        normalizedSource === 'package_booking' ? 'package_bookings' : 'direct_sales'
+    const { error: updateError } = await supabase
+      .from(parentTable)
+      .update({ has_items: items.length > 0 })
+      .eq('id', bookingId)
+    
+    if (updateError) {
+      console.warn(`[Items API] Failed to update has_items flag on ${parentTable}:`, updateError.message)
+      // Don't fail the request if this update fails
+    }
+    
+    console.log(`[Items API] Successfully saved ${items.length} items for booking ${bookingId}`)
+    
+    return NextResponse.json({ 
+      success: true,
+      itemsCount: items.length,
+      message: `Successfully saved ${items.length} items`
+    })
+  } catch (error) {
+    console.error('[Items API] Exception in POST:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
 }

@@ -368,40 +368,72 @@ export default function BookingsPage() {
   // Save selected items to local state (no API call needed)
   const saveSelectedItems = async (bookingId: string, items: SelectedItem[], source: 'product_orders' | 'package_bookings') => {
     try {
-      console.log(`[Bookings] Saving ${items.length} items for booking ${bookingId}`)
+      console.log(`[Bookings] 💾 Saving ${items.length} items for booking ${bookingId}`)
+      console.log(`[Bookings] Items to save:`, items.map((i: any) => ({
+        product: i.product?.name || i.package?.name,
+        qty: i.quantity,
+        price: i.total_price
+      })))
       
-      // Update local bookingItems state with the new items
-      setBookingItems(prev => ({
-        ...prev,
-        [bookingId]: items.map((item: any) => ({
-          id: item.id || `item-${Math.random()}`,
-          product_id: item.product_id,
-          package_id: item.package_id,
+      const payload = {
+        bookingId,
+        items: items.map((item: any) => ({
+          product_id: item.product_id || null,
+          package_id: item.package_id || null,
+          variant_id: item.variant_id || null,
           quantity: item.quantity || 1,
           unit_price: item.unit_price || 0,
           total_price: item.total_price || 0,
-          product: item.product,
-          package: item.package,
-          variant_name: item.variant_name,
           extra_safas: item.extra_safas || 0,
           variant_inclusions: item.variant_inclusions || [],
+          security_deposit: item.security_deposit || 0,
+        })),
+        source,
+      }
+      
+      console.log(`[Bookings] API Payload:`, JSON.stringify(payload, null, 2))
+      
+      const response = await fetch('/api/bookings-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      
+      const result = await response.json()
+      console.log(`[Bookings] API Response:`, result)
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update items')
+      }
+      
+      console.log(`[Bookings] ✓ Saved to DB successfully`)
+      
+      // Update local cache with full item data
+      setBookingItems(prev => ({
+        ...prev,
+        [bookingId]: items.map((item: any) => ({
+          ...item,
+          id: item.id || `item-${Date.now()}-${Math.random()}`,
         }))
       }))
       
-      // Mark booking as having items
       setBookingsWithItems(prev => new Set([...prev, bookingId]))
       
+      // Refresh bookings list to get updated data
+      console.log(`[Bookings] Refreshing bookings list...`)
+      await refresh()
+      
       toast({
-        title: 'Items updated successfully!',
-        description: `${items.length} item(s) selected`,
+        title: '✓ Products updated!',
+        description: `${items.length} item(s) saved to database`,
       })
       
       return true
     } catch (error: any) {
-      console.error('[Bookings] Error saving items:', error)
+      console.error('[Bookings] ✗ Save failed:', error)
       toast({
-        title: 'Error updating items',
-        description: error.message || 'Failed to update items',
+        title: 'Failed to update',
+        description: error.message,
         variant: 'destructive',
       })
       return false
@@ -2034,14 +2066,23 @@ export default function BookingsPage() {
       {currentBookingForItems && (
         <CompactItemsDisplayDialog
           open={showCompactDisplay}
-          onOpenChange={(open) => {
-            // Simply close the dialog - don't auto-save
-            // Users can use "Edit Products" button if they want to make changes
+          onOpenChange={async (open) => {
+            // When closing the dialog, save any changes made to items
+            if (!open && currentBookingForItems) {
+              console.log('[Bookings] CompactDialog closing - saving items...')
+              const bookingType = (currentBookingForItems as any).type || 'product'
+              const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
+              const saved = await saveSelectedItems(currentBookingForItems.id, selectedItems, source)
+              if (saved) {
+                console.log('[Bookings] Items saved, dialog will close')
+              }
+            }
             setShowCompactDisplay(open)
           }}
           items={selectedItems}
           title={`📦 ${(currentBookingForItems as any).booking_number || 'Booking'}`}
           onEditProducts={() => {
+            console.log('[Bookings] Add More clicked - current items:', selectedItems.length)
             setShowCompactDisplay(false)
             setShowItemsSelection(true)
           }}

@@ -196,17 +196,18 @@ export function CompactItemsDisplayDialog({
             <Button
               onClick={onEditProducts}
               variant="outline"
-              className="flex-1 h-9 text-sm"
+              className="flex-1 h-10 text-sm font-semibold border-2"
             >
-              <Edit3 className="h-4 w-4 mr-1.5" />
-              Edit Products
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add More
             </Button>
           )}
           <Button
             onClick={() => onOpenChange(false)}
-            className="flex-1 h-9 text-sm"
+            variant="default"
+            className="flex-1 h-10 text-sm font-semibold bg-blue-600 hover:bg-blue-700"
           >
-            Done
+            UPDATE PRODUCTS
           </Button>
         </div>
       </DialogContent>
