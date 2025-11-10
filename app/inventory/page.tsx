@@ -134,18 +134,23 @@ export default function InventoryPage() {
       let query = supabase
         .from("products")
         .select("*")
-        .eq("is_active", true) // Only show active products
         .order("created_at", { ascending: false })
+      
       // Only filter by franchise for non-super-admins
       // Strict franchise isolation - each franchise sees only their products
       if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
         query = query.eq("franchise_id", currentUser.franchise_id)
       }
+      
       const { data, error } = await query
       if (error) throw error
+      
+      // Filter active products in JavaScript to handle null/undefined is_active
+      const activeData = (data || []).filter((p: any) => p.is_active !== false)
+      
       // Use barcode directly from products table
       // Merge in custom products (they are already in products table but may have minimal fields)
-      const normalized: Product[] = (data || []).map((p: any) => ({
+      const normalized: Product[] = activeData.map((p: any) => ({
         // Assign defaults for missing inventory-centric fields (custom entries)
         product_code: p.product_code || p.id?.slice(0,8) || "CUST",
         price: typeof p.price === 'number' ? p.price : (typeof p.sale_price === 'number' ? p.sale_price : 0),
