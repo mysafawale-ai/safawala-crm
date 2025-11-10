@@ -2100,28 +2100,6 @@ export default function BookPackageWizard() {
                     <span>{formatCurrency(totals.grand)}</span>
                   </div>
                   
-                  {totals.securityDeposit > 0 && (
-                    <>
-                      <div className="h-px bg-gray-200 my-2" />
-                      <div className="flex justify-between text-amber-700 font-semibold">
-                        <div className="flex items-center gap-1">
-                          <span>Security Deposit</span>
-                          <span className="text-[10px] font-normal text-amber-600">(Refundable, No GST)</span>
-                        </div>
-                        <span>{formatCurrency(totals.securityDeposit)}</span>
-                      </div>
-                      {DEPOSIT_POLICY.collectAt === 'booking' ? (
-                        <div className="text-[11px] text-amber-600 mt-0.5">
-                          ✓ To be collected with first payment
-                        </div>
-                      ) : DEPOSIT_POLICY.collectAt === 'delivery' ? (
-                        <div className="text-[11px] text-amber-600 mt-0.5">
-                          ✓ To be collected at delivery
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-                  
                   {/* Payment Breakdown - Show only when items are added */}
                   {bookingItems.length > 0 && (
                     <>
@@ -2129,18 +2107,18 @@ export default function BookPackageWizard() {
                       <div className="space-y-2">
                         {formData.payment_type === 'full' && (
                           <>
-                            <div className="flex justify-between text-green-700 font-semibold">
-                              <span>Package Payment (Full)</span>
+                            <div className="flex justify-between text-sm text-gray-700">
+                              <span>Grand Total</span>
                               <span>{formatCurrency(totals.grand)}</span>
                             </div>
                             {totals.securityDeposit > 0 && (
-                              <div className="flex justify-between text-amber-700 text-sm">
-                                <span>+ Deposit (Refundable)</span>
+                              <div className="flex justify-between text-sm text-amber-700">
+                                <span>+ Deposit (Refundable, No GST)</span>
                                 <span>+{formatCurrency(totals.securityDeposit)}</span>
                               </div>
                             )}
                             <div className="flex justify-between font-bold text-lg border-t pt-2 text-green-700">
-                              <span>Total to Pay Now</span>
+                              <span>Payable Now</span>
                               <span>{formatCurrency(totals.grand + totals.securityDeposit)}</span>
                             </div>
                           </>
