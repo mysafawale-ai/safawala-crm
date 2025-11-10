@@ -134,7 +134,6 @@ export default function InventoryPage() {
       let query = supabase
         .from("products")
         .select("*")
-        .eq("is_active", true)
         .order("created_at", { ascending: false })
       // Only filter by franchise for non-super-admins
       if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
