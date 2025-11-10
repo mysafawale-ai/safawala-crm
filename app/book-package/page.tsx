@@ -649,7 +649,7 @@ export default function BookPackageWizard() {
       let payable = grand
       let advanceDue = 0
       
-      // ADVANCE LOGIC: 50% of grand total + deposit separate
+      // ADVANCE LOGIC: 50% of grand total + deposit now, 50% later
       if (formData.payment_type === "advance") {
         advanceDue = grand / 2
         payable = advanceDue
@@ -662,7 +662,7 @@ export default function BookPackageWizard() {
       const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
       const payableNowTotal = payable + depositDueNow
       const remainingPackage = remaining
-      const remainingTotal = remainingPackage + depositDueLater
+      const remainingTotal = remaining
       
       return {
         subtotal: packagePrice,
@@ -713,9 +713,9 @@ export default function BookPackageWizard() {
     let payable = grand // package portion due now
     let advanceDue = 0
     
-    // ADVANCE LOGIC: 50% of Grand Total + Deposit
+    // ADVANCE LOGIC: 50% of grand total + deposit now, 50% later
     if (formData.payment_type === "advance") {
-      advanceDue = (grand / 2) + securityDeposit
+      advanceDue = grand / 2
       payable = advanceDue
     } else if (formData.payment_type === "partial") {
       payable = Math.min(grand, Math.max(0, formData.custom_amount))
@@ -725,7 +725,7 @@ export default function BookPackageWizard() {
     const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
     const payableNowTotal = payable + depositDueNow
     const remainingPackage = grand - payable
-    const remainingTotal = remainingPackage + depositDueLater
+    const remainingTotal = remainingPackage
     
     return {
       subtotal,
