@@ -715,11 +715,9 @@ export default function BookPackageWizard() {
     let payable = grand // package portion due now
     let advanceDue = 0
     
-    // NEW ADVANCE LOGIC: Use security deposit as fixed amount + 50% of the rest
+    // ADVANCE LOGIC: 50% of Grand Total + Deposit
     if (formData.payment_type === "advance") {
-      const fixedAdvance = securityDeposit > 0 ? securityDeposit : 5000
-      const restAmount = Math.max(0, grand - fixedAdvance)
-      advanceDue = fixedAdvance + (restAmount / 2)
+      advanceDue = (grand / 2) + securityDeposit
       payable = advanceDue
     } else if (formData.payment_type === "partial") {
       payable = Math.min(grand, Math.max(0, formData.custom_amount))
@@ -2123,19 +2121,11 @@ export default function BookPackageWizard() {
                               <span>+ Deposit (Refundable, No GST)</span>
                               <span>+{formatCurrency(totals.securityDeposit)}</span>
                             </div>
-                            <div className="flex justify-between text-blue-600 font-semibold">
-                              <span>Package now (50% of package)</span>
-                              <span>{formatCurrency(totals.advanceDue - totals.securityDeposit)}</span>
-                            </div>
                             <div className="flex justify-between font-bold text-lg border-t pt-2 text-blue-700">
                               <span>Payable Now (Total)</span>
                               <span>{formatCurrency(totals.advanceDue)}</span>
                             </div>
                             <div className="flex justify-between text-sm text-gray-600 mt-2 pt-2 border-t">
-                              <span>Package later</span>
-                              <span>{formatCurrency(totals.remaining)}</span>
-                            </div>
-                            <div className="flex justify-between text-xs text-gray-600">
                               <span>Remaining (Total)</span>
                               <span>{formatCurrency(totals.remaining)}</span>
                             </div>
