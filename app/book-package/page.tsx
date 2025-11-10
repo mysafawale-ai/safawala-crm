@@ -2119,22 +2119,24 @@ export default function BookPackageWizard() {
                         )}
                         {formData.payment_type === 'advance' && (
                           <>
+                            <div className="flex justify-between text-sm text-amber-700">
+                              <span>+ Deposit (Refundable, No GST)</span>
+                              <span>+{formatCurrency(totals.securityDeposit)}</span>
+                            </div>
                             <div className="flex justify-between text-blue-600 font-semibold">
-                              <span>Package Advance ({totals.securityDeposit > 0 ? `${formatCurrency(totals.securityDeposit).replace('₹', '₹')} + 50% rest` : '₹5,000 + 50% rest'})</span>
+                              <span>Package now (50% of package)</span>
+                              <span>{formatCurrency(totals.advanceDue - totals.securityDeposit)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-lg border-t pt-2 text-blue-700">
+                              <span>Payable Now (Total)</span>
                               <span>{formatCurrency(totals.advanceDue)}</span>
                             </div>
-                            {totals.securityDeposit > 0 && (
-                              <div className="flex justify-between text-amber-700 text-sm">
-                                <span>+ Deposit (Refundable)</span>
-                                <span>+{formatCurrency(totals.securityDeposit)}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between font-bold text-lg border-t pt-2 text-blue-700">
-                              <span>Total to Pay Now</span>
-                              <span>{formatCurrency(totals.advanceDue + totals.securityDeposit)}</span>
+                            <div className="flex justify-between text-sm text-gray-600 mt-2 pt-2 border-t">
+                              <span>Package later</span>
+                              <span>{formatCurrency(totals.remaining)}</span>
                             </div>
-                            <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
-                              <span>Remaining Package Later</span>
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>Remaining (Total)</span>
                               <span>{formatCurrency(totals.remaining)}</span>
                             </div>
                           </>
