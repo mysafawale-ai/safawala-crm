@@ -3172,16 +3172,27 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setQty(p.id, 1)
-                            }}
-                            disabled={(p.stock_available ?? 0) === 0}
-                            className="w-full py-2.5 bg-black text-white rounded-lg font-medium text-sm hover:bg-gray-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Add to Selection
-                          </button>
+                          <div className="space-y-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setAvailabilityModalFor(p)
+                              }}
+                              className="w-full py-1.5 text-xs text-gray-600 hover:text-black border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                            >
+                              Check Availability
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setQty(p.id, 1)
+                              }}
+                              disabled={(p.stock_available ?? 0) === 0}
+                              className="w-full py-2.5 bg-black text-white rounded-lg font-medium text-sm hover:bg-gray-800 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Add to Selection
+                            </button>
+                          </div>
                         )}
                       </div>
                     </button>
