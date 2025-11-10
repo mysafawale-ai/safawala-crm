@@ -2107,12 +2107,10 @@ export default function BookPackageWizard() {
                       <div className="space-y-2">
                         {formData.payment_type === 'full' && (
                           <>
-                            {totals.securityDeposit > 0 && (
-                              <div className="flex justify-between text-sm text-amber-700">
-                                <span>+ Deposit (Refundable, No GST)</span>
-                                <span>+{formatCurrency(totals.securityDeposit)}</span>
-                              </div>
-                            )}
+                            <div className="flex justify-between text-sm text-amber-700">
+                              <span>+ Deposit (Refundable, No GST)</span>
+                              <span>+{formatCurrency(totals.securityDeposit)}</span>
+                            </div>
                             <div className="flex justify-between font-bold text-lg border-t pt-2 text-green-700">
                               <span>Payable Now</span>
                               <span>{formatCurrency(totals.grand + totals.securityDeposit)}</span>
