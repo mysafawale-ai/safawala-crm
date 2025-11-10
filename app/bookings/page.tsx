@@ -377,17 +377,26 @@ export default function BookingsPage() {
       
       const payload = {
         bookingId,
-        items: items.map((item: any) => ({
-          product_id: item.product_id || null,
-          package_id: item.package_id || null,
-          variant_id: item.variant_id || null,
-          quantity: item.quantity || 1,
-          unit_price: item.unit_price || 0,
-          total_price: item.total_price || 0,
-          extra_safas: item.extra_safas || 0,
-          variant_inclusions: item.variant_inclusions || [],
-          security_deposit: item.security_deposit || 0,
-        })),
+        items: items.map((item: any) => {
+          const baseItem = {
+            product_id: item.product_id || null,
+            package_id: item.package_id || null,
+            variant_id: item.variant_id || null,
+            quantity: item.quantity || 1,
+            unit_price: item.unit_price || 0,
+            total_price: item.total_price || 0,
+          }
+          
+          // Add security_deposit only for product_orders
+          if (source === 'product_orders') {
+            return {
+              ...baseItem,
+              security_deposit: item.security_deposit || 0,
+            }
+          }
+          
+          return baseItem
+        }),
         source,
       }
       
@@ -440,7 +449,7 @@ export default function BookingsPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, booking?: any) => {
     const statusConfig = {
       pending_selection: { label: "Pending Selection", variant: "info" as const },
       confirmed: { label: "Confirmed", variant: "default" as const },
@@ -450,7 +459,21 @@ export default function BookingsPage() {
       cancelled: { label: "Cancelled", variant: "destructive" as const },
     }
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.confirmed
-    return <Badge variant={config.variant}>{config.label}</Badge>
+    
+    // Show payment status for confirmed bookings with advance/partial payment
+    const hasPartialPayment = booking && status === 'confirmed' && 
+      (booking.payment_type === 'advance' || booking.payment_type === 'partial')
+    
+    return (
+      <div className="flex flex-col gap-1">
+        <Badge variant={config.variant}>{config.label}</Badge>
+        {hasPartialPayment && (
+          <Badge variant="outline" className="text-orange-600 border-orange-400 bg-orange-50">
+            💰 Pending Payment
+          </Badge>
+        )}
+      </div>
+    )
   }
 
   const filteredBookings = (bookings || []).filter((booking) => {
@@ -1166,7 +1189,7 @@ export default function BookingsPage() {
                             )
                           })()}
                         </TableCell>
-                        <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                        <TableCell>{getStatusBadge(booking.status, booking)}</TableCell>
                         <TableCell>
                           <div className="flex flex-col items-start">
                             <span>₹{booking.total_amount?.toLocaleString() || 0}</span>
@@ -1315,7 +1338,7 @@ export default function BookingsPage() {
                         <p className="text-sm">{booking.venue_name}</p>
                       </div>
                       <div className="text-right">
-                        {getStatusBadge(booking.status)}
+                        {getStatusBadge(booking.status, booking)}
                         <p className="text-sm mt-1">₹{booking.total_amount?.toLocaleString() || 0}</p>
                       </div>
                     </div>
@@ -1487,7 +1510,7 @@ export default function BookingsPage() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Status</p>
-                      {getStatusBadge(selectedBooking.status)}
+                      {getStatusBadge(selectedBooking.status, selectedBooking)}
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Created Date</p>
