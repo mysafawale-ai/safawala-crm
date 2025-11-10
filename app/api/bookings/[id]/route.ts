@@ -156,9 +156,12 @@ export async function DELETE(
 
     // Delete related items first
     if (table === 'product_orders') {
-      await supabase.from('booking_items').delete().eq('order_id', params.id)
+      await supabase.from('product_order_items').delete().eq('order_id', params.id)
     } else if (table === 'package_bookings') {
-      await supabase.from('package_booking_items').delete().eq('package_id', params.id)
+      // Delete package booking items
+      await supabase.from('package_booking_items').delete().eq('booking_id', params.id)
+      // Delete package booking product items
+      await supabase.from('package_booking_product_items').delete().eq('package_booking_id', params.id)
     }
 
     // Delete the booking
