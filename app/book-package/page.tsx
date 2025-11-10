@@ -3082,7 +3082,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         .slice(2, 6)
         .toUpperCase()}`
 
-      // Try to get franchise_id (if present, include it; else omit)
+      // Get franchise_id - REQUIRED for franchise isolation
       let createdByFranchiseId: string | null = null
       try {
         const ures = await fetch('/api/auth/user', { cache: 'no-store' })
@@ -3090,7 +3090,15 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
           const ujson = await ures.json()
           createdByFranchiseId = ujson?.franchise_id || null
         }
-      } catch {}
+      } catch (e) {
+        console.error('Failed to get user franchise:', e)
+      }
+
+      // CRITICAL: Ensure franchise_id is set for proper isolation
+      if (!createdByFranchiseId) {
+        toast.error('Unable to determine franchise. Please try again.')
+        throw new Error('franchise_id is required for custom product creation')
+      }
 
       // Build base payload (use minimal fields to avoid schema mismatch)
       const basePayload: any = {
@@ -3103,9 +3111,10 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         stock_available: 100,
         is_active: true,
         product_code: productCode,
-        description: 'Custom product'
+        description: 'Custom product',
+        franchise_id: createdByFranchiseId, // ALWAYS set franchise_id
+        is_custom: true // Mark as custom product
       }
-      if (createdByFranchiseId) basePayload.franchise_id = createdByFranchiseId
 
       // Safe insert with auto-removal of unknown columns
       const insertProductSafely = async (payload: any) => {
