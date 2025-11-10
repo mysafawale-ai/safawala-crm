@@ -2737,6 +2737,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '' })
   const [creatingProduct, setCreatingProduct] = useState(false)
   const [showCameraDialog, setShowCameraDialog] = useState(false)
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('environment')
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
@@ -3041,10 +3042,12 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
 
       // Upload image to storage if it's a base64 string
       if (imageUrl && imageUrl.startsWith('data:image')) {
+        console.log('[Custom Product] Uploading base64 image to storage...')
         try {
           // Convert base64 to blob
           const response = await fetch(imageUrl)
           const blob = await response.blob()
+          console.log('[Custom Product] Base64 converted to blob:', blob.size, 'bytes, type:', blob.type)
           
           // Generate unique filename
           const timestamp = Date.now()
@@ -3061,7 +3064,12 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               upsert: true
             })
           
-          if (uploadError) throw uploadError
+          if (uploadError) {
+            console.error('[Custom Product] Supabase upload error:', uploadError)
+            throw uploadError
+          }
+          
+          console.log('[Custom Product] Upload successful:', uploadData)
           
           // Get public URL
           const { data: { publicUrl } } = supabase.storage
@@ -3069,8 +3077,10 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             .getPublicUrl(fileName)
           
           imageUrl = publicUrl
+          console.log('[Custom Product] Public URL generated:', imageUrl)
+          toast.success('Image uploaded successfully!')
         } catch (uploadError: any) {
-          console.error('Image upload failed:', uploadError)
+          console.error('[Custom Product] Image upload failed:', uploadError)
           toast.error('Image upload failed, creating product without image')
           imageUrl = null
         }
@@ -3139,9 +3149,15 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         return { data: null as any, error: new Error('Failed to insert product after resolving columns') }
       }
 
+      console.log('[Custom Product] Creating product with payload:', basePayload)
       const { data: product, error } = await insertProductSafely(basePayload)
       
-      if (error) throw error
+      if (error) {
+        console.error('[Custom Product] Product creation error:', error)
+        throw error
+      }
+      
+      console.log('[Custom Product] Product created successfully:', product)
       
       // Auto-generate barcodes for the custom product (generate 5 barcodes by default)
       try {
@@ -3184,7 +3200,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   const openCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user' } 
+        video: { facingMode: cameraFacing } 
       })
       streamRef.current = stream
       setShowCameraDialog(true)
@@ -3198,6 +3214,32 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
     } catch (error) {
       console.error('Camera access error:', error)
       toast.error('Could not access camera. Please check permissions.')
+    }
+  }
+
+  const switchCamera = async () => {
+    // Close current stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+    }
+    
+    // Toggle facing mode
+    const newFacing = cameraFacing === 'user' ? 'environment' : 'user'
+    setCameraFacing(newFacing)
+    
+    // Open new camera
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: newFacing } 
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+      toast.success(`Switched to ${newFacing === 'user' ? 'front' : 'back'} camera`)
+    } catch (error) {
+      console.error('Camera switch error:', error)
+      toast.error('Could not switch camera')
     }
   }
 
@@ -3777,7 +3819,12 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
       <Dialog open={showCameraDialog} onOpenChange={(open) => !open && closeCamera()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Take Photo</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Take Photo</span>
+              <Badge variant="outline" className="text-xs">
+                {cameraFacing === 'user' ? '📷 Front Camera' : '📷 Back Camera'}
+              </Badge>
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <video 
@@ -3787,14 +3834,23 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               className="w-full rounded-lg bg-black"
               style={{ maxHeight: '60vh' }}
             />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={closeCamera}>
-                Cancel
+            <div className="flex justify-between gap-2">
+              <Button 
+                variant="outline" 
+                onClick={switchCamera}
+                title="Switch Camera"
+              >
+                🔄 Switch Camera
               </Button>
-              <Button onClick={capturePhoto}>
-                <Camera className="w-4 h-4 mr-2" />
-                Capture
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={closeCamera}>
+                  Cancel
+                </Button>
+                <Button onClick={capturePhoto}>
+                  <Camera className="w-4 h-4 mr-2" />
+                  Capture
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

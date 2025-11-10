@@ -153,8 +153,11 @@ export function CustomProductDialog({
       if (imageFile && imagePreview) {
         setUploadingImage(true)
         try {
+          console.log("Uploading image file:", imageFile.name, imageFile.size, imageFile.type)
           const uploadResult = await uploadWithProgress(imageFile, { folder: "products" })
           imageUrl = uploadResult.url
+          console.log("Image uploaded successfully:", imageUrl)
+          toast.success("Image uploaded successfully!")
         } catch (error) {
           console.error("Image upload error:", error)
           toast.warning("Could not upload image, proceeding without image")
@@ -163,6 +166,7 @@ export function CustomProductDialog({
       }
 
       // Step 2: Create product in database
+      console.log("Creating product with image URL:", imageUrl)
       const productRes = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -186,8 +190,10 @@ export function CustomProductDialog({
       }
 
       const product = await productRes.json()
+      console.log("Product created successfully:", product)
 
       // Step 3: Auto-generate barcodes for the custom product (5 barcodes by default)
+      let barcodesGenerated = false
       try {
         const { generateBarcodesForProduct } = await import('@/lib/barcode-utils')
         const productCode = `CUST-${Date.now().toString(36).toUpperCase()}`
@@ -199,17 +205,24 @@ export function CustomProductDialog({
         )
         
         if (!barcodeResult.success) {
-          console.error('Auto-barcode generation failed:', barcodeResult.error)
+          console.warn('Auto-barcode generation failed:', barcodeResult.error)
+          console.warn('This is non-fatal. Product created successfully without barcodes.')
           // Non-fatal: continue without auto-barcodes
         } else {
-          console.log(`Auto-generated ${barcodeResult.barcodes?.length || 0} barcodes for custom product`)
+          console.log(`✓ Auto-generated ${barcodeResult.barcodes?.length || 0} barcodes for custom product`)
+          barcodesGenerated = true
         }
-      } catch (barcodeError) {
-        console.error('Error auto-generating barcodes:', barcodeError)
+      } catch (barcodeError: any) {
+        console.warn('Error auto-generating barcodes:', barcodeError.message || barcodeError)
+        console.warn('This is non-fatal. Product created successfully without barcodes.')
         // Non-fatal: continue
       }
 
-      toast.success(`Custom product "${formData.name}" created successfully with barcodes!`)
+      toast.success(
+        barcodesGenerated 
+          ? `Custom product "${formData.name}" created successfully with barcodes!`
+          : `Custom product "${formData.name}" created successfully!`
+      )
       onProductCreated({
         ...product,
         id: product.id,
@@ -422,22 +435,20 @@ export function CustomProductDialog({
                       variant="outline"
                       size="sm"
                       onClick={() => cameraInputRef.current?.click()}
-                      className="w-full"
+                      className="flex-1"
                     >
                       <Camera className="h-4 w-4 mr-2" />
                       Take Photo
                     </Button>
-                    {cameraInputRef.current && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={toggleCameraFacing}
-                        title={useCameraFacing === "environment" ? "Switch to Front Camera" : "Switch to Back Camera"}
-                      >
-                        🔄
-                      </Button>
-                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleCameraFacing}
+                      title={useCameraFacing === "environment" ? "Switch to Front Camera" : "Switch to Back Camera"}
+                    >
+                      🔄 {useCameraFacing === "environment" ? "Back" : "Front"}
+                    </Button>
                   </div>
                 </div>
               )}
