@@ -68,85 +68,67 @@ COMMENT ON COLUMN package_variants.deposit_amount IS 'Refundable security deposi
 -- ========================================
 
 -- 21 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '21 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '21 Safas'
+);
 
 -- 31 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '31 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '31 Safas'
+);
 
 -- 41 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '41 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '41 Safas'
+);
 
 -- 51 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '51 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '51 Safas'
+);
 
 -- 61 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '61 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '61 Safas'
+);
 
 -- 71 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '71 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '71 Safas'
+);
 
 -- 81 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '81 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '81 Safas'
+);
 
 -- 91 Safas - ₹5,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 5000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '91 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '91 Safas'
+);
 
 -- 101 Safas - ₹10,000 deposit
-UPDATE package_variants pv
+UPDATE package_variants
 SET deposit_amount = 10000
-FROM packages p
-WHERE pv.package_id = p.id
-  AND p.category_id IN (
-    SELECT id FROM product_categories WHERE name = '101 Safas'
-  );
+WHERE category_id IN (
+  SELECT id FROM packages_categories WHERE name = '101 Safas'
+);
 
 COMMIT;
 
@@ -167,8 +149,7 @@ SELECT
   MIN(pv.deposit_amount) as min_deposit,
   MAX(pv.deposit_amount) as max_deposit
 FROM package_variants pv
-JOIN packages p ON pv.package_id = p.id
-JOIN product_categories pc ON p.category_id = pc.id
+JOIN packages_categories pc ON pv.category_id = pc.id
 WHERE pc.name LIKE '% Safas'
 GROUP BY pc.name
 ORDER BY pc.name;
@@ -181,8 +162,7 @@ SELECT
   pv.deposit_amount,
   pv.is_active
 FROM package_variants pv
-JOIN packages p ON pv.package_id = p.id
-JOIN product_categories pc ON p.category_id = pc.id
+JOIN packages_categories pc ON pv.category_id = pc.id
 WHERE pc.name IN ('21 Safas', '31 Safas', '41 Safas', '51 Safas', '61 Safas', '71 Safas', '81 Safas', '91 Safas', '101 Safas')
 ORDER BY 
   CASE 
