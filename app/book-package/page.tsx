@@ -47,6 +47,80 @@ interface StaffMember { id: string; name: string; email: string; role: string; f
 // Currency formatter for Indian Rupees
 const formatCurrency = (amount: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(amount)
 
+// Time conversion helpers
+const convert24to12 = (time24: string): { time12: string; period: 'AM' | 'PM' } => {
+  const [hours, minutes] = time24.split(':').map(Number)
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const hours12 = hours % 12 || 12
+  return { time12: `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`, period }
+}
+
+const convert12to24 = (time12: string, period: 'AM' | 'PM'): string => {
+  const [hours, minutes] = time12.split(':').map(Number)
+  let hours24 = hours
+  if (period === 'PM' && hours !== 12) hours24 = hours + 12
+  if (period === 'AM' && hours === 12) hours24 = 0
+  return `${hours24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+}
+
+// Time Picker Component with AM/PM
+const TimePicker = ({ value, onChange, className }: { value: string; onChange: (value: string) => void; className?: string }) => {
+  const { time12, period } = convert24to12(value)
+  const [localTime, setLocalTime] = useState(time12)
+  const [localPeriod, setLocalPeriod] = useState<'AM' | 'PM'>(period)
+
+  useEffect(() => {
+    const { time12: newTime, period: newPeriod } = convert24to12(value)
+    setLocalTime(newTime)
+    setLocalPeriod(newPeriod)
+  }, [value])
+
+  const handleTimeChange = (newTime: string) => {
+    setLocalTime(newTime)
+    onChange(convert12to24(newTime, localPeriod))
+  }
+
+  const handlePeriodChange = (newPeriod: 'AM' | 'PM') => {
+    setLocalPeriod(newPeriod)
+    onChange(convert12to24(localTime, newPeriod))
+  }
+
+  return (
+    <div className={`flex gap-2 ${className || ''}`}>
+      <Input 
+        type="time" 
+        value={localTime} 
+        onChange={e => handleTimeChange(e.target.value)} 
+        className="text-sm flex-1"
+      />
+      <div className="flex border rounded-md overflow-hidden">
+        <button
+          type="button"
+          onClick={() => handlePeriodChange('AM')}
+          className={`px-3 py-1 text-sm font-medium transition-colors ${
+            localPeriod === 'AM' 
+              ? 'bg-green-700 text-white' 
+              : 'bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          AM
+        </button>
+        <button
+          type="button"
+          onClick={() => handlePeriodChange('PM')}
+          className={`px-3 py-1 text-sm font-medium transition-colors ${
+            localPeriod === 'PM' 
+              ? 'bg-green-700 text-white' 
+              : 'bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          PM
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const STEPS = [
   { id: 1, name: "Customer & Event", icon: User },
   { id: 2, name: "Package Selection", icon: Package },
@@ -466,13 +540,24 @@ export default function BookPackageWizard() {
       const packagePrice = customPricing.package_price || 0
       const gst = packagePrice * 0.05
       const grand = packagePrice + gst
-  // Use regular payment_type rules for payable/remaining in custom mode
-  let payable = grand
-  const advanceDue = formData.payment_type === "advance" ? grand * 0.5 : 0
-  if (formData.payment_type === "advance") payable = advanceDue
-  else if (formData.payment_type === "partial") payable = Math.min(grand, Math.max(0, formData.custom_amount))
-  const remaining = grand - payable
+      
+      // Security deposit (no GST, separate from package)
       const securityDeposit = bookingItems.reduce((s, i) => s + (i.security_deposit || 0) * i.quantity, 0)
+      
+      let payable = grand
+      let advanceDue = 0
+      
+      // NEW ADVANCE LOGIC: ₹5,000 fixed + divide the rest
+      if (formData.payment_type === "advance") {
+        const fixedAdvance = 5000
+        const restAmount = Math.max(0, grand - fixedAdvance)
+        advanceDue = fixedAdvance + (restAmount / 2)
+        payable = advanceDue
+      } else if (formData.payment_type === "partial") {
+        payable = Math.min(grand, Math.max(0, formData.custom_amount))
+      }
+      
+      const remaining = grand - payable
       const depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
       const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
       const payableNowTotal = payable + depositDueNow
@@ -522,12 +607,22 @@ export default function BookPackageWizard() {
     const gst = subtotalAfterCoupon * 0.05
     const grand = subtotalAfterCoupon + gst
     
-    let payable = grand // package portion due now
-    const advanceDue = formData.payment_type === "advance" ? grand * 0.5 : 0
-    if (formData.payment_type === "advance") payable = advanceDue
-    else if (formData.payment_type === "partial") payable = Math.min(grand, Math.max(0, formData.custom_amount))
-    
+    // Security deposit (no GST, separate from package)
     const securityDeposit = bookingItems.reduce((s, i) => s + (i.security_deposit || 0) * i.quantity, 0)
+    
+    let payable = grand // package portion due now
+    let advanceDue = 0
+    
+    // NEW ADVANCE LOGIC: ₹5,000 fixed + divide the rest
+    if (formData.payment_type === "advance") {
+      const fixedAdvance = 5000
+      const restAmount = Math.max(0, grand - fixedAdvance)
+      advanceDue = fixedAdvance + (restAmount / 2)
+      payable = advanceDue
+    } else if (formData.payment_type === "partial") {
+      payable = Math.min(grand, Math.max(0, formData.custom_amount))
+    }
+    
     const depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
     const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
     const payableNowTotal = payable + depositDueNow
@@ -1548,7 +1643,7 @@ export default function BookPackageWizard() {
                             />
                           </PopoverContent>
                         </Popover>
-                        <Input type="time" value={formData.event_time} onChange={e => setFormData(f => ({ ...f, event_time: e.target.value }))} className="text-sm" />
+                        <TimePicker value={formData.event_time} onChange={value => setFormData(f => ({ ...f, event_time: value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs">Delivery Date & Time</Label>
@@ -1567,7 +1662,7 @@ export default function BookPackageWizard() {
                             />
                           </PopoverContent>
                         </Popover>
-                        <Input type="time" value={formData.delivery_time} onChange={e => setFormData(f => ({ ...f, delivery_time: e.target.value }))} className="text-sm" />
+                        <TimePicker value={formData.delivery_time} onChange={value => setFormData(f => ({ ...f, delivery_time: value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs">Return Date & Time</Label>
@@ -1586,7 +1681,7 @@ export default function BookPackageWizard() {
                             />
                           </PopoverContent>
                         </Popover>
-                        <Input type="time" value={formData.return_time} onChange={e => setFormData(f => ({ ...f, return_time: e.target.value }))} className="text-sm" />
+                        <TimePicker value={formData.return_time} onChange={value => setFormData(f => ({ ...f, return_time: value }))} />
                       </div>
                     </div>
 
@@ -1899,37 +1994,37 @@ export default function BookPackageWizard() {
                   <div className="flex justify-between"><span>GST (5%)</span><span>{formatCurrency(totals.gst)}</span></div>
                   
                   <div className="flex justify-between font-bold text-base border-t pt-2 mt-1">
-                    <span>Grand Total (Package)</span>
+                    <span>Grand Total</span>
                     <span>{formatCurrency(totals.grand)}</span>
                   </div>
                   
-                  {!useCustomPricing && totals.securityDeposit > 0 && (
+                  {totals.securityDeposit > 0 && (
                     <>
                       <div className="h-px bg-gray-200 my-2" />
                       <div className="flex justify-between text-amber-700 font-semibold">
                         <div className="flex items-center gap-1">
-                          <span>{DEPOSIT_POLICY.label}</span>
-                          <span className="text-[10px] font-normal text-amber-600">(Refundable)</span>
+                          <span>Security Deposit</span>
+                          <span className="text-[10px] font-normal text-amber-600">(Refundable, No GST)</span>
                         </div>
                         <span>{formatCurrency(totals.securityDeposit)}</span>
                       </div>
                       {DEPOSIT_POLICY.collectAt === 'booking' ? (
-                        <div className="text-[11px] text-amber-600 -mt-1">
-                          ✓ Included in first payment
+                        <div className="text-[11px] text-amber-600 mt-0.5">
+                          ✓ To be collected with first payment
                         </div>
                       ) : DEPOSIT_POLICY.collectAt === 'delivery' ? (
-                        <div className="text-[11px] text-amber-600 -mt-1">
-                          To be collected at delivery
+                        <div className="text-[11px] text-amber-600 mt-0.5">
+                          ✓ To be collected at delivery
                         </div>
                       ) : null}
                     </>
                   )}
                   
-                  {!useCustomPricing && formData.payment_type === 'advance' && (
+                  {formData.payment_type === 'advance' && (
                     <>
                       <div className="h-px bg-gray-200 my-2" />
                       <div className="flex justify-between text-blue-600">
-                        <span>Advance Payment (50% of Package)</span>
+                        <span>Advance Payment (₹5,000 + 50% of rest)</span>
                         <span>{formatCurrency(totals.advanceDue)}</span>
                       </div>
                     </>
