@@ -63,7 +63,66 @@ const convert12to24 = (time12: string, period: 'AM' | 'PM'): string => {
   return `${hours24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
 }
 
-// Time Picker Component with AM/PM - Dropdown Version
+// Custom Scrollable Select Component
+const ScrollableSelect = ({ value, onChange, options, className }: { 
+  value: string; 
+  onChange: (value: string) => void; 
+  options: string[]; 
+  className?: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const selectedRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (isOpen && selectedRef.current) {
+      selectedRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [isOpen])
+
+  return (
+    <div ref={dropdownRef} className={`relative ${className || ''}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full h-9 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-left font-medium"
+      >
+        {value}
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+          {options.map(opt => (
+            <div
+              key={opt}
+              ref={opt === value ? selectedRef : null}
+              onClick={() => {
+                onChange(opt)
+                setIsOpen(false)
+              }}
+              className={`px-3 py-2 cursor-pointer text-sm hover:bg-green-50 ${
+                opt === value ? 'bg-green-100 text-green-800 font-semibold' : 'text-gray-700'
+              }`}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Time Picker Component with AM/PM - Custom Dropdown Version
 const TimePicker = ({ value, onChange, className }: { value: string; onChange: (value: string) => void; className?: string }) => {
   const { time12, period } = convert24to12(value)
   const [hours, minutes] = time12.split(':')
@@ -84,14 +143,12 @@ const TimePicker = ({ value, onChange, className }: { value: string; onChange: (
     onChange(convert12to24(time12, localPeriod))
   }
 
-  const handleHoursChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newHours = e.target.value
+  const handleHoursChange = (newHours: string) => {
     setLocalHours(newHours)
     handleTimeChange(newHours, localMinutes)
   }
 
-  const handleMinutesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newMinutes = e.target.value
+  const handleMinutesChange = (newMinutes: string) => {
     setLocalMinutes(newMinutes)
     handleTimeChange(localHours, newMinutes)
   }
@@ -116,25 +173,19 @@ const TimePicker = ({ value, onChange, className }: { value: string; onChange: (
   return (
     <div className={`flex gap-2 ${className || ''}`}>
       <div className="flex items-center gap-1 flex-1">
-        <select
+        <ScrollableSelect
           value={localHours}
           onChange={handleHoursChange}
-          className="flex-1 h-9 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-        >
-          {hourOptions.map(hour => (
-            <option key={hour} value={hour}>{hour}</option>
-          ))}
-        </select>
+          options={hourOptions}
+          className="flex-1"
+        />
         <span className="text-sm font-medium">:</span>
-        <select
+        <ScrollableSelect
           value={localMinutes}
           onChange={handleMinutesChange}
-          className="flex-1 h-9 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-        >
-          {minuteOptions.map(minute => (
-            <option key={minute} value={minute}>{minute}</option>
-          ))}
-        </select>
+          options={minuteOptions}
+          className="flex-1"
+        />
       </div>
       <div className="flex border rounded-md overflow-hidden">
         <button
@@ -2065,36 +2116,70 @@ export default function BookPackageWizard() {
                   
                   {/* Payment Breakdown - Show for all payment types */}
                   <div className="h-px bg-gray-200 my-2" />
-                  {formData.payment_type === 'full' && (
-                    <div className="flex justify-between text-green-700 font-semibold">
-                      <span>Full Payment</span>
-                      <span>{formatCurrency(totals.grand)}</span>
-                    </div>
-                  )}
-                  {formData.payment_type === 'advance' && (
-                    <>
-                      <div className="flex justify-between text-blue-600 font-semibold">
-                        <span>Advance Payment (₹5,000 + 50% of rest)</span>
-                        <span>{formatCurrency(totals.advanceDue)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-600 mt-1">
-                        <span>Remaining Package Amount</span>
-                        <span>{formatCurrency(totals.remaining)}</span>
-                      </div>
-                    </>
-                  )}
-                  {formData.payment_type === 'partial' && formData.custom_amount > 0 && (
-                    <>
-                      <div className="flex justify-between text-purple-600 font-semibold">
-                        <span>Partial Payment</span>
-                        <span>{formatCurrency(totals.payable)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-600 mt-1">
-                        <span>Remaining Package Amount</span>
-                        <span>{formatCurrency(totals.remaining)}</span>
-                      </div>
-                    </>
-                  )}
+                  <div className="space-y-2">
+                    {formData.payment_type === 'full' && (
+                      <>
+                        <div className="flex justify-between text-green-700 font-semibold">
+                          <span>Package Payment (Full)</span>
+                          <span>{formatCurrency(totals.grand)}</span>
+                        </div>
+                        {totals.securityDeposit > 0 && (
+                          <div className="flex justify-between text-amber-700 text-sm">
+                            <span>+ Deposit (Refundable)</span>
+                            <span>+{formatCurrency(totals.securityDeposit)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg border-t pt-2 text-green-700">
+                          <span>Total to Pay Now</span>
+                          <span>{formatCurrency(totals.grand + totals.securityDeposit)}</span>
+                        </div>
+                      </>
+                    )}
+                    {formData.payment_type === 'advance' && (
+                      <>
+                        <div className="flex justify-between text-blue-600 font-semibold">
+                          <span>Package Advance (₹5k + 50% rest)</span>
+                          <span>{formatCurrency(totals.advanceDue)}</span>
+                        </div>
+                        {totals.securityDeposit > 0 && (
+                          <div className="flex justify-between text-amber-700 text-sm">
+                            <span>+ Deposit (Refundable)</span>
+                            <span>+{formatCurrency(totals.securityDeposit)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg border-t pt-2 text-blue-700">
+                          <span>Total to Pay Now</span>
+                          <span>{formatCurrency(totals.advanceDue + totals.securityDeposit)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
+                          <span>Remaining Package Later</span>
+                          <span>{formatCurrency(totals.remaining)}</span>
+                        </div>
+                      </>
+                    )}
+                    {formData.payment_type === 'partial' && (
+                      <>
+                        <div className="flex justify-between text-purple-600 font-semibold">
+                          <span>Package Partial Payment</span>
+                          <span>{formatCurrency(totals.payable)}</span>
+                        </div>
+                        {totals.securityDeposit > 0 && (
+                          <div className="flex justify-between text-amber-700 text-sm">
+                            <span>+ Deposit (Refundable)</span>
+                            <span>+{formatCurrency(totals.securityDeposit)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg border-t pt-2 text-purple-700">
+                          <span>Total to Pay Now</span>
+                          <span>{formatCurrency(totals.payable + totals.securityDeposit)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
+                          <span>Remaining Package Later</span>
+                          <span>{formatCurrency(totals.remaining)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Discount & Coupon Section */}
