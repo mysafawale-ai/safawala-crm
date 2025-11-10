@@ -66,33 +66,81 @@ const convert12to24 = (time12: string, period: 'AM' | 'PM'): string => {
 // Time Picker Component with AM/PM
 const TimePicker = ({ value, onChange, className }: { value: string; onChange: (value: string) => void; className?: string }) => {
   const { time12, period } = convert24to12(value)
-  const [localTime, setLocalTime] = useState(time12)
+  const [hours, minutes] = time12.split(':')
+  const [localHours, setLocalHours] = useState(hours)
+  const [localMinutes, setLocalMinutes] = useState(minutes)
   const [localPeriod, setLocalPeriod] = useState<'AM' | 'PM'>(period)
 
   useEffect(() => {
     const { time12: newTime, period: newPeriod } = convert24to12(value)
-    setLocalTime(newTime)
+    const [h, m] = newTime.split(':')
+    setLocalHours(h)
+    setLocalMinutes(m)
     setLocalPeriod(newPeriod)
   }, [value])
 
-  const handleTimeChange = (newTime: string) => {
-    setLocalTime(newTime)
-    onChange(convert12to24(newTime, localPeriod))
+  const handleTimeChange = (newHours: string, newMinutes: string) => {
+    const time12 = `${newHours.padStart(2, '0')}:${newMinutes.padStart(2, '0')}`
+    onChange(convert12to24(time12, localPeriod))
+  }
+
+  const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^0-9]/g, '')
+    if (val === '') {
+      setLocalHours('')
+      return
+    }
+    let num = parseInt(val)
+    if (num > 12) num = 12
+    if (num < 1) num = 1
+    const newHours = num.toString()
+    setLocalHours(newHours)
+    handleTimeChange(newHours, localMinutes)
+  }
+
+  const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^0-9]/g, '')
+    if (val === '') {
+      setLocalMinutes('')
+      return
+    }
+    let num = parseInt(val)
+    if (num > 59) num = 59
+    if (num < 0) num = 0
+    const newMinutes = num.toString()
+    setLocalMinutes(newMinutes)
+    handleTimeChange(localHours, newMinutes)
   }
 
   const handlePeriodChange = (newPeriod: 'AM' | 'PM') => {
     setLocalPeriod(newPeriod)
-    onChange(convert12to24(localTime, newPeriod))
+    const time12 = `${localHours.padStart(2, '0')}:${localMinutes.padStart(2, '0')}`
+    onChange(convert12to24(time12, newPeriod))
   }
 
   return (
     <div className={`flex gap-2 ${className || ''}`}>
-      <Input 
-        type="time" 
-        value={localTime} 
-        onChange={e => handleTimeChange(e.target.value)} 
-        className="text-sm flex-1"
-      />
+      <div className="flex items-center gap-1 flex-1 border rounded-md px-3 py-2 bg-white">
+        <input
+          type="text"
+          value={localHours}
+          onChange={handleHoursChange}
+          onBlur={() => setLocalHours(localHours.padStart(2, '0'))}
+          placeholder="HH"
+          maxLength={2}
+          className="w-8 text-sm text-center outline-none"
+        />
+        <span className="text-sm font-medium">:</span>
+        <input
+          type="text"
+          value={localMinutes}
+          onChange={handleMinutesChange}
+          onBlur={() => setLocalMinutes(localMinutes.padStart(2, '0'))}
+          placeholder="MM"
+          maxLength={2}
+          className="w-8 text-sm text-center outline-none"
+        />
+      </div>
       <div className="flex border rounded-md overflow-hidden">
         <button
           type="button"
@@ -2020,12 +2068,35 @@ export default function BookPackageWizard() {
                     </>
                   )}
                   
+                  {/* Payment Breakdown - Show for all payment types */}
+                  <div className="h-px bg-gray-200 my-2" />
+                  {formData.payment_type === 'full' && (
+                    <div className="flex justify-between text-green-700 font-semibold">
+                      <span>Full Payment</span>
+                      <span>{formatCurrency(totals.grand)}</span>
+                    </div>
+                  )}
                   {formData.payment_type === 'advance' && (
                     <>
-                      <div className="h-px bg-gray-200 my-2" />
-                      <div className="flex justify-between text-blue-600">
+                      <div className="flex justify-between text-blue-600 font-semibold">
                         <span>Advance Payment (₹5,000 + 50% of rest)</span>
                         <span>{formatCurrency(totals.advanceDue)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-600 mt-1">
+                        <span>Remaining Package Amount</span>
+                        <span>{formatCurrency(totals.remaining)}</span>
+                      </div>
+                    </>
+                  )}
+                  {formData.payment_type === 'partial' && formData.custom_amount > 0 && (
+                    <>
+                      <div className="flex justify-between text-purple-600 font-semibold">
+                        <span>Partial Payment</span>
+                        <span>{formatCurrency(totals.payable)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-600 mt-1">
+                        <span>Remaining Package Amount</span>
+                        <span>{formatCurrency(totals.remaining)}</span>
                       </div>
                     </>
                   )}
