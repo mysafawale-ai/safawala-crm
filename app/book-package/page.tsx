@@ -649,9 +649,9 @@ export default function BookPackageWizard() {
       let payable = grand
       let advanceDue = 0
       
-      // NEW ADVANCE LOGIC: ₹5,000 fixed + divide the rest
+      // NEW ADVANCE LOGIC: Use security deposit as fixed amount + 50% of the rest
       if (formData.payment_type === "advance") {
-        const fixedAdvance = 5000
+        const fixedAdvance = securityDeposit > 0 ? securityDeposit : 5000
         const restAmount = Math.max(0, grand - fixedAdvance)
         advanceDue = fixedAdvance + (restAmount / 2)
         payable = advanceDue
@@ -715,9 +715,9 @@ export default function BookPackageWizard() {
     let payable = grand // package portion due now
     let advanceDue = 0
     
-    // NEW ADVANCE LOGIC: ₹5,000 fixed + divide the rest
+    // NEW ADVANCE LOGIC: Use security deposit as fixed amount + 50% of the rest
     if (formData.payment_type === "advance") {
-      const fixedAdvance = 5000
+      const fixedAdvance = securityDeposit > 0 ? securityDeposit : 5000
       const restAmount = Math.max(0, grand - fixedAdvance)
       advanceDue = fixedAdvance + (restAmount / 2)
       payable = advanceDue
@@ -2122,72 +2122,76 @@ export default function BookPackageWizard() {
                     </>
                   )}
                   
-                  {/* Payment Breakdown - Show for all payment types */}
-                  <div className="h-px bg-gray-200 my-2" />
-                  <div className="space-y-2">
-                    {formData.payment_type === 'full' && (
-                      <>
-                        <div className="flex justify-between text-green-700 font-semibold">
-                          <span>Package Payment (Full)</span>
-                          <span>{formatCurrency(totals.grand)}</span>
-                        </div>
-                        {totals.securityDeposit > 0 && (
-                          <div className="flex justify-between text-amber-700 text-sm">
-                            <span>+ Deposit (Refundable)</span>
-                            <span>+{formatCurrency(totals.securityDeposit)}</span>
-                          </div>
+                  {/* Payment Breakdown - Show only when items are added */}
+                  {bookingItems.length > 0 && (
+                    <>
+                      <div className="h-px bg-gray-200 my-2" />
+                      <div className="space-y-2">
+                        {formData.payment_type === 'full' && (
+                          <>
+                            <div className="flex justify-between text-green-700 font-semibold">
+                              <span>Package Payment (Full)</span>
+                              <span>{formatCurrency(totals.grand)}</span>
+                            </div>
+                            {totals.securityDeposit > 0 && (
+                              <div className="flex justify-between text-amber-700 text-sm">
+                                <span>+ Deposit (Refundable)</span>
+                                <span>+{formatCurrency(totals.securityDeposit)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-bold text-lg border-t pt-2 text-green-700">
+                              <span>Total to Pay Now</span>
+                              <span>{formatCurrency(totals.grand + totals.securityDeposit)}</span>
+                            </div>
+                          </>
                         )}
-                        <div className="flex justify-between font-bold text-lg border-t pt-2 text-green-700">
-                          <span>Total to Pay Now</span>
-                          <span>{formatCurrency(totals.grand + totals.securityDeposit)}</span>
-                        </div>
-                      </>
-                    )}
-                    {formData.payment_type === 'advance' && (
-                      <>
-                        <div className="flex justify-between text-blue-600 font-semibold">
-                          <span>Package Advance (₹5k + 50% rest)</span>
-                          <span>{formatCurrency(totals.advanceDue)}</span>
-                        </div>
-                        {totals.securityDeposit > 0 && (
-                          <div className="flex justify-between text-amber-700 text-sm">
-                            <span>+ Deposit (Refundable)</span>
-                            <span>+{formatCurrency(totals.securityDeposit)}</span>
-                          </div>
+                        {formData.payment_type === 'advance' && (
+                          <>
+                            <div className="flex justify-between text-blue-600 font-semibold">
+                              <span>Package Advance ({totals.securityDeposit > 0 ? `${formatCurrency(totals.securityDeposit).replace('₹', '₹')} + 50% rest` : '₹5,000 + 50% rest'})</span>
+                              <span>{formatCurrency(totals.advanceDue)}</span>
+                            </div>
+                            {totals.securityDeposit > 0 && (
+                              <div className="flex justify-between text-amber-700 text-sm">
+                                <span>+ Deposit (Refundable)</span>
+                                <span>+{formatCurrency(totals.securityDeposit)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-bold text-lg border-t pt-2 text-blue-700">
+                              <span>Total to Pay Now</span>
+                              <span>{formatCurrency(totals.advanceDue + totals.securityDeposit)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
+                              <span>Remaining Package Later</span>
+                              <span>{formatCurrency(totals.remaining)}</span>
+                            </div>
+                          </>
                         )}
-                        <div className="flex justify-between font-bold text-lg border-t pt-2 text-blue-700">
-                          <span>Total to Pay Now</span>
-                          <span>{formatCurrency(totals.advanceDue + totals.securityDeposit)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
-                          <span>Remaining Package Later</span>
-                          <span>{formatCurrency(totals.remaining)}</span>
-                        </div>
-                      </>
-                    )}
-                    {formData.payment_type === 'partial' && (
-                      <>
-                        <div className="flex justify-between text-purple-600 font-semibold">
-                          <span>Package Partial Payment</span>
-                          <span>{formatCurrency(totals.payable)}</span>
-                        </div>
-                        {totals.securityDeposit > 0 && (
-                          <div className="flex justify-between text-amber-700 text-sm">
-                            <span>+ Deposit (Refundable)</span>
-                            <span>+{formatCurrency(totals.securityDeposit)}</span>
-                          </div>
+                        {formData.payment_type === 'partial' && (
+                          <>
+                            <div className="flex justify-between text-purple-600 font-semibold">
+                              <span>Package Partial Payment</span>
+                              <span>{formatCurrency(totals.payable)}</span>
+                            </div>
+                            {totals.securityDeposit > 0 && (
+                              <div className="flex justify-between text-amber-700 text-sm">
+                                <span>+ Deposit (Refundable)</span>
+                                <span>+{formatCurrency(totals.securityDeposit)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-bold text-lg border-t pt-2 text-purple-700">
+                              <span>Total to Pay Now</span>
+                              <span>{formatCurrency(totals.payable + totals.securityDeposit)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
+                              <span>Remaining Package Later</span>
+                              <span>{formatCurrency(totals.remaining)}</span>
+                            </div>
+                          </>
                         )}
-                        <div className="flex justify-between font-bold text-lg border-t pt-2 text-purple-700">
-                          <span>Total to Pay Now</span>
-                          <span>{formatCurrency(totals.payable + totals.securityDeposit)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
-                          <span>Remaining Package Later</span>
-                          <span>{formatCurrency(totals.remaining)}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 {/* Discount & Coupon Section */}
