@@ -38,18 +38,36 @@ export class ProductItemService {
       // First get the product details
       const { data: product, error: productError } = await supabase
         .from("products")
-        .select("product_code, franchise_id")
+        .select("product_code, franchise_id, name")
         .eq("id", request.product_id)
         .single()
 
       if (productError) throw productError
+
+      // Handle missing product_code for custom products
+      let productCode = product.product_code
+      if (!productCode) {
+        // Generate a product code if missing (for legacy custom products)
+        productCode = `CUST-${Date.now().toString(36).toUpperCase()}`
+        
+        // Update the product with the generated code
+        const { error: updateError } = await supabase
+          .from("products")
+          .update({ product_code: productCode })
+          .eq("id", request.product_id)
+        
+        if (updateError) {
+          console.error("Failed to update product_code:", updateError)
+          // Continue anyway with the generated code
+        }
+      }
 
       // Get the current highest item number for this product
       const { data: existingItems, error: existingError } = await supabase
         .from("product_items")
         .select("item_code")
         .eq("product_id", request.product_id)
-        .like("item_code", `${product.product_code}-%`)
+        .like("item_code", `${productCode}-%`)
         .order("item_code", { ascending: false })
         .limit(1)
 
@@ -70,7 +88,7 @@ export class ProductItemService {
 
       for (let i = 0; i < request.quantity; i++) {
         const itemNumber = startNumber + i
-        const itemCode = `${product.product_code}-${itemNumber.toString().padStart(4, "0")}`
+        const itemCode = `${productCode}-${itemNumber.toString().padStart(4, "0")}`
         const barcode = `${Date.now()}${itemNumber.toString().padStart(6, "0")}`
 
         items.push({
