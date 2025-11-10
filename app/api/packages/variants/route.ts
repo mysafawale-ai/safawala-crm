@@ -72,7 +72,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch variants' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, data: data || [] })
+    // Map deposit_amount to security_deposit for frontend compatibility
+    const mappedData = (data || []).map((variant: any) => ({
+      ...variant,
+      security_deposit: variant.deposit_amount || variant.security_deposit || 0
+    }))
+
+    return NextResponse.json({ success: true, data: mappedData })
   } catch (error: any) {
     console.error('[Variants API] GET Error:', error)
     return NextResponse.json(
