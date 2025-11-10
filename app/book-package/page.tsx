@@ -86,21 +86,27 @@ const ScrollableSelect = ({ value, onChange, options, className }: {
 
   useEffect(() => {
     if (isOpen && selectedRef.current) {
-      selectedRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      selectedRef.current.scrollIntoView({ block: 'center', behavior: 'auto' })
     }
   }, [isOpen])
 
   return (
-    <div ref={dropdownRef} className={`relative ${className || ''}`}>
+    <div ref={dropdownRef} className={`relative ${className || ''}`} style={{ zIndex: isOpen ? 9999 : 'auto' }}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-9 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-left font-medium"
+        className="w-full h-9 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center font-semibold"
       >
         {value}
       </button>
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+        <div 
+          className="absolute mt-1 w-full bg-white border-2 border-green-500 rounded-md shadow-2xl overflow-y-auto"
+          style={{ 
+            maxHeight: '180px',
+            zIndex: 10000
+          }}
+        >
           {options.map(opt => (
             <div
               key={opt}
@@ -109,8 +115,10 @@ const ScrollableSelect = ({ value, onChange, options, className }: {
                 onChange(opt)
                 setIsOpen(false)
               }}
-              className={`px-3 py-2 cursor-pointer text-sm hover:bg-green-50 ${
-                opt === value ? 'bg-green-100 text-green-800 font-semibold' : 'text-gray-700'
+              className={`px-3 py-2.5 cursor-pointer text-center font-medium transition-colors ${
+                opt === value 
+                  ? 'bg-green-600 text-white' 
+                  : 'text-gray-700 hover:bg-green-50 hover:text-green-700'
               }`}
             >
               {opt}
