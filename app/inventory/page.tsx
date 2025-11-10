@@ -136,8 +136,9 @@ export default function InventoryPage() {
         .select("*")
         .order("created_at", { ascending: false })
       // Only filter by franchise for non-super-admins
+      // Include products with NULL franchise_id (legacy/custom products)
       if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
-        query = query.eq("franchise_id", currentUser.franchise_id)
+        query = query.or(`franchise_id.eq.${currentUser.franchise_id},franchise_id.is.null`)
       }
       const { data, error } = await query
       if (error) throw error
