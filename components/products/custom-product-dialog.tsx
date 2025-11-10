@@ -187,25 +187,29 @@ export function CustomProductDialog({
 
       const product = await productRes.json()
 
-      // Step 3: Generate barcode if requested
-      if (generateBarcode && formData.barcode_number) {
-        const barcodeRes = await fetch("/api/barcodes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            product_id: product.id,
-            barcode_number: formData.barcode_number,
-            barcode_type: "CUSTOM",
-            is_active: true,
-          }),
-        })
-
-        if (!barcodeRes.ok) {
-          console.warn("Failed to create barcode, but product was created")
+      // Step 3: Auto-generate barcodes for the custom product (5 barcodes by default)
+      try {
+        const { generateBarcodesForProduct } = await import('@/lib/barcode-utils')
+        const productCode = `CUST-${Date.now().toString(36).toUpperCase()}`
+        const barcodeResult = await generateBarcodesForProduct(
+          product.id,
+          product.product_code || productCode,
+          franchiseId,
+          5 // Generate 5 barcodes for custom products
+        )
+        
+        if (!barcodeResult.success) {
+          console.error('Auto-barcode generation failed:', barcodeResult.error)
+          // Non-fatal: continue without auto-barcodes
+        } else {
+          console.log(`Auto-generated ${barcodeResult.barcodes?.length || 0} barcodes for custom product`)
         }
+      } catch (barcodeError) {
+        console.error('Error auto-generating barcodes:', barcodeError)
+        // Non-fatal: continue
       }
 
-      toast.success(`Custom product "${formData.name}" created successfully!`)
+      toast.success(`Custom product "${formData.name}" created successfully with barcodes!`)
       onProductCreated({
         ...product,
         id: product.id,

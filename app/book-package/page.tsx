@@ -3143,6 +3143,25 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
       
       if (error) throw error
       
+      // Auto-generate barcodes for the custom product (generate 5 barcodes by default)
+      try {
+        const { generateBarcodesForProduct } = await import('@/lib/barcode-utils')
+        const barcodeResult = await generateBarcodesForProduct(
+          product.id,
+          productCode,
+          createdByFranchiseId,
+          5 // Generate 5 barcodes for custom products
+        )
+        
+        if (!barcodeResult.success) {
+          console.error('Barcode generation failed:', barcodeResult.error)
+          // Non-fatal: continue without barcodes
+        }
+      } catch (barcodeError) {
+        console.error('Error generating barcodes:', barcodeError)
+        // Non-fatal: continue
+      }
+      
       // Add to products list
       setProducts(prev => [...prev, product as any])
       
