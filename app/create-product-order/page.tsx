@@ -817,6 +817,11 @@ export default function CreateProductOrderPage() {
         // Generate DSL* prefix for direct sales
         const saleNumber = `DSL${Date.now().toString().slice(-8)}`
         
+        // Determine status based on payment type:
+        // - Full payment → "confirmed" (ready to proceed)
+        // - Advance/Partial payment → "pending_payment" (needs payment confirmation)
+        const saleStatus = formData.payment_type === "full" ? "confirmed" : "pending_payment"
+        
         // Prepare sale data
         const saleData = {
           sale_number: saleNumber,
@@ -840,7 +845,7 @@ export default function CreateProductOrderPage() {
           total_amount: totals.grand,
           amount_paid: amountPaidNow,
           pending_amount: totals.remaining,
-          status: "confirmed",
+          status: saleStatus,
           notes: formData.notes,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
         }
@@ -881,6 +886,17 @@ export default function CreateProductOrderPage() {
       }
 
       // ✅ EXISTING: Rentals and quotes use product_orders table
+      // Determine status based on payment type:
+      // - Full payment → "confirmed" (ready to proceed)
+      // - Advance/Partial payment → "pending_payment" (needs payment confirmation)
+      // - Quote → "quote" (not an order yet)
+      let bookingStatus = "pending_payment" // default for new bookings
+      if (isQuote) {
+        bookingStatus = "quote"
+      } else if (formData.payment_type === "full") {
+        bookingStatus = "confirmed"
+      }
+
       const { data: order, error } = await supabase
         .from("product_orders")
         .insert({
@@ -917,7 +933,7 @@ export default function CreateProductOrderPage() {
           modification_date: modificationDateTime,
           delivery_time: formData.delivery_time || null,
           modification_time: formData.modification_time || null,
-          status: isQuote ? "quote" : "confirmed",
+          status: bookingStatus,
           is_quote: isQuote,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
         })
@@ -1277,11 +1293,11 @@ export default function CreateProductOrderPage() {
                       <Input
                         type="number"
                         min={0}
-                        value={formData.custom_amount}
+                        value={formData.custom_amount || ''}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            custom_amount: Number(e.target.value || 0),
+                            custom_amount: e.target.value === '' ? 0 : Number(e.target.value),
                           })
                         }
                         className="mt-2"
@@ -1967,9 +1983,9 @@ export default function CreateProductOrderPage() {
                               type="number"
                               min={1}
                               max={it.stock_available}
-                              value={it.quantity}
+                              value={it.quantity || ''}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1
+                                const val = e.target.value === '' ? 1 : parseInt(e.target.value) || 1
                                 updateQuantity(it.id, val)
                               }}
                               className="w-16 h-8 text-center text-sm"
@@ -2038,11 +2054,11 @@ export default function CreateProductOrderPage() {
                     <Input
                       type="number"
                       min={0}
-                      value={formData.deposit_amount || 0}
+                      value={formData.deposit_amount || ''}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          deposit_amount: Number(e.target.value || 0),
+                          deposit_amount: e.target.value === '' ? 0 : Number(e.target.value),
                         })
                       }
                       className="mt-1"
@@ -2065,11 +2081,11 @@ export default function CreateProductOrderPage() {
                   <Input
                     type="number"
                     min={0}
-                    value={formData.discount_amount}
+                    value={formData.discount_amount || ''}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        discount_amount: Number(e.target.value || 0),
+                        discount_amount: e.target.value === '' ? 0 : Number(e.target.value),
                       })
                     }
                     className="mt-1"

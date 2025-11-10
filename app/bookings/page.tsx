@@ -451,6 +451,7 @@ export default function BookingsPage() {
 
   const getStatusBadge = (status: string, booking?: any) => {
     const statusConfig = {
+      pending_payment: { label: "Pending Payment", variant: "warning" as const },
       pending_selection: { label: "Pending Selection", variant: "info" as const },
       confirmed: { label: "Confirmed", variant: "default" as const },
       delivered: { label: "Delivered", variant: "success" as const },
@@ -460,18 +461,9 @@ export default function BookingsPage() {
     }
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.confirmed
     
-    // Show payment status for confirmed bookings with advance/partial payment
-    const hasPartialPayment = booking && status === 'confirmed' && 
-      (booking.payment_type === 'advance' || booking.payment_type === 'partial')
-    
     return (
       <div className="flex flex-col gap-1">
         <Badge variant={config.variant}>{config.label}</Badge>
-        {hasPartialPayment && (
-          <Badge variant="outline" className="text-orange-600 border-orange-400 bg-orange-50">
-            💰 Pending Payment
-          </Badge>
-        )}
       </div>
     )
   }
@@ -1015,6 +1007,7 @@ export default function BookingsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending_payment">Pending Payment</SelectItem>
                 <SelectItem value="pending_selection">Pending Selection</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>

@@ -1,28 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { authenticateRequest } from '@/lib/auth-middleware'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-async function getUser(request: NextRequest) {
-  const cookieHeader = request.cookies.get('safawala_session')
-  if (!cookieHeader?.value) throw new Error('Authentication required')
-  let session
-  try { session = JSON.parse(cookieHeader.value) } catch { throw new Error('Authentication required') }
-  if (!session?.id) throw new Error('Authentication required')
-  const supabase = createClient()
-  const { data: user, error } = await supabase
-    .from('users')
-    .select('id, franchise_id, role, is_active')
-    .eq('id', session.id)
-    .single()
-  if (error || !user || user.is_active === false) throw new Error('Authentication required')
-  return { userId: user.id as string, franchiseId: user.franchise_id as string | null, role: user.role as string, isSuperAdmin: user.role === 'super_admin' }
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseId, role, isSuperAdmin } = await getUser(request)
+    // Unified auth: validates session, role and permissions; fetches app user profile via service role
+    const auth = await authenticateRequest(request, { minRole: 'staff', requirePermission: 'packages' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
+
+    const appUser = auth.user!
+
+    // Service-role client for DB writes
+    const supabase = createClient()
+
+    const { franchiseId, role, isSuperAdmin } = {
+      franchiseId: (appUser.franchise_id || null) as string | null,
+      role: appUser.role as string,
+      isSuperAdmin: appUser.is_super_admin === true
+    }
+
     if (!['super_admin', 'franchise_admin', 'staff'].includes(role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { 
       id, 
-      package_level_id, 
+      package_level_id,
+      package_variant_id, // Support both field names
       distance_range, 
       min_distance_km, 
       max_distance_km, 
@@ -39,20 +41,26 @@ export async function POST(request: NextRequest) {
       is_active = true 
     } = body || {}
 
-    if (!package_level_id || typeof package_level_id !== 'string') {
-      return NextResponse.json({ error: 'package_level_id is required' }, { status: 400 })
+    // Use package_variant_id if provided, fallback to package_level_id
+    const variantId = package_variant_id || package_level_id
+    
+    if (!variantId || typeof variantId !== 'string') {
+      return NextResponse.json({ error: 'package_variant_id is required' }, { status: 400 })
     }
     if (typeof distance_range !== 'string' || !distance_range.trim()) {
       return NextResponse.json({ error: 'distance_range is required' }, { status: 400 })
     }
-    if (!Number.isFinite(min_distance_km) || !Number.isFinite(max_distance_km) || min_distance_km < 0 || max_distance_km <= min_distance_km) {
+    // Coerce numeric strings from the client to numbers for validation
+    const minKm = typeof min_distance_km === 'string' ? Number(min_distance_km) : min_distance_km
+    const maxKm = typeof max_distance_km === 'string' ? Number(max_distance_km) : max_distance_km
+    const addPrice = typeof additional_price === 'string' ? Number(additional_price) : additional_price
+
+    if (!Number.isFinite(minKm) || !Number.isFinite(maxKm) || minKm < 0 || maxKm <= minKm) {
       return NextResponse.json({ error: 'Invalid min_distance_km/max_distance_km' }, { status: 400 })
     }
-    if (!Number.isFinite(additional_price) || additional_price < 0) {
+    if (!Number.isFinite(addPrice) || addPrice < 0) {
       return NextResponse.json({ error: 'Invalid additional_price' }, { status: 400 })
     }
-
-    const supabase = createClient()
 
     const now = new Date().toISOString()
 
@@ -62,7 +70,7 @@ export async function POST(request: NextRequest) {
       return !error
     }
     const [
-      hasPackageLevelId,
+      hasPackageVariantId,
       hasDistanceRange,
       hasMinDistanceKm,
       hasMaxDistanceKm,
@@ -73,7 +81,7 @@ export async function POST(request: NextRequest) {
       hasIsActive,
       hasDisplayOrder
     ] = await Promise.all([
-      has('package_level_id'),
+      has('package_variant_id'),
       has('distance_range'),
       has('min_distance_km'),
       has('max_distance_km'),
@@ -86,11 +94,11 @@ export async function POST(request: NextRequest) {
     ])
 
     const dataToSave: any = {}
-    if (hasPackageLevelId) dataToSave.package_level_id = package_level_id
+    if (hasPackageVariantId) dataToSave.package_variant_id = variantId
     if (hasDistanceRange) dataToSave.distance_range = distance_range.trim()
-    if (hasMinDistanceKm) dataToSave.min_distance_km = min_distance_km
-    if (hasMaxDistanceKm) dataToSave.max_distance_km = max_distance_km
-    if (hasAdditionalPrice) dataToSave.additional_price = additional_price
+  if (hasMinDistanceKm) dataToSave.min_distance_km = minKm
+  if (hasMaxDistanceKm) dataToSave.max_distance_km = maxKm
+  if (hasAdditionalPrice) dataToSave.additional_price = addPrice
     if (hasIsActive) dataToSave.is_active = is_active
     if (hasUpdatedAt) dataToSave.updated_at = now
     if (hasDisplayOrder && !id) dataToSave.display_order = 0

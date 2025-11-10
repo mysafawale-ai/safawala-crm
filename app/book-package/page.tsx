@@ -1177,6 +1177,17 @@ export default function BookPackageWizard() {
         return d.toISOString()
       })() : null
 
+      // Determine status based on payment type:
+      // - Quote → "quote" (not an order yet)
+      // - Full payment → "confirmed" (ready to proceed)
+      // - Advance/Partial payment → "pending_payment" (needs payment confirmation)
+      let bookingStatus = 'pending_payment' // default for new bookings
+      if (asQuote) {
+        bookingStatus = 'quote'
+      } else if (formData.payment_type === 'full') {
+        bookingStatus = 'confirmed'
+      }
+
       const insertPayload: any = {
         package_number: numberStr,
         is_quote: asQuote,
@@ -1204,7 +1215,7 @@ export default function BookPackageWizard() {
         security_deposit: (totals as any).securityDeposit || 0,
         amount_paid: asQuote ? 0 : totals.payable,
         pending_amount: asQuote ? totals.grand : totals.remaining,
-        status: asQuote ? 'quote' : 'confirmed',
+        status: bookingStatus,
         sales_closed_by_id: selectedStaff || null,
         use_custom_pricing: useCustomPricing || false,
         custom_package_price: useCustomPricing ? customPricing.package_price : null,
@@ -2173,7 +2184,7 @@ export default function BookPackageWizard() {
                             <Input
                               type="number"
                               value={customPricing.package_price || ''}
-                              onChange={(e) => setCustomPricing(cp => ({ ...cp, package_price: Number(e.target.value) || 0 }))}
+                              onChange={(e) => setCustomPricing(cp => ({ ...cp, package_price: e.target.value === '' ? 0 : Number(e.target.value) }))}
                               placeholder="Enter final package price (pre-GST)"
                               min={0}
                             />
@@ -2204,7 +2215,7 @@ export default function BookPackageWizard() {
                         <Input
                           type="number"
                           value={formData.discount_amount || ""}
-                          onChange={(e) => setFormData(f => ({ ...f, discount_amount: Number(e.target.value) || 0 }))}
+                          onChange={(e) => setFormData(f => ({ ...f, discount_amount: e.target.value === '' ? 0 : Number(e.target.value) }))}
                           placeholder={formData.discount_type === "flat" ? "Enter amount" : "Enter percentage"}
                           min={0}
                           max={formData.discount_type === "percentage" ? 100 : undefined}
@@ -2285,8 +2296,8 @@ export default function BookPackageWizard() {
                       <Label className="text-xs">Custom Amount</Label>
                       <Input
                         type="number"
-                        value={formData.custom_amount}
-                        onChange={e => setFormData(f => ({ ...f, custom_amount: Number(e.target.value) }))}
+                        value={formData.custom_amount || ''}
+                        onChange={e => setFormData(f => ({ ...f, custom_amount: e.target.value === '' ? 0 : Number(e.target.value) }))}
                         min={0}
                       />
                     </div>

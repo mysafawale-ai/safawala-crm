@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 /**
  * POST /api/products
@@ -18,8 +22,12 @@ import { supabase } from "@/lib/supabase"
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    const auth = await authenticateRequest(req, { minRole: 'franchise_admin', requirePermission: 'inventory' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
 
+    const body = await req.json()
     const {
       name,
       category,
@@ -28,15 +36,24 @@ export async function POST(req: NextRequest) {
       sale_price = 0,
       security_deposit = 0,
       stock_available = 999,
-      franchise_id,
+      franchise_id: bodyFranchiseId,
       is_custom = true,
       image_url,
     } = body
 
-    if (!name || !franchise_id) {
+    if (!name) {
       return NextResponse.json(
-        { error: "Name and franchise_id are required" },
+        { error: "Name is required" },
         { status: 400 }
+      )
+    }
+
+    // Use franchise from session (super admin can override)
+    const franchiseId = auth.user!.is_super_admin && bodyFranchiseId ? bodyFranchiseId : auth.user!.franchise_id
+    if (!franchiseId) {
+      return NextResponse.json(
+        { error: "User has no franchise assigned" },
+        { status: 403 }
       )
     }
 
@@ -46,6 +63,7 @@ export async function POST(req: NextRequest) {
     const normalizedStock = Number.isFinite(Number(stock_available)) ? Number(stock_available) : 0
 
     // Create product in database
+    const supabase = createClient()
     const { data: product, error } = await supabase
       .from("products")
       .insert([
@@ -61,7 +79,7 @@ export async function POST(req: NextRequest) {
           stock_available: normalizedStock,
           stock_total: normalizedStock,
           reorder_level: 0,
-          franchise_id,
+          franchise_id: franchiseId,
           is_custom,
           is_active: true,
           image_url,
@@ -95,11 +113,19 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const franchiseId = req.nextUrl.searchParams.get("franchise_id")
+    const auth = await authenticateRequest(req, { minRole: 'readonly' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
 
+    const franchiseId = auth.user!.franchise_id
+    const isSuperAdmin = auth.user!.is_super_admin
+
+    const supabase = createClient()
     let query = supabase.from("products").select("*").order("name")
 
-    if (franchiseId) {
+    // Franchise isolation
+    if (!isSuperAdmin && franchiseId) {
       query = query.eq("franchise_id", franchiseId)
     }
 

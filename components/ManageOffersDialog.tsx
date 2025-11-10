@@ -301,8 +301,8 @@ export default function ManageOffersDialog() {
                   <Input
                     id="discount_value"
                     type="number"
-                    value={formData.discount_value}
-                    onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
+                    value={formData.discount_value || ''}
+                    onChange={(e) => setFormData({ ...formData, discount_value: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                     min={0}
                     max={formData.discount_type === 'percentage' ? 100 : undefined}
                     step="0.01"
@@ -315,8 +315,8 @@ export default function ManageOffersDialog() {
                   <Input
                     id="min_order_value"
                     type="number"
-                    value={formData.min_order_value}
-                    onChange={(e) => setFormData({ ...formData, min_order_value: parseFloat(e.target.value) || 0 })}
+                    value={formData.min_order_value || ''}
+                    onChange={(e) => setFormData({ ...formData, min_order_value: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                     min={0}
                     step="0.01"
                   />

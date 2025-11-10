@@ -65,7 +65,6 @@ interface PackageType {
 interface Category {
   id: string
   name: string
-  description: string
   packages?: PackageType[]
   package_variants?: PackageVariant[]
   is_active: boolean
@@ -114,9 +113,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
 
   const [distancePricingForm, setDistancePricingForm] = useState({
     range: "",
-    min_km: 0,
-    max_km: 0,
-    base_price_addition: 0,
+    min_km: "",
+    max_km: "",
+    base_price_addition: "",
   })
 
   const [dialogs, setDialogs] = useState({
@@ -132,7 +131,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const [editingDistancePricing, setEditingDistancePricing] = useState<DistancePricing | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [selectedVariant, setSelectedVariant] = useState<PackageVariant | null>(null)
-  const [categoryForm, setCategoryForm] = useState({ name: "", description: "" })
+  const [categoryForm, setCategoryForm] = useState({ name: "" })
   const [activeTab, setActiveTab] = useState(getInitialTab())
 
   // Sync tab changes to URL without creating history entries
@@ -149,7 +148,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     {
       id: "1",
       name: "21 Safas Collection",
-      description: "Premium collection with 21 traditional safas for grand celebrations",
       is_active: true,
       packages: [
         {
@@ -204,7 +202,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   const handleEditCategory = (category: Category) => {
     setCategoryForm({
       name: category.name,
-      description: category.description,
     })
     setEditingCategory(category)
     setDialogs((prev) => ({ ...prev, createCategory: true }))
@@ -221,7 +218,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           .from("packages_categories")
           .update({
             name: categoryForm.name,
-            description: categoryForm.description,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingCategory.id)
@@ -258,7 +254,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
           .from("packages_categories")
           .insert({
             name: categoryForm.name,
-            description: categoryForm.description,
             franchise_id: franchiseId, // 🔒 FRANCHISE ISOLATION
             is_active: true,
             display_order: categories.length + 1,
@@ -289,7 +284,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       toast.error(errorMessage)
     } finally {
       setIsLoading(false)
-      setCategoryForm({ name: "", description: "" })
+      setCategoryForm({ name: "" })
       setDialogs((prev) => ({ ...prev, createCategory: false }))
     }
   }
@@ -598,11 +593,15 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         toast.error("Please enter a distance range")
         return
       }
-      if (distancePricingForm.min_km < 0 || distancePricingForm.max_km <= distancePricingForm.min_km) {
+      const minKm = Number(distancePricingForm.min_km) || 0
+      const maxKm = Number(distancePricingForm.max_km) || 0
+      const addPrice = Number(distancePricingForm.base_price_addition) || 0
+      
+      if (minKm < 0 || maxKm <= minKm) {
         toast.error("Please enter valid distance range (max must be greater than min)")
         return
       }
-      if (distancePricingForm.base_price_addition < 0) {
+      if (addPrice < 0) {
         toast.error("Base price addition cannot be negative")
         return
       }
@@ -610,9 +609,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       const payload: any = {
         package_variant_id: selectedVariant.id,
         distance_range: distancePricingForm.range.trim(),
-        min_distance_km: distancePricingForm.min_km,
-        max_distance_km: distancePricingForm.max_km,
-        additional_price: distancePricingForm.base_price_addition,
+        min_distance_km: minKm,
+        max_distance_km: maxKm,
+        additional_price: addPrice,
         franchise_id: user?.franchise_id,
         is_active: true,
       }
@@ -634,9 +633,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       setEditingDistancePricing(null)
       setDistancePricingForm({
         range: "",
-        min_km: 0,
-        max_km: 0,
-        base_price_addition: 0,
+        min_km: "",
+        max_km: "",
+        base_price_addition: "",
       })
     } catch (error) {
       console.error("[v0] Error creating/updating distance pricing:", error)
@@ -650,9 +649,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     setEditingDistancePricing(distancePricing)
     setDistancePricingForm({
       range: distancePricing.distance_range,
-      min_km: distancePricing.min_distance_km,
-      max_km: distancePricing.max_distance_km,
-      base_price_addition: distancePricing.additional_price,
+      min_km: String(distancePricing.min_distance_km),
+      max_km: String(distancePricing.max_distance_km),
+      base_price_addition: String(distancePricing.additional_price),
     })
     setDialogs((prev) => ({ ...prev, configurePricing: true }))
   }
@@ -887,7 +886,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                 setDialogs((prev) => ({ ...prev, createCategory: open }))
                 if (!open) {
                   setEditingCategory(null)
-                  setCategoryForm({ name: "", description: "" })
+                  setCategoryForm({ name: "" })
                 }
               }}
             >
@@ -914,16 +913,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="category-description">Description</Label>
-                    <Textarea
-                      id="category-description"
-                      className="input-heritage"
-                      placeholder="Category description..."
-                      value={categoryForm.description}
-                      onChange={(e) => setCategoryForm((prev) => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
                 </div>
                 <Button
                   onClick={handleCreateCategory}
@@ -947,8 +936,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                       </div>
                       <div>
                         <h3 className="vintage-heading text-xl font-semibold">{category.name}</h3>
-                        <p className="text-brown-600 mb-2">{category.description}</p>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 mt-2">
                           <Badge variant="secondary" className="bg-green-100 text-green-800">
                             {(category.package_variants || category.packages || []).length} Variants
                           </Badge>
@@ -1449,9 +1437,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                     setEditingDistancePricing(null)
                     setDistancePricingForm({
                       range: "",
-                      min_km: 0,
-                      max_km: 0,
-                      base_price_addition: 0,
+                      min_km: "",
+                      max_km: "",
+                      base_price_addition: "",
                     })
                   }
                 }}
@@ -1484,7 +1472,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           onChange={(e) =>
                             setDistancePricingForm((prev) => ({
                               ...prev,
-                              min_km: Number.parseInt(e.target.value) || 0,
+                              min_km: e.target.value,
                             }))
                           }
                         />
@@ -1499,7 +1487,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           onChange={(e) =>
                             setDistancePricingForm((prev) => ({
                               ...prev,
-                              max_km: Number.parseInt(e.target.value) || 0,
+                              max_km: e.target.value,
                             }))
                           }
                         />
@@ -1517,7 +1505,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                         onChange={(e) =>
                           setDistancePricingForm((prev) => ({
                             ...prev,
-                            base_price_addition: Number.parseFloat(e.target.value) || 0,
+                            base_price_addition: e.target.value,
                           }))
                         }
                       />
@@ -1530,11 +1518,11 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                           </div>
                           <div className="flex justify-between">
                             <span className="text-blue-600">+ Distance Charge:</span>
-                            <span className="font-semibold text-blue-600">₹{(distancePricingForm.base_price_addition || 0).toLocaleString()}</span>
+                            <span className="font-semibold text-blue-600">₹{(Number(distancePricingForm.base_price_addition) || 0).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between border-t-2 border-purple-300 pt-1">
                             <span className="text-purple-700 font-bold">Final Price:</span>
-                            <span className="font-bold text-lg text-purple-700">₹{((selectedVariant?.base_price || 0) + (distancePricingForm.base_price_addition || 0)).toLocaleString()}</span>
+                            <span className="font-bold text-lg text-purple-700">₹{((selectedVariant?.base_price || 0) + (Number(distancePricingForm.base_price_addition) || 0)).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>

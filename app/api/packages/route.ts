@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer } from "@/lib/supabase-server-simple"
+import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -7,45 +8,25 @@ export const runtime = 'nodejs'
 /**
  * Get user session from cookie and validate franchise access
  */
-async function getUserFromSession(request: NextRequest) {
-  try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      throw new Error("No session found")
-    }
-    
-    const sessionData = JSON.parse(cookieHeader.value)
-    if (!sessionData.id) {
-      throw new Error("Invalid session")
-    }
-
-    // Use service role to fetch user details
-    const { data: user, error } = await supabaseServer
-      .from("users")
-      .select("id, franchise_id, role")
-      .eq("id", sessionData.id)
-      .eq("is_active", true)
-      .single()
-
-    if (error || !user) {
-      throw new Error("User not found")
-    }
-
-    return {
-      userId: user.id,
-      franchiseId: user.franchise_id,
-      role: user.role,
-      isSuperAdmin: user.role === "super_admin"
-    }
-  } catch (error) {
-    throw new Error("Authentication required")
+async function getPackageUser(request: NextRequest, minRole: 'staff' | 'readonly' = 'readonly') {
+  const auth = await authenticateRequest(request, { 
+    minRole, 
+    requirePermission: minRole === 'staff' ? 'packages' : undefined 
+  })
+  if (!auth.authorized) {
+    throw new Error(auth.error?.error || 'Authentication required')
+  }
+  return {
+    userId: auth.user!.id,
+    franchiseId: auth.user!.franchise_id,
+    role: auth.user!.role,
+    isSuperAdmin: auth.user!.is_super_admin
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
+    const { franchiseId, isSuperAdmin, userId } = await getPackageUser(request, 'readonly')
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -55,14 +36,15 @@ export async function GET(request: NextRequest) {
     const category_id = searchParams.get("category_id")
     const include_variants = searchParams.get("include_variants") === "true"
 
-    let query = supabaseServer
+    const supabase = createClient()
+
+    let query = supabase
       .from("package_sets")
       .select(`
         *,
         packages_categories (
           id,
-          name,
-          description
+          name
         )
         ${include_variants ? `, package_variants (*)` : ''}
       `)
@@ -89,14 +71,13 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error("Package API error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // 🔒 SECURITY: Authenticate user and get franchise context
-    const { franchiseId, isSuperAdmin, userId } = await getUserFromSession(request)
+    const { franchiseId, isSuperAdmin, userId } = await getPackageUser(request, 'staff')
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -105,7 +86,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       name,
-      description,
       base_price,
       package_type,
       category_id,
@@ -115,25 +95,30 @@ export async function POST(request: NextRequest) {
       extra_safa_price,
     } = body
 
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return NextResponse.json({ error: 'Package name is required' }, { status: 400 })
+    }
+
     // 🔒 FRANCHISE ISOLATION: Auto-assign franchise_id from session (super admin can override)
     const packageFranchiseId = isSuperAdmin && body.franchise_id 
       ? body.franchise_id 
       : franchiseId
 
+    const supabase = createClient()
+
     // Create the package
-    const { data: packageData, error: packageError } = await supabaseServer
+    const { data: packageData, error: packageError } = await supabase
       .from("package_sets")
       .insert({
-        name,
-        description,
-        base_price,
+        name: name.trim(),
+        base_price: Number(base_price) || 0,
         package_type,
         category_id,
         franchise_id: packageFranchiseId,
         display_order,
         created_by: userId,
-        security_deposit,
-        extra_safa_price,
+        security_deposit: Number(security_deposit) || 0,
+        extra_safa_price: Number(extra_safa_price) || 0,
         is_active: true
       })
       .select()
@@ -152,7 +137,7 @@ export async function POST(request: NextRequest) {
         is_active: true
       }))
 
-      const { error: variantError } = await supabaseServer
+      const { error: variantError } = await supabase
         .from("package_variants")
         .insert(variantInserts)
 
@@ -166,6 +151,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error("Package creation error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Internal server error" }, { status: 500 })
   }
 }

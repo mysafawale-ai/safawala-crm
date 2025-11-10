@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { authenticateRequest } from '@/lib/auth-middleware'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-async function getUser(request: NextRequest) {
-  const cookieHeader = request.cookies.get('safawala_session')
-  if (!cookieHeader?.value) throw new Error('Authentication required')
-  let session
-  try { session = JSON.parse(cookieHeader.value) } catch { throw new Error('Authentication required') }
-  if (!session?.id) throw new Error('Authentication required')
-  const supabase = createClient()
-  const { data: user, error } = await supabase
-    .from('users')
-    .select('id, franchise_id, role, is_active')
-    .eq('id', session.id)
-    .single()
-  if (error || !user || user.is_active === false) throw new Error('Authentication required')
-  return { userId: user.id as string, franchiseId: user.franchise_id as string | null, role: user.role as string, isSuperAdmin: user.role === 'super_admin' }
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const { franchiseId, role, isSuperAdmin } = await getUser(request)
-    if (!['super_admin', 'franchise_admin', 'staff'].includes(role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+    const auth = await authenticateRequest(request, { minRole: 'staff', requirePermission: 'packages' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
+
+    const franchiseId = auth.user!.franchise_id
+    const isSuperAdmin = auth.user!.is_super_admin
 
     const { id } = await request.json()
     if (!id || typeof id !== 'string') {

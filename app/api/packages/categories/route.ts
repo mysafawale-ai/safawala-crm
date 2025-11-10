@@ -1,11 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer } from "@/lib/supabase-server-simple"
+import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest } from "@/lib/auth-middleware"
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
-    // Remove JWT authentication for simplicity
+    const auth = await authenticateRequest(request, { minRole: 'readonly' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
 
-    const { data, error } = await supabaseServer
+    const supabase = createClient()
+    const { data, error } = await supabase
       .from("packages_categories")
       .select("*")
       .eq("is_active", true)
@@ -26,17 +34,27 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Remove JWT authentication for simplicity
+    const auth = await authenticateRequest(request, { minRole: 'staff', requirePermission: 'packages' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
 
     const body = await request.json()
-    const { name, description, display_order = 1 } = body
+    const { name, display_order = 1 } = body
 
-    const { data, error } = await supabaseServer
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return NextResponse.json({ error: 'Category name is required' }, { status: 400 })
+    }
+
+    const supabase = createClient()
+    const franchiseId = auth.user!.franchise_id
+
+    const { data, error } = await supabase
       .from("packages_categories")
       .insert({
-        name,
-        description,
+        name: name.trim(),
         display_order,
+        franchise_id: franchiseId,
         is_active: true
       })
       .select()
