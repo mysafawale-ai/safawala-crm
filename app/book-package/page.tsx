@@ -1899,22 +1899,27 @@ export default function BookPackageWizard() {
                   <div className="flex justify-between"><span>GST (5%)</span><span>{formatCurrency(totals.gst)}</span></div>
                   
                   <div className="flex justify-between font-bold text-base border-t pt-2 mt-1">
-                    <span>Grand Total</span>
+                    <span>Grand Total (Package)</span>
                     <span>{formatCurrency(totals.grand)}</span>
                   </div>
                   
                   {!useCustomPricing && totals.securityDeposit > 0 && (
                     <>
                       <div className="h-px bg-gray-200 my-2" />
-                      {DEPOSIT_POLICY.collectAt === 'booking' ? (
-                        <div className="flex justify-between text-amber-700">
+                      <div className="flex justify-between text-amber-700 font-semibold">
+                        <div className="flex items-center gap-1">
                           <span>{DEPOSIT_POLICY.label}</span>
-                          <span>{formatCurrency(totals.depositDueNow)}</span>
+                          <span className="text-[10px] font-normal text-amber-600">(Refundable)</span>
+                        </div>
+                        <span>{formatCurrency(totals.securityDeposit)}</span>
+                      </div>
+                      {DEPOSIT_POLICY.collectAt === 'booking' ? (
+                        <div className="text-[11px] text-amber-600 -mt-1">
+                          ✓ Included in first payment
                         </div>
                       ) : DEPOSIT_POLICY.collectAt === 'delivery' ? (
-                        <div className="flex justify-between text-amber-700">
-                          <span>{DEPOSIT_POLICY.label} (at delivery)</span>
-                          <span>{formatCurrency(totals.depositDueLater)}</span>
+                        <div className="text-[11px] text-amber-600 -mt-1">
+                          To be collected at delivery
                         </div>
                       ) : null}
                     </>
@@ -1924,7 +1929,7 @@ export default function BookPackageWizard() {
                     <>
                       <div className="h-px bg-gray-200 my-2" />
                       <div className="flex justify-between text-blue-600">
-                        <span>Advance (50%)</span>
+                        <span>Advance Payment (50% of Package)</span>
                         <span>{formatCurrency(totals.advanceDue)}</span>
                       </div>
                     </>
@@ -2069,15 +2074,30 @@ export default function BookPackageWizard() {
                   <div className="mt-2 text-sm space-y-1">
                     <div className="flex justify-between text-xs text-gray-600"><span>Package now</span><span>{formatCurrency(totals.payable)}</span></div>
                     {totals.depositDueNow > 0 && (
-                      <div className="flex justify-between text-xs text-gray-600"><span>{DEPOSIT_POLICY.label} now</span><span>{formatCurrency(totals.depositDueNow)}</span></div>
+                      <div className="flex justify-between text-xs text-amber-700">
+                        <span className="flex items-center gap-1">
+                          {DEPOSIT_POLICY.label} now
+                          <span className="text-[9px] text-amber-600">(Refundable)</span>
+                        </span>
+                        <span>+{formatCurrency(totals.depositDueNow)}</span>
+                      </div>
                     )}
-                    <div className="flex justify-between"><span>Payable Now</span><span className="font-semibold">{formatCurrency(totals.payableNowTotal)}</span></div>
-                    <div className="h-px bg-gray-100" />
+                    <div className="flex justify-between border-t pt-1 mt-1">
+                      <span className="font-semibold">Payable Now (Total)</span>
+                      <span className="font-semibold text-green-700">{formatCurrency(totals.payableNowTotal)}</span>
+                    </div>
+                    <div className="h-px bg-gray-100 my-1" />
                     <div className="flex justify-between text-xs text-gray-600"><span>Package later</span><span>{formatCurrency(totals.remaining)}</span></div>
                     {totals.depositDueLater > 0 && (
-                      <div className="flex justify-between text-xs text-amber-700"><span>{DEPOSIT_POLICY.label} at delivery</span><span>{formatCurrency(totals.depositDueLater)}</span></div>
+                      <div className="flex justify-between text-xs text-amber-700">
+                        <span className="flex items-center gap-1">
+                          {DEPOSIT_POLICY.label} at delivery
+                          <span className="text-[9px] text-amber-600">(Refundable)</span>
+                        </span>
+                        <span>+{formatCurrency(totals.depositDueLater)}</span>
+                      </div>
                     )}
-                    <div className="flex justify-between text-xs text-gray-500"><span>Remaining</span><span>{formatCurrency(totals.remainingTotal)}</span></div>
+                    <div className="flex justify-between text-xs text-gray-500"><span>Remaining (Total)</span><span>{formatCurrency(totals.remainingTotal)}</span></div>
                   </div>
                 </div>
                 {currentStep === 3 && (
