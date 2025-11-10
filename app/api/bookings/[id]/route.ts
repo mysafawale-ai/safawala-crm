@@ -135,14 +135,20 @@ export async function DELETE(
     if (type === 'product_orders' || type === 'product_order') table = 'product_orders'
     if (type === 'package_bookings' || type === 'package_booking') table = 'package_bookings'
 
+    console.log('[Bookings DELETE] Type:', type, 'Table:', table, 'ID:', params.id)
+
     // Check franchise ownership before delete
     const { data: existing, error: fetchErr } = await supabase
       .from(table)
       .select('id, franchise_id')
       .eq('id', params.id)
       .single()
+    
+    console.log('[Bookings DELETE] Existing:', existing, 'Error:', fetchErr)
+    
     if (fetchErr || !existing) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      console.log('[Bookings DELETE] Not found - returning 404')
+      return NextResponse.json({ error: fetchErr?.message || 'Not found' }, { status: 404 })
     }
     if (!isSuperAdmin && existing.franchise_id !== franchiseId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
