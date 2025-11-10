@@ -134,6 +134,7 @@ export default function InventoryPage() {
       let query = supabase
         .from("products")
         .select("*")
+        .eq("is_active", true) // Only show active products
         .order("created_at", { ascending: false })
       // Only filter by franchise for non-super-admins
       // Strict franchise isolation - each franchise sees only their products
