@@ -2997,12 +2997,12 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   const totalSelected = Object.values(selection).reduce((a, b) => a + (b || 0), 0)
 
   const selectedList = useMemo(() => {
-    const map: { id: string; name: string; qty: number; image_url?: string }[] = []
+    const map: { id: string; name: string; qty: number; image_url?: string; rental_price?: number; price?: number }[] = []
     for (const [pid, qty] of Object.entries(selection)) {
       if (!qty) continue
       const p = products.find(x => x.id === pid)
       if (!p) continue
-      map.push({ id: pid, name: p.name, qty, image_url: p.image_url })
+      map.push({ id: pid, name: p.name, qty, image_url: p.image_url, rental_price: p.rental_price, price: p.price })
     }
     return map
   }, [selection, products])
@@ -3483,6 +3483,13 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                           {p.name}
                         </h3>
                         
+                        {/* Price - For Reference Only */}
+                        {(p.rental_price || p.price) ? (
+                          <p className="text-xs text-gray-500">
+                            Price: {formatCurrency(p.rental_price || p.price || 0)} <span className="text-[10px]">(reference)</span>
+                          </p>
+                        ) : null}
+                        
                         {/* Quantity Controls - Only show when selected */}
                         {isSelected ? (
                           <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
@@ -3574,7 +3581,12 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate" title={item.name}>{item.name}</p>
-                        <p className="text-sm text-gray-500 mt-0.5">Quantity: {item.qty}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">Qty: {item.qty}</p>
+                        {(item.rental_price || item.price) ? (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {formatCurrency((item.rental_price || item.price || 0) * item.qty)} <span className="text-[10px]">(ref)</span>
+                          </p>
+                        ) : null}
                       </div>
                       <button
                         onClick={() => setSelection(prev => { const { [item.id]:_, ...rest } = prev; return rest })}
