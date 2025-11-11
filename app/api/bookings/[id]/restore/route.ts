@@ -117,3 +117,16 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false 
 
 // Accept POST as a fallback for environments or clients that cannot send PATCH
 export const POST = PATCH
+
+// Lightweight GET for healthcheck / reachability testing (no side-effects)
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> | { id: string } }
+) {
+  try {
+    const params = 'then' in context.params ? await context.params : context.params
+    return NextResponse.json({ ok: true, route: `/api/bookings/${params.id}/restore`, method: 'GET' })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: 'failed' }, { status: 500 })
+  }
+}

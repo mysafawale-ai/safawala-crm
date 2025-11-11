@@ -56,6 +56,7 @@ import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-avai
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
 import ManageOffersDialog from "@/components/ManageOffersDialog"
 import { apiClient } from "@/lib/api-client"
+import { archiveBooking, restoreBooking } from "@/lib/bookings"
 import { PackageBookingView } from "@/components/bookings/package-booking-view"
 
 export default function BookingsPage() {
@@ -696,9 +697,9 @@ export default function BookingsPage() {
             : 'unified'
           const endpoint = `/api/bookings/${bookingId}/archive`
           console.log('[Bookings] Archiving', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)
-          
-          // Use API client with proper authentication
-          const response = await apiClient.patch(endpoint, { type: normalized })
+
+          // Use helper with PATCH→POST fallback
+          const response = await archiveBooking(bookingId, normalized as any)
           
           if (!response.success) {
             throw new Error(response.error || 'Failed to archive booking')
@@ -742,8 +743,8 @@ export default function BookingsPage() {
       const endpoint = `/api/bookings/${bookingId}/restore`
       console.log('[Bookings] Restoring', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)
       
-      // Use API client with proper authentication
-      const response = await apiClient.patch(endpoint, { type: normalized })
+          // Use helper with PATCH→POST fallback
+          const response = await restoreBooking(bookingId, normalized as any)
       
       if (!response.success) {
         throw new Error(response.error || 'Failed to restore booking')
@@ -1529,7 +1530,7 @@ export default function BookingsPage() {
                                   <Button
                                     size="sm"
                                     className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                    onClick={() => handleRestoreBooking(booking.id, booking.source || 'unified')}
+                                    onClick={() => handleRestoreBooking(booking.id, (booking as any).source || 'unified')}
                                   >
                                     <RotateCcw className="h-3 w-3 mr-1" />
                                     Restore
