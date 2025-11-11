@@ -11,6 +11,11 @@ interface PackageBookingViewProps {
 export function PackageBookingView({ booking, bookingItems = [] }: PackageBookingViewProps) {
   const pendingAmount = (booking.total_amount || 0) - (booking.paid_amount || 0)
   
+  // Debug: Log customer data to see what's available
+  console.log('[PackageBookingView] Full booking object:', booking)
+  console.log('[PackageBookingView] Customer data:', booking.customer)
+  console.log('[PackageBookingView] Customer email:', booking.customer?.email)
+  
   return (
     <div className="space-y-6 py-2 text-sm">
       
