@@ -636,7 +636,10 @@ export default function BookingsPage() {
             : 'unified'
           const url = `/api/bookings/${bookingId}${source ? `?type=${normalized}` : ''}`
           console.log('[Bookings] Deleting', bookingId, 'source:', source, 'normalized:', normalized, 'url:', url)
-          const res = await fetch(url, { method: 'DELETE' })
+          const res = await fetch(url, { 
+            method: 'DELETE',
+            credentials: 'include'
+          })
           if (!res.ok) {
             const { error } = await res.json().catch(() => ({ error: 'Failed to delete' }))
             throw new Error(error || 'Failed to delete booking')
