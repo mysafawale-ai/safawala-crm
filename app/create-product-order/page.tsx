@@ -7,7 +7,7 @@
  * Number prefix: ORD*
  */
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -51,12 +51,13 @@ import {
   ShoppingCart,
   Loader2,
   Package,
+  Camera,
+  ImageIcon,
 } from "lucide-react"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 import { ProductSelector } from "@/components/products/product-selector"
 import { BarcodeInput } from "@/components/barcode/barcode-input"
-import { CustomProductDialog } from "@/components/products/custom-product-dialog"
 import type { Product as ProductType, Category, Subcategory } from "@/components/products/product-selector"
 
 interface Customer {
@@ -130,6 +131,12 @@ export default function CreateProductOrderPage() {
   const [customersLoading, setCustomersLoading] = useState(true)
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [showCustomProductDialog, setShowCustomProductDialog] = useState(false)
+  const [showCameraDialog, setShowCameraDialog] = useState(false)
+  const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '' })
+  const [creatingProduct, setCreatingProduct] = useState(false)
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('environment')
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const [couponValidating, setCouponValidating] = useState(false)
   const [couponError, setCouponError] = useState("")
   const [availabilityModalFor, setAvailabilityModalFor] = useState<{ id: string; name: string } | null>(null)
@@ -480,15 +487,176 @@ export default function CreateProductOrderPage() {
     setLastAddedItemId(newItemId) // Track for focus
   }
 
-  const handleCustomProductCreated = (customProduct: any) => {
-    // Add custom product to products list and immediately add to items
-    setProducts((prev) => [...prev, customProduct])
-    addProduct(customProduct)
-    toast.success(
-      customProduct.is_temporary
-        ? `"${customProduct.name}" added as temporary product`
-        : `Custom product "${customProduct.name}" created and added to order!`
-    )
+  const handleCreateCustomProduct = async () => {
+    if (!customProductData.name.trim()) {
+      toast.error("Product name is required")
+      return
+    }
+    if (!customProductData.category_id) {
+      toast.error("Please select a category")
+      return
+    }
+    
+    setCreatingProduct(true)
+    try {
+      let imageUrl: string | null = customProductData.image_url
+
+      // Upload image to storage if it's a base64 string
+      if (imageUrl && imageUrl.startsWith('data:image')) {
+        try {
+          const response = await fetch(imageUrl)
+          const blob = await response.blob()
+          const timestamp = Date.now()
+          const randomStr = Math.random().toString(36).substring(7)
+          const fileExt = blob.type.split('/')[1] || 'jpg'
+          const fileName = `product-${timestamp}-${randomStr}.${fileExt}`
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('product-images')
+            .upload(fileName, blob, {
+              contentType: blob.type,
+              cacheControl: '3600',
+              upsert: true
+            })
+          
+          if (uploadError) throw uploadError
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(fileName)
+          
+          imageUrl = publicUrl
+          toast.success('Image uploaded successfully!')
+        } catch (uploadError: any) {
+          toast.error('Image upload failed, creating product without image')
+          imageUrl = null
+        }
+      }
+
+      const productCode = `PRD-${Date.now().toString(36).toUpperCase()}-${Math.random()
+        .toString(36)
+        .slice(2, 6)
+        .toUpperCase()}`
+
+      let createdByFranchiseId: string | null = null
+      try {
+        const ures = await fetch('/api/auth/user', { cache: 'no-store' })
+        if (ures.ok) {
+          const ujson = await ures.json()
+          createdByFranchiseId = ujson?.franchise_id || null
+        }
+      } catch (e) {
+        console.error('Failed to get user franchise:', e)
+      }
+
+      if (!createdByFranchiseId) {
+        toast.error('Unable to determine franchise. Please try again.')
+        throw new Error('franchise_id is required')
+      }
+
+      const basePayload: any = {
+        name: customProductData.name.trim(),
+        category_id: customProductData.category_id,
+        image_url: imageUrl || null,
+        rental_price: 10,
+        price: 10,
+        security_deposit: 0,
+        stock_available: 100,
+        is_active: true,
+        product_code: productCode,
+        description: 'Custom product',
+        franchise_id: createdByFranchiseId,
+        is_custom: true
+      }
+
+      const { data: product, error } = await supabase
+        .from('products')
+        .insert(basePayload)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      // Add to products list and immediately add to order
+      setProducts(prev => [...prev, product as any])
+      addProduct(product)
+      
+      toast.success(`Product "${product.name}" created and added to order!`)
+      
+      setCustomProductData({ name: '', category_id: '', image_url: '' })
+      setShowCustomProductDialog(false)
+    } catch (e: any) {
+      console.error('Failed to create product:', e)
+      toast.error(e.message || "Failed to create product")
+    } finally {
+      setCreatingProduct(false)
+    }
+  }
+
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: cameraFacing } 
+      })
+      streamRef.current = stream
+      setShowCameraDialog(true)
+      
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Camera access error:', error)
+      toast.error('Could not access camera. Please check permissions.')
+    }
+  }
+
+  const switchCamera = async () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+    }
+    
+    const newFacing = cameraFacing === 'user' ? 'environment' : 'user'
+    setCameraFacing(newFacing)
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: newFacing } 
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+      toast.success(`Switched to ${newFacing === 'user' ? 'front' : 'back'} camera`)
+    } catch (error) {
+      console.error('Camera switch error:', error)
+      toast.error('Could not switch camera')
+    }
+  }
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas')
+      canvas.width = videoRef.current.videoWidth
+      canvas.height = videoRef.current.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0)
+        const imageUrl = canvas.toDataURL('image/jpeg', 0.8)
+        setCustomProductData(prev => ({ ...prev, image_url: imageUrl }))
+        closeCamera()
+        toast.success('Photo captured!')
+      }
+    }
+  }
+
+  const closeCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    setShowCameraDialog(false)
   }
 
   const updateQuantity = (id: string, qty: number) => {
@@ -2355,15 +2523,170 @@ export default function CreateProductOrderPage() {
       />
 
       {/* Custom Product Dialog */}
-      {currentUser && (
-        <CustomProductDialog
-          open={showCustomProductDialog}
-          onOpenChange={setShowCustomProductDialog}
-          franchiseId={currentUser.franchise_id}
-          bookingType={formData.booking_type}
-          onProductCreated={handleCustomProductCreated}
-        />
-      )}
+      <Dialog open={showCustomProductDialog} onOpenChange={setShowCustomProductDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom Product</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Product Name *</label>
+              <Input
+                placeholder="Enter product name"
+                value={customProductData.name}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, name: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Category *</label>
+              <select
+                value={customProductData.category_id}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, category_id: e.target.value }))}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a category</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Product Image (optional)</label>
+              
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={openCamera}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Take Photo
+                </Button>
+                
+                <label className="flex-1 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onloadend = () => {
+                          setCustomProductData(prev => ({ ...prev, image_url: reader.result as string }))
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    <ImageIcon className="w-4 h-4" />
+                    <span className="text-sm">Choose Image</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 my-3">
+                <div className="flex-1 border-t border-gray-300"></div>
+                <span className="text-xs text-gray-500">or paste URL</span>
+                <div className="flex-1 border-t border-gray-300"></div>
+              </div>
+
+              <Input
+                placeholder="https://example.com/image.jpg"
+                value={customProductData.image_url}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, image_url: e.target.value }))}
+              />
+              
+              {customProductData.image_url && (
+                <div className="mt-2 border rounded-md overflow-hidden relative">
+                  <img 
+                    src={customProductData.image_url} 
+                    alt="Preview" 
+                    className="w-full h-32 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = '/placeholder-product.png'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCustomProductData(prev => ({ ...prev, image_url: '' }))}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowCustomProductDialog(false)
+                  setCustomProductData({ name: '', category_id: '', image_url: '' })
+                }}
+                disabled={creatingProduct}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreateCustomProduct}
+                disabled={creatingProduct || !customProductData.name.trim() || !customProductData.category_id}
+              >
+                {creatingProduct ? 'Creating...' : 'Create Product'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Camera Dialog */}
+      <Dialog open={showCameraDialog} onOpenChange={(open) => !open && closeCamera()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Take Photo</span>
+              <Badge variant="outline" className="text-xs">
+                {cameraFacing === 'user' ? '📷 Front Camera' : '📷 Back Camera'}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <video 
+              ref={videoRef}
+              autoPlay 
+              playsInline
+              className="w-full rounded-lg bg-black"
+              style={{ maxHeight: '60vh' }}
+            />
+            <div className="flex justify-between gap-2">
+              <Button 
+                variant="outline" 
+                onClick={switchCamera}
+                title="Switch Camera"
+              >
+                🔄 Switch Camera
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={closeCamera}>
+                  Cancel
+                </Button>
+                <Button onClick={capturePhoto}>
+                  <Camera className="w-4 h-4 mr-2" />
+                  Capture
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Availability Modal */}
       {availabilityModalFor && (
