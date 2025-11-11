@@ -287,6 +287,7 @@ export default function BookPackageWizard() {
   const [variantSelectionOpen, setVariantSelectionOpen] = useState(false)
   const [couponValidating, setCouponValidating] = useState(false)
   const [couponError, setCouponError] = useState("")
+  const [gstPercentage, setGstPercentage] = useState<number>(5.0) // GST from company settings
   // Feature flag: render variant grid under categories (we'll open dialog instead)
   const SHOW_VARIANT_GRID = false
 
@@ -328,14 +329,23 @@ export default function BookPackageWizard() {
           if (settingsRes.ok) {
             const settingsData = await settingsRes.json()
             const pincode = settingsData.data?.pincode
+            const gst = settingsData.data?.gst_percentage
+            
             if (pincode) {
               setBasePincode(pincode)
               console.log('✅ Base pincode loaded from company settings:', pincode)
             } else {
               console.log('⚠️ No pincode in company settings, using default')
             }
+            
+            if (gst !== undefined && gst !== null) {
+              setGstPercentage(Number(gst))
+              console.log('✅ GST percentage loaded from company settings:', gst + '%')
+            } else {
+              console.log('⚠️ No GST percentage in company settings, using default 5%')
+            }
           } else {
-            console.warn('Failed to fetch company settings, using default pincode')
+            console.warn('Failed to fetch company settings, using defaults')
           }
         } catch (err) {
           console.warn('Error loading company settings, using default pincode:', err)
@@ -640,7 +650,7 @@ export default function BookPackageWizard() {
     // If custom pricing is enabled, use custom values
     if (useCustomPricing) {
       const packagePrice = customPricing.package_price || 0
-      const gst = packagePrice * 0.05
+      const gst = packagePrice * (gstPercentage / 100)
       const grand = packagePrice + gst
       
       // Security deposit (no GST, separate from package)
@@ -704,7 +714,7 @@ export default function BookPackageWizard() {
     const couponDiscount = Math.min(subtotalAfterDiscount, formData.coupon_discount || 0)
     const subtotalAfterCoupon = Math.max(0, subtotalAfterDiscount - couponDiscount)
     
-    const gst = subtotalAfterCoupon * 0.05
+    const gst = subtotalAfterCoupon * (gstPercentage / 100)
     const grand = subtotalAfterCoupon + gst
     
     // Security deposit (no GST, separate from package)
@@ -747,7 +757,7 @@ export default function BookPackageWizard() {
       remainingTotal,
       isCustom: false
     }
-  }, [bookingItems, formData, useCustomPricing, customPricing])
+  }, [bookingItems, formData, useCustomPricing, customPricing, gstPercentage])
 
   const computeDistanceAddon = async (variantId: string, km: number, baseAmount: number): Promise<number> => {
     try {
@@ -1213,6 +1223,7 @@ export default function BookPackageWizard() {
         distance_km: distanceKm || 0,
         distance_amount: (totals as any).distanceSurcharge || 0,
         tax_amount: totals.gst,
+        gst_percentage: gstPercentage,
         subtotal_amount: totals.subtotal,
         total_amount: totals.grand,
         security_deposit: (totals as any).securityDeposit || 0,
@@ -2103,7 +2114,10 @@ export default function BookPackageWizard() {
                     </div>
                   )}
                   
-                  <div className="flex justify-between"><span>GST (5%)</span><span>{formatCurrency(totals.gst)}</span></div>
+                  <div className="flex justify-between">
+                    <span>GST ({gstPercentage}%)</span>
+                    <span>{formatCurrency(totals.gst)}</span>
+                  </div>
                   
                   <div className="flex justify-between font-bold text-base border-t pt-2 mt-1">
                     <span>Grand Total</span>
