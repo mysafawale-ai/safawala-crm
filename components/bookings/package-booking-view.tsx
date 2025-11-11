@@ -165,33 +165,6 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
         </div>
       )}
 
-      {/* Package Items */}
-      {bookingItems && bookingItems.length > 0 && (
-        <div>
-          <h4 className="font-semibold mb-2 text-green-700 dark:text-green-400">📦 ITEMS ({bookingItems.length})</h4>
-          <div className="space-y-3">
-            {bookingItems.map((item: any, index: number) => (
-              <div key={index} className="border-l-2 border-green-500 pl-3 py-1">
-                <div className="font-medium">
-                  {item.package_name || item.product_name || item.category_name || 'Item'}
-                  {item.variant_name && ` - ${item.variant_name}`}
-                </div>
-                <div className="text-xs text-muted-foreground flex gap-4 mt-1">
-                  <span>Qty: {item.quantity || 1}</span>
-                  {item.extra_safas && item.extra_safas > 0 && <span>Extra Safas: {item.extra_safas}</span>}
-                  <span>₹{(item.total_price || item.price || 0).toLocaleString()}</span>
-                </div>
-                {item.variant_inclusions && Array.isArray(item.variant_inclusions) && item.variant_inclusions.length > 0 && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Inclusions: {item.variant_inclusions.join(', ')}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Financial Summary */}
       <div>
         <h4 className="font-semibold mb-2 text-amber-700 dark:text-amber-400">💰 FINANCIAL SUMMARY</h4>
