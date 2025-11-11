@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         payment_method, payment_type, discount_amount, tax_amount,
         is_quote,
-        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, status, created_at),
+        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, is_active, created_at),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
       // Include legacy rows where is_quote is NULL as non-quotes
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       .select(`
         id, package_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
-        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, status, created_at),
+        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, is_active, created_at),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
       .eq("is_quote", false)

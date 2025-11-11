@@ -73,12 +73,9 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
           <div><span className="text-muted-foreground">State:</span> <span className="font-medium">{booking.customer?.state || 'N/A'}</span></div>
           <div><span className="text-muted-foreground">Pincode:</span> <span className="font-medium">{booking.customer?.pincode || 'N/A'}</span></div>
           
-          {/* Row 6: Customer Status & Registration Date (optional) */}
-          {booking.customer?.status && (
-            <div><span className="text-muted-foreground">Status:</span> <span className="font-medium capitalize">{booking.customer.status}</span></div>
-          )}
+          {/* Row 6: Customer Registration Date (optional) */}
           {booking.customer?.created_at && (
-            <div><span className="text-muted-foreground">Customer Since:</span> <span className="font-medium">{new Date(booking.customer.created_at).toLocaleDateString('en-IN')}</span></div>
+            <div className="col-span-2"><span className="text-muted-foreground">Customer Since:</span> <span className="font-medium">{new Date(booking.customer.created_at).toLocaleDateString('en-IN')}</span></div>
           )}
         </div>
       </div>
