@@ -44,28 +44,47 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
 
       {/* Customer */}
       <div>
-        <h4 className="font-semibold mb-2 text-blue-700 dark:text-blue-400">👤 CUSTOMER</h4>
+        <h4 className="font-semibold mb-2 text-blue-700 dark:text-blue-400">👤 CUSTOMER INFORMATION</h4>
         <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
+          {/* Row 1: Customer Code & Name */}
+          {booking.customer?.customer_code && (
+            <div><span className="text-muted-foreground">Customer Code:</span> <span className="font-medium">{booking.customer.customer_code}</span></div>
+          )}
           <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{booking.customer?.name || 'N/A'}</span></div>
+          
+          {/* Row 2: Phone & WhatsApp */}
           <div><span className="text-muted-foreground">Phone:</span> <span className="font-medium">{booking.customer?.phone || 'N/A'}</span></div>
-          {(booking.customer?.whatsapp_number || booking.customer?.phone) && (
-            <div><span className="text-muted-foreground">WhatsApp:</span> <span className="font-medium">{booking.customer?.whatsapp_number || booking.customer?.phone}</span></div>
+          <div><span className="text-muted-foreground">WhatsApp:</span> <span className="font-medium">{booking.customer?.whatsapp || booking.customer?.phone || 'N/A'}</span></div>
+          
+          {/* Row 3: Email - ALWAYS SHOW */}
+          <div className="col-span-2">
+            <span className="text-muted-foreground">Email:</span>{' '}
+            <span className="font-medium">{booking.customer?.email || 'N/A'}</span>
+          </div>
+          
+          {/* Row 4: Address - ALWAYS SHOW */}
+          <div className="col-span-2">
+            <span className="text-muted-foreground">Address:</span>{' '}
+            <span className="font-medium">{booking.customer?.address || 'N/A'}</span>
+          </div>
+          
+          {/* Row 5: City, State, Pincode - ALWAYS SHOW */}
+          <div><span className="text-muted-foreground">City:</span> <span className="font-medium">{booking.customer?.city || 'N/A'}</span></div>
+          <div><span className="text-muted-foreground">State:</span> <span className="font-medium">{booking.customer?.state || 'N/A'}</span></div>
+          <div><span className="text-muted-foreground">Pincode:</span> <span className="font-medium">{booking.customer?.pincode || 'N/A'}</span></div>
+          
+          {/* Row 6: Customer Notes - ALWAYS SHOW */}
+          <div className="col-span-2">
+            <span className="text-muted-foreground">Notes:</span>{' '}
+            <span className="font-medium text-amber-700 dark:text-amber-400">{booking.customer?.notes || 'N/A'}</span>
+          </div>
+          
+          {/* Row 7: Customer Status & Registration Date (optional) */}
+          {booking.customer?.status && (
+            <div><span className="text-muted-foreground">Status:</span> <span className="font-medium capitalize">{booking.customer.status}</span></div>
           )}
-          {booking.customer?.email && (
-            <div><span className="text-muted-foreground">Email:</span> <span className="font-medium">{booking.customer?.email}</span></div>
-          )}
-          {booking.customer?.address && (
-            <div className="col-span-2">
-              <span className="text-muted-foreground">Address:</span>{' '}
-              <span className="font-medium">
-                {[
-                  booking.customer?.address,
-                  booking.customer?.city,
-                  booking.customer?.state,
-                  booking.customer?.pincode
-                ].filter(Boolean).join(', ')}
-              </span>
-            </div>
+          {booking.customer?.created_at && (
+            <div><span className="text-muted-foreground">Customer Since:</span> <span className="font-medium">{new Date(booking.customer.created_at).toLocaleDateString('en-IN')}</span></div>
           )}
         </div>
       </div>
