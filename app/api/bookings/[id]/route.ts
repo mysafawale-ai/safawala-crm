@@ -142,50 +142,60 @@ export async function DELETE(
     const params = 'then' in context.params ? await context.params : context.params
     
     const type = request.nextUrl.searchParams.get('type') || 'unified'
-    let table = 'bookings'
-    if (type === 'product_orders' || type === 'product_order') table = 'product_orders'
-    if (type === 'package_bookings' || type === 'package_booking') table = 'package_bookings'
+    const id = params.id
 
-    console.log('[Bookings DELETE] Type:', type, 'Table:', table, 'ID:', params.id)
+    console.log('[Bookings DELETE] Type:', type, 'ID:', id)
 
-    // Check franchise ownership before delete
-    const { data: existing, error: fetchErr } = await supabase
-      .from(table)
-      .select('id, franchise_id')
-      .eq('id', params.id)
-      .single()
-    
-    console.log('[Bookings DELETE] Existing:', existing, 'Error:', fetchErr)
-    
-    if (fetchErr || !existing) {
-      console.log('[Bookings DELETE] Not found - returning 404')
-      return NextResponse.json({ error: fetchErr?.message || 'Not found' }, { status: 404 })
+    // Determine candidate tables to search (handle plural/singular and unified)
+    const candidates: Array<'package_bookings' | 'product_orders' | 'direct_sales_orders' | 'bookings'> =
+      (type === 'product_orders' || type === 'product_order') ? ['product_orders'] :
+      (type === 'package_bookings' || type === 'package_booking') ? ['package_bookings'] :
+      ['package_bookings', 'product_orders', 'direct_sales_orders', 'bookings']
+
+    // Find the first table that contains the record
+    let foundTable: typeof candidates[number] | null = null
+    let existing: { id: string; franchise_id?: string | null } | null = null
+    for (const tbl of candidates) {
+      const { data, error } = await supabase.from(tbl).select('id, franchise_id').eq('id', id).maybeSingle()
+      if (!error && data) {
+        foundTable = tbl
+        existing = data as any
+        break
+      }
     }
-    if (!isSuperAdmin && existing.franchise_id !== franchiseId) {
+
+    if (!foundTable || !existing) {
+      console.log('[Bookings DELETE] Not found in any candidate table:', candidates)
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Franchise ownership check
+    if (!isSuperAdmin && existing.franchise_id && existing.franchise_id !== franchiseId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Delete related items first
-    if (table === 'product_orders') {
-      await supabase.from('product_order_items').delete().eq('order_id', params.id)
-    } else if (table === 'package_bookings') {
-      // Delete package booking items
-      await supabase.from('package_booking_items').delete().eq('booking_id', params.id)
-      // Delete package booking product items
-      await supabase.from('package_booking_product_items').delete().eq('package_booking_id', params.id)
+    // Delete related items first based on actual table
+    if (foundTable === 'product_orders') {
+      await supabase.from('product_order_items').delete().eq('order_id', id)
+    } else if (foundTable === 'package_bookings') {
+      // Delete package booking product items (new table)
+      await supabase.from('package_booking_product_items').delete().eq('package_booking_id', id)
+      // Delete package booking items - support both legacy FK names
+      await supabase.from('package_booking_items').delete().or(`package_booking_id.eq.${id},booking_id.eq.${id}`)
+    } else if (foundTable === 'bookings') {
+      // Unified legacy table support
+      await supabase.from('booking_items').delete().eq('booking_id', id)
+    } else if (foundTable === 'direct_sales_orders') {
+      await supabase.from('direct_sales_items').delete().eq('sale_id', id)
     }
 
-    // Delete the booking
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .eq("id", params.id)
-
+    // Delete the booking itself
+    const { error } = await supabase.from(foundTable).delete().eq('id', id)
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ message: "Booking deleted successfully" })
+    return NextResponse.json({ message: 'Booking deleted successfully' })
   } catch (error: any) {
     console.error('[Bookings DELETE] Error:', error)
     return NextResponse.json({ error: error.message || "Failed to delete booking" }, { status: 500 })
