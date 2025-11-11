@@ -625,7 +625,13 @@ export default function BookingsPage() {
       variant: "destructive",
       onConfirm: async () => {
         try {
-          const url = `/api/bookings/${bookingId}${source ? `?type=${source}` : ''}`
+          // Normalize source to singular form for API
+          const normalized = source === 'package_bookings' ? 'package_booking'
+            : source === 'product_orders' ? 'product_order'
+            : source === 'direct_sales' ? 'direct_sales'
+            : 'unified'
+          const url = `/api/bookings/${bookingId}${source ? `?type=${normalized}` : ''}`
+          console.log('[Bookings] Deleting', bookingId, 'source:', source, 'normalized:', normalized, 'url:', url)
           const res = await fetch(url, { method: 'DELETE' })
           if (!res.ok) {
             const { error } = await res.json().catch(() => ({ error: 'Failed to delete' }))

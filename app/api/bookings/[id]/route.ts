@@ -146,11 +146,14 @@ export async function DELETE(
 
     console.log('[Bookings DELETE] Type:', type, 'ID:', id)
 
-    // Determine candidate tables to search (handle plural/singular and unified)
-    const candidates: Array<'package_bookings' | 'product_orders' | 'direct_sales_orders' | 'bookings'> =
-      (type === 'product_orders' || type === 'product_order') ? ['product_orders'] :
-      (type === 'package_bookings' || type === 'package_booking') ? ['package_bookings'] :
-      ['package_bookings', 'product_orders', 'direct_sales_orders', 'bookings']
+    // Probe all possible tables; prefer hinted table first but don't rely on it
+    const allTables: Array<'package_bookings' | 'product_orders' | 'direct_sales_orders' | 'bookings'> = [
+      'package_bookings', 'product_orders', 'direct_sales_orders', 'bookings'
+    ]
+    const preferred = (type === 'product_orders' || type === 'product_order') ? 'product_orders'
+      : (type === 'package_bookings' || type === 'package_booking') ? 'package_bookings'
+      : undefined
+    const candidates = preferred ? [preferred, ...allTables.filter(t => t !== preferred)] : allTables
 
     // Find the first table that contains the record
     let foundTable: typeof candidates[number] | null = null
