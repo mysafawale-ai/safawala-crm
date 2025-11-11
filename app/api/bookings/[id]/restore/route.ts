@@ -114,3 +114,6 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false 
     }, { status: 500 })
   }
 }
+
+// Accept POST as a fallback for environments or clients that cannot send PATCH
+export const POST = PATCH
