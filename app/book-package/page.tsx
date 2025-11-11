@@ -2734,7 +2734,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
   
   // Custom product creation
   const [showCustomProductDialog, setShowCustomProductDialog] = useState(false)
-  const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '' })
+  const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '', rental_price: '' })
   const [creatingProduct, setCreatingProduct] = useState(false)
   const [showCameraDialog, setShowCameraDialog] = useState(false)
   const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('environment')
@@ -3035,6 +3035,10 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
       toast.error("Please select a category")
       return
     }
+    if (!customProductData.rental_price || parseFloat(customProductData.rental_price) <= 0) {
+      toast.error("Please enter a valid price")
+      return
+    }
     
     setCreatingProduct(true)
     try {
@@ -3111,12 +3115,14 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
       }
 
       // Build base payload (use minimal fields to avoid schema mismatch)
+      const priceValue = parseFloat(customProductData.rental_price) || 0
+      
       const basePayload: any = {
         name: customProductData.name.trim(),
         category_id: customProductData.category_id,
         image_url: imageUrl || null,
-        rental_price: 10, // demo price per request
-        price: 10,        // demo price per request
+        rental_price: priceValue,
+        price: priceValue,
         security_deposit: 0,
         stock_available: 100,
         is_active: true,
@@ -3186,7 +3192,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
       toast.success(`Product "${product.name}" created and added!`)
       
       // Reset form and close dialog
-      setCustomProductData({ name: '', category_id: '', image_url: '' })
+      setCustomProductData({ name: '', category_id: '', image_url: '', rental_price: '' })
       setShowCustomProductDialog(false)
     } catch (e: any) {
       console.error('Failed to create product:', e)
@@ -3721,6 +3727,19 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
             </div>
 
             <div>
+              <label className="text-sm font-medium">Rental/Sale Price * (₹)</label>
+              <Input
+                type="number"
+                placeholder="Enter price"
+                value={customProductData.rental_price}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, rental_price: e.target.value }))}
+                className="mt-1"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
               <label className="text-sm font-medium">Product Image (optional)</label>
               
               {/* Image Upload Options */}
@@ -3797,7 +3816,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                 variant="outline" 
                 onClick={() => {
                   setShowCustomProductDialog(false)
-                  setCustomProductData({ name: '', category_id: '', image_url: '' })
+                  setCustomProductData({ name: '', category_id: '', image_url: '', rental_price: '' })
                 }}
                 disabled={creatingProduct}
               >
@@ -3805,7 +3824,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
               </Button>
               <Button 
                 onClick={handleCreateCustomProduct}
-                disabled={creatingProduct || !customProductData.name.trim() || !customProductData.category_id}
+                disabled={creatingProduct || !customProductData.name.trim() || !customProductData.category_id || !customProductData.rental_price || parseFloat(customProductData.rental_price) <= 0}
               >
                 {creatingProduct ? 'Creating...' : 'Create Product'}
               </Button>
