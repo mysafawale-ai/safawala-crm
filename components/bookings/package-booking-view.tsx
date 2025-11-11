@@ -17,35 +17,48 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
     : null
   
   // Helper function to extract and format time with multiple fallbacks
-  const getFormattedTime = (timeValue: any): string | null => {
-    if (!timeValue) return null
-    
-    try {
-      // Handle different time formats
-      if (typeof timeValue === 'string') {
-        // If it's already a time string like "14:30:00" or "14:30"
-        if (timeValue.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
-          return formatTime12Hour(timeValue)
+  const getFormattedTime = (timeValue: any, dateFieldFallback?: any): string | null => {
+    // Try primary time value first
+    if (timeValue) {
+      try {
+        if (typeof timeValue === 'string') {
+          // If it's already a time string like "14:30:00" or "14:30"
+          if (timeValue.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+            return formatTime12Hour(timeValue)
+          }
+          // If it's a full ISO datetime, extract time part
+          if (timeValue.includes('T')) {
+            const timePart = timeValue.split('T')[1]?.split('.')[0]
+            if (timePart) return formatTime12Hour(timePart)
+          }
         }
-        // If it's a full ISO datetime, extract time part
-        if (timeValue.includes('T')) {
-          const timePart = timeValue.split('T')[1]?.split('.')[0]
-          if (timePart) return formatTime12Hour(timePart)
-        }
+        
+        // Try to format directly
+        return formatTime12Hour(timeValue)
+      } catch (e) {
+        console.warn('Time formatting error:', e)
       }
-      
-      // Try to format directly
-      return formatTime12Hour(timeValue)
-    } catch (e) {
-      console.warn('Time formatting error:', e)
-      return null
     }
+    
+    // Fallback: Extract time from date field (for old bookings that stored time in date)
+    if (dateFieldFallback && typeof dateFieldFallback === 'string' && dateFieldFallback.includes('T')) {
+      try {
+        const timePart = dateFieldFallback.split('T')[1]?.split('.')[0]
+        if (timePart && timePart !== '00:00:00') {
+          return formatTime12Hour(timePart)
+        }
+      } catch (e) {
+        console.warn('Date field time extraction error:', e)
+      }
+    }
+    
+    return null
   }
   
-  // Extract times with fallbacks
-  const eventTime = getFormattedTime(booking.event_time)
-  const deliveryTime = getFormattedTime(booking.delivery_time)
-  const returnTime = getFormattedTime(booking.return_time)
+  // Extract times with fallbacks (try time column first, then extract from date field)
+  const eventTime = getFormattedTime(booking.event_time, booking.event_date)
+  const deliveryTime = getFormattedTime(booking.delivery_time, booking.delivery_date)
+  const returnTime = getFormattedTime(booking.return_time, booking.return_date)
   
   // Debug logging to see what time values we're receiving
   console.log('[PackageBookingView] Time values:', {
