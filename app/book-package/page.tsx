@@ -3122,8 +3122,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
         is_active: true,
         product_code: productCode,
         description: 'Custom product',
-        franchise_id: createdByFranchiseId, // ALWAYS set franchise_id
-        is_custom: true // Mark as custom product
+        franchise_id: createdByFranchiseId // ALWAYS set franchise_id
       }
 
       // Safe insert with auto-removal of unknown columns

@@ -565,8 +565,7 @@ export default function CreateProductOrderPage() {
         is_active: true,
         product_code: productCode,
         description: 'Custom product',
-        franchise_id: createdByFranchiseId,
-        is_custom: true
+        franchise_id: createdByFranchiseId
       }
 
       const { data: product, error } = await supabase
