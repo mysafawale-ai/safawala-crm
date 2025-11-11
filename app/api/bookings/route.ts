@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
       `)
       // Include legacy rows where is_quote is NULL as non-quotes
       .or('is_quote.is.null,is_quote.eq.false')
+      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     let packageQuery = supabase
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
       .eq("is_quote", false)
+      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     // CRITICAL: Filter by franchise_id unless super admin
@@ -179,6 +181,7 @@ export async function GET(request: NextRequest) {
         total_amount, amount_paid, notes, created_at,
         customer:customers(name, phone, email)
       `)
+      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     if (!isSuperAdmin && franchiseId) {
