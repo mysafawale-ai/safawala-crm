@@ -9,10 +9,13 @@ export const runtime = 'nodejs'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    // Await params in Next.js 14+
+    const params = 'then' in context.params ? await context.params : context.params
     const { id } = params
+    
     const auth = await requireAuth(request, 'readonly')
     if (!auth.success) {
       return NextResponse.json(auth.response, { status: 401 })
@@ -70,7 +73,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const auth = await requireAuth(request, 'staff')
@@ -82,6 +85,10 @@ export async function PATCH(
     const isSuperAdmin = user.is_super_admin
     const supabase = createClient()
     const body = await request.json()
+    
+    // Await params in Next.js 14+
+    const params = 'then' in context.params ? await context.params : context.params
+    
     const type = request.nextUrl.searchParams.get('type') || 'unified'
     let table = 'bookings'
     if (type === 'product_order') table = 'product_orders'
@@ -119,7 +126,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const auth = await requireAuth(request, 'staff')
@@ -130,6 +137,10 @@ export async function DELETE(
     const franchiseId = user.franchise_id
     const isSuperAdmin = user.is_super_admin
     const supabase = createClient()
+    
+    // Await params in Next.js 14+
+    const params = 'then' in context.params ? await context.params : context.params
+    
     const type = request.nextUrl.searchParams.get('type') || 'unified'
     let table = 'bookings'
     if (type === 'product_orders' || type === 'product_order') table = 'product_orders'
