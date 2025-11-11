@@ -11,10 +11,10 @@ interface PackageBookingViewProps {
 export function PackageBookingView({ booking, bookingItems = [] }: PackageBookingViewProps) {
   const pendingAmount = (booking.total_amount || 0) - (booking.paid_amount || 0)
   
-  // Debug: Log customer data to see what's available
-  console.log('[PackageBookingView] Full booking object:', booking)
-  console.log('[PackageBookingView] Customer data:', booking.customer)
-  console.log('[PackageBookingView] Customer email:', booking.customer?.email)
+  // Extract package category name from booking items
+  const packageCategoryName = bookingItems && bookingItems.length > 0 && bookingItems[0]?.category_name 
+    ? bookingItems[0].category_name 
+    : null
   
   return (
     <div className="space-y-6 py-2 text-sm">
@@ -90,8 +90,16 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
         <h4 className="font-semibold mb-2 text-purple-700 dark:text-purple-400">🎉 EVENT DETAILS</h4>
         <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
           <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{booking.event_type?.replace('_', ' ') || 'N/A'}</span></div>
-          {booking.event_for && (
-            <div><span className="text-muted-foreground">Participant:</span> <span className="font-medium capitalize">{booking.event_for}</span></div>
+          {booking.event_participant && (
+            <div><span className="text-muted-foreground">Participant:</span> <span className="font-medium capitalize">{booking.event_participant}</span></div>
+          )}
+          
+          {/* Package Category */}
+          {packageCategoryName && (
+            <div className="col-span-2">
+              <span className="text-muted-foreground">📦 Package:</span>{' '}
+              <span className="font-medium text-purple-700 dark:text-purple-400">{packageCategoryName}</span>
+            </div>
           )}
           <div className="col-span-2">
             <span className="text-muted-foreground">Event Date & Time:</span>{' '}
@@ -184,17 +192,16 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
       <div>
         <h4 className="font-semibold mb-2 text-amber-700 dark:text-amber-400">💰 FINANCIAL SUMMARY</h4>
         <div className="space-y-1.5">
+          {/* Package Price Breakdown */}
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Subtotal:</span>
+            <span className="text-muted-foreground">
+              Package Price
+              {booking.distance_km && booking.distance_km > 0 && (
+                <span className="text-xs ml-1">(incl. {booking.distance_km}km delivery)</span>
+              )}:
+            </span>
             <span className="font-medium">₹{((booking.subtotal_amount || booking.total_amount) || 0).toLocaleString()}</span>
           </div>
-          
-          {booking.distance_amount && booking.distance_amount > 0 && (
-            <div className="flex justify-between text-blue-600">
-              <span>Distance Charges:</span>
-              <span className="font-medium">+₹{booking.distance_amount.toLocaleString()}</span>
-            </div>
-          )}
           
           {booking.discount_amount && booking.discount_amount > 0 && (
             <div className="flex justify-between text-green-600">

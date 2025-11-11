@@ -67,8 +67,11 @@ export async function GET(request: NextRequest) {
     let packageQuery = supabase
       .from("package_bookings")
       .select(`
-        id, package_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date,
-        event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
+        id, package_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, return_time,
+        event_type, venue_address, venue_name, total_amount, amount_paid, notes, created_at, from_quote_id,
+        groom_name, groom_address, groom_whatsapp, bride_name, bride_address, bride_whatsapp, event_participant,
+        subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, 
+        tax_amount, gst_percentage, security_deposit, event_time,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
@@ -95,13 +98,6 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Bookings API] Product orders fetched: ${(productRes.data || []).length}`)
     console.log(`[Bookings API] Package bookings fetched: ${(packageRes.data || []).length}`)
-    
-    // Debug: Check customer data structure
-    if ((packageRes.data || []).length > 0) {
-      const sampleBooking = (packageRes.data as any[])[0]
-      console.log('[Bookings API] Sample customer data:', JSON.stringify(sampleBooking.customer, null, 2))
-    }
-    
     try {
       const prod = (productRes.data || []) as any[]
       const saleByType = prod.filter(r => r.booking_type === 'sale').length
