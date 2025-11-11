@@ -95,6 +95,13 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Bookings API] Product orders fetched: ${(productRes.data || []).length}`)
     console.log(`[Bookings API] Package bookings fetched: ${(packageRes.data || []).length}`)
+    
+    // Debug: Check customer data structure
+    if ((packageRes.data || []).length > 0) {
+      const sampleBooking = (packageRes.data as any[])[0]
+      console.log('[Bookings API] Sample customer data:', JSON.stringify(sampleBooking.customer, null, 2))
+    }
+    
     try {
       const prod = (productRes.data || []) as any[]
       const saleByType = prod.filter(r => r.booking_type === 'sale').length
