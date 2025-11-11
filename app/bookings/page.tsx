@@ -54,6 +54,7 @@ import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-avai
 import { formatVenueWithCity, getCityForExport, getVenueNameForExport } from "@/lib/city-extractor"
 import ManageOffersDialog from "@/components/ManageOffersDialog"
 import { apiClient } from "@/lib/api-client"
+import { PackageBookingView } from "@/components/bookings/package-booking-view"
 
 export default function BookingsPage() {
   const router = useRouter()
@@ -1396,7 +1397,19 @@ export default function BookingsPage() {
                   }}
                 />
               ) : (
-                /* Rental/Package Booking - Original Dialog Content */
+                /* Rental/Package Booking - Simplified View */
+                <PackageBookingView 
+                  booking={selectedBooking}
+                  bookingItems={bookingItems[selectedBooking.id] || []}
+                />
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* OLD CODE - TO BE REMOVED */}
+      {false && (
                 <div className="space-y-4">
                   {/* Customer Information */}
                   <Card>
@@ -1867,10 +1880,6 @@ export default function BookingsPage() {
               </div>
                 </div>
               )}
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Items Display Dialog - Using Reusable Component */}
       {productDialogBooking && productDialogType === 'items' && !itemsLoading[productDialogBooking.id] && !itemsError[productDialogBooking.id] && bookingItems[productDialogBooking.id] && (
