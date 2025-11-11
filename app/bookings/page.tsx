@@ -34,6 +34,8 @@ import {
   Share2,
   Download,
   AlertCircle,
+  Archive,
+  RotateCcw,
 } from "lucide-react"
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -106,6 +108,10 @@ export default function BookingsPage() {
   const [showCompactDisplay, setShowCompactDisplay] = useState(false)
   const [currentBookingForItems, setCurrentBookingForItems] = useState<Booking | null>(null)
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
+
+  // Archived bookings state
+  const [archivedBookings, setArchivedBookings] = useState<Booking[]>([])
+  const [showArchivedSection, setShowArchivedSection] = useState(false)
 
   // Auto-refresh when returning from booking creation
   useEffect(() => {
@@ -332,6 +338,58 @@ export default function BookingsPage() {
     
     fetchBookingItems()
   }, [bookings, toast])
+
+  // Fetch archived bookings
+  useEffect(() => {
+    const fetchArchivedBookings = async () => {
+      try {
+        const supabase = createClient()
+        
+        // Fetch archived bookings from all sources
+        const tables = ['package_bookings', 'product_orders', 'direct_sales_orders', 'bookings']
+        let allArchivedBookings: Booking[] = []
+        
+        for (const table of tables) {
+          let query = supabase
+            .from(table)
+            .select('*')
+            .eq('is_archived', true)
+            .order('created_at', { ascending: false })
+            .limit(5)
+          
+          // Apply franchise filter if user is not super_admin
+          if (currentUser?.role !== 'super_admin' && currentUser?.franchise_id) {
+            query = query.eq('franchise_id', currentUser.franchise_id)
+          }
+          
+          const { data, error } = await query
+          if (error) {
+            console.warn(`[Bookings] Failed to fetch archived from ${table}:`, error)
+            continue
+          }
+          
+          if (data && data.length > 0) {
+            allArchivedBookings = [...allArchivedBookings, ...data as any]
+          }
+        }
+        
+        // Sort by created_at and take top 5
+        allArchivedBookings = allArchivedBookings
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5)
+        
+        setArchivedBookings(allArchivedBookings)
+        console.log(`[Bookings] Loaded ${allArchivedBookings.length} archived bookings`)
+      } catch (error) {
+        console.error('[Bookings] Error fetching archived bookings:', error)
+      }
+    }
+    
+    if (currentUser) {
+      fetchArchivedBookings()
+    }
+  }, [currentUser])
+
   const { data: statsData } = useData<any>("booking-stats")
   const stats = statsData || {}
 
@@ -620,6 +678,87 @@ export default function BookingsPage() {
         description: 'Failed to load booking items',
         variant: 'destructive',
       })
+    }
+  }
+
+  const handleArchiveBooking = async (bookingId: string, source?: string) => {
+    showConfirmation({
+      title: "Archive booking?",
+      description: "This booking will be moved to archived section. You can restore it anytime.",
+      confirmText: "Archive",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          // Normalize source to singular form for API
+          const normalized = source === 'package_bookings' ? 'package_booking'
+            : source === 'product_orders' ? 'product_order'
+            : source === 'direct_sales' ? 'direct_sales'
+            : 'unified'
+          const endpoint = `/api/bookings/${bookingId}/archive`
+          console.log('[Bookings] Archiving', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)
+          
+          // Use API client with proper authentication
+          const response = await apiClient.patch(endpoint, { type: normalized })
+          
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to archive booking')
+          }
+          
+          toast({ title: 'Archived', description: 'Booking archived successfully' })
+          
+          // Refresh both active and archived bookings
+          await refresh()
+          
+          // Add to archived bookings list (refetch to get full data)
+          try {
+            const supabase = createClient()
+            const { data, error } = await supabase
+              .from('package_bookings')
+              .select('*')
+              .eq('id', bookingId)
+              .maybeSingle()
+            
+            if (!error && data) {
+              setArchivedBookings(prev => [data as any, ...prev].slice(0, 5))
+            }
+          } catch (e) {
+            console.warn('[Bookings] Could not refetch archived booking:', e)
+          }
+        } catch (error: any) {
+          console.error('[Bookings] Archive error:', error)
+          toast({ title: 'Error', description: error.message || 'Failed to archive booking', variant: 'destructive' })
+        }
+      }
+    })
+  }
+
+  const handleRestoreBooking = async (bookingId: string, source?: string) => {
+    try {
+      // Normalize source to singular form for API
+      const normalized = source === 'package_bookings' ? 'package_booking'
+        : source === 'product_orders' ? 'product_order'
+        : source === 'direct_sales' ? 'direct_sales'
+        : 'unified'
+      const endpoint = `/api/bookings/${bookingId}/restore`
+      console.log('[Bookings] Restoring', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)
+      
+      // Use API client with proper authentication
+      const response = await apiClient.patch(endpoint, { type: normalized })
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to restore booking')
+      }
+      
+      toast({ title: 'Restored', description: 'Booking restored successfully' })
+      
+      // Refresh both active and archived bookings
+      await refresh()
+      
+      // Refresh archived bookings list
+      setArchivedBookings(prev => prev.filter(b => b.id !== bookingId))
+    } catch (error: any) {
+      console.error('[Bookings] Restore error:', error)
+      toast({ title: 'Error', description: error.message || 'Failed to restore booking', variant: 'destructive' })
     }
   }
 
@@ -1246,11 +1385,11 @@ export default function BookingsPage() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteBooking(booking.id, (booking as any).source)}
-                              title="Delete Booking"
+                              className="h-8 w-8 text-amber-600 hover:text-amber-700"
+                              onClick={() => handleArchiveBooking(booking.id, (booking as any).source)}
+                              title="Archive Booking"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                              <Archive className="h-4 w-4"/>
                             </Button>
                           </div>
                         </TableCell>
@@ -1322,6 +1461,87 @@ export default function BookingsPage() {
                       Next
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {/* Archived Bookings Section */}
+              {archivedBookings.length > 0 && (
+                <div className="mt-8 pt-8 border-t">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Archive className="h-5 w-5 text-amber-600" />
+                      <h3 className="text-lg font-semibold">Archived Bookings ({archivedBookings.length})</h3>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowArchivedSection(!showArchivedSection)}
+                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                    >
+                      {showArchivedSection ? '▼ Hide' : '▶ Show'}
+                    </Button>
+                  </div>
+                  
+                  {showArchivedSection && (
+                    <div className="overflow-x-auto pb-2">
+                      <div className="flex gap-4">
+                        {archivedBookings.map((booking) => (
+                          <Card key={booking.id} className="flex-shrink-0 w-80 border-amber-200 bg-amber-50">
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                {/* Header with booking number and date */}
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-semibold text-sm">{booking.booking_number}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {new Date(booking.created_at).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                  <Badge variant="secondary" className="bg-amber-100 text-amber-800">Archived</Badge>
+                                </div>
+
+                                {/* Customer info */}
+                                <div className="bg-white rounded p-2">
+                                  <p className="text-sm font-medium">{booking.customer?.name || 'N/A'}</p>
+                                  <p className="text-xs text-muted-foreground">{booking.venue_name || 'N/A'}</p>
+                                </div>
+
+                                {/* Amount */}
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-muted-foreground">Total:</span>
+                                  <span className="font-semibold">₹{(booking.total_amount || 0).toLocaleString()}</span>
+                                </div>
+
+                                {/* Action buttons */}
+                                <div className="flex gap-2 pt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 h-8 text-xs"
+                                    onClick={() => {
+                                      setSelectedBooking(booking)
+                                      setShowViewDialog(true)
+                                    }}
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    View
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() => handleRestoreBooking(booking.id, booking.source || 'unified')}
+                                  >
+                                    <RotateCcw className="h-3 w-3 mr-1" />
+                                    Restore
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
