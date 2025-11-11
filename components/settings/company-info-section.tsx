@@ -17,6 +17,7 @@ interface CompanyInfoData {
   email: string
   phone: string
   gst_number: string
+  gst_percentage: number
   address: string
   city: string
   state: string
@@ -36,6 +37,7 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
     email: '',
     phone: '',
     gst_number: '',
+    gst_percentage: 5.0,
     address: '',
     city: '',
     state: '',
@@ -79,6 +81,7 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
           email: result.data.email || '',
           phone: result.data.phone || '',
           gst_number: result.data.gst_number || '',
+          gst_percentage: result.data.gst_percentage !== undefined ? Number(result.data.gst_percentage) : 5.0,
           address: result.data.address || '',
           city: result.data.city || '',
           state: result.data.state || '',
@@ -96,7 +99,7 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
     }
   }
 
-  const handleInputChange = (field: keyof CompanyInfoData, value: string) => {
+  const handleInputChange = (field: keyof CompanyInfoData, value: string | number) => {
     setData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -344,6 +347,31 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
           </div>
           
           <div className="space-y-2">
+            <Label htmlFor="gst_percentage">
+              GST Percentage (%)
+              <span className="text-xs text-muted-foreground ml-2">Used in bookings & billing</span>
+            </Label>
+            <Input
+              id="gst_percentage"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={data.gst_percentage}
+              onChange={(e) => {
+                const value = e.target.value === '' ? 5.0 : parseFloat(e.target.value)
+                handleInputChange('gst_percentage', value)
+              }}
+              placeholder="5.00"
+            />
+            <p className="text-xs text-gray-500">
+              Common rates: 5%, 12%, 18%, 28%
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
             <Label htmlFor="pan_number">PAN Number</Label>
             <Input
               id="pan_number"
@@ -352,6 +380,10 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
               placeholder="ABCDE1234F"
               maxLength={10}
             />
+          </div>
+          
+          <div className="space-y-2">
+            {/* Empty div for grid alignment */}
           </div>
         </div>
 
