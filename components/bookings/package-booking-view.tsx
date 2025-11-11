@@ -16,6 +16,47 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
     ? bookingItems[0].category_name 
     : null
   
+  // Helper function to extract and format time with multiple fallbacks
+  const getFormattedTime = (timeValue: any): string | null => {
+    if (!timeValue) return null
+    
+    try {
+      // Handle different time formats
+      if (typeof timeValue === 'string') {
+        // If it's already a time string like "14:30:00" or "14:30"
+        if (timeValue.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+          return formatTime12Hour(timeValue)
+        }
+        // If it's a full ISO datetime, extract time part
+        if (timeValue.includes('T')) {
+          const timePart = timeValue.split('T')[1]?.split('.')[0]
+          if (timePart) return formatTime12Hour(timePart)
+        }
+      }
+      
+      // Try to format directly
+      return formatTime12Hour(timeValue)
+    } catch (e) {
+      console.warn('Time formatting error:', e)
+      return null
+    }
+  }
+  
+  // Extract times with fallbacks
+  const eventTime = getFormattedTime(booking.event_time)
+  const deliveryTime = getFormattedTime(booking.delivery_time)
+  const returnTime = getFormattedTime(booking.return_time)
+  
+  // Debug logging to see what time values we're receiving
+  console.log('[PackageBookingView] Time values:', {
+    event_time_raw: booking.event_time,
+    delivery_time_raw: booking.delivery_time,
+    return_time_raw: booking.return_time,
+    event_time_formatted: eventTime,
+    delivery_time_formatted: deliveryTime,
+    return_time_formatted: returnTime
+  })
+  
   return (
     <div className="space-y-6 py-2 text-sm">
       
@@ -109,7 +150,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
                 month: 'short',
                 year: 'numeric'
               }) : 'N/A'}
-              {booking.event_time && ` at ${formatTime12Hour(booking.event_time)}`}
+              {eventTime && ` at ${eventTime}`}
             </span>
           </div>
           
@@ -166,7 +207,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
                 <span className="text-muted-foreground">Delivery:</span>{' '}
                 <span className="font-medium">
                   {new Date(booking.delivery_date).toLocaleDateString('en-IN')}
-                  {booking.delivery_time && ` at ${formatTime12Hour(booking.delivery_time)}`}
+                  {deliveryTime && ` at ${deliveryTime}`}
                 </span>
               </div>
             )}
@@ -175,7 +216,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
                 <span className="text-muted-foreground">Return:</span>{' '}
                 <span className="font-medium">
                   {new Date(booking.return_date).toLocaleDateString('en-IN')}
-                  {booking.return_time && ` at ${formatTime12Hour(booking.return_time)}`}
+                  {returnTime && ` at ${returnTime}`}
                 </span>
               </div>
             )}
