@@ -454,6 +454,7 @@ export default function BookingsPage() {
     const totalAmount = booking?.total_amount || 0
     const paidAmount = booking?.paid_amount || 0
     const hasPartialPayment = paidAmount > 0 && paidAmount < totalAmount
+    const pendingAmount = totalAmount - paidAmount
     
     // Override status to "Payment Pending" if payment is incomplete
     let displayStatus = status
@@ -475,6 +476,9 @@ export default function BookingsPage() {
     return (
       <div className="flex flex-col gap-1">
         <Badge variant={config.variant}>{config.label}</Badge>
+        {displayStatus === 'pending_payment' && pendingAmount > 0 && (
+          <span className="text-xs text-amber-600 font-medium">₹{pendingAmount.toLocaleString()} pending</span>
+        )}
       </div>
     )
   }
