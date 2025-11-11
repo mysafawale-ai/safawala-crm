@@ -249,9 +249,8 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
           {/* Package Price Breakdown */}
           <div className="flex justify-between">
             <span className="text-muted-foreground">
-              Package Price
-              {booking.distance_km && booking.distance_km > 0 && (
-                <span className="text-xs ml-1">(incl. {booking.distance_km}km delivery)</span>
+              Package Price{booking.distance_km && booking.distance_km > 0 && (
+                <span className="text-xs ml-1"> (incl. {booking.distance_km}km delivery)</span>
               )}:
             </span>
             <span className="font-medium">₹{((booking.subtotal_amount || booking.total_amount) || 0).toLocaleString()}</span>
