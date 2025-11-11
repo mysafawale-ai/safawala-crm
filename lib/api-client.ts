@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase/client"
+
 interface ApiResponse<T = any> {
   success: boolean
   data?: T
@@ -10,15 +12,22 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     try {
-      // Get user data for authentication headers
-      const userDataStr = localStorage.getItem("safawala_user")
-      const userData = userDataStr ? JSON.parse(userDataStr) : null
+      // Get Supabase session for authentication
+      const supabase = createClient()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      // Prepare auth headers
+      let authHeaders: Record<string, string> = {}
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`
+      }
 
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
+        credentials: 'include', // Include cookies for session
         headers: {
           "Content-Type": "application/json",
-          // Auth now relies on Supabase Auth cookies; no custom headers
+          ...authHeaders,
           ...options.headers,
         },
       })
