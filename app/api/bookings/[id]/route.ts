@@ -129,13 +129,17 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    console.log('[Bookings DELETE] Starting delete request...')
     const auth = await requireAuth(request, 'staff')
+    console.log('[Bookings DELETE] Auth result:', auth.success)
     if (!auth.success) {
+      console.log('[Bookings DELETE] Auth failed:', auth.response)
       return NextResponse.json(auth.response, { status: 401 })
     }
     const user = auth.authContext!.user
     const franchiseId = user.franchise_id
     const isSuperAdmin = user.is_super_admin
+    console.log('[Bookings DELETE] User:', user.email, 'Franchise:', franchiseId, 'SuperAdmin:', isSuperAdmin)
     const supabase = createClient()
     
     // Await params in Next.js 14+
@@ -159,17 +163,20 @@ export async function DELETE(
     let foundTable: typeof candidates[number] | null = null
     let existing: { id: string; franchise_id?: string | null } | null = null
     for (const tbl of candidates) {
+      console.log(`[Bookings DELETE] Checking table: ${tbl}`)
       const { data, error } = await supabase.from(tbl).select('id, franchise_id').eq('id', id).maybeSingle()
+      console.log(`[Bookings DELETE] ${tbl} result:`, { found: !!data, error: error?.message })
       if (!error && data) {
         foundTable = tbl
         existing = data as any
+        console.log(`[Bookings DELETE] Found in ${tbl}:`, existing)
         break
       }
     }
 
     if (!foundTable || !existing) {
       console.log('[Bookings DELETE] Not found in any candidate table:', candidates)
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Booking not found in any table' }, { status: 404 })
     }
 
     // Franchise ownership check
@@ -193,14 +200,17 @@ export async function DELETE(
     }
 
     // Delete the booking itself
+    console.log(`[Bookings DELETE] Deleting from ${foundTable}...`)
     const { error } = await supabase.from(foundTable).delete().eq('id', id)
     if (error) {
+      console.error('[Bookings DELETE] Delete failed:', error)
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ message: 'Booking deleted successfully' })
+    console.log('[Bookings DELETE] Successfully deleted')
+    return NextResponse.json({ success: true, message: 'Booking deleted successfully' })
   } catch (error: any) {
     console.error('[Bookings DELETE] Error:', error)
-    return NextResponse.json({ error: error.message || "Failed to delete booking" }, { status: 500 })
+    return NextResponse.json({ success: false, error: error.message || "Failed to delete booking" }, { status: 500 })
   }
 }
