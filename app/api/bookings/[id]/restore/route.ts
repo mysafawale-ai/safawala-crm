@@ -13,7 +13,7 @@ export async function PATCH(
     const params = 'then' in context.params ? await context.params : context.params
     const { id } = params
 
-    const auth = await requireAuth(request, 'write')
+  const auth = await requireAuth(request, 'staff')
     if (!auth.success) {
       return NextResponse.json(auth.response, { status: 401 })
     }
