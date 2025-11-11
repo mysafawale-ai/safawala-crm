@@ -174,6 +174,12 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
       return
     }
     
+    // Validate GST percentage
+    if (data.gst_percentage < 0 || data.gst_percentage > 100) {
+      ToastService.error('GST percentage must be between 0 and 100')
+      return
+    }
+    
     try {
       setSaving(true)
       const response = await fetch('/api/settings/company', {
@@ -190,7 +196,17 @@ export function CompanyInfoSection({ franchiseId }: CompanyInfoSectionProps) {
       if (response.ok) {
         ToastService.operations.settingsSaved()
       } else {
-        await ToastService.handleApiError(response, 'save company information')
+        const errorData = await response.json()
+        
+        // Check if error is about missing gst_percentage column
+        if (errorData.message?.includes('gst_percentage column may be missing')) {
+          ToastService.error(
+            'Database schema issue. Please run the GST migration in Supabase SQL Editor:\n' +
+            'ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS gst_percentage DECIMAL(5,2) DEFAULT 5.00;'
+          )
+        } else {
+          await ToastService.handleApiError(response, 'save company information')
+        }
       }
     } catch (error: any) {
       console.error('Error saving company info:', error)

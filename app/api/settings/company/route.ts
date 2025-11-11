@@ -137,6 +137,18 @@ export async function POST(request: NextRequest) {
 
     if (result.error) {
       console.error('Database error saving company settings:', result.error)
+      console.error('Full error details:', JSON.stringify(result.error, null, 2))
+      
+      // Check if error is about missing gst_percentage column
+      if (result.error.message?.includes('gst_percentage') || result.error.message?.includes('column')) {
+        return NextResponse.json({
+          error: 'Database schema issue: gst_percentage column may be missing',
+          message: 'Please run the GST percentage migration in Supabase',
+          sql: `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS gst_percentage DECIMAL(5,2) DEFAULT 5.00;`,
+          details: result.error.message
+        }, { status: 400 })
+      }
+      
       return NextResponse.json(
         ApiResponseBuilder.databaseError(result.error, 'save company settings'),
         { status: 500 }
