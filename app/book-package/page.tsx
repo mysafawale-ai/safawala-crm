@@ -2461,7 +2461,7 @@ interface VariantDialogProps {
 }
 
 function VariantDialog({ category, variants, customerPincode, distanceKm, onClose, onAdd }: VariantDialogProps) {
-  const [extraSafas, setExtraSafas] = useState<Record<string, number>>({})
+  const [extraSafas, setExtraSafas] = useState<Record<string, number | string>>({})
   const [editingInclusions, setEditingInclusions] = useState<string | null>(null)
   const [customInclusions, setCustomInclusions] = useState<Record<string, string[]>>({})
   const [distancePricing, setDistancePricing] = useState<Record<string, number>>({})
@@ -2550,7 +2550,7 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
           )}
           <div className="grid grid-cols-1 gap-4 max-h-[60vh] overflow-y-auto">
             {variants.map((v, index) => {
-              const safas = extraSafas[v.id] || 0
+              const safas = extraSafas[v.id] === '' ? 0 : (extraSafas[v.id] || 0)
               const distanceAddon = distancePricing[v.id] || 0
               const defaultInclusions: string[] = Array.isArray(v.inclusions)
                 ? v.inclusions
@@ -2703,13 +2703,21 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                         type="number"
                         min={0}
                         value={safas}
-                        onChange={e => setExtraSafas(prev => ({ ...prev, [v.id]: Math.max(0, Number(e.target.value)) }))}
+                        onChange={e => {
+                          const value = e.target.value;
+                          setExtraSafas(prev => ({ ...prev, [v.id]: value === '' ? '' : Math.max(0, Number(value)) }));
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Backspace' && safas === 0) {
+                            setExtraSafas(prev => ({ ...prev, [v.id]: '' }));
+                          }
+                        }}
                         className="h-8 w-20"
                         placeholder="Extra"
                       />
                       <div className="flex gap-1">
-                        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 10 }))}>+10</Button>
-                        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 20 }))}>+20</Button>
+                        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: (safas || 0) + 10 }))}>+10</Button>
+                        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: (safas || 0) + 20 }))}>+20</Button>
                       </div>
                       {(v.extra_safa_price || 0) > 0 && <span className="text-gray-500">{formatCurrency(v.extra_safa_price || 0)}/safa</span>}
                     </div>
