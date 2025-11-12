@@ -668,11 +668,19 @@ export default function BookPackageWizard() {
       }
       
       const remaining = grand - payable
-      const depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
-      const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
+      // Determine deposit placement. For partial payments we ALWAYS defer the
+      // security deposit to the remaining payment (do not collect now) so the
+      // customer only pays their partial package amount today.
+      let depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
+      let depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
+      if (formData.payment_type === 'partial') {
+        // For partial payments, move the deposit to the later/pending amount
+        depositDueLater = securityDeposit
+        depositDueNow = 0
+      }
       const payableNowTotal = payable + depositDueNow
       const remainingPackage = remaining
-      const remainingTotal = remaining
+      const remainingTotal = remainingPackage + depositDueLater
       
       return {
         subtotal: packagePrice,
@@ -731,11 +739,18 @@ export default function BookPackageWizard() {
       payable = Math.min(grand, Math.max(0, formData.custom_amount))
     }
     
-    const depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
-    const depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
+    // Determine deposit placement. For partial payments we ALWAYS defer the
+    // security deposit to the remaining payment (do not collect now) so the
+    // customer only pays their partial package amount today.
+    let depositDueNow = DEPOSIT_POLICY.collectAt === 'booking' ? securityDeposit : 0
+    let depositDueLater = DEPOSIT_POLICY.collectAt === 'delivery' ? securityDeposit : 0
+    if (formData.payment_type === 'partial') {
+      depositDueLater = securityDeposit
+      depositDueNow = 0
+    }
     const payableNowTotal = payable + depositDueNow
     const remainingPackage = grand - payable
-    const remainingTotal = remainingPackage
+    const remainingTotal = remainingPackage + depositDueLater
     
     return {
       subtotal,
@@ -2163,19 +2178,30 @@ export default function BookPackageWizard() {
                               <span>Package Partial Payment</span>
                               <span>{formatCurrency(totals.payable)}</span>
                             </div>
-                            {totals.securityDeposit > 0 && (
-                              <div className="flex justify-between text-amber-700 text-sm">
-                                <span>+ Deposit (Refundable)</span>
-                                <span>+{formatCurrency(totals.securityDeposit)}</span>
-                              </div>
-                            )}
+
+                            {/* For partial payments we DO NOT collect the security deposit now.
+                                The deposit is moved to the remaining payment, so show only the
+                                package partial amount as payable now. */}
                             <div className="flex justify-between font-bold text-lg border-t pt-2 text-purple-700">
                               <span>Total to Pay Now</span>
-                              <span>{formatCurrency(totals.payable + totals.securityDeposit)}</span>
+                              <span>{formatCurrency(totals.payable)}</span>
                             </div>
-                            <div className="flex justify-between text-xs text-gray-600 mt-2 pt-2 border-t">
-                              <span>Remaining Package Later</span>
-                              <span>{formatCurrency(totals.remaining)}</span>
+
+                            <div className="flex flex-col gap-1 mt-2 pt-2 border-t text-xs text-gray-600">
+                              <div className="flex justify-between">
+                                <span>Remaining Package Later</span>
+                                <span>{formatCurrency(Math.max(0, (totals.remaining || 0) - (totals.securityDeposit || 0)))}</span>
+                              </div>
+                              {totals.securityDeposit > 0 && (
+                                <div className="flex justify-between text-amber-700">
+                                  <span>{DEPOSIT_POLICY.label} (Collected later)</span>
+                                  <span>{formatCurrency(totals.securityDeposit)}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between font-medium">
+                                <span>Remaining (Total)</span>
+                                <span>{formatCurrency(totals.remaining)}</span>
+                              </div>
                             </div>
                           </>
                         )}
