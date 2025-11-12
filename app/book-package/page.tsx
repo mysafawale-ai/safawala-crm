@@ -2467,10 +2467,36 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
   const [distancePricing, setDistancePricing] = useState<Record<string, number>>({})
   const [newInclusionInput, setNewInclusionInput] = useState<Record<string, string>>({})
 
+  // Sort variants by package number extracted from category name
+  const sortedVariants = useMemo(() => {
+    return [...variants].sort((a, b) => {
+      // Extract package number from category name (e.g., "Package 1", "Package 2", etc.)
+      const extractPackageNumber = (name: string) => {
+        const match = name.match(/Package\s+(\d+)/i)
+        return match ? parseInt(match[1]) : 999
+      }
+
+      const aNum = extractPackageNumber(category.name)
+      const bNum = extractPackageNumber(category.name)
+
+      // If both have package numbers, sort by number
+      if (aNum !== 999 && bNum !== 999) {
+        return aNum - bNum
+      }
+
+      // If only one has package number, prioritize it
+      if (aNum !== 999) return -1
+      if (bNum !== 999) return 1
+
+      // Fallback to name comparison
+      return (a.name || a.variant_name || '').localeCompare(b.name || b.variant_name || '')
+    })
+  }, [variants, category.name])
+
   // Fetch distance pricing for all variants
   useEffect(() => {
     const fetchDistancePricing = async () => {
-      const variantIds = variants.map(v => v.id)
+      const variantIds = sortedVariants.map(v => v.id)
       if (variantIds.length === 0) return
 
       const { data } = await supabase
@@ -2481,7 +2507,7 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
 
       if (data) {
         const pricingMap: Record<string, number> = {}
-        variants.forEach(v => {
+        sortedVariants.forEach(v => {
           const tiers = data.filter((d: any) => d.package_variant_id === v.id)
           const tier = tiers.find((t: any) => distanceKm >= t.min_distance_km && distanceKm <= t.max_distance_km)
           pricingMap[v.id] = tier?.additional_price || 0
@@ -2490,12 +2516,12 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
       }
     }
     fetchDistancePricing()
-  }, [variants, distanceKm])
+  }, [sortedVariants, distanceKm])
 
   // Initialize custom inclusions from variant defaults
   useEffect(() => {
     const initialInclusions: Record<string, string[]> = {}
-    variants.forEach(v => {
+    sortedVariants.forEach(v => {
       const inclusions: string[] = Array.isArray(v.inclusions)
         ? v.inclusions
         : typeof v.inclusions === 'string'
@@ -2504,7 +2530,7 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
       initialInclusions[v.id] = [...inclusions]
     })
     setCustomInclusions(initialInclusions)
-  }, [variants])
+  }, [sortedVariants])
 
   const toggleInclusion = (variantId: string, inclusion: string) => {
     setCustomInclusions(prev => {
@@ -2549,7 +2575,7 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
             <div className="text-sm text-gray-500">No variants available.</div>
           )}
           <div className="grid grid-cols-1 gap-4 max-h-[60vh] overflow-y-auto">
-            {variants.map((v, index) => {
+            {sortedVariants.map((v, index) => {
               const safas = extraSafas[v.id] === '' ? 0 : (extraSafas[v.id] || 0)
               const distanceAddon = distancePricing[v.id] || 0
               const defaultInclusions: string[] = Array.isArray(v.inclusions)
@@ -2567,7 +2593,13 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                   {/* Header with Package Number */}
                   <div className="flex items-start justify-between gap-2 pb-2 border-b">
                     <div className="flex-1">
-                      <div className="text-sm text-blue-600 font-medium mb-1">Package {index + 1}</div>
+                      <div className="text-sm text-blue-600 font-medium mb-1">
+                        {(() => {
+                          // Extract package number from category name
+                          const match = category.name.match(/Package\s+(\d+)/i)
+                          return match ? `Package ${match[1]}` : `Package ${index + 1}`
+                        })()}
+                      </div>
                       <div className="font-semibold text-base text-green-800">{v.name || v.variant_name}</div>
                       <div className="text-xs text-gray-500 mt-0.5">Base: {formatCurrency(v.base_price)}</div>
                     </div>
