@@ -115,6 +115,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
   } else {
     // Full payment: package + deposit now
     display.payableNow = totalAmount + securityDeposit
+    display.payableNowLabel = 'Paid (Total)'
     display.depositDueNow = securityDeposit
     display.depositLater = 0
     display.remainingPackage = 0
@@ -429,10 +430,12 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
                 {display.notes.map((n, i) => <li key={i}>{n}</li>)}
               </ul>
             )}
-            <div className="flex items-center justify-between text-xs border-t mt-2 pt-2">
-              <span className="text-green-700 font-medium">Paid So Far</span>
-              <span className="font-bold text-green-700">₹{paidAmount.toLocaleString()}</span>
-            </div>
+            {paymentType !== 'full' && (
+              <div className="flex items-center justify-between text-xs border-t mt-2 pt-2">
+                <span className="text-green-700 font-medium">Paid So Far</span>
+                <span className="font-bold text-green-700">₹{paidAmount.toLocaleString()}</span>
+              </div>
+            )}
             {pendingAmount > 0 && paymentType !== 'full' && (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-orange-700 font-medium">Pending Now</span>
