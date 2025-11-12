@@ -67,7 +67,8 @@ interface BookingFormData {
   customer_id: string
   type: "rental" | "direct_sale"
   event_type: string
-  payment_type: "full" | "advance" | "advance_with_deposit"
+  payment_type: "full" | "advance" | "advance_with_deposit" | "partial"
+  payment_amount?: number
   event_date: string
   delivery_date: string
   pickup_date: string
@@ -111,6 +112,7 @@ export default function NewBookingPage() {
     type: "rental",
     event_type: "wedding",
     payment_type: "advance",
+    payment_amount: 0,
     event_date: "",
     delivery_date: "",
     pickup_date: "",
@@ -317,10 +319,12 @@ export default function NewBookingPage() {
 
   // Calculate payment amounts based on payment type
   const getPaymentBreakdown = () => {
+    const totalPayable = totalAmount + (formData.type === "rental" ? totalSecurityDeposit : 0)
+    
     switch (formData.payment_type) {
       case "full":
         return {
-          payNow: totalAmount + (formData.type === "rental" ? totalSecurityDeposit : 0),
+          payNow: totalPayable,
           payLater: 0,
           securityDeposit: formData.type === "rental" ? totalSecurityDeposit : 0,
           description: formData.type === "rental" ? "Full payment + Security deposit" : "Full payment",
@@ -340,6 +344,14 @@ export default function NewBookingPage() {
           payLater: totalAmount - advanceWithDeposit,
           securityDeposit: totalSecurityDeposit,
           description: "50% advance + Security deposit",
+        }
+      case "partial":
+        const customAmount = formData.payment_amount || 0
+        return {
+          payNow: Math.min(customAmount, totalPayable),
+          payLater: Math.max(0, totalPayable - customAmount),
+          securityDeposit: formData.type === "rental" ? totalSecurityDeposit : 0,
+          description: "Partial payment (Custom amount)",
         }
       default:
         return { payNow: 0, payLater: 0, securityDeposit: 0, description: "" }
@@ -528,12 +540,14 @@ export default function NewBookingPage() {
       return [
         { value: "full", label: "Full Payment" },
         { value: "advance", label: "Advance Payment (50%)" },
+        { value: "partial", label: "Partial Payment (Custom Amount)" },
       ]
     } else {
       return [
         { value: "full", label: "Full Payment + Security Deposit" },
         { value: "advance", label: "Advance Payment (50%)" },
         { value: "advance_with_deposit", label: "Advance + Security Deposit" },
+        { value: "partial", label: "Partial Payment (Custom Amount)" },
       ]
     }
   }
@@ -801,7 +815,7 @@ export default function NewBookingPage() {
                       <Label htmlFor="payment_type">Payment Type *</Label>
                       <Select
                         value={formData.payment_type}
-                        onValueChange={(value: "full" | "advance" | "advance_with_deposit") =>
+                        onValueChange={(value: "full" | "advance" | "advance_with_deposit" | "partial") =>
                           handleInputChange("payment_type", value)
                         }
                       >
@@ -818,6 +832,32 @@ export default function NewBookingPage() {
                       </Select>
                     </div>
                   </div>
+                  
+                  {/* Custom Payment Amount - Only show for partial payment */}
+                  {formData.payment_type === "partial" && (
+                    <div className="mt-4">
+                      <Label htmlFor="payment_amount">Payment Amount *</Label>
+                      <Input
+                        id="payment_amount"
+                        type="number"
+                        min={0}
+                        max={totalAmount + (formData.type === "rental" ? totalSecurityDeposit : 0)}
+                        value={formData.payment_amount || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData((prev) => ({ 
+                            ...prev, 
+                            payment_amount: value === "" ? 0 : Math.max(0, Number(value)) 
+                          }));
+                        }}
+                        placeholder="Enter payment amount"
+                        className="mt-1"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Total payable: ₹{(totalAmount + (formData.type === "rental" ? totalSecurityDeposit : 0)).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1076,15 +1116,33 @@ export default function NewBookingPage() {
                     <Separator />
                     <div className="space-y-2 text-sm">
                       <div className="font-medium">{paymentBreakdown.description}</div>
-                      <div className="flex justify-between">
-                        <span>Pay Now</span>
-                        <span className="font-medium">₹{paymentBreakdown.payNow.toLocaleString()}</span>
-                      </div>
-                      {paymentBreakdown.payLater > 0 && (
-                        <div className="flex justify-between">
-                          <span>Pay Later</span>
-                          <span>₹{paymentBreakdown.payLater.toLocaleString()}</span>
-                        </div>
+                      {formData.payment_type === "partial" ? (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Amount Paid</span>
+                            <span className="font-medium">₹{paymentBreakdown.payNow.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Pending Amount</span>
+                            <span className="font-medium text-orange-600">₹{paymentBreakdown.payLater.toLocaleString()}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-2 p-2 bg-orange-50 rounded">
+                            Total payable: ₹{(totalAmount + (formData.type === "rental" ? totalSecurityDeposit : 0)).toLocaleString()}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Pay Now</span>
+                            <span className="font-medium">₹{paymentBreakdown.payNow.toLocaleString()}</span>
+                          </div>
+                          {paymentBreakdown.payLater > 0 && (
+                            <div className="flex justify-between">
+                              <span>Pay Later</span>
+                              <span>₹{paymentBreakdown.payLater.toLocaleString()}</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </CardContent>
