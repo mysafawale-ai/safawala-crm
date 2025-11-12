@@ -2739,11 +2739,6 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                           const value = e.target.value;
                           setExtraSafas(prev => ({ ...prev, [v.id]: value === '' ? '' : Math.max(0, Number(value)) }));
                         }}
-                        onKeyDown={e => {
-                          if (e.key === 'Backspace' && safas === 0) {
-                            setExtraSafas(prev => ({ ...prev, [v.id]: '' }));
-                          }
-                        }}
                         className="h-8 w-20"
                         placeholder="Extra"
                       />
