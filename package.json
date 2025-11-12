@@ -18,7 +18,8 @@
     "sql:fix:disable-settings-rls": "pnpm sql:run scripts/fixes/disable-settings-rls.sql",
     "sql:setup:service-role-security": "pnpm sql:run scripts/fixes/setup-service-role-security.sql",
     "sql:apply:settings-rls": "pnpm sql:run scripts/rls/settings-rls-policies.sql",
-    "sql:cleanup:delete-all-data": "pnpm sql:run scripts/cleanup/delete-all-data.sql"
+    "sql:cleanup:delete-all-data": "pnpm sql:run scripts/cleanup/delete-all-data.sql",
+    "stock:update": "node scripts/bulk-update-stock.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
