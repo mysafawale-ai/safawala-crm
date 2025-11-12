@@ -15,9 +15,16 @@ export const runtime = 'nodejs'
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authenticateRequest(req, { minRole: 'super_admin' })
-    if (!auth.authorized) {
-      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    // Check for admin authentication - either via session or API key
+    const authHeader = req.headers.get('authorization')
+    const hasValidKey = authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    
+    if (!hasValidKey) {
+      // Fall back to session-based auth
+      const auth = await authenticateRequest(req, { minRole: 'super_admin' })
+      if (!auth.authorized) {
+        return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+      }
     }
 
     const body = await req.json()
@@ -41,9 +48,12 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString()
       })
 
-    // If franchise_id is provided, only update products for that franchise
+    // Always add a WHERE clause - either for specific franchise or all active products
     if (franchise_id) {
       query = query.eq("franchise_id", franchise_id)
+    } else {
+      // Update all active products when no franchise is specified
+      query = query.eq("is_active", true)
     }
 
     // Execute the update
@@ -81,9 +91,16 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authenticateRequest(req, { minRole: 'super_admin' })
-    if (!auth.authorized) {
-      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    // Check for admin authentication - either via session or API key
+    const authHeader = req.headers.get('authorization')
+    const hasValidKey = authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    
+    if (!hasValidKey) {
+      // Fall back to session-based auth
+      const auth = await authenticateRequest(req, { minRole: 'super_admin' })
+      if (!auth.authorized) {
+        return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+      }
     }
 
     const supabase = createClient()

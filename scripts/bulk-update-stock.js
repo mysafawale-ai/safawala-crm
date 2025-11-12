@@ -13,20 +13,28 @@
  *   node scripts/bulk-update-stock.js 1000 franchise-123    # Update products for specific franchise to 1000
  *
  * Environment Variables:
- *   SUPABASE_URL - Your Supabase project URL
+ *   NEXT_PUBLIC_SUPABASE_URL - Your Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY - Your Supabase service role key
  */
 
+// Load environment variables from .env.local
+require('dotenv').config({ path: '.env.local' })
+
 const https = require('https')
+const http = require('http')
 const { URL } = require('url')
 
 // Configuration
-const SUPABASE_URL = process.env.SUPABASE_URL
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+// Determine API base URL - use localhost for development, Supabase URL for production
+const isDevelopment = process.env.NODE_ENV !== 'production'
+const API_BASE_URL = isDevelopment ? 'http://localhost:3000' : SUPABASE_URL
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('❌ Missing required environment variables:')
-  console.error('   SUPABASE_URL')
+  console.error('   NEXT_PUBLIC_SUPABASE_URL')
   console.error('   SUPABASE_SERVICE_ROLE_KEY')
   console.error('')
   console.error('Please set these environment variables or create a .env.local file')
@@ -55,7 +63,8 @@ console.log('')
 // Function to make HTTP request
 function makeRequest(url, options, data = null) {
   return new Promise((resolve, reject) => {
-    const req = https.request(url, options, (res) => {
+    const protocol = url.protocol === 'https:' ? https : http
+    const req = protocol.request(url, options, (res) => {
       let body = ''
       res.on('data', (chunk) => {
         body += chunk
@@ -84,7 +93,7 @@ function makeRequest(url, options, data = null) {
 
 // Function to get current stock statistics
 async function getStockStats() {
-  const url = new URL('/api/products/bulk-update-stock', SUPABASE_URL)
+  const url = new URL('/api/products/bulk-update-stock', API_BASE_URL)
 
   try {
     const response = await makeRequest(url, {
@@ -109,7 +118,7 @@ async function getStockStats() {
 
 // Function to update stock
 async function updateStock(quantity, franchiseId = null) {
-  const url = new URL('/api/products/bulk-update-stock', SUPABASE_URL)
+  const url = new URL('/api/products/bulk-update-stock', API_BASE_URL)
 
   const payload = { stock_quantity: quantity }
   if (franchiseId) {

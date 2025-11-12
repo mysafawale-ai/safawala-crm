@@ -1126,7 +1126,12 @@ export default function NewBookingPage() {
                             <span>Pending Amount</span>
                             <span className="font-medium text-orange-600">₹{paymentBreakdown.payLater.toLocaleString()}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-2 p-2 bg-orange-50 rounded">
+                          {formData.type === "rental" && totalSecurityDeposit > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1 p-2 bg-orange-50 rounded">
+                              Includes ₹{totalSecurityDeposit.toLocaleString()} security deposit in pending amount
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-1 p-2 bg-blue-50 rounded">
                             Total payable: ₹{(totalAmount + (formData.type === "rental" ? totalSecurityDeposit : 0)).toLocaleString()}
                           </div>
                         </>
