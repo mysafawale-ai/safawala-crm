@@ -370,7 +370,12 @@ export default function BookingsPage() {
           }
           
           if (data && data.length > 0) {
-            allArchivedBookings = [...allArchivedBookings, ...data as any]
+            // Add source field to each booking
+            const bookingsWithSource = data.map(booking => ({
+              ...booking,
+              source: table
+            }))
+            allArchivedBookings = [...allArchivedBookings, ...bookingsWithSource as any]
           }
         }
         

@@ -6,6 +6,16 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Handle the actual logic
+  return handleRestoreRequest(request)
+}
+
+// Also accept PATCH for compatibility
+export async function PATCH(request: NextRequest) {
+  return handleRestoreRequest(request)
+}
+
+async function handleRestoreRequest(request: NextRequest) {
   try {
     const auth = await requireAuth(request, 'staff')
     if (!auth.success) {
@@ -40,19 +50,43 @@ export async function POST(request: NextRequest) {
 
     const tableName = tableMap[type] || 'package_bookings'
 
-    // Check if booking exists and belongs to user's franchise
-    const { data: existing, error: findError } = await supabase
+    // Check if booking exists and belongs to user's franchise (must be archived)
+    // If the specific table doesn't have it, try other tables
+    let existing: { id: string; franchise_id?: string | null } | null = null
+    let foundTable = tableName
+
+    // First try the specified table
+    const { data: primaryData, error: primaryError } = await supabase
       .from(tableName)
       .select('id, franchise_id')
       .eq('id', id)
+      .eq('is_archived', true)
       .maybeSingle()
 
-    if (findError) {
-      console.error('[Bookings RESTORE] Find error:', findError)
-      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    if (!primaryError && primaryData) {
+      existing = primaryData
+    } else {
+      // If not found in primary table, try other tables
+      const fallbackTables = ['package_bookings', 'product_orders', 'direct_sales_orders', 'bookings'].filter(t => t !== tableName)
+      
+      for (const tbl of fallbackTables) {
+        const { data, error } = await supabase
+          .from(tbl)
+          .select('id, franchise_id')
+          .eq('id', id)
+          .eq('is_archived', true)
+          .maybeSingle()
+        
+        if (!error && data) {
+          existing = data
+          foundTable = tbl
+          break
+        }
+      }
     }
 
     if (!existing) {
+      console.log('[Bookings RESTORE] Booking not found in any table:', id)
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
@@ -63,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Try to restore
     const { error: restoreError } = await supabase
-      .from(tableName)
+      .from(foundTable)
       .update({ is_archived: false })
       .eq('id', id)
 

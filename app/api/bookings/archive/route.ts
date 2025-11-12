@@ -6,6 +6,16 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Handle the actual logic
+  return handleArchiveRequest(request)
+}
+
+// Also accept PATCH for compatibility
+export async function PATCH(request: NextRequest) {
+  return handleArchiveRequest(request)
+}
+
+async function handleArchiveRequest(request: NextRequest) {
   try {
     const auth = await requireAuth(request, 'staff')
     if (!auth.success) {
