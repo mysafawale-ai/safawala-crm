@@ -9,7 +9,12 @@ interface PackageBookingViewProps {
 }
 
 export function PackageBookingView({ booking, bookingItems = [] }: PackageBookingViewProps) {
-  const pendingAmount = (booking.total_amount || 0) - (booking.paid_amount || 0)
+  const totalAmount = Number(booking.total_amount || 0)
+  const paidAmount = Number(booking.paid_amount || 0)
+  const securityDeposit = Number(booking.security_deposit || 0)
+  const customAmount = Number(booking.custom_amount || 0)
+  const paymentType: 'full' | 'advance' | 'partial' | string = booking.payment_type || 'full'
+  const pendingAmount = Math.max(0, (totalAmount + securityDeposit) - paidAmount)
   
   // Extract package details from booking
   const packageDetails = (booking as any).package_details
@@ -79,6 +84,44 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
     return_time_formatted: returnTime
   })
   
+  // --- Payment breakdown calculations (display only) ---
+  const halfAdvance = totalAmount / 2
+  let display = {
+    payableNowLabel: 'Payable Now',
+    payableNow: 0,
+    remainingPackage: 0,
+    depositDueNow: 0,
+    depositLater: 0,
+    remainingTotal: 0,
+    notes: [] as string[],
+  }
+
+  if (paymentType === 'partial') {
+    // We collect only the package partial now; deposit is collected later
+    display.payableNow = Math.max(0, customAmount)
+    display.depositDueNow = 0
+    display.depositLater = securityDeposit
+    display.remainingPackage = Math.max(0, totalAmount - display.payableNow)
+    display.remainingTotal = display.remainingPackage + display.depositLater
+    display.notes.push('Security deposit will be collected later with the remaining payment.')
+  } else if (paymentType === 'advance') {
+    // Expected policy: ~50% of package now + deposit; rest later
+    display.payableNow = Math.max(0, halfAdvance) + securityDeposit
+    display.depositDueNow = securityDeposit
+    display.depositLater = 0
+    display.remainingPackage = Math.max(0, totalAmount - halfAdvance)
+    display.remainingTotal = display.remainingPackage
+    display.notes.push('Advance is approximately 50% of package amount. Deposit collected now.')
+  } else {
+    // Full payment: package + deposit now
+    display.payableNow = totalAmount + securityDeposit
+    display.depositDueNow = securityDeposit
+    display.depositLater = 0
+    display.remainingPackage = 0
+    display.remainingTotal = 0
+    display.notes.push('Full payment includes refundable security deposit collected now.')
+  }
+
   return (
     <div className="space-y-6 py-2 text-sm">
       
@@ -341,17 +384,58 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
             </div>
           )}
           
-          <div className="flex justify-between pt-1.5 border-t">
-            <span className="text-green-700 font-medium">Amount Paid:</span>
-            <span className="font-bold text-green-700">₹{(booking.paid_amount || 0).toLocaleString()}</span>
-          </div>
-          
-          {pendingAmount > 0 && (
-            <div className="flex justify-between">
-              <span className="text-orange-700 font-medium">Pending Amount:</span>
-              <span className="font-bold text-orange-700">₹{pendingAmount.toLocaleString()}</span>
+          {/* Payment Breakdown */}
+          <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+              <span>Payment Type</span>
+              <span className="font-medium capitalize">{paymentType}</span>
             </div>
-          )}
+            {paymentType === 'partial' && (
+              <div className="flex items-center justify-between text-xs text-purple-700">
+                <span>Custom Amount (paid at booking)</span>
+                <span className="font-semibold">₹{customAmount.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between font-semibold text-sm border-t pt-2 mt-2 text-amber-800">
+              <span>{display.payableNowLabel}</span>
+              <span>₹{display.payableNow.toLocaleString()}</span>
+            </div>
+            {paymentType !== 'partial' && securityDeposit > 0 && (
+              <div className="flex items-center justify-between text-xs text-amber-700">
+                <span>Includes Security Deposit</span>
+                <span>₹{securityDeposit.toLocaleString()}</span>
+              </div>
+            )}
+            {paymentType === 'partial' && securityDeposit > 0 && (
+              <div className="flex items-center justify-between text-xs text-amber-700">
+                <span>Security Deposit (collected later)</span>
+                <span>₹{securityDeposit.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-xs text-muted-foreground border-t mt-2 pt-2">
+              <span>Remaining Package</span>
+              <span>₹{display.remainingPackage.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Remaining (Total)</span>
+              <span>₹{display.remainingTotal.toLocaleString()}</span>
+            </div>
+            {display.notes.length > 0 && (
+              <ul className="mt-2 text-[11px] text-amber-700 list-disc list-inside space-y-0.5">
+                {display.notes.map((n, i) => <li key={i}>{n}</li>)}
+              </ul>
+            )}
+            <div className="flex items-center justify-between text-xs border-t mt-2 pt-2">
+              <span className="text-green-700 font-medium">Paid So Far</span>
+              <span className="font-bold text-green-700">₹{paidAmount.toLocaleString()}</span>
+            </div>
+            {pendingAmount > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-orange-700 font-medium">Pending Now</span>
+                <span className="font-bold text-orange-700">₹{pendingAmount.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
           
           {booking.payment_type && (
             <div className="flex justify-between text-xs pt-2">
