@@ -13,6 +13,8 @@ export async function PATCH(
     const params = 'then' in context.params ? await context.params : context.params
     const { id } = params
 
+    console.log('[Bookings ARCHIVE] PATCH request for ID:', id)
+
   const auth = await requireAuth(request, 'staff')
     if (!auth.success) {
       return NextResponse.json(auth.response, { status: 401 })
@@ -85,14 +87,68 @@ export async function PATCH(
       // Check if column doesn't exist
       if (error.message.includes('is_archived') || error.code === '42703') {
         return NextResponse.json({
-          error: 'Archive column not yet added to database',
-          message: 'Please run the SQL migration: ADD_ARCHIVE_TO_BOOKINGS.sql',
-          sql: `
-ALTER TABLE package_bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false NOT NULL;
-ALTER TABLE product_orders ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false NOT NULL;
-ALTER TABLE direct_sales_orders ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false NOT NULL;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false NOT NULL;
-          `.trim()
+          error: 'Archive functionality not available',
+          message: 'The database needs to be updated to support archiving. Please run the following SQL in your Supabase SQL Editor:',
+          sql: `-- Run this in Supabase SQL Editor: https://app.supabase.com/project/_/sql
+
+-- Add is_archived column to package_bookings
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name='package_bookings' AND column_name='is_archived'
+  ) THEN
+    ALTER TABLE package_bookings 
+    ADD COLUMN is_archived BOOLEAN DEFAULT false NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_package_bookings_archived 
+    ON package_bookings(is_archived, created_at DESC);
+    
+    RAISE NOTICE '✅ Added is_archived column to package_bookings';
+  ELSE
+    RAISE NOTICE '⏭️  is_archived column already exists in package_bookings';
+  END IF;
+END $$;
+
+-- Add is_archived column to product_orders
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name='product_orders' AND column_name='is_archived'
+  ) THEN
+    ALTER TABLE product_orders 
+    ADD COLUMN is_archived BOOLEAN DEFAULT false NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_product_orders_archived 
+    ON product_orders(is_archived, created_at DESC);
+    
+    RAISE NOTICE '✅ Added is_archived column to product_orders';
+  ELSE
+    RAISE NOTICE '⏭️  is_archived column already exists in product_orders';
+  END IF;
+END $$;
+
+-- Add is_archived column to direct_sales_orders
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name='direct_sales_orders' AND column_name='is_archived'
+  ) THEN
+    ALTER TABLE direct_sales_orders 
+    ADD COLUMN is_archived BOOLEAN DEFAULT false NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS idx_direct_sales_orders_archived 
+    ON direct_sales_orders(is_archived, created_at DESC);
+    
+    RAISE NOTICE '✅ Added is_archived column to direct_sales_orders';
+  ELSE
+    RAISE NOTICE '⏭️  is_archived column already exists in direct_sales_orders';
+  END IF;
+END $$;`,
+          details: 'After running this SQL, archive functionality will work properly.',
+          contact: 'If you need help running this SQL, please contact the development team.'
         }, { status: 400 })
       }
 

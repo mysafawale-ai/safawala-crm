@@ -727,7 +727,17 @@ export default function BookingsPage() {
           }
         } catch (error: any) {
           console.error('[Bookings] Archive error:', error)
-          toast({ title: 'Error', description: error.message || 'Failed to archive booking', variant: 'destructive' })
+          
+          // Check if it's a database schema error
+          if (error.message && error.message.includes('Archive functionality not available')) {
+            toast({ 
+              title: 'Database Update Required', 
+              description: 'Archive functionality needs database setup. Please contact admin.',
+              variant: 'destructive' 
+            })
+          } else {
+            toast({ title: 'Error', description: error.message || 'Failed to archive booking', variant: 'destructive' })
+          }
         }
       }
     })
@@ -2123,9 +2133,7 @@ export default function BookingsPage() {
                   variant: item.variant_name ? {
                     id: item.variant_id,
                     name: item.variant_name,
-                    variant_name: item.variant_name,
-                    base_price: item.unit_price || item.price || 0,
-                    package_id: item.package_id,
+                    price: item.unit_price || item.price || 0,
                   } : undefined,
                   quantity: item.quantity || 1,
                   extra_safas: item.extra_safas || 0,
@@ -2139,16 +2147,11 @@ export default function BookingsPage() {
                   product_id: item.product_id || item.id,
                   product: {
                     id: item.product_id || item.id,
-                    name: item.product?.name || item.product_name || 'Item',
+                    name: item.product_name || 'Item',
                     barcode: item.product?.barcode || item.barcode || item.product_code,
-                    product_code: item.product?.product_code || item.product_code,
-                    category: item.product?.category || item.category_name,
+                    product_code: item.product_code,
+                    category: item.category_name,
                     image_url: item.product?.image_url,
-                    price: item.product?.price || item.price,
-                    rental_price: item.product?.rental_price || item.unit_price || item.price || 0,
-                    sale_price: item.unit_price || item.price || 0,
-                    stock_available: item.product?.stock_available,
-                    category_id: item.product?.category_id,
                   },
                   quantity: item.quantity || 1,
                   unit_price: item.unit_price || item.price || 0,
