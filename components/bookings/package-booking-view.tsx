@@ -16,6 +16,10 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
     ? bookingItems[0].category_name 
     : null
   
+  // Extract variant name and extra safas from booking
+  const variantName = (booking as any).variant_name
+  const extraSafas = (booking as any).extra_safas || 0
+  
   // Helper function to extract and format time with multiple fallbacks
   const getFormattedTime = (timeValue: any, dateFieldFallback?: any): string | null => {
     // Try primary time value first
@@ -151,8 +155,24 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
           {/* Package Category */}
           {packageCategoryName && (
             <div className="col-span-2">
-              <span className="text-muted-foreground">📦 Package:</span>{' '}
+              <span className="text-muted-foreground">📦 Category:</span>{' '}
               <span className="font-medium text-purple-700 dark:text-purple-400">{packageCategoryName}</span>
+            </div>
+          )}
+          
+          {/* Variant Name */}
+          {variantName && (
+            <div className="col-span-2">
+              <span className="text-muted-foreground">Variant:</span>{' '}
+              <span className="font-medium">{variantName}</span>
+            </div>
+          )}
+          
+          {/* Extra Safas */}
+          {extraSafas > 0 && (
+            <div className="col-span-2">
+              <span className="text-muted-foreground">Extra Safas:</span>{' '}
+              <span className="font-medium">{extraSafas}</span>
             </div>
           )}
           <div className="col-span-2">

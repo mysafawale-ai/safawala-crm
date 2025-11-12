@@ -128,17 +128,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Initialize package data variables
+    let pkgItems: any[] = []
+    let categoryMap: Record<string, string> = {}
+    let packageMap: Record<string, { name: string; description: string; base_price: number }> = {}
+    let variantMap: Record<string, string> = {}
+
     if (packageIds.length > 0) {
-      const { data: pkgItems } = await supabase
+      const { data: pkgItemsData } = await supabase
         .from('package_booking_items')
-        .select('booking_id, quantity, extra_safas, category_id')
+        .select('booking_id, quantity, extra_safas, category_id, package_id, variant_id')
         .in('booking_id', packageIds)
       
+      pkgItems = pkgItemsData || []
+      
       // Get unique category IDs
-      const categoryIds = [...new Set(pkgItems?.map(item => item.category_id).filter(Boolean) || [])]
+      const categoryIds = [...new Set(pkgItems.map(item => item.category_id).filter(Boolean) || [])]
+      
+      // Get unique package IDs
+      const packageIdsFromItems = [...new Set(pkgItems.map(item => item.package_id).filter(Boolean) || [])]
+      
+      // Get unique variant IDs
+      const variantIds = [...new Set(pkgItems.map(item => item.variant_id).filter(Boolean) || [])]
       
       // Fetch category names
-      const categoryMap: Record<string, string> = {}
       if (categoryIds.length > 0) {
         const { data: categories } = await supabase
           .from('packages_categories')
@@ -150,9 +163,37 @@ export async function GET(request: NextRequest) {
         }
       }
       
+      // Fetch package details
+      if (packageIdsFromItems.length > 0) {
+        const { data: packages } = await supabase
+          .from('package_sets')
+          .select('id, name, description, base_price')
+          .in('id', packageIdsFromItems)
+        
+        for (const pkg of packages || []) {
+          packageMap[pkg.id] = {
+            name: pkg.name,
+            description: pkg.description,
+            base_price: pkg.base_price
+          }
+        }
+      }
+      
+      // Fetch variant details
+      if (variantIds.length > 0) {
+        const { data: variants } = await supabase
+          .from('package_variants')
+          .select('id, name')
+          .in('id', variantIds)
+        
+        for (const variant of variants || []) {
+          variantMap[variant.id] = variant.name
+        }
+      }
+      
       // Process each booking
       const processedBookings = new Set<string>()
-      for (const row of pkgItems || []) {
+      for (const row of pkgItems) {
         // Only process each booking once
         if (!processedBookings.has(row.booking_id) && row.category_id && categoryMap[row.category_id]) {
           const categoryName = categoryMap[row.category_id]
@@ -172,6 +213,65 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+
+    // Map package bookings to unified Booking shape
+    const packageRows = (packageRes.data || []).map((r: any) => {
+      // Get package details for this booking
+      const packageItem = pkgItems?.find((item: any) => item.booking_id === r.id)
+      const packageDetails = packageItem?.package_id && packageMap[packageItem.package_id] ? packageMap[packageItem.package_id] : null
+      const variantName = packageItem?.variant_id && variantMap[packageItem.variant_id] ? variantMap[packageItem.variant_id] : null
+      const extraSafas = packageItem?.extra_safas || 0
+      
+      return {
+      id: r.id,
+      booking_number: r.package_number,
+      customer_id: r.customer_id,
+      franchise_id: r.franchise_id,
+      event_date: r.event_date,
+      event_time: r.event_time || null,
+      delivery_date: r.delivery_date,
+      delivery_time: r.delivery_time || null,
+      delivery_address: r.venue_address || null,
+      pickup_date: r.return_date,
+      return_date: r.return_date,
+      return_time: r.return_time || null,
+      event_type: r.event_type || null,
+      event_participant: r.event_participant || null,
+      status: r.status,
+      total_amount: Number(r.total_amount) || 0,
+      paid_amount: Number(r.amount_paid) || 0,
+      subtotal_amount: Number(r.subtotal_amount || 0),
+      distance_amount: Number(r.distance_amount || 0),
+      distance_km: Number(r.distance_km || 0),
+      discount_amount: Number(r.discount_amount || 0),
+      coupon_code: r.coupon_code || null,
+      coupon_discount: Number(r.coupon_discount || 0),
+      tax_amount: Number(r.tax_amount || 0),
+      gst_percentage: Number(r.gst_percentage || 0),
+      security_deposit: Number(r.security_deposit || 0),
+      notes: r.notes,
+      created_at: r.created_at,
+      updated_at: r.created_at,
+      customer: r.customer || null,
+      venue_address: r.venue_address || null,
+      venue_name: r.venue_name || null,
+      groom_name: r.groom_name || null,
+      groom_address: r.groom_address || null,
+      groom_whatsapp: r.groom_whatsapp || null,
+      bride_name: r.bride_name || null,
+      bride_address: r.bride_address || null,
+      bride_whatsapp: r.bride_whatsapp || null,
+      // Align source label with UI checks ('package_bookings')
+      source: 'package_bookings' as const,
+      type: 'package' as const,
+      booking_kind: 'package' as const,
+      total_safas: packageTotals[r.id] || 0,
+      has_items: (packageTotals[r.id] || 0) > 0,
+      // Add package details
+      package_details: packageDetails,
+      variant_name: variantName,
+      extra_safas: extraSafas,
+    }})
 
     // ✅ NEW: Fetch direct_sales_orders for current franchise
     let directSalesQuery = supabase
@@ -265,53 +365,6 @@ export async function GET(request: NextRequest) {
       total_safas: directSalesTotals[r.id] || 0,
       has_items: (directSalesTotals[r.id] || 0) > 0,
       security_deposit: 0, // Direct sales don't have deposits
-    }))
-
-    const packageRows = (packageRes.data || []).map((r: any) => ({
-      id: r.id,
-      booking_number: r.package_number,
-      customer_id: r.customer_id,
-      franchise_id: r.franchise_id,
-      event_date: r.event_date,
-      event_time: r.event_time || null,
-      delivery_date: r.delivery_date,
-      delivery_time: r.delivery_time || null,
-      delivery_address: r.venue_address || null,
-      pickup_date: r.return_date,
-      return_date: r.return_date,
-      return_time: r.return_time || null,
-      event_type: r.event_type || null,
-      event_participant: r.event_participant || null,
-      status: r.status,
-      total_amount: Number(r.total_amount) || 0,
-      paid_amount: Number(r.amount_paid) || 0,
-      subtotal_amount: Number(r.subtotal_amount || 0),
-      distance_amount: Number(r.distance_amount || 0),
-      distance_km: Number(r.distance_km || 0),
-      discount_amount: Number(r.discount_amount || 0),
-      coupon_code: r.coupon_code || null,
-      coupon_discount: Number(r.coupon_discount || 0),
-      tax_amount: Number(r.tax_amount || 0),
-      gst_percentage: Number(r.gst_percentage || 0),
-      security_deposit: Number(r.security_deposit || 0),
-      notes: r.notes,
-      created_at: r.created_at,
-      updated_at: r.created_at,
-      customer: r.customer || null,
-      venue_address: r.venue_address || null,
-      venue_name: r.venue_name || null,
-      groom_name: r.groom_name || null,
-      groom_address: r.groom_address || null,
-      groom_whatsapp: r.groom_whatsapp || null,
-      bride_name: r.bride_name || null,
-      bride_address: r.bride_address || null,
-      bride_whatsapp: r.bride_whatsapp || null,
-      // Align source label with UI checks ('package_bookings')
-      source: 'package_bookings' as const,
-      type: 'package' as const,
-      booking_kind: 'package' as const,
-      total_safas: packageTotals[r.id] || 0,
-      has_items: (packageTotals[r.id] || 0) > 0,
     }))
 
     const data = [...productRows, ...directSalesRows, ...packageRows].sort(
