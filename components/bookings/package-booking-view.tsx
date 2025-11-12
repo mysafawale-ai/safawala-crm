@@ -107,7 +107,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
   } else if (paymentType === 'advance') {
     // Expected policy: ~50% of package now + deposit; rest later
     display.payableNow = Math.max(0, halfAdvance) + securityDeposit
-    display.payableNowLabel = 'Payable Now (Total)'
+    display.payableNowLabel = 'Paid So Far'
     display.depositDueNow = securityDeposit
     display.depositLater = 0
     display.remainingPackage = Math.max(0, totalAmount - halfAdvance)
@@ -443,7 +443,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
                 {display.notes.map((n, i) => <li key={i}>{n}</li>)}
               </ul>
             )}
-            {paymentType !== 'full' && (
+            {paymentType === 'partial' && (
               <div className="flex items-center justify-between text-xs border-t mt-2 pt-2">
                 <span className="text-green-700 font-medium">Paid So Far</span>
                 <span className="font-bold text-green-700">₹{paidAmount.toLocaleString()}</span>
