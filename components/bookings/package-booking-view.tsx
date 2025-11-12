@@ -200,6 +200,13 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
       )}
 
       {/* Event Details */}
+      <div>
+        <h4 className="font-semibold mb-2 text-purple-700 dark:text-purple-400">🎉 EVENT DETAILS</h4>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
+          <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{booking.event_type?.replace('_', ' ') || 'N/A'}</span></div>
+          {booking.event_participant && (
+            <div><span className="text-muted-foreground">Participant:</span> <span className="font-medium capitalize">{booking.event_participant}</span></div>
+          )}
           <div className="col-span-2">
             <span className="text-muted-foreground">Event Date & Time:</span>{' '}
             <span className="font-medium">
