@@ -2548,8 +2548,8 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
           {variants.length === 0 && (
             <div className="text-sm text-gray-500">No variants available.</div>
           )}
-          <div className="grid sm:grid-cols-2 gap-4">
-            {variants.map(v => {
+          <div className="grid grid-cols-1 gap-4 max-h-[60vh] overflow-y-auto">
+            {variants.map((v, index) => {
               const safas = extraSafas[v.id] || 0
               const distanceAddon = distancePricing[v.id] || 0
               const defaultInclusions: string[] = Array.isArray(v.inclusions)
@@ -2563,9 +2563,11 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
               const totalPrice = v.base_price + extraSafasCost + distanceAddon
 
               return (
-                <div key={v.id} className="border rounded-lg p-4 space-y-3 hover:shadow-sm transition">
-                  <div className="flex items-start justify-between gap-2">
+                <div key={v.id} className="border rounded-lg p-4 space-y-3 hover:shadow-sm transition bg-white min-h-[300px] flex flex-col">
+                  {/* Header with Package Number */}
+                  <div className="flex items-start justify-between gap-2 pb-2 border-b">
                     <div className="flex-1">
+                      <div className="text-sm text-blue-600 font-medium mb-1">Package {index + 1}</div>
                       <div className="font-semibold text-base text-green-800">{v.name || v.variant_name}</div>
                       <div className="text-xs text-gray-500 mt-0.5">Base: {formatCurrency(v.base_price)}</div>
                     </div>
@@ -2573,7 +2575,7 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                   </div>
 
                   {/* Price Breakdown */}
-                  <div className="text-[10px] space-y-0.5 text-gray-600 bg-gray-50 p-2 rounded">
+                  <div className="text-[10px] space-y-0.5 text-gray-600 bg-gray-50 p-2 rounded flex-shrink-0">
                     <div className="flex justify-between">
                       <span>Base Price:</span>
                       <span>{formatCurrency(v.base_price)}</span>
@@ -2608,8 +2610,8 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                     )}
                   </div>
 
-                  {/* Inclusions */}
-                  <div>
+                  {/* Inclusions - Flexible height */}
+                  <div className="flex-1 min-h-0">
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-[10px] text-gray-500 font-medium">Inclusions:</div>
                       <Button
@@ -2622,95 +2624,100 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                         {isEditingThis ? 'Done' : 'Edit'}
                       </Button>
                     </div>
-                    {isEditingThis ? (
-                      <div className="space-y-3 border rounded p-2 bg-blue-50">
-                        {/* Default inclusions with checkboxes */}
+                    <div className="max-h-32 overflow-y-auto">
+                      {isEditingThis ? (
+                        <div className="space-y-3 border rounded p-2 bg-blue-50">
+                          {/* Default inclusions with checkboxes */}
+                          <ul className="space-y-1">
+                            {defaultInclusions.map((inc, idx) => (
+                              <li key={idx} className="flex items-center gap-2 text-[11px]">
+                                <input
+                                  type="checkbox"
+                                  checked={currentInclusions.includes(inc)}
+                                  onChange={() => toggleInclusion(v.id, inc)}
+                                  className="rounded"
+                                />
+                                <span className={!currentInclusions.includes(inc) ? 'line-through text-gray-400' : 'text-gray-800'}>
+                                  {inc}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {/* Custom inclusions with remove buttons */}
+                          {(currentInclusions.filter(ci => !defaultInclusions.includes(ci))).length > 0 && (
+                            <div>
+                              <div className="text-[10px] text-gray-600 font-medium mb-1">Custom items</div>
+                              <ul className="space-y-1">
+                                {currentInclusions.filter(ci => !defaultInclusions.includes(ci)).map((ci, idx) => (
+                                  <li key={idx} className="flex items-center justify-between gap-2 bg-white/70 rounded px-2 py-1">
+                                    <span className="text-[11px] text-gray-800 break-words whitespace-normal">{ci}</span>
+                                    <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-red-600" onClick={() => removeCustomInclusion(v.id, ci)}>Remove</Button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          <div className="flex gap-1 mt-1">
+                            <Input
+                              type="text"
+                              placeholder="Add custom item..."
+                              value={newInclusionInput[v.id] || ''}
+                              onChange={e => setNewInclusionInput(prev => ({ ...prev, [v.id]: e.target.value }))}
+                              onKeyDown={e => e.key === 'Enter' && addCustomInclusion(v.id)}
+                              className="h-8 text-[12px]"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="default"
+                              className="h-8 px-3"
+                              onClick={() => addCustomInclusion(v.id)}
+                              title="Add inclusion"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
                         <ul className="space-y-1">
-                          {defaultInclusions.map((inc, idx) => (
-                            <li key={idx} className="flex items-center gap-2 text-[11px]">
-                              <input
-                                type="checkbox"
-                                checked={currentInclusions.includes(inc)}
-                                onChange={() => toggleInclusion(v.id, inc)}
-                                className="rounded"
-                              />
-                              <span className={!currentInclusions.includes(inc) ? 'line-through text-gray-400' : 'text-gray-800'}>
-                                {inc}
-                              </span>
+                          {currentInclusions.map((inc, idx) => (
+                            <li key={idx} className="text-[11px] text-gray-800 break-words whitespace-normal border rounded px-2 py-1 bg-gray-50">
+                              {inc}
                             </li>
                           ))}
+                          {currentInclusions.length === 0 && (
+                            <li className="text-[11px] text-gray-500 italic">No inclusions listed</li>
+                          )}
                         </ul>
-
-                        {/* Custom inclusions with remove buttons */}
-                        {(currentInclusions.filter(ci => !defaultInclusions.includes(ci))).length > 0 && (
-                          <div>
-                            <div className="text-[10px] text-gray-600 font-medium mb-1">Custom items</div>
-                            <ul className="space-y-1">
-                              {currentInclusions.filter(ci => !defaultInclusions.includes(ci)).map((ci, idx) => (
-                                <li key={idx} className="flex items-center justify-between gap-2 bg-white/70 rounded px-2 py-1">
-                                  <span className="text-[11px] text-gray-800 break-words whitespace-normal">{ci}</span>
-                                  <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-red-600" onClick={() => removeCustomInclusion(v.id, ci)}>Remove</Button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        <div className="flex gap-1 mt-1">
-                          <Input
-                            type="text"
-                            placeholder="Add custom item..."
-                            value={newInclusionInput[v.id] || ''}
-                            onChange={e => setNewInclusionInput(prev => ({ ...prev, [v.id]: e.target.value }))}
-                            onKeyDown={e => e.key === 'Enter' && addCustomInclusion(v.id)}
-                            className="h-8 text-[12px]"
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="default"
-                            className="h-8 px-3"
-                            onClick={() => addCustomInclusion(v.id)}
-                            title="Add inclusion"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <ul className="space-y-1">
-                        {currentInclusions.map((inc, idx) => (
-                          <li key={idx} className="text-[11px] text-gray-800 break-words whitespace-normal border rounded px-2 py-1 bg-gray-50">
-                            {inc}
-                          </li>
-                        ))}
-                        {currentInclusions.length === 0 && (
-                          <li className="text-[11px] text-gray-500 italic">No inclusions listed</li>
-                        )}
-                      </ul>
-                    )}
-                  </div>
-
-                  {/* Extra Safas */}
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <Input
-                      type="number"
-                      min={0}
-                      value={safas}
-                      onChange={e => setExtraSafas(prev => ({ ...prev, [v.id]: Math.max(0, Number(e.target.value)) }))}
-                      className="h-8 w-20"
-                      placeholder="Extra"
-                    />
-                    <div className="flex gap-1">
-                      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 10 }))}>+10</Button>
-                      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 20 }))}>+20</Button>
+                      )}
                     </div>
-                    {(v.extra_safa_price || 0) > 0 && <span className="text-gray-500">{formatCurrency(v.extra_safa_price || 0)}/safa</span>}
                   </div>
 
-                  <Button size="sm" className="w-full" onClick={() => onAdd(v, safas, currentInclusions)}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Variant
-                  </Button>
+                  {/* Extra Safas and Add Button - Fixed at bottom */}
+                  <div className="flex-shrink-0 space-y-3">
+                    {/* Extra Safas */}
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={safas}
+                        onChange={e => setExtraSafas(prev => ({ ...prev, [v.id]: Math.max(0, Number(e.target.value)) }))}
+                        className="h-8 w-20"
+                        placeholder="Extra"
+                      />
+                      <div className="flex gap-1">
+                        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 10 }))}>+10</Button>
+                        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: safas + 20 }))}>+20</Button>
+                      </div>
+                      {(v.extra_safa_price || 0) > 0 && <span className="text-gray-500">{formatCurrency(v.extra_safa_price || 0)}/safa</span>}
+                    </div>
+
+                    <Button size="sm" className="w-full" onClick={() => onAdd(v, safas, currentInclusions)}>
+                      <Plus className="h-4 w-4 mr-1" /> Add Variant
+                    </Button>
+                  </div>
                 </div>
               )
             })}
