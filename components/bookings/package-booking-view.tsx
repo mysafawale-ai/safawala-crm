@@ -107,6 +107,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
   } else if (paymentType === 'advance') {
     // Expected policy: ~50% of package now + deposit; rest later
     display.payableNow = Math.max(0, halfAdvance) + securityDeposit
+    display.payableNowLabel = 'Payable Now (Total)'
     display.depositDueNow = securityDeposit
     display.depositLater = 0
     display.remainingPackage = Math.max(0, totalAmount - halfAdvance)
@@ -397,11 +398,23 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
                 <span className="font-semibold">₹{customAmount.toLocaleString()}</span>
               </div>
             )}
+            {paymentType === 'advance' && (
+              <div className="flex items-center justify-between text-xs text-blue-700">
+                <span>Advance (50% of Grand Total)</span>
+                <span className="font-semibold">₹{halfAdvance.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between font-semibold text-sm border-t pt-2 mt-2 text-amber-800">
               <span>{display.payableNowLabel}</span>
               <span>₹{display.payableNow.toLocaleString()}</span>
             </div>
-            {paymentType !== 'partial' && securityDeposit > 0 && (
+            {paymentType === 'advance' && securityDeposit > 0 && (
+              <div className="flex items-center justify-between text-xs text-amber-700">
+                <span>Security Deposit</span>
+                <span>₹{securityDeposit.toLocaleString()}</span>
+              </div>
+            )}
+            {paymentType === 'full' && securityDeposit > 0 && (
               <div className="flex items-center justify-between text-xs text-amber-700">
                 <span>Includes Security Deposit</span>
                 <span>₹{securityDeposit.toLocaleString()}</span>
