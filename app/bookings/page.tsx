@@ -750,7 +750,7 @@ export default function BookingsPage() {
         : source === 'product_orders' ? 'product_order'
         : source === 'direct_sales' ? 'direct_sales'
         : 'unified'
-      const endpoint = `/api/bookings/${bookingId}/restore`
+      const endpoint = `/api/bookings/restore`
       console.log('[Bookings] Restoring', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)
       
           // Use helper with PATCH→POST fallback
@@ -762,10 +762,35 @@ export default function BookingsPage() {
       
       toast({ title: 'Restored', description: 'Booking restored successfully' })
       
+      // Fetch the restored booking data from Supabase to ensure we have complete information
+      try {
+        const supabase = createClient()
+        const tableName = source === 'package_bookings' ? 'package_bookings'
+          : source === 'product_orders' ? 'product_orders'
+          : source === 'direct_sales_orders' ? 'direct_sales_orders'
+          : 'package_bookings' // fallback
+        
+        const { data: restoredBooking, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .eq('id', bookingId)
+          .eq('is_archived', false) // Ensure it's not archived
+          .maybeSingle()
+        
+        if (!error && restoredBooking) {
+          console.log('[Bookings] Fetched restored booking data:', restoredBooking)
+          // The booking should now appear in the active list after refresh
+        } else {
+          console.warn('[Bookings] Could not fetch restored booking data:', error)
+        }
+      } catch (fetchError) {
+        console.warn('[Bookings] Error fetching restored booking:', fetchError)
+      }
+      
       // Refresh both active and archived bookings
       await refresh()
       
-      // Refresh archived bookings list
+      // Remove from archived bookings list
       setArchivedBookings(prev => prev.filter(b => b.id !== bookingId))
     } catch (error: any) {
       console.error('[Bookings] Restore error:', error)
@@ -1732,7 +1757,7 @@ export default function BookingsPage() {
                           <p className="text-xs text-muted-foreground">📱 {selectedBooking.bride_additional_whatsapp}</p>
                         )}
                         {(selectedBooking as any).bride_address && (
-                          <p className="text-xs text-muted-foreground">📍 {(selectedBooking as any).bride_address}</p>
+                                                   <p className="text-xs text-muted-foreground">📍 {(selectedBooking as any).bride_address}</p>
                         )}
                       </div>
                     )}
