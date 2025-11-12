@@ -22,8 +22,8 @@ async function _callEndpoint(endpoint: string, payload: any) {
 /** Archive a booking by id. Returns api response. */
 export async function archiveBooking(id: string, type: BookingType = 'unified') {
   if (!id) return { success: false, error: 'Missing booking id' }
-  const endpoint = `/api/bookings/${id}/archive`
-  return await _callEndpoint(endpoint, { type })
+  const endpoint = `/api/bookings/archive`
+  return await _callEndpoint(endpoint, { id, type })
 }
 
 /** Restore a booking by id. Returns api response. */
