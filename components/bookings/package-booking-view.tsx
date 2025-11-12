@@ -11,6 +11,11 @@ interface PackageBookingViewProps {
 export function PackageBookingView({ booking, bookingItems = [] }: PackageBookingViewProps) {
   const pendingAmount = (booking.total_amount || 0) - (booking.paid_amount || 0)
   
+  // Extract package details from booking
+  const packageDetails = (booking as any).package_details
+  const packageName = packageDetails?.name
+  const packageDescription = packageDetails?.description
+  
   // Extract package category name from booking items
   const packageCategoryName = bookingItems && bookingItems.length > 0 && bookingItems[0]?.category_name 
     ? bookingItems[0].category_name 
@@ -143,38 +148,58 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
         </div>
       </div>
 
+      {/* Package Details - Dedicated Section */}
+      {(packageName || packageCategoryName || variantName || extraSafas > 0) && (
+        <div>
+          <h4 className="font-semibold mb-2 text-green-700 dark:text-green-400">📦 PACKAGE DETAILS</h4>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
+            {/* Package Name */}
+            {packageName && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Package Name:</span>{' '}
+                <span className="font-medium text-green-700 dark:text-green-400 text-lg">{packageName}</span>
+                {packageDescription && (
+                  <div className="text-sm text-muted-foreground mt-1">{packageDescription}</div>
+                )}
+              </div>
+            )}
+            
+            {/* Package Category */}
+            {packageCategoryName && (
+              <div>
+                <span className="text-muted-foreground">Category:</span>{' '}
+                <span className="font-medium">{packageCategoryName}</span>
+              </div>
+            )}
+            
+            {/* Variant Name */}
+            {variantName && (
+              <div>
+                <span className="text-muted-foreground">Variant:</span>{' '}
+                <span className="font-medium">{variantName}</span>
+              </div>
+            )}
+            
+            {/* Extra Safas */}
+            {extraSafas > 0 && (
+              <div>
+                <span className="text-muted-foreground">Extra Safas:</span>{' '}
+                <span className="font-medium text-orange-600">{extraSafas}</span>
+              </div>
+            )}
+            
+            {/* Total Safas */}
+            {(booking as any).total_safas && (
+              <div>
+                <span className="text-muted-foreground">Total Safas:</span>{' '}
+                <span className="font-medium text-blue-600">{(booking as any).total_safas}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Event Details */}
-      <div>
-        <h4 className="font-semibold mb-2 text-purple-700 dark:text-purple-400">🎉 EVENT DETAILS</h4>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
-          <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{booking.event_type?.replace('_', ' ') || 'N/A'}</span></div>
-          {booking.event_participant && (
-            <div><span className="text-muted-foreground">Participant:</span> <span className="font-medium capitalize">{booking.event_participant}</span></div>
-          )}
-          
-          {/* Package Category */}
-          {packageCategoryName && (
-            <div className="col-span-2">
-              <span className="text-muted-foreground">📦 Category:</span>{' '}
-              <span className="font-medium text-purple-700 dark:text-purple-400">{packageCategoryName}</span>
-            </div>
-          )}
-          
-          {/* Variant Name */}
-          {variantName && (
-            <div className="col-span-2">
-              <span className="text-muted-foreground">Variant:</span>{' '}
-              <span className="font-medium">{variantName}</span>
-            </div>
-          )}
-          
-          {/* Extra Safas */}
-          {extraSafas > 0 && (
-            <div className="col-span-2">
-              <span className="text-muted-foreground">Extra Safas:</span>{' '}
-              <span className="font-medium">{extraSafas}</span>
-            </div>
-          )}
           <div className="col-span-2">
             <span className="text-muted-foreground">Event Date & Time:</span>{' '}
             <span className="font-medium">
