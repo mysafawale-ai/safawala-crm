@@ -3478,7 +3478,7 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
 
             {/* Product Grid - Clean & Spacious */}
             <div className="flex-1 overflow-y-auto px-6 py-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-4 gap-4">
               {productsLoading ? (
                 // Loading skeleton - Apple-like
                 Array.from({ length: 10 }).map((_, idx) => (
