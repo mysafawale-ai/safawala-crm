@@ -135,7 +135,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
             <Badge variant={booking.status === 'confirmed' ? 'default' : 'warning'}>
               {booking.status === 'confirmed' ? 'Confirmed' : 'Payment Pending'}
             </Badge>
-            {pendingAmount > 0 && (
+            {pendingAmount > 0 && paymentType !== 'full' && (
               <span className="text-xs text-amber-600 font-medium">
                 ₹{pendingAmount.toLocaleString()} pending
               </span>
@@ -412,14 +412,18 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
                 <span>₹{securityDeposit.toLocaleString()}</span>
               </div>
             )}
-            <div className="flex items-center justify-between text-xs text-muted-foreground border-t mt-2 pt-2">
-              <span>Remaining Package</span>
-              <span>₹{display.remainingPackage.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Remaining (Total)</span>
-              <span>₹{display.remainingTotal.toLocaleString()}</span>
-            </div>
+            {paymentType !== 'full' && (
+              <>
+                <div className="flex items-center justify-between text-xs text-muted-foreground border-t mt-2 pt-2">
+                  <span>Remaining Package</span>
+                  <span>₹{display.remainingPackage.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Remaining (Total)</span>
+                  <span>₹{display.remainingTotal.toLocaleString()}</span>
+                </div>
+              </>
+            )}
             {display.notes.length > 0 && (
               <ul className="mt-2 text-[11px] text-amber-700 list-disc list-inside space-y-0.5">
                 {display.notes.map((n, i) => <li key={i}>{n}</li>)}
@@ -429,7 +433,7 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
               <span className="text-green-700 font-medium">Paid So Far</span>
               <span className="font-bold text-green-700">₹{paidAmount.toLocaleString()}</span>
             </div>
-            {pendingAmount > 0 && (
+            {pendingAmount > 0 && paymentType !== 'full' && (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-orange-700 font-medium">Pending Now</span>
                 <span className="font-bold text-orange-700">₹{pendingAmount.toLocaleString()}</span>
