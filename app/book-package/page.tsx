@@ -2734,13 +2734,13 @@ function VariantDialog({ category, variants, customerPincode, distanceKm, onClos
                       <Input
                         type="number"
                         min={0}
-                        value={safas}
+                        value={safas || ''}
                         onChange={e => {
                           const value = e.target.value;
                           setExtraSafas(prev => ({ ...prev, [v.id]: value === '' ? '' : Math.max(0, Number(value)) }));
                         }}
-                        className="h-8 w-20"
-                        placeholder="Extra"
+                        className="h-8 w-20 placeholder:text-gray-300 placeholder:opacity-50"
+                        placeholder="0"
                       />
                       <div className="flex gap-1">
                         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setExtraSafas(prev => ({ ...prev, [v.id]: (safas || 0) + 10 }))}>+10</Button>
