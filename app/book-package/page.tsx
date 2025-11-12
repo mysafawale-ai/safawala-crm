@@ -3534,9 +3534,20 @@ function ProductSelectionDialog({ open, onOpenChange, context }: ProductSelectio
                             >
                               <Minus className="h-4 w-4" />
                             </button>
-                            <div className="flex-1 text-center font-bold text-lg">
-                              {qty}
-                            </div>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={p.stock_available ?? 999}
+                              value={qty}
+                              onChange={(e) => {
+                                e.stopPropagation()
+                                const newQty = Math.max(0, Math.min(p.stock_available ?? 999, Number(e.target.value) || 0))
+                                setQty(p.id, newQty)
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex-1 h-8 text-center font-bold text-lg border-gray-200 focus:border-black focus:ring-black"
+                              placeholder="0"
+                            />
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
