@@ -388,59 +388,65 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
             </div>
           )}
           
-          {/* Payment Breakdown: Paid (Past) & Remaining (Future) */}
+          {/* Payment Breakdown: Expected schedule + Actuals (Paid & Remaining) */}
           <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
               <span>Payment Type</span>
               <span className="font-medium capitalize">{paymentType}</span>
             </div>
-            
-            {/* === PAID (PAST) SECTION === */}
+
+            {/* Expected schedule (policy) - mirrors booking page rules */}
+            <div className="border-t pt-2">
+              <div className="text-[13px] font-semibold mb-1">Schedule (Expected)</div>
+              {paymentType === 'full' && (
+                <div className="text-xs text-gray-700">
+                  <div>• Paid (at booking): Grand Total + Security Deposit</div>
+                  <div>• Remaining: None</div>
+                </div>
+              )}
+              {paymentType === 'advance' && (
+                <div className="text-xs text-gray-700">
+                  <div>• Paid (at booking): 50% of Grand Total + Security Deposit</div>
+                  <div>• Remaining: 50% of Grand Total</div>
+                </div>
+              )}
+              {paymentType === 'partial' && (
+                <div className="text-xs text-gray-700">
+                  <div>• Paid (at booking): Custom Amount (no deposit)</div>
+                  <div>• Remaining: (Grand Total - Custom Amount) + Security Deposit</div>
+                </div>
+              )}
+            </div>
+
+            {/* Actuals: what was actually paid and what's left */}
             <div className="border-t pt-2">
               <div className="flex items-center justify-between font-bold text-sm text-green-700 mb-1">
                 <span>💰 Paid (Past)</span>
+                <span className="text-xs text-muted-foreground">(Actual)</span>
               </div>
               <div className="flex items-center justify-between text-xs text-gray-700">
-                <span>Package Amount</span>
-                <span>₹{paidBreakdown.paidPackage.toLocaleString()}</span>
+                <span>Total Paid So Far</span>
+                <span>₹{paidAmount.toLocaleString()}</span>
               </div>
-              {paidBreakdown.paidDeposit > 0 && (
-                <div className="flex items-center justify-between text-xs text-amber-700">
-                  <span>Security Deposit</span>
-                  <span>₹{paidBreakdown.paidDeposit.toLocaleString()}</span>
-                </div>
-              )}
               <div className="flex items-center justify-between font-semibold text-sm text-green-700 border-t pt-1 mt-1">
-                <span>Total Paid</span>
-                <span>₹{paidBreakdown.paidTotal.toLocaleString()}</span>
+                <span>Net Paid</span>
+                <span>₹{paidAmount.toLocaleString()}</span>
               </div>
-              {paidBreakdown.depositNote && (
-                <p className="text-[11px] text-amber-700 mt-1">{paidBreakdown.depositNote}</p>
-              )}
             </div>
-            
-            {/* === REMAINING (FUTURE) SECTION === */}
-            {paidBreakdown.remainingTotal > 0 && (
-              <div className="border-t pt-2">
-                <div className="flex items-center justify-between font-bold text-sm text-orange-700 mb-1">
-                  <span>📅 Remaining (Future)</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-700">
-                  <span>Package Amount</span>
-                  <span>₹{paidBreakdown.remainingPackage.toLocaleString()}</span>
-                </div>
-                {paidBreakdown.remainingDeposit > 0 && (
-                  <div className="flex items-center justify-between text-xs text-amber-700">
-                    <span>Security Deposit</span>
-                    <span>₹{paidBreakdown.remainingDeposit.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between font-semibold text-sm text-orange-700 border-t pt-1 mt-1">
-                  <span>Total Remaining</span>
-                  <span>₹{paidBreakdown.remainingTotal.toLocaleString()}</span>
-                </div>
+
+            <div className="border-t pt-2">
+              <div className="flex items-center justify-between font-bold text-sm text-orange-700 mb-1">
+                <span>📅 Remaining (Future)</span>
               </div>
-            )}
+              <div className="flex items-center justify-between text-xs text-gray-700">
+                <span>Amount Remaining</span>
+                <span>₹{pendingAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between font-semibold text-sm text-orange-700 border-t pt-1 mt-1">
+                <span>Total Remaining</span>
+                <span>₹{pendingAmount.toLocaleString()}</span>
+              </div>
+            </div>
           </div>
           
           {booking.payment_type && (
