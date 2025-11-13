@@ -1034,6 +1034,7 @@ export default function CreateProductOrderPage() {
         // Call server-side API (bypasses RLS issues)
         const response = await fetch('/api/direct-sales', {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
