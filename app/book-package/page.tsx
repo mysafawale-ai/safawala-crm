@@ -530,7 +530,7 @@ export default function BookPackageWizard() {
               total_price: item.total_price,
               extra_safas: item.extra_safas || 0,
               distance_addon: item.distance_addon || 0,
-              security_deposit: item.security_deposit || 0,
+              security_deposit: item.security_deposit || (variant.security_deposit) || (category.security_deposit) || 0,
               products_pending: false,
               custom_inclusions: item.variant_inclusions || variant.inclusions,
             })
