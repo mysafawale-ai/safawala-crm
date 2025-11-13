@@ -1,7 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatTime12Hour } from "@/lib/utils"
+import { PricingBreakdownDialog } from "./pricing-breakdown-dialog"
+import { DollarSign } from "lucide-react"
 
 interface PackageBookingViewProps {
   booking: any
@@ -9,6 +14,7 @@ interface PackageBookingViewProps {
 }
 
 export function PackageBookingView({ booking, bookingItems = [] }: PackageBookingViewProps) {
+  const [showPricingBreakdown, setShowPricingBreakdown] = useState(false)
   const totalAmount = Number(booking.total_amount || 0)
   const paidAmount = Number(booking.paid_amount || 0)
   const securityDeposit = Number(booking.security_deposit || 0)
@@ -511,6 +517,38 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
         </div>
       )}
 
+      {/* Pricing Breakdown Button */}
+      <div className="border-t pt-4">
+        <Button
+          onClick={() => setShowPricingBreakdown(true)}
+          className="w-full bg-amber-600 hover:bg-amber-700"
+        >
+          <DollarSign className="h-4 w-4 mr-2" />
+          View Detailed Pricing Breakdown
+        </Button>
+      </div>
+
+      {/* Pricing Breakdown Dialog */}
+      <Dialog open={showPricingBreakdown} onOpenChange={setShowPricingBreakdown}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Payment & Pricing Details
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto">
+            <PricingBreakdownDialog
+              booking={booking}
+              bookingType={
+                paymentType === 'full' ? 'package_full' :
+                paymentType === 'advance' ? 'package_advance' :
+                'package_partial'
+              }
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

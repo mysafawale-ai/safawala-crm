@@ -13,8 +13,11 @@
  * 9. Special instructions (if any)
  */
 
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   Package,
   User,
@@ -26,6 +29,7 @@ import {
   FileText,
   AlertCircle,
 } from "lucide-react"
+import { PricingBreakdownDialog } from "./pricing-breakdown-dialog"
 import type { Booking } from "@/lib/types"
 import { formatTime12Hour } from "@/lib/utils"
 
@@ -38,6 +42,7 @@ interface DirectSalesBookingDetailsProps {
 }
 
 export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetailsProps) {
+  const [showPricingBreakdown, setShowPricingBreakdown] = useState(false)
   if (!booking) return null
 
   const bookingType = (booking as any).booking_type || (booking as any).booking_subtype || 'sale'
@@ -455,6 +460,35 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
           ✅ All information captured for direct sales order <strong>{booking.booking_number || (booking as any).order_number}</strong>
         </p>
       </div>
+
+      {/* Pricing Breakdown Button */}
+      <div>
+        <Button
+          onClick={() => setShowPricingBreakdown(true)}
+          className="w-full bg-indigo-600 hover:bg-indigo-700"
+        >
+          <DollarSign className="h-4 w-4 mr-2" />
+          View Detailed Pricing Breakdown
+        </Button>
+      </div>
+
+      {/* Pricing Breakdown Dialog */}
+      <Dialog open={showPricingBreakdown} onOpenChange={setShowPricingBreakdown}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Payment & Pricing Details
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto">
+            <PricingBreakdownDialog
+              booking={booking}
+              bookingType="rental"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
