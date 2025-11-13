@@ -2193,6 +2193,115 @@ export default function BookingsPage() {
                       </div>
                     )}
 
+                    {/* PAYMENT STATUS - Exact Same Format as Status Badges */}
+                    <div className="border-t pt-3 mt-3">
+                      {(() => {
+                        const breakdown = getPaymentBreakdown(selectedBooking)
+                        const { paidNow, pendingNow } = breakdown.breakdown
+                        const paymentPercentage = breakdown.paymentPercentage
+                        const pendingPercentage = 100 - Math.round(paymentPercentage)
+
+                        return (
+                          <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border">
+                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+                              <span className="text-lg">💳</span>
+                              Payment Status Breakdown
+                            </h4>
+                            
+                            <div className="space-y-2">
+                              {/* Amount Taken - Same Format as Status Badge */}
+                              <div className="py-2 px-3 bg-green-50 dark:bg-green-900/30 rounded border border-green-200 dark:border-green-700">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-green-600 font-medium">✅ Paid:</span>
+                                    <span className="text-green-700 dark:text-green-400 font-bold text-lg">₹{paidNow.toLocaleString()}</span>
+                                    {paymentPercentage > 0 && (
+                                      <span className="text-green-600 font-medium">({Math.round(paymentPercentage)}%)</span>
+                                    )}
+                                  </div>
+                                  {breakdown.isFullyPaid && (
+                                    <span className="text-xs bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 px-2 py-1 rounded-full font-medium">COMPLETE</span>
+                                  )}
+                                </div>
+                                
+                                {/* Security Deposit with Paid Amount (for advance payment) */}
+                                {breakdown.paymentType === 'advance' && breakdown.securityDeposit > 0 && (
+                                  <div className="flex items-center gap-2 mt-1 text-sm">
+                                    <span className="text-green-600">+ Security Deposit:</span>
+                                    <span className="text-green-700 dark:text-green-400 font-semibold">₹{breakdown.securityDeposit.toLocaleString()}</span>
+                                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Collected Now</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Amount Remaining - Same Format as Status Badge */}
+                              {pendingNow > 0 && (
+                                <div className="py-2 px-3 bg-amber-50 dark:bg-amber-900/30 rounded border border-amber-200 dark:border-amber-700">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-amber-600 font-medium">⏳ Pending:</span>
+                                      <span className="text-amber-700 dark:text-amber-400 font-bold text-lg">₹{pendingNow.toLocaleString()}</span>
+                                      {pendingPercentage > 0 && (
+                                        <span className="text-amber-600 font-medium">({pendingPercentage}%)</span>
+                                      )}
+                                    </div>
+                                    <span className="text-xs bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full font-medium">DUE</span>
+                                  </div>
+                                  
+                                  {/* Security Deposit with Pending Amount (for partial payment) */}
+                                  {breakdown.paymentType === 'partial' && breakdown.securityDeposit > 0 && (
+                                    <div className="flex items-center gap-2 mt-1 text-sm">
+                                      <span className="text-amber-600">+ Security Deposit:</span>
+                                      <span className="text-amber-700 dark:text-amber-400 font-semibold">₹{breakdown.securityDeposit.toLocaleString()}</span>
+                                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Due Later</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Total for Reference - Same Format as Status Badge */}
+                              <div className="flex items-center justify-between py-2 px-3 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-200 dark:border-blue-700">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-blue-600 font-medium">💰 Total:</span>
+                                  <span className="text-blue-700 dark:text-blue-400 font-bold text-lg">₹{breakdown.totalAmount.toLocaleString()}</span>
+                                </div>
+                                <span className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
+                                  {breakdown.paymentType.toUpperCase()}
+                                </span>
+                              </div>
+
+                              {/* Security Deposit (only show for full payment or when not distributed above) */}
+                              {breakdown.securityDeposit > 0 && (breakdown.paymentType === 'full' || breakdown.isFullyPaid) && (
+                                <div className="flex items-center justify-between py-2 px-3 bg-purple-50 dark:bg-purple-900/30 rounded border border-purple-200 dark:border-purple-700">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-purple-600 font-medium">🔒 Security Deposit:</span>
+                                    <span className="text-purple-700 dark:text-purple-400 font-bold text-lg">₹{breakdown.securityDeposit.toLocaleString()}</span>
+                                  </div>
+                                  <span className="text-xs bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full font-medium">REFUNDABLE</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Payment Type Explanation */}
+                            {breakdown.paymentType !== 'full' && (
+                              <div className="mt-3 p-2 bg-white dark:bg-gray-800 rounded border text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Payment Type:</span>
+                                  <span className="font-semibold capitalize">{breakdown.paymentType}</span>
+                                </div>
+                                {breakdown.paymentType === 'advance' && (
+                                  <p className="text-muted-foreground mt-1">50% advance collected, 50% due on delivery</p>
+                                )}
+                                {breakdown.paymentType === 'partial' && (
+                                  <p className="text-muted-foreground mt-1">Custom amount paid, balance due later</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+
                     {/* ENHANCED Payment Status Display - Fully Featured Dialog */}
                     <div className="border-t pt-3 mt-3 space-y-4">
                       {(() => {
