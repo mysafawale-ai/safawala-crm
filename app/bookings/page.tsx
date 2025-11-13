@@ -549,6 +549,58 @@ export default function BookingsPage() {
     )
   }
 
+  // Helper function to calculate payment breakdown based on payment type
+  const getPaymentBreakdown = (booking: any) => {
+    const totalAmount = booking?.total_amount || 0
+    const paidAmount = booking?.paid_amount || 0
+    const paymentType = booking?.payment_type || 'full'
+    const customAmount = booking?.custom_amount || 0
+    const securityDeposit = booking?.security_deposit || 0
+    const pendingAmount = Math.max(0, totalAmount - paidAmount)
+
+    return {
+      totalAmount,
+      paidAmount,
+      pendingAmount,
+      paymentType,
+      customAmount,
+      securityDeposit,
+      // Calculate breakdown based on payment type
+      breakdown:
+        paymentType === 'full'
+          ? {
+              label: 'Full Payment',
+              description: 'Complete amount paid upfront',
+              paidNow: totalAmount,
+              pendingNow: 0,
+              icon: '💰',
+            }
+          : paymentType === 'advance'
+          ? {
+              label: 'Advance Payment (50%)',
+              description: 'Half paid now, half pending',
+              paidNow: totalAmount / 2,
+              pendingNow: totalAmount / 2,
+              icon: '💵',
+            }
+          : paymentType === 'partial'
+          ? {
+              label: 'Partial Payment',
+              description: `₹${customAmount.toLocaleString()} paid now`,
+              paidNow: customAmount,
+              pendingNow: Math.max(0, totalAmount - customAmount),
+              icon: '💳',
+            }
+          : {
+              label: 'Unknown',
+              description: 'Payment details unavailable',
+              paidNow: paidAmount,
+              pendingNow: pendingAmount,
+              icon: '❓',
+            },
+    }
+  }
+
   const filteredBookings = (bookings || []).filter((booking) => {
     const searchLower = searchTerm.toLowerCase()
     const matchesSearch =
@@ -2068,28 +2120,97 @@ export default function BookingsPage() {
                       </div>
                     )}
 
-                    <div className="border-t pt-3 mt-3 space-y-2">
-                      {/* Security Deposit */}
-                      {selectedBooking.security_deposit && selectedBooking.security_deposit > 0 && (
-                        <div className="flex justify-between text-sm bg-purple-50 dark:bg-purple-950 p-2 rounded">
-                          <span className="font-medium">🔒 Security Deposit</span>
-                          <span className="font-bold text-purple-600">₹{selectedBooking.security_deposit.toLocaleString()}</span>
-                        </div>
-                      )}
+                    {/* Enhanced Payment Breakdown - Different for Advance & Partial */}
+                    <div className="border-t pt-3 mt-3 space-y-3">
+                      {(() => {
+                        const breakdown = getPaymentBreakdown(selectedBooking)
+                        const { label, description, paidNow, pendingNow, icon } = breakdown.breakdown
 
-                      {/* Amount Paid */}
-                      <div className="flex justify-between text-sm bg-green-50 dark:bg-green-950 p-2 rounded">
-                        <span className="font-medium">✅ Amount Paid</span>
-                        <span className="font-bold text-green-600">₹{(selectedBooking.paid_amount || 0).toLocaleString()}</span>
-                      </div>
+                        return (
+                          <>
+                            {/* Payment Type Badge */}
+                            {breakdown.paymentType && (
+                              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-lg">{icon}</span>
+                                  <span className="font-semibold text-blue-700 dark:text-blue-300">{label}</span>
+                                </div>
+                                <p className="text-xs text-blue-600 dark:text-blue-400">{description}</p>
+                              </div>
+                            )}
 
-                      {/* Pending Amount */}
-                      <div className="flex justify-between text-sm bg-orange-50 dark:bg-orange-950 p-2 rounded">
-                        <span className="font-medium">⏳ Pending Amount</span>
-                        <span className="font-bold text-orange-600">
-                          ₹{((selectedBooking.total_amount || 0) - (selectedBooking.paid_amount || 0)).toLocaleString()}
-                        </span>
-                      </div>
+                            {/* Security Deposit */}
+                            {breakdown.securityDeposit && breakdown.securityDeposit > 0 && (
+                              <div className="flex justify-between text-sm bg-purple-50 dark:bg-purple-950 p-3 rounded border-l-4 border-purple-500">
+                                <span className="font-medium text-purple-700 dark:text-purple-300">🔒 Security Deposit</span>
+                                <span className="font-bold text-purple-700 dark:text-purple-400">₹{breakdown.securityDeposit.toLocaleString()}</span>
+                              </div>
+                            )}
+
+                            {/* SIMPLIFIED PAYMENT BREAKDOWN */}
+                            {breakdown.paymentType === 'advance' ? (
+                              // ADVANCE: Show 50-50 split
+                              <div className="space-y-2 bg-amber-50 dark:bg-amber-950/30 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                                <div className="flex justify-between text-sm font-semibold">
+                                  <span className="text-amber-900 dark:text-amber-200">Payment Split (50-50):</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="bg-green-100 dark:bg-green-900/50 p-2 rounded text-center">
+                                    <p className="text-xs text-green-700 dark:text-green-300">Paid Now</p>
+                                    <p className="font-bold text-green-700 dark:text-green-400">₹{paidNow.toLocaleString()}</p>
+                                  </div>
+                                  <div className="bg-orange-100 dark:bg-orange-900/50 p-2 rounded text-center">
+                                    <p className="text-xs text-orange-700 dark:text-orange-300">Pending</p>
+                                    <p className="font-bold text-orange-700 dark:text-orange-400">₹{pendingNow.toLocaleString()}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : breakdown.paymentType === 'partial' ? (
+                              // PARTIAL: Show custom amount split
+                              <div className="space-y-2 bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="flex justify-between text-sm font-semibold">
+                                  <span className="text-blue-900 dark:text-blue-200">Custom Payment Split:</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="bg-green-100 dark:bg-green-900/50 p-2 rounded text-center">
+                                    <p className="text-xs text-green-700 dark:text-green-300">Paid Now</p>
+                                    <p className="font-bold text-green-700 dark:text-green-400">₹{paidNow.toLocaleString()}</p>
+                                  </div>
+                                  <div className="bg-orange-100 dark:bg-orange-900/50 p-2 rounded text-center">
+                                    <p className="text-xs text-orange-700 dark:text-orange-300">Pending</p>
+                                    <p className="font-bold text-orange-700 dark:text-orange-400">₹{pendingNow.toLocaleString()}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              // FULL: Show complete payment
+                              <div className="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg text-center border border-green-300 dark:border-green-700">
+                                <p className="text-xs text-green-700 dark:text-green-300 mb-1">Full Payment</p>
+                                <p className="font-bold text-lg text-green-700 dark:text-green-400">₹{breakdown.totalAmount.toLocaleString()}</p>
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">✅ Fully Paid</p>
+                              </div>
+                            )}
+
+                            {/* Actual Amount Paid & Pending (Verification Row) */}
+                            {breakdown.paymentType !== 'full' && (
+                              <div className="space-y-1 text-xs text-muted-foreground border-t pt-2">
+                                <div className="flex justify-between">
+                                  <span>Total Amount:</span>
+                                  <span className="font-semibold">₹{breakdown.totalAmount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Actual Amount Paid:</span>
+                                  <span className="font-semibold text-green-600">₹{breakdown.paidAmount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Still Pending:</span>
+                                  <span className="font-semibold text-orange-600">₹{breakdown.pendingAmount.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
                 </CardContent>
