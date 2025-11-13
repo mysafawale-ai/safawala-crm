@@ -1503,7 +1503,7 @@ export default function BookPackageWizard() {
             Back
           </Button>
           <h1 className="text-3xl font-bold text-green-800">
-            {isEditMode ? 'Edit Package Quote' : 'Create Package Booking'}
+            {isEditMode ? 'Edit Package Booking' : 'Create Package Booking'}
           </h1>
           {isEditMode && (
             <p className="text-sm text-gray-600 mt-1">Update package details and settings</p>
