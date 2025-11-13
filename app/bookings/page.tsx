@@ -109,6 +109,7 @@ export default function BookingsPage() {
   const [showCompactDisplay, setShowCompactDisplay] = useState(false)
   const [currentBookingForItems, setCurrentBookingForItems] = useState<Booking | null>(null)
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
+  const [showComprehensiveDialog, setShowComprehensiveDialog] = useState(false)
 
   // Archived bookings state
   const [archivedBookings, setArchivedBookings] = useState<Booking[]>([])
