@@ -336,6 +336,10 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
   // 4. RENTAL / PRODUCT ORDER
   // ==========================================
   if (bookingType === 'rental') {
+    const totalWithDeposit = totalAmount + securityDeposit
+    const paidWithDeposit = Math.min(paidAmount, totalWithDeposit)
+    const paymentPercentageWithDeposit = totalWithDeposit > 0 ? (paidWithDeposit / totalWithDeposit) * 100 : 0
+
     return (
       <div className="space-y-4">
         <Card className={`border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950`}>
@@ -345,7 +349,7 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
                 <DollarSign className="h-5 w-5" />
                 🚚 Product Rental / Order
               </CardTitle>
-              <Badge variant={isFullyPaid ? 'default' : 'warning'}>
+              <Badge variant={paidWithDeposit >= totalWithDeposit ? 'default' : 'warning'}>
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {paymentStatus.label}
               </Badge>
@@ -369,10 +373,24 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
             {/* Total */}
             <div className="border-t pt-2">
               <div className="flex justify-between font-bold text-lg">
-                <span>Total Amount</span>
+                <span>Package Total</span>
                 <span className="text-indigo-700">{formatCurrency(totalAmount)}</span>
               </div>
             </div>
+
+            {/* Deposit Section (if applicable) */}
+            {securityDeposit > 0 && (
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex justify-between items-center text-amber-700 font-semibold">
+                  <span>+ Refundable Security Deposit</span>
+                  <span>{formatCurrency(securityDeposit)}</span>
+                </div>
+                <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
+                  <span className="text-indigo-700">💰 Total Payable Now</span>
+                  <span className="text-indigo-700">{formatCurrency(totalAmount + securityDeposit)}</span>
+                </div>
+              </div>
+            )}
 
             {/* Payment Status */}
             <div className="border-t pt-3 bg-gray-50 dark:bg-gray-900 p-3 rounded">
@@ -383,11 +401,11 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div
                   className="bg-indigo-500 h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, paymentPercentage)}%` }}
+                  style={{ width: `${Math.min(100, paymentPercentageWithDeposit)}%` }}
                 />
               </div>
               <div className="text-xs text-muted-foreground mt-2">
-                {isFullyPaid ? '✓ Complete' : `${Math.round(paymentPercentage)}% received, ${formatCurrency(pendingAmount)} pending`}
+                {paidWithDeposit >= totalWithDeposit ? '✓ Complete' : `${Math.round(paymentPercentageWithDeposit)}% received, ${formatCurrency(totalWithDeposit - paidWithDeposit)} pending`}
               </div>
             </div>
           </CardContent>
@@ -400,6 +418,10 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
   // 5. DIRECT SALES
   // ==========================================
   if (bookingType === 'direct_sale') {
+    const totalWithDeposit = totalAmount + securityDeposit
+    const paidWithDeposit = Math.min(paidAmount, totalWithDeposit)
+    const paymentPercentageWithDeposit = totalWithDeposit > 0 ? (paidWithDeposit / totalWithDeposit) * 100 : 0
+
     return (
       <div className="space-y-4">
         <Card className={`border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950`}>
@@ -409,7 +431,7 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
                 <DollarSign className="h-5 w-5" />
                 🛍️ Direct Sales Order
               </CardTitle>
-              <Badge variant={isFullyPaid ? 'default' : 'warning'}>
+              <Badge variant={paidWithDeposit >= totalWithDeposit ? 'default' : 'warning'}>
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {paymentStatus.label}
               </Badge>
@@ -450,6 +472,20 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
               </div>
             </div>
 
+            {/* Deposit Section (if applicable) */}
+            {securityDeposit > 0 && (
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex justify-between items-center text-amber-700 font-semibold">
+                  <span>+ Additional Security Deposit</span>
+                  <span>{formatCurrency(securityDeposit)}</span>
+                </div>
+                <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
+                  <span className="text-emerald-700">💰 Total Payable Now</span>
+                  <span className="text-emerald-700">{formatCurrency(totalAmount + securityDeposit)}</span>
+                </div>
+              </div>
+            )}
+
             {/* Payment Status */}
             <div className="border-t pt-3 bg-gray-50 dark:bg-gray-900 p-3 rounded">
               <div className="flex justify-between mb-2">
@@ -459,11 +495,11 @@ export function PricingBreakdownDialog({ booking, bookingType }: PricingBreakdow
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div
                   className="bg-emerald-500 h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, paymentPercentage)}%` }}
+                  style={{ width: `${Math.min(100, paymentPercentageWithDeposit)}%` }}
                 />
               </div>
               <div className="text-xs text-muted-foreground mt-2">
-                {isFullyPaid ? '✓ Complete' : `${Math.round(paymentPercentage)}% received, ${formatCurrency(pendingAmount)} pending`}
+                {paidWithDeposit >= totalWithDeposit ? '✓ Complete' : `${Math.round(paymentPercentageWithDeposit)}% received, ${formatCurrency(totalWithDeposit - paidWithDeposit)} pending`}
               </div>
             </div>
           </CardContent>
