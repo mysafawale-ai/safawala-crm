@@ -192,6 +192,9 @@ export interface Booking {
   participant?: string // Event participant (groom/bride/both) - alias for event_for
   invoice_generated?: boolean
   whatsapp_sent?: boolean
+  has_modifications?: boolean // Whether modifications are required
+  modification_date?: string // Date for modifications/requirements
+  modification_details?: string // Description of modifications needed
 }
 
 // Alias for compatibility

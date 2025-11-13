@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, isBefore, startOfDay } from "date-fns"
-import { Search, CalendarIcon, Package, Eye } from "lucide-react"
+import { Search, CalendarIcon, Package, Eye, Wrench } from "lucide-react"
 import { ItemsDisplayDialog } from "@/components/shared"
 import type { SelectedItem } from "@/components/shared/types/items"
 
@@ -20,6 +21,9 @@ interface BookingData {
   event_date: string
   delivery_date: string
   return_date: string
+  modification_date?: string
+  modification_details?: string
+  has_modifications?: boolean
   event_type: string
   venue_name: string
   venue_address: string
@@ -49,6 +53,8 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const [showDateDetails, setShowDateDetails] = React.useState(false)
   const [bookings, setBookings] = React.useState<BookingData[]>([])
   const [dateBookings, setDateBookings] = React.useState<BookingData[]>([])
+  const [modificationBookings, setModificationBookings] = React.useState<BookingData[]>([])
+  const [activeTab, setActiveTab] = React.useState<'events' | 'modifications'>('events')
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
   
@@ -98,6 +104,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         event_date: toDateOnly(r.event_date),
         delivery_date: toDateOnly(r.delivery_date),
         return_date: toDateOnly(r.pickup_date), // API field name
+        modification_date: r.modification_date ? toDateOnly(r.modification_date) : undefined,
+        modification_details: r.modification_details || undefined,
+        has_modifications: r.has_modifications || false,
         event_type: r.event_type,
         venue_name: extractVenueName(r.venue_address),
         venue_address: r.venue_address || '',
@@ -126,6 +135,14 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     return bookings.filter(
       (booking) =>
         booking.event_date === dateStr,
+    )
+  }
+
+  const getModificationsForDate = (date: Date) => {
+    const dateStr = format(date, "yyyy-MM-dd")
+    return bookings.filter(
+      (booking) =>
+        booking.has_modifications && booking.modification_date === dateStr,
     )
   }
 
@@ -159,8 +176,12 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const handleDateClick = (date: Date) => {
     console.log("[v0] Date clicked:", format(date, "yyyy-MM-dd"))
     const dayBookings = getBookingsForDate(date)
+    const dayModifications = getModificationsForDate(date)
     console.log("[v0] Bookings found for date:", dayBookings.length)
+    console.log("[v0] Modifications found for date:", dayModifications.length)
     setDateBookings(dayBookings)
+    setModificationBookings(dayModifications)
+    setActiveTab(dayBookings.length > 0 ? 'events' : (dayModifications.length > 0 ? 'modifications' : 'events'))
     setShowDateDetails(true)
     console.log("[v0] Popup should open, showDateDetails:", true)
     // Clear selection immediately to prevent black selected state
@@ -271,42 +292,59 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <CalendarIcon className="w-5 h-5" />
-              Event Details - {selectedDate && format(selectedDate, "MMMM dd, yyyy")}
-              <Badge variant="secondary" className="ml-2">{dateBookings.length} total</Badge>
-              {dateBookings.filter(b => b.status === 'confirmed').length > 0 && (
-                <Badge className="bg-green-500">{dateBookings.filter(b => b.status === 'confirmed').length} confirmed</Badge>
-              )}
-              {dateBookings.filter(b => b.status === 'delivered').length > 0 && (
-                <Badge className="bg-blue-500">{dateBookings.filter(b => b.status === 'delivered').length} delivered</Badge>
-              )}
-              {dateBookings.filter(b => b.status === 'pending_payment').length > 0 && (
-                <Badge className="bg-orange-500">{dateBookings.filter(b => b.status === 'pending_payment').length} pending</Badge>
-              )}
-              {dateBookings.filter(b => b.status === 'quote').length > 0 && (
-                <Badge className="bg-purple-500">{dateBookings.filter(b => b.status === 'quote').length} quotes</Badge>
-              )}
+              Bookings & Modifications - {selectedDate && format(selectedDate, "MMMM dd, yyyy")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className={`flex items-center gap-2 ${compact ? 'hidden' : ''}`}>
-              <Search className="w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by customer name, booking number, venue, or city..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1"
-              />
-            </div>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'events' | 'modifications')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="events" className="flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4" />
+                Event Bookings ({dateBookings.length})
+              </TabsTrigger>
+              <TabsTrigger value="modifications" className="flex items-center gap-2">
+                <Wrench className="w-4 h-4" />
+                Modifications ({modificationBookings.length})
+              </TabsTrigger>
+            </TabsList>
 
-            {dateBookings.length === 0 ? (
-              <div className="text-center py-8 space-y-4">
-                <div className="text-muted-foreground">No bookings for this date</div>
-                <div className="flex items-center justify-center gap-3">
-                  <a href="/create-product-order" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
-                    + Book Product Order
-                  </a>
-                  <a href="/book-package" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
+            <TabsContent value="events" className="space-y-4">
+              {dateBookings.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  <Badge variant="secondary">{dateBookings.length} total</Badge>
+                  {dateBookings.filter(b => b.status === 'confirmed').length > 0 && (
+                    <Badge className="bg-green-500">{dateBookings.filter(b => b.status === 'confirmed').length} confirmed</Badge>
+                  )}
+                  {dateBookings.filter(b => b.status === 'delivered').length > 0 && (
+                    <Badge className="bg-blue-500">{dateBookings.filter(b => b.status === 'delivered').length} delivered</Badge>
+                  )}
+                  {dateBookings.filter(b => b.status === 'pending_payment').length > 0 && (
+                    <Badge className="bg-orange-500">{dateBookings.filter(b => b.status === 'pending_payment').length} pending</Badge>
+                  )}
+                  {dateBookings.filter(b => b.status === 'quote').length > 0 && (
+                    <Badge className="bg-purple-500">{dateBookings.filter(b => b.status === 'quote').length} quotes</Badge>
+                  )}
+                </div>
+              )}
+
+              <div className={`flex items-center gap-2 ${compact ? 'hidden' : ''}`}>
+                <Search className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by customer name, booking number, venue, or city..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+
+              {dateBookings.length === 0 ? (
+                <div className="text-center py-8 space-y-4">
+                  <div className="text-muted-foreground">No bookings for this date</div>
+                  <div className="flex items-center justify-center gap-3">
+                    <a href="/create-product-order" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
+                      + Book Product Order
+                    </a>
+                    <a href="/book-package" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
                     + Book a Package
                   </a>
                 </div>
@@ -437,7 +475,71 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                 </table>
               </div>
             )}
-          </div>
+            </TabsContent>
+
+            <TabsContent value="modifications" className="space-y-4">
+              {modificationBookings.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  <Badge className="bg-amber-500">{modificationBookings.length} modifications pending</Badge>
+                </div>
+              )}
+
+              {modificationBookings.length === 0 ? (
+                <div className="text-center py-8">
+                  <Wrench className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <div className="text-muted-foreground">No modifications for this date</div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="w-full border-collapse bg-white">
+                    <thead>
+                      <tr className="bg-muted/40 border-b">
+                        <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[150px]">
+                          Customer Name
+                        </th>
+                        <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[120px]">
+                          Phone Number
+                        </th>
+                        <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[180px]">
+                          Modification Date & Time
+                        </th>
+                        <th className="border-muted px-4 py-3 text-left text-sm font-semibold text-foreground">
+                          Modification Details
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modificationBookings.map((booking, index) => (
+                        <tr
+                          key={booking.id}
+                          className={`border-b hover:bg-muted/40 ${index % 2 === 0 ? "bg-background" : "bg-muted/20"}`}
+                        >
+                          <td className="border-r border-muted px-4 py-3 text-sm font-medium text-foreground">
+                            {booking.customer_name}
+                          </td>
+                          <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
+                            {booking.customer_phone || "N/A"}
+                          </td>
+                          <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
+                            <div>
+                              <div className="font-medium">
+                                {booking.modification_date ? format(new Date(booking.modification_date), "dd-MMM-yyyy") : "N/A"}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="border-muted px-4 py-3 text-sm text-foreground max-w-sm">
+                            <div className="text-xs bg-amber-50 p-2 rounded border border-amber-200 text-amber-900">
+                              {booking.modification_details || "No details provided"}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
       
