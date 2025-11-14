@@ -1137,45 +1137,8 @@ export default function CreateProductOrderPage() {
         throw new Error(itemsErr.message || 'Failed to create order items')
       }
 
-      // Track coupon usage if coupon was applied
-      if (formData.coupon_code && formData.coupon_discount > 0 && !isQuote) {
-        try {
-          // First, get the coupon ID
-          const { data: coupon } = await supabase
-            .from('coupons')
-            .select('id')
-            .eq('code', formData.coupon_code)
-            .single()
-
-          if (coupon) {
-            // Insert usage record
-            await supabase.from('coupon_usage').insert({
-              coupon_id: coupon.id,
-              customer_id: selectedCustomer.id,
-              order_id: order.id,
-              order_type: 'product_order',
-              discount_applied: formData.coupon_discount,
-              franchise_id: currentUser.franchise_id,
-            })
-
-            // Increment usage count
-            await supabase.rpc('increment', {
-              table_name: 'coupons',
-              row_id: coupon.id,
-              column_name: 'usage_count'
-            }).catch(() => {
-              // Fallback: manual increment if RPC doesn't exist
-              supabase
-                .from('coupons')
-                .update({ usage_count: supabase.rpc('increment', { amount: 1 }) })
-                .eq('id', coupon.id)
-            })
-          }
-        } catch (couponError) {
-          console.error('Failed to track coupon usage:', couponError)
-          // Don't fail the entire order if coupon tracking fails
-        }
-      }
+      // NOTE: Simplified coupons - we no longer track coupon usage with coupon_usage or usage_count columns.
+      // Keep this block for analytics only if the DB schema still has usage tracking; otherwise skip.
 
       // ✅ NEW: Deduct inventory for each item (unless it's a quote)
       if (!isQuote) {

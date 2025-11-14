@@ -15,31 +15,14 @@ import { Percent, DollarSign, Truck, Plus, Pencil, Trash2, Tag } from "lucide-re
 interface Coupon {
   id: string;
   code: string;
-  description: string;
-  discount_type: 'percentage' | 'flat' | 'free_shipping' | 'buy_x_get_y';
+  discount_type: 'percentage' | 'flat' | 'free_shipping';
   discount_value: number;
-  min_order_value: number;
-  max_discount: number | null;
-  usage_limit: number | null;
-  usage_count: number;
-  per_user_limit: number | null;
-  valid_from: string;
-  valid_until: string | null;
-  is_active: boolean;
 }
 
 interface FormData {
   code: string;
-  description: string;
-  discount_type: 'percentage' | 'flat' | 'free_shipping' | 'buy_x_get_y';
+  discount_type: 'percentage' | 'flat' | 'free_shipping';
   discount_value: number;
-  min_order_value: number;
-  max_discount: number | null;
-  usage_limit: number | null;
-  per_user_limit: number | null;
-  valid_from: string;
-  valid_until: string;
-  is_active: boolean;
 }
 
 export default function ManageOffersDialog() {
@@ -53,14 +36,6 @@ export default function ManageOffersDialog() {
     code: '',
     discount_type: 'percentage',
     discount_value: 0,
-    description: '',
-    min_order_value: 0,
-    max_discount: null,
-    usage_limit: null,
-    per_user_limit: null,
-    valid_from: new Date().toISOString().split('T')[0],
-    valid_until: '',
-    is_active: true,
   });
 
   // Fetch coupons when dialog opens
@@ -98,7 +73,7 @@ export default function ManageOffersDialog() {
       return;
     }
     
-    if (formData.discount_value <= 0) {
+    if (formData.discount_type !== 'free_shipping' && formData.discount_value <= 0) {
       toast.error('Discount value must be greater than 0');
       return;
     }
@@ -113,9 +88,7 @@ export default function ManageOffersDialog() {
       
       const url = editingCoupon ? '/api/coupons' : '/api/coupons';
       const method = editingCoupon ? 'PUT' : 'POST';
-      const body = editingCoupon 
-        ? { id: editingCoupon.id, ...formData }
-        : formData;
+      const body = editingCoupon ? { id: editingCoupon.id, ...formData } : formData;
 
       const response = await fetch(url, {
         method,
@@ -144,16 +117,8 @@ export default function ManageOffersDialog() {
     setEditingCoupon(coupon);
     setFormData({
       code: coupon.code,
-      description: coupon.description,
       discount_type: coupon.discount_type,
       discount_value: coupon.discount_value,
-      min_order_value: coupon.min_order_value,
-      max_discount: coupon.max_discount,
-      usage_limit: coupon.usage_limit,
-      per_user_limit: coupon.per_user_limit,
-      valid_from: coupon.valid_from.split('T')[0],
-      valid_until: coupon.valid_until ? coupon.valid_until.split('T')[0] : '',
-      is_active: coupon.is_active,
     });
   };
 
@@ -195,14 +160,6 @@ export default function ManageOffersDialog() {
       code: '',
       discount_type: 'percentage',
       discount_value: 0,
-      description: '',
-      min_order_value: 0,
-      max_discount: null,
-      usage_limit: null,
-      per_user_limit: null,
-      valid_from: new Date().toISOString().split('T')[0],
-      valid_until: '',
-      is_active: true,
     });
   };
 
@@ -211,7 +168,6 @@ export default function ManageOffersDialog() {
       case 'percentage': return <Percent className="h-4 w-4" />;
       case 'flat': return <DollarSign className="h-4 w-4" />;
       case 'free_shipping': return <Truck className="h-4 w-4" />;
-      case 'buy_x_get_y': return <Plus className="h-4 w-4" />;
       default: return <Tag className="h-4 w-4" />;
     }
   };
@@ -221,8 +177,6 @@ export default function ManageOffersDialog() {
       return `${coupon.discount_value}% off`;
     } else if (coupon.discount_type === 'flat') {
       return `₹${coupon.discount_value} off`;
-    } else if (coupon.discount_type === 'buy_x_get_y') {
-      return `Buy ${coupon.discount_value} Get ${coupon.max_discount || 1} Free`;
     } else {
       return 'Free Shipping';
     }
@@ -240,7 +194,7 @@ export default function ManageOffersDialog() {
         <DialogHeader>
           <DialogTitle className="text-2xl">Manage Coupon Codes</DialogTitle>
           <DialogDescription>
-            Create, edit, and manage promotional coupon codes for your franchise. Set discounts, usage limits, and validity periods.
+            Create, edit, and manage promotional coupon codes for your franchise. Keep it simple — code, type, and discount value.
           </DialogDescription>
         </DialogHeader>
 
@@ -294,7 +248,7 @@ export default function ManageOffersDialog() {
                     max={formData.discount_type === 'percentage' ? 100 : undefined}
                     step="0.01"
                     required
-                    placeholder={formData.discount_type === 'percentage' ? 'e.g., 10' : formData.discount_type === 'buy_x_get_y' ? 'e.g., 2' : 'e.g., 500'}
+                    placeholder={formData.discount_type === 'percentage' ? 'e.g., 10' : 'e.g., 500'}
                   />
                 </div>
               )}
@@ -325,38 +279,24 @@ export default function ManageOffersDialog() {
                 {coupons.map((coupon) => (
                   <div 
                     key={coupon.id} 
-                    className={`border rounded-lg p-3 ${!coupon.is_active ? 'bg-gray-50 opacity-60' : ''}`}
+                    className={`border rounded-lg p-3`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           {getDiscountIcon(coupon.discount_type)}
                           <span className="font-mono font-bold text-sm">{coupon.code}</span>
-                          {!coupon.is_active && (
-                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Inactive</span>
-                          )}
+                          {/* Inactive flag removed - simplified coupon model */}
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">{coupon.description}</p>
+                        {/* Description removed - simplifed coupon model */}
                         <div className="flex flex-wrap gap-2 text-xs text-gray-500">
                           <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
                             {getDiscountDisplay(coupon)}
                           </span>
-                          {coupon.min_order_value > 0 && (
-                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                              Min: ₹{coupon.min_order_value}
-                            </span>
-                          )}
-                          {coupon.usage_limit && (
-                            <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                              {coupon.usage_count}/{coupon.usage_limit} used
-                            </span>
-                          )}
+                          {/* min_order_value removed */}
+                          {/* usage_limit/usage_count removed */}
                         </div>
-                        {coupon.valid_until && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            Expires: {new Date(coupon.valid_until).toLocaleDateString()}
-                          </p>
-                        )}
+                        {/* Validity window removed */}
                       </div>
                       <div className="flex gap-1 ml-2">
                         <Button

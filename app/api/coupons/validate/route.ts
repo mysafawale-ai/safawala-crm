@@ -46,9 +46,8 @@ export async function POST(request: NextRequest) {
     // Fetch coupon from database with franchise isolation
     const { data: coupon, error: couponError } = await supabase
       .from('coupons')
-      .select('*')
+      .select('id, code, discount_type, discount_value, franchise_id, description')
       .eq('code', code.trim().toUpperCase())
-      .eq('is_active', true)
       .eq('franchise_id', franchiseId)
       .single();
 
@@ -63,88 +62,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if coupon has expired
-    const now = new Date();
-    const validFrom = new Date(coupon.valid_from);
-    const validUntil = coupon.valid_until ? new Date(coupon.valid_until) : null;
-
-    if (now < validFrom) {
-      return NextResponse.json(
-        { 
-          valid: false, 
-          error: 'Coupon not yet active',
-          message: `This coupon will be active from ${validFrom.toLocaleDateString()}`
-        },
-        { status: 200 }
-      );
-    }
-
-    if (validUntil && now > validUntil) {
-      return NextResponse.json(
-        { 
-          valid: false, 
-          error: 'Coupon expired',
-          message: `This coupon expired on ${validUntil.toLocaleDateString()}`
-        },
-        { status: 200 }
-      );
-    }
-
-    // Check minimum order value
-    if (orderValue < coupon.min_order_value) {
-      return NextResponse.json(
-        { 
-          valid: false, 
-          error: 'Minimum order value not met',
-          message: `Minimum order value of ₹${coupon.min_order_value.toFixed(2)} required`
-        },
-        { status: 200 }
-      );
-    }
-
-    // Check usage limit
-    if (coupon.usage_limit !== null && coupon.usage_count >= coupon.usage_limit) {
-      return NextResponse.json(
-        { 
-          valid: false, 
-          error: 'Coupon usage limit reached',
-          message: 'This coupon has reached its maximum usage limit'
-        },
-        { status: 200 }
-      );
-    }
-
-    // Check per-user limit
-    if (customerId && coupon.per_user_limit !== null) {
-      const { count, error: usageError } = await supabase
-        .from('coupon_usage')
-        .select('*', { count: 'exact', head: true })
-        .eq('coupon_id', coupon.id)
-        .eq('customer_id', customerId);
-
-      if (usageError) {
-        console.error('Error checking coupon usage:', usageError);
-      } else if (count !== null && count >= coupon.per_user_limit) {
-        return NextResponse.json(
-          { 
-            valid: false, 
-            error: 'Customer usage limit reached',
-            message: `You have already used this coupon ${count} time(s)`
-          },
-          { status: 200 }
-        );
-      }
-    }
+    // Simplified flow: the coupon system only supports basic discounts now
+    // so we do not check dates or usage/minimum values here.
 
     // Calculate discount
     let discountAmount = 0;
     
     if (coupon.discount_type === 'percentage') {
       discountAmount = (orderValue * coupon.discount_value) / 100;
-      // Apply max discount cap if set
-      if (coupon.max_discount && discountAmount > coupon.max_discount) {
-        discountAmount = coupon.max_discount;
-      }
     } else if (coupon.discount_type === 'flat') {
       discountAmount = coupon.discount_value;
     } else if (coupon.discount_type === 'free_shipping') {
@@ -161,7 +86,7 @@ export async function POST(request: NextRequest) {
       coupon: {
         id: coupon.id,
         code: coupon.code,
-        description: coupon.description,
+        description: coupon.description || null,
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
       },

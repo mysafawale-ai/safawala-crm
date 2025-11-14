@@ -1431,37 +1431,8 @@ export default function BookPackageWizard() {
         }
       }
 
-      // Track coupon usage if coupon was applied
-      if (formData.coupon_code && formData.coupon_discount > 0 && !asQuote) {
-        try {
-          // Increment usage count
-          const { data: couponData } = await supabase
-            .from('coupons')
-            .select('id, usage_count')
-            .eq('code', formData.coupon_code)
-            .single()
-          
-          if (couponData) {
-            await supabase
-              .from('coupons')
-              .update({ usage_count: (couponData.usage_count || 0) + 1 })
-              .eq('id', couponData.id)
-            
-            // Log usage
-            await supabase.from('coupon_usage').insert({
-              coupon_id: couponData.id,
-              customer_id: selectedCustomer.id,
-              booking_id: booking.id,
-              discount_applied: formData.coupon_discount
-            }).catch((err: any) => {
-              console.warn('Failed to log coupon usage:', err)
-            })
-          }
-        } catch (couponError) {
-          console.error('Error tracking coupon usage:', couponError)
-          // Don't fail the whole operation if coupon tracking fails
-        }
-      }
+      // Coupon usage tracking removed in simplified coupon model.
+      // If you need analytics, consider implementing server-side logging or re-adding a coupon_usage table.
 
   toast.success(asQuote ? "Quote created!" : "Order created!")
   

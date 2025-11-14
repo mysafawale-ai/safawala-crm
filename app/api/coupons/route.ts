@@ -55,8 +55,21 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching coupons:', error);
+
+      // Helpful message when DB schema is mismatched (e.g., missing franchise_id)
+      const details = error.message || '';
+      if (details.toLowerCase().includes('franchise_id') || details.toLowerCase().includes("column \"franchise_id\" does not exist")) {
+        return NextResponse.json(
+          {
+            error: 'Failed to fetch coupons',
+            details: 'Missing required column franchise_id in coupons table. Run the SQL migration ADD_COUPON_COLUMNS.sql to add missing columns.'
+          },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json(
-        { error: 'Failed to fetch coupons', details: error.message },
+        { error: 'Failed to fetch coupons', details },
         { status: 500 }
       );
     }
@@ -135,6 +148,17 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('[Coupons API] Supabase error:', { code: error.code, message: error.message, hint: error.hint });
       
+      const message = error.message || '';
+      if (message.toLowerCase().includes('franchise_id') || message.toLowerCase().includes('column "franchise_id" does not exist')) {
+        return NextResponse.json(
+          {
+            error: 'Failed to create coupon',
+            details: 'Missing required column franchise_id in coupons table. Run the SQL migration ADD_COUPON_COLUMNS.sql to add missing columns.'
+          },
+          { status: 500 }
+        );
+      }
+
       // Handle duplicate code error
       if (error.code === '23505') {
         return NextResponse.json(
@@ -144,7 +168,7 @@ export async function POST(request: NextRequest) {
       }
       
       return NextResponse.json(
-        { error: 'Failed to create coupon', details: error.message },
+        { error: 'Failed to create coupon', details: message },
         { status: 500 }
       );
     }
