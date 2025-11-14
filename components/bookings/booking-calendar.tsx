@@ -219,7 +219,10 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             city: r.customer?.city || 'Not Specified',
             address: r.customer?.address || 'Not Specified',
           },
-        }
+          has_items: r.has_items || false,
+          source: r.source || 'product_orders',
+          type: r.type || 'rental',
+        } as any
       }))
 
       setBookings(formattedBookings)
