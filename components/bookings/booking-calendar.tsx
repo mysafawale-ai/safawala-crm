@@ -604,6 +604,15 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               // Determine booking type - matching bookings page logic
                               const source = (booking as any).source || 'product_orders'
                               const bookingType = source === 'package_bookings' ? 'sale' : 'rental'
+                              const hasItems = (booking as any).has_items
+                              
+                              // Debug log
+                              console.log(`[Calendar] Booking ${booking.booking_number}:`, {
+                                has_items: hasItems,
+                                source,
+                                bookingType,
+                                booking
+                              })
                               
                               // For direct sales: don't show items column at all
                               if (bookingType === 'sale') {
@@ -611,7 +620,6 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               }
                               
                               // Check both: has_items flag AND actual items in array - matching bookings page logic
-                              const hasItems = (booking as any).has_items
                               const items = bookingItems[booking.id] || []
                               const actuallyHasItems = items.length > 0
                               
