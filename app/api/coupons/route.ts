@@ -85,23 +85,24 @@ export async function POST(request: NextRequest) {
     
     const {
       code,
-      description,
       discount_type,
       discount_value,
-      min_order_value,
-      max_discount,
-      usage_limit,
-      per_user_limit,
-      valid_from,
-      valid_until,
-      is_active,
     } = body;
 
     // Validation
-    if (!code || !discount_type || discount_value === undefined) {
+    if (!code || !discount_type) {
       console.error('[Coupons API] Validation failed: missing required fields');
       return NextResponse.json(
-        { error: 'Code, discount type, and discount value are required' },
+        { error: 'Code and discount type are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate discount_value for non-free-shipping types
+    if (discount_type !== 'free_shipping' && (discount_value === undefined || discount_value <= 0)) {
+      console.error('[Coupons API] Validation failed: discount value required');
+      return NextResponse.json(
+        { error: 'Discount value is required for this discount type' },
         { status: 400 }
       );
     }
@@ -115,21 +116,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sanitize optional fields - convert empty strings to null
+    // Sanitized data - only the fields we're keeping
     const sanitizedData = {
       code: code.trim().toUpperCase(),
-      description: description?.trim() || null,
       discount_type,
-      discount_value,
-      min_order_value: min_order_value || 0,
-      max_discount: max_discount || null,
-      usage_limit: usage_limit || null,
-      per_user_limit: per_user_limit || null,
-      valid_from: valid_from || new Date().toISOString(),
-      valid_until: valid_until && valid_until.trim() !== '' ? valid_until : null,
-      is_active: is_active !== undefined ? is_active : true,
+      discount_value: discount_type === 'free_shipping' ? 0 : discount_value,
       franchise_id: franchiseId,
-      created_by: userId,
     };
     console.log('[Coupons API] Sanitized data:', sanitizedData);
 

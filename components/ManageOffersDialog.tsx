@@ -275,7 +275,6 @@ export default function ManageOffersDialog() {
                   <SelectContent position="popper" className="z-[100]">
                     <SelectItem value="percentage">Percentage (%)</SelectItem>
                     <SelectItem value="flat">Flat Amount Discount (e.g., ₹500 off)</SelectItem>
-                    <SelectItem value="buy_x_get_y">Buy X Get Y Free (e.g., Buy 2 Get 1)</SelectItem>
                     <SelectItem value="free_shipping">Free Shipping</SelectItem>
                   </SelectContent>
                 </Select>
@@ -284,8 +283,7 @@ export default function ManageOffersDialog() {
               {formData.discount_type !== 'free_shipping' && (
                 <div>
                   <Label htmlFor="discount_value">
-                    {formData.discount_type === 'percentage' ? 'Percentage (%)' : 
-                     formData.discount_type === 'buy_x_get_y' ? 'Buy Quantity (X)' : 'Amount (₹)'}
+                    {formData.discount_type === 'percentage' ? 'Percentage (%)' : 'Amount (₹)'}
                   </Label>
                   <Input
                     id="discount_value"
