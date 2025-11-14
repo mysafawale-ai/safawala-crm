@@ -281,6 +281,26 @@ export default function ManageOffersDialog() {
                 </Select>
               </div>
 
+              {formData.discount_type !== 'free_shipping' && (
+                <div>
+                  <Label htmlFor="discount_value">
+                    {formData.discount_type === 'percentage' ? 'Percentage (%)' : 
+                     formData.discount_type === 'buy_x_get_y' ? 'Buy Quantity (X)' : 'Amount (₹)'}
+                  </Label>
+                  <Input
+                    id="discount_value"
+                    type="number"
+                    value={formData.discount_value || ''}
+                    onChange={(e) => setFormData({ ...formData, discount_value: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                    min={0}
+                    max={formData.discount_type === 'percentage' ? 100 : undefined}
+                    step="0.01"
+                    required
+                    placeholder={formData.discount_type === 'percentage' ? 'e.g., 10' : formData.discount_type === 'buy_x_get_y' ? 'e.g., 2' : 'e.g., 500'}
+                  />
+                </div>
+              )}
+
               <div className="flex gap-2 pt-4">
                 <Button type="submit" disabled={loading} className="flex-1">
                   {loading ? 'Saving...' : editingCoupon ? 'Update Coupon' : 'Create Coupon'}
