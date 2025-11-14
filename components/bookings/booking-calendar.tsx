@@ -164,7 +164,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         event_type: r.event_type,
         venue_name: r.venue_address?.split(/[,\n]/)[0]?.trim() || 'Not Specified',
         venue_address: r.venue_address || '',
-        area_name: r.customer?.address?.split(/[,\n]/)[0]?.trim() || 'Not Specified',
+        area_name: r.customer?.pincode || 'Not Specified',
         total_amount: Number(r.total_amount) || 0,
         paid_amount: Number(r.paid_amount) || 0,
         status: r.status,
