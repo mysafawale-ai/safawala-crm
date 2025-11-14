@@ -23,31 +23,44 @@ export async function GET(request: NextRequest) {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
-    // Optimized: Build a single aggregated query instead of fetching all records
-    let bookingsQuery = supabase
-      .from("bookings")
-      .select("id, status, total_amount, created_at, type", { count: 'exact' })
+    // Fetch from BOTH package_bookings and product_orders (the actual booking sources)
+    let packageQuery = supabase
+      .from("package_bookings")
+      .select("id, status, total_amount, created_at", { count: 'exact' })
+      .eq('is_quote', false)
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false })
+
+    let productQuery = supabase
+      .from("product_orders")
+      .select("id, status, total_amount, created_at, booking_type", { count: 'exact' })
+      .or('is_quote.is.null,is_quote.eq.false')
+      .eq('is_archived', false)
       .order('created_at', { ascending: false })
 
     // Apply franchise filter
     if (!isSuperAdmin && franchiseId) {
-      bookingsQuery = bookingsQuery.eq("franchise_id", franchiseId)
+      packageQuery = packageQuery.eq("franchise_id", franchiseId)
+      productQuery = productQuery.eq("franchise_id", franchiseId)
       console.log(`[Dashboard Stats API] Applied franchise filter: ${franchiseId}`)
     } else {
       console.log(`[Dashboard Stats API] Super admin mode - showing all stats`)
     }
 
-    // Fetch bookings with count
-    const { data: bookingsData, error: bookingsError, count: totalBookings } = await bookingsQuery
+    // Fetch both in parallel
+    const [packageRes, productRes] = await Promise.all([packageQuery, productQuery])
 
-    if (bookingsError) {
-      console.error("Error fetching bookings:", bookingsError)
+    if (packageRes.error && productRes.error) {
+      console.error("Error fetching bookings:", packageRes.error || productRes.error)
       return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 })
     }
 
-    // Ensure bookingsData is an array
-    const bookings = Array.isArray(bookingsData) ? bookingsData : []
-    console.log(`[Dashboard Stats API] Fetched ${bookings.length} bookings from database`)
+    // Combine data from both sources
+    const packageBookings = Array.isArray(packageRes.data) ? packageRes.data : []
+    const productBookings = Array.isArray(productRes.data) ? productRes.data : []
+    const bookings = [...packageBookings, ...productBookings]
+    
+    console.log(`[Dashboard Stats API] Fetched ${packageBookings.length} package bookings + ${productBookings.length} product orders = ${bookings.length} total`)
 
     // Parallel queries for other data
     const [customersResult, productsResult] = await Promise.all([
@@ -91,7 +104,7 @@ export async function GET(request: NextRequest) {
     const quotesCount = bookings.filter((b: any) => b.status === 'quote').length
     const conversionRate = quotesCount > 0 ? ((confirmedBookings / (confirmedBookings + quotesCount)) * 100) : 0
     
-    const bookingsCount = totalBookings || 0
+    const bookingsCount = bookings.length || 0
     const avgBookingValue = bookingsCount > 0 ? totalRevenue / bookingsCount : 0
 
     // Revenue by month (last 6 months)
@@ -112,9 +125,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Bookings by type
-    const packageBookings = bookings.filter((b: any) => b.type === 'package').length
-    const productBookings = bookings.filter((b: any) => b.type !== 'package').length
+    // Bookings by type/source
+    const bookingsByType = {
+      package: packageBookings.length,
+      product: productBookings.length
+    }
 
     // Pending actions
     const pendingPayments = bookings.filter((b: any) => b.status === 'pending_payment').length
@@ -132,10 +147,7 @@ export async function GET(request: NextRequest) {
       conversionRate: Math.round(conversionRate),
       avgBookingValue: Math.round(avgBookingValue),
       revenueByMonth,
-      bookingsByType: {
-        package: packageBookings,
-        product: productBookings
-      },
+      bookingsByType: bookingsByType,
       pendingActions: {
         payments: pendingPayments,
         deliveries: pendingDeliveries,
