@@ -27,7 +27,9 @@ interface BookingData {
   event_type: string
   venue_name: string
   venue_address: string
+  area_name?: string
   total_amount: number
+  paid_amount?: number
   status: string
   assigned_staff_name?: string
   total_safas?: number
@@ -67,20 +69,25 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     fetchBookings()
   }, [franchiseId])
 
-  // Helper function to extract venue name from venue_address
-  const extractVenueName = (venueAddress: string): string => {
-    if (!venueAddress) return 'Not Specified'
-    // Extract first line (venue name is usually first line before comma or newline)
-    const firstLine = venueAddress.split(/[,\n]/)[0].trim()
-    return firstLine || 'Not Specified'
-  }
+  // Helper to get payment status details
+  const getPaymentStatus = (booking: BookingData) => {
+    const totalAmount = booking.total_amount || 0
+    const paidAmount = booking.paid_amount || 0
+    const pendingAmount = Math.max(0, totalAmount - paidAmount)
 
-  // Helper function to extract area from customer address
-  const extractArea = (address: string): string => {
-    if (!address || address === 'Not Specified') return 'Not Specified'
-    // Extract first line (area is usually first line before comma or newline)
-    const firstLine = address.split(/[,\n]/)[0].trim()
-    return firstLine || 'Not Specified'
+    const isFullyPaid = paidAmount >= totalAmount
+    const isUnpaid = paidAmount === 0
+    const isPartiallyPaid = paidAmount > 0 && paidAmount < totalAmount
+    const paymentPercentage = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0
+
+    return {
+      isFullyPaid,
+      isUnpaid,
+      isPartiallyPaid,
+      paidAmount,
+      pendingAmount,
+      paymentPercentage,
+    }
   }
 
   const fetchBookings = async () => {
@@ -108,9 +115,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         modification_details: r.modification_details || undefined,
         has_modifications: r.has_modifications || false,
         event_type: r.event_type,
-        venue_name: extractVenueName(r.venue_address),
+        venue_name: r.venue_address?.split(/[,\n]/)[0]?.trim() || 'Not Specified',
         venue_address: r.venue_address || '',
+        area_name: r.customer?.address?.split(/[,\n]/)[0]?.trim() || 'Not Specified',
         total_amount: Number(r.total_amount) || 0,
+        paid_amount: Number(r.paid_amount) || 0,
         status: r.status,
         total_safas: Number(r.total_safas) || 0,
         assigned_staff_name: undefined,
@@ -374,6 +383,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                       <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[100px]">
                         Area
                       </th>
+                      <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[150px]">
+                        Payment Status
+                      </th>
                       <th className="border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[100px]">
                         City
                       </th>
@@ -400,11 +412,16 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          <div className="text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            {/* Check if items selection is pending (0 safas) */}
                             {(booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)) === 0 ? (
-                              <div className="space-y-2">
-                                <span className="text-2xl font-bold text-orange-500">0</span>
-                                <div className="text-xs text-gray-500">Total Safas</div>
+                              <>
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
+                                >
+                                  ⏳ Selection Pending
+                                </Badge>
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -417,13 +434,15 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                   <Package className="h-3 w-3 mr-1" />
                                   Select Products
                                 </Button>
-                              </div>
+                              </>
                             ) : (
-                              <div className="space-y-2">
-                                <span className="text-2xl font-bold text-primary">
-                                  {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
-                                </span>
-                                <div className="text-xs text-gray-500 mt-1">Total Safas</div>
+                              <>
+                                <div className="text-center">
+                                  <span className="text-2xl font-bold text-primary">
+                                    {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
+                                  </span>
+                                  <div className="text-xs text-gray-500 mt-1">Total Safas</div>
+                                </div>
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -458,7 +477,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                   <Eye className="h-3 w-3 mr-1" />
                                   View Items
                                 </Button>
-                              </div>
+                              </>
                             )}
                           </div>
                         </td>
@@ -466,7 +485,22 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           <div className="font-medium">{booking.venue_name}</div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          {extractArea(booking.customer.address)}
+                          {booking.area_name || 'Not Specified'}
+                        </td>
+                        <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
+                          {(() => {
+                            const payment = getPaymentStatus(booking)
+                            if (payment.isFullyPaid) {
+                              return <span className="text-green-600 font-semibold">✅ Confirmed</span>
+                            } else {
+                              return (
+                                <div className="text-amber-600 font-semibold">
+                                  <div>⏳ Pending Payment</div>
+                                  <div className="text-xs text-amber-500">₹{payment.pendingAmount.toLocaleString()}</div>
+                                </div>
+                              )
+                            }
+                          })()}
                         </td>
                         <td className="border-muted px-4 py-3 text-sm text-foreground">{booking.customer.city}</td>
                       </tr>
