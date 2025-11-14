@@ -593,50 +593,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          <div className="text-center space-y-2">
-                            <div>
-                              <span className="text-2xl font-bold text-primary">
-                                {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
-                              </span>
-                              <div className="text-xs text-gray-500 mt-1">Total Safas</div>
-                            </div>
-                            {(() => {
-                              const hasItems = (booking as any).has_items
-                              
-                              // If has_items is true, show "Items" button
-                              if (hasItems) {
-                                return (
-                                  <button
-                                    onClick={(e: React.MouseEvent) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      setProductDialogBooking(booking)
-                                      setProductDialogType('items')
-                                      setShowProductDialog(true)
-                                    }}
-                                    className="px-3 py-1.5 rounded-full border border-transparent bg-blue-600 text-white hover:bg-blue-700 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
-                                  >
-                                    📦 Items
-                                  </button>
-                                )
-                              }
-                              
-                              // If has_items is false, show "Selection Pending"
-                              return (
-                                <button
-                                  onClick={(e: React.MouseEvent) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    setCurrentBookingForItems(booking)
-                                    setSelectedItems([])
-                                    setShowItemsSelection(true)
-                                  }}
-                                  className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
-                                >
-                                  ⏳ Selection Pending
-                                </button>
-                              )
-                            })()}
+                          <div className="text-center">
+                            <span className="text-2xl font-bold text-primary">
+                              {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">Total Safas</div>
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
@@ -837,13 +798,15 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         />
       )}
 
-      {/* Product Selection Dialog for Items */}
+      {/* Product Selection Dialog - Matching Bookings Page */}
       {currentBookingForItems && (
         <ItemsSelectionDialog
           open={showItemsSelection}
           onOpenChange={async (open) => {
             if (!open && currentBookingForItems) {
               // When modal closes, save the selected items
+              const bookingType = (currentBookingForItems as any).type || 'rental'
+              const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
               await saveSelectedItems(currentBookingForItems.id, selectedItems)
             }
             setShowItemsSelection(open)
@@ -853,13 +816,13 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           items={products}
           categories={categories}
           subcategories={subcategories}
-          buttonText="Update Products"
           context={{
-            bookingType: 'rental',
+            bookingType: (currentBookingForItems as any).type === 'package' ? 'sale' : 'rental',
             eventDate: currentBookingForItems.event_date,
             deliveryDate: currentBookingForItems.delivery_date,
             returnDate: currentBookingForItems.return_date,
             onItemSelect: (item) => {
+              // Check if item already exists in selectedItems
               const existingItem = selectedItems.find(si => {
                 if ('variants' in item || 'package_variants' in item) {
                   return 'package_id' in si && si.package_id === item.id
@@ -869,9 +832,12 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
               })
 
               if (existingItem) {
+                // Item already selected, remove it
                 setSelectedItems(prev => prev.filter(si => si.id !== existingItem.id))
               } else {
+                // Add new item
                 if ('variants' in item || 'package_variants' in item) {
+                  // Package item
                   const newItem: SelectedItem = {
                     id: `pkg-${item.id}-${Date.now()}`,
                     package_id: item.id,
@@ -886,6 +852,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                   } as any
                   setSelectedItems(prev => [...prev, newItem])
                 } else {
+                  // Product item
                   const prod = item as any
                   const newItem: SelectedItem = {
                     id: `prod-${item.id}-${Date.now()}`,
