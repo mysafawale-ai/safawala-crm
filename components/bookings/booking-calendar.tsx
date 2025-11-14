@@ -612,28 +612,8 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               const items = bookingItems[booking.id] || []
                               const actuallyHasItems = items.length > 0
                               
-                              // Priority: actual items array > has_items flag
-                              // Show Selection Pending if either has_items is false OR items array is empty
-                              if (!hasItems || !actuallyHasItems) {
-                                return (
-                                  <button
-                                    onClick={(e: React.MouseEvent) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      console.log('[Calendar] Selection Pending clicked for booking:', booking.id)
-                                      setCurrentBookingForItems(booking)
-                                      setSelectedItems([])
-                                      setShowItemsSelection(true)
-                                    }}
-                                    className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
-                                  >
-                                    ⏳ Selection Pending
-                                  </button>
-                                )
-                              }
-                              
-                              // For product rentals with items: show "items" with click handler
-                              if (bookingType === 'rental') {
+                              // If has_items is true, show "Items" button
+                              if (hasItems) {
                                 return (
                                   <button
                                     onClick={(e: React.MouseEvent) => {
@@ -651,7 +631,22 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                 )
                               }
                               
-                              return null
+                              // Show Selection Pending if has_items is false
+                              return (
+                                <button
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    console.log('[Calendar] Selection Pending clicked for booking:', booking.id)
+                                    setCurrentBookingForItems(booking)
+                                    setSelectedItems([])
+                                    setShowItemsSelection(true)
+                                  }}
+                                  className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                >
+                                  ⏳ Selection Pending
+                                </button>
+                              )
                             })()}
                           </div>
                         </td>
