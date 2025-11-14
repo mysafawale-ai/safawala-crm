@@ -30,14 +30,14 @@ export async function GET(request: NextRequest) {
     let franchiseId: string | null = null;
     let isSuperAdmin = false;
     
-    // Try to get user from session, but don't fail if not authenticated
+    // Try to get user from session for filtering
     try {
       const authData = await getUserFromSession(request);
       franchiseId = authData.franchiseId;
       isSuperAdmin = authData.isSuperAdmin;
+      console.log('[Coupons API GET] User authenticated:', { franchiseId, isSuperAdmin });
     } catch (authError) {
-      console.log('No valid session, returning empty coupons list');
-      return NextResponse.json({ coupons: [] });
+      console.log('[Coupons API GET] No valid session, will still try to fetch coupons');
     }
 
     // Build query with franchise isolation
@@ -46,17 +46,25 @@ export async function GET(request: NextRequest) {
       .select('*')
       .order('created_at', { ascending: false });
 
-    // Super admins see all coupons, others only their franchise
+    // Apply franchise filter if user is not super admin
     if (!isSuperAdmin && franchiseId) {
+      console.log('[Coupons API GET] Filtering by franchise:', franchiseId);
       query = query.eq('franchise_id', franchiseId);
+    } else if (!isSuperAdmin && !franchiseId) {
+      console.log('[Coupons API GET] No franchiseId found, returning empty list');
+      return NextResponse.json({ coupons: [] });
     }
 
     const { data: coupons, error } = await query;
 
     if (error) {
-      console.error('Error fetching coupons:', error);
+      console.error('[Coupons API GET] Supabase error:', { 
+        code: error.code, 
+        message: error.message,
+        hint: error.hint 
+      });
 
-      // Helpful message when DB schema is mismatched (e.g., missing franchise_id)
+      // Helpful message when DB schema is mismatched
       const details = error.message || '';
       if (details.toLowerCase().includes('franchise_id') || details.toLowerCase().includes("column \"franchise_id\" does not exist")) {
         return NextResponse.json(
@@ -74,10 +82,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ coupons });
+    console.log('[Coupons API GET] Successfully fetched', coupons?.length || 0, 'coupons');
+    return NextResponse.json({ coupons: coupons || [] });
 
   } catch (error: any) {
-    console.error('Error in GET /api/coupons:', error);
+    console.error('[Coupons API GET] Exception:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
