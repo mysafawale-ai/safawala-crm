@@ -97,13 +97,27 @@ export async function GET(request: NextRequest) {
 // POST: Create new coupon
 export async function POST(request: NextRequest) {
   try {
-    console.log('[Coupons API] POST request received');
+    console.log('[Coupons API POST] Request received');
     const supabase = createClient();
-    const { userId, franchiseId } = await getUserFromSession(request);
-    console.log('[Coupons API] User authenticated:', { userId, franchiseId });
+    
+    let userId: string | null = null;
+    let franchiseId: string | null = null;
+    
+    try {
+      const authData = await getUserFromSession(request);
+      userId = authData.userId;
+      franchiseId = authData.franchiseId;
+      console.log('[Coupons API POST] User authenticated:', { userId, franchiseId });
+    } catch (authError) {
+      console.error('[Coupons API POST] Auth error:', authError);
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
 
     const body = await request.json();
-    console.log('[Coupons API] Request body:', body);
+    console.log('[Coupons API POST] Request body:', body);
     
     const {
       code,
@@ -113,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     // Validation
     if (!code || !discount_type) {
-      console.error('[Coupons API] Validation failed: missing required fields');
+      console.error('[Coupons API POST] Validation failed: missing required fields');
       return NextResponse.json(
         { error: 'Code and discount type are required' },
         { status: 400 }
@@ -122,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     // Validate discount_value for non-free-shipping types
     if (discount_type !== 'free_shipping' && (discount_value === undefined || discount_value <= 0)) {
-      console.error('[Coupons API] Validation failed: discount value required');
+      console.error('[Coupons API POST] Validation failed: discount value required');
       return NextResponse.json(
         { error: 'Discount value is required for this discount type' },
         { status: 400 }
@@ -131,7 +145,7 @@ export async function POST(request: NextRequest) {
 
     // Validate percentage discount
     if (discount_type === 'percentage' && discount_value > 100) {
-      console.error('[Coupons API] Validation failed: discount value exceeds 100%');
+      console.error('[Coupons API POST] Validation failed: discount value exceeds 100%');
       return NextResponse.json(
         { error: 'Percentage discount cannot exceed 100%' },
         { status: 400 }
@@ -139,13 +153,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Sanitized data - only the fields we're keeping
+    // Note: Don't include created_by to avoid foreign key constraint issues
     const sanitizedData = {
       code: code.trim().toUpperCase(),
       discount_type,
       discount_value: discount_type === 'free_shipping' ? 0 : discount_value,
       franchise_id: franchiseId,
     };
-    console.log('[Coupons API] Sanitized data:', sanitizedData);
+    console.log('[Coupons API POST] Sanitized data:', sanitizedData);
 
     // Insert coupon
     const { data: coupon, error } = await supabase
@@ -155,16 +170,33 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('[Coupons API] Supabase error:', { code: error.code, message: error.message, hint: error.hint });
+      console.error('[Coupons API POST] Supabase error:', { 
+        code: error.code, 
+        message: error.message, 
+        hint: error.hint,
+        details: error.details 
+      });
       
       const message = error.message || '';
-      if (message.toLowerCase().includes('franchise_id') || message.toLowerCase().includes('column "franchise_id" does not exist')) {
+      
+      // Handle RLS policy error
+      if (message.includes('violates row level security') || message.includes('row level security policy')) {
+        return NextResponse.json(
+          { 
+            error: 'Permission denied', 
+            details: 'RLS policy is blocking the insert. Please contact support.' 
+          },
+          { status: 403 }
+        );
+      }
+      
+      if (message.toLowerCase().includes('franchise_id')) {
         return NextResponse.json(
           {
             error: 'Failed to create coupon',
-            details: 'Missing required column franchise_id in coupons table. Run the SQL migration ADD_COUPON_COLUMNS.sql to add missing columns.'
+            details: 'Franchise ID issue. Please check your franchise assignment.'
           },
-          { status: 500 }
+          { status: 400 }
         );
       }
 
@@ -182,11 +214,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[Coupons API] Coupon created successfully:', coupon);
+    console.log('[Coupons API POST] Coupon created successfully:', coupon);
     return NextResponse.json({ coupon }, { status: 201 });
 
   } catch (error: any) {
-    console.error('[Coupons API] Exception:', error);
+    console.error('[Coupons API POST] Exception:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
