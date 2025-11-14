@@ -282,6 +282,40 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     }
   }
 
+  // Fetch items when items display dialog opens
+  React.useEffect(() => {
+    if (showItemsDisplay && selectedBookingForItems) {
+      (async () => {
+        try {
+          console.log(`[Calendar] Fetching items from /api/bookings/${selectedBookingForItems.id}/items`)
+          const res = await fetch(`/api/bookings/${selectedBookingForItems.id}/items`)
+          if (res.ok) {
+            const data = await res.json()
+            console.log('[Calendar] Items fetched:', data.items?.length || 0)
+            const items: SelectedItem[] = (data.items || []).map((item: any) => ({
+              id: item.product_id || item.id || `item-${Math.random()}`,
+              name: item.product_name || item.package_name || 'Item',
+              quantity: item.quantity || 1,
+              price: item.unit_price || item.price || 0,
+              category: item.category_name || 'Uncategorized',
+              image_url: item.product?.image_url,
+              type: item.package_name ? 'package' : 'product',
+              variant_name: item.variant_name,
+              extra_safas: item.extra_safas || 0,
+              variant_inclusions: item.variant_inclusions || [],
+            }))
+            setBookingItems(items)
+            console.log('[Calendar] Items state updated')
+          } else {
+            console.error('[Calendar] Failed to fetch items - status:', res.status)
+          }
+        } catch (e) {
+          console.error('[Calendar] Failed to fetch items:', e)
+        }
+      })()
+    }
+  }, [showItemsDisplay, selectedBookingForItems?.id])
+
   const getDateStatus = (date: Date) => {
     const today = startOfDay(new Date())
     const currentDate = startOfDay(date)
@@ -550,51 +584,35 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               const totalSafas = booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)
                               if (totalSafas === 0) {
                                 return (
-                                  <Badge 
-                                    variant="outline" 
-                                    className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
-                                    onClick={() => {
+                                  <button
+                                    onClick={(e: React.MouseEvent) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      console.log('[Calendar] Selection Pending clicked for booking:', booking.id)
                                       setCurrentBookingForSelection(booking)
                                       setSelectedItems([])
                                       setShowProductSelection(true)
                                     }}
+                                    className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
                                   >
                                     ⏳ Selection Pending
-                                  </Badge>
+                                  </button>
                                 )
                               }
                               return (
-                                <Badge 
-                                  variant="default"
-                                  className="bg-blue-600 cursor-pointer hover:bg-blue-700"
-                                  onClick={async () => {
+                                <button
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    console.log('[Calendar] Items button clicked for booking:', booking.id)
                                     setSelectedBookingForItems(booking)
-                                    try {
-                                      const res = await fetch(`/api/bookings/${booking.id}/items`)
-                                      if (res.ok) {
-                                        const data = await res.json()
-                                        const items: SelectedItem[] = (data.items || []).map((item: any) => ({
-                                          id: item.product_id || item.id || `item-${Math.random()}`,
-                                          name: item.product_name || item.package_name || 'Item',
-                                          quantity: item.quantity || 1,
-                                          price: item.unit_price || item.price || 0,
-                                          category: item.category_name || 'Uncategorized',
-                                          image_url: item.product?.image_url,
-                                          type: item.package_name ? 'package' : 'product',
-                                          variant_name: item.variant_name,
-                                          extra_safas: item.extra_safas || 0,
-                                          variant_inclusions: item.variant_inclusions || [],
-                                        }))
-                                        setBookingItems(items)
-                                        setShowItemsDisplay(true)
-                                      }
-                                    } catch (e) {
-                                      console.error('Failed to fetch items:', e)
-                                    }
+                                    setShowItemsDisplay(true)
+                                    console.log('[Calendar] Items dialog opening, will fetch items...')
                                   }}
+                                  className="px-3 py-1.5 rounded-full border border-transparent bg-blue-600 text-white hover:bg-blue-700 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
                                 >
                                   📦 Items
-                                </Badge>
+                                </button>
                               )
                             })()}
                           </div>
