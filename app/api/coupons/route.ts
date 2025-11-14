@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { supabaseServer as supabase } from '@/lib/supabase-server-simple';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -6,26 +6,41 @@ export const dynamic = 'force-dynamic';
 async function getUserFromSession(request: NextRequest) {
   try {
     const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) throw new Error("No session")
+    if (!cookieHeader?.value) {
+      throw new Error("No session found")
+    }
+    
     const sessionData = JSON.parse(cookieHeader.value)
-    const supabase = createClient()
+    if (!sessionData.id) {
+      throw new Error("Invalid session data")
+    }
+
+    // Use service role to fetch user details
     const { data: user, error } = await supabase
-      .from('users')
-      .select('id, franchise_id, role')
-      .eq('id', sessionData.id)
-      .eq('is_active', true)
+      .from("users")
+      .select("id, franchise_id, role")
+      .eq("id", sessionData.id)
+      .eq("is_active", true)
       .single()
-    if (error || !user) throw new Error('Auth failed')
-    return { userId: user.id, franchiseId: user.franchise_id, isSuperAdmin: user.role === 'super_admin' }
-  } catch {
-    throw new Error('Authentication required')
+
+    if (error || !user) {
+      throw new Error("User not found")
+    }
+
+    return {
+      userId: user.id,
+      franchiseId: user.franchise_id,
+      isSuperAdmin: user.role === "super_admin"
+    }
+  } catch (error: any) {
+    console.error('[Coupons Auth Error]:', error.message);
+    throw new Error("Authentication required")
   }
 }
 
 // GET: List all coupons
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
     
     let franchiseId: string | null = null;
     let isSuperAdmin = false;
@@ -98,7 +113,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     console.log('[Coupons API POST] Request received');
-    const supabase = createClient();
     
     let userId: string | null = null;
     let franchiseId: string | null = null;
@@ -229,7 +243,6 @@ export async function POST(request: NextRequest) {
 // PUT: Update existing coupon
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createClient();
     const { franchiseId } = await getUserFromSession(request);
 
     const body = await request.json();
@@ -328,7 +341,6 @@ export async function PUT(request: NextRequest) {
 // DELETE: Delete coupon
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createClient();
     const { franchiseId } = await getUserFromSession(request);
 
     const { searchParams } = new URL(request.url);
