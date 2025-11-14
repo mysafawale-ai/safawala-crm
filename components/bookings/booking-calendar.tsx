@@ -222,6 +222,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           has_items: r.has_items || false,
           source: r.source || 'product_orders',
           type: r.type || 'rental',
+          package_details: r.package_details || null,
+          variant_name: r.variant_name || null,
+          extra_safas: r.extra_safas || 0,
         } as any
       }))
 
@@ -594,10 +597,33 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
                           <div className="text-center">
-                            <span className="text-2xl font-bold text-primary">
-                              {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
-                            </span>
-                            <div className="text-xs text-gray-500 mt-1">Total Safas</div>
+                            {(() => {
+                              const bookingType = (booking as any).type
+                              const totalSafas = booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)
+                              
+                              // For packages: show category name with quantity
+                              if (bookingType === 'package') {
+                                const packageDetails = (booking as any).package_details
+                                const variantName = (booking as any).variant_name
+                                const categoryName = packageDetails?.name || 'Package'
+                                
+                                return (
+                                  <>
+                                    <div className="text-lg font-bold text-primary">{totalSafas}</div>
+                                    <div className="text-xs text-gray-600 mt-1">{categoryName}</div>
+                                    {variantName && <div className="text-xs text-muted-foreground mt-0.5">{variantName}</div>}
+                                  </>
+                                )
+                              }
+                              
+                              // For product rentals: show total quantity
+                              return (
+                                <>
+                                  <div className="text-2xl font-bold text-primary">{totalSafas}</div>
+                                  <div className="text-xs text-gray-500 mt-1">Total Quantity</div>
+                                </>
+                              )
+                            })()}
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
