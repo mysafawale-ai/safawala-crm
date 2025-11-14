@@ -50,6 +50,7 @@ interface ItemsSelectionDialogProps {
   description?: string
   mode?: 'select' | 'edit' // 'select' for initial selection, 'edit' for editing existing
   onBarcodeSearch?: (barcode: string) => void
+  buttonText?: string // Custom button text instead of "Add to Cart"
 }
 
 export function ItemsSelectionDialog({
@@ -65,6 +66,7 @@ export function ItemsSelectionDialog({
   description,
   mode = 'select',
   onBarcodeSearch,
+  buttonText = 'Add to Cart',
 }: ItemsSelectionDialogProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [availabilityModalItem, setAvailabilityModalItem] = useState<string | null>(null)
@@ -200,7 +202,7 @@ export function ItemsSelectionDialog({
               disabled={isOutOfStock}
             >
               <Plus className="h-3 w-3 mr-1" />
-              Add to Cart
+              {buttonText}
             </Button>
           ) : (
             <div className="flex items-center gap-1 bg-blue-50 rounded p-1.5">

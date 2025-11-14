@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, isBefore, startOfDay } from "date-fns"
 import { Search, CalendarIcon, Package, Eye, Wrench } from "lucide-react"
-import { ItemsDisplayDialog } from "@/components/shared"
+import { ItemsDisplayDialog, ItemsSelectionDialog } from "@/components/shared"
 import type { SelectedItem } from "@/components/shared/types/items"
 
 interface BookingData {
@@ -64,10 +64,57 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const [showItemsDisplay, setShowItemsDisplay] = React.useState(false)
   const [selectedBookingForItems, setSelectedBookingForItems] = React.useState<BookingData | null>(null)
   const [bookingItems, setBookingItems] = React.useState<SelectedItem[]>([])
+  
+  // Product selection states
+  const [showProductSelection, setShowProductSelection] = React.useState(false)
+  const [currentBookingForSelection, setCurrentBookingForSelection] = React.useState<BookingData | null>(null)
+  const [selectedItems, setSelectedItems] = React.useState<SelectedItem[]>([])
+  
+  // Product data states
+  const [products, setProducts] = React.useState<any[]>([])
+  const [packages, setPackages] = React.useState<any[]>([])
+  const [categories, setCategories] = React.useState<any[]>([])
+  const [subcategories, setSubcategories] = React.useState<any[]>([])
 
   React.useEffect(() => {
     fetchBookings()
+    fetchProductsAndCategories()
   }, [franchiseId])
+
+  // Fetch products and categories for items selection
+  const fetchProductsAndCategories = async () => {
+    try {
+      // Fetch products
+      const productsRes = await fetch('/api/products', { cache: 'no-store' })
+      if (productsRes.ok) {
+        const data = await productsRes.json()
+        setProducts(data.data || [])
+      }
+
+      // Fetch categories
+      const categoriesRes = await fetch('/api/categories', { cache: 'no-store' })
+      if (categoriesRes.ok) {
+        const data = await categoriesRes.json()
+        setCategories(data.data || [])
+      }
+
+      // Fetch subcategories
+      const subcategoriesRes = await fetch('/api/subcategories', { cache: 'no-store' })
+      if (subcategoriesRes.ok) {
+        const data = await subcategoriesRes.json()
+        setSubcategories(data.data || [])
+      }
+
+      // Fetch packages
+      const packagesRes = await fetch('/api/packages', { cache: 'no-store' })
+      if (packagesRes.ok) {
+        const data = await packagesRes.json()
+        setPackages(data.data || [])
+      }
+    } catch (error) {
+      console.error('[Calendar] Error fetching products/categories:', error)
+    }
+  }
 
   // Helper to get payment status details
   const getPaymentStatus = (booking: BookingData) => {
@@ -153,6 +200,45 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       (booking) =>
         booking.has_modifications && booking.modification_date === dateStr,
     )
+  }
+
+  // Save selected items
+  const saveSelectedItems = async (bookingId: string, items: SelectedItem[]) => {
+    try {
+      console.log(`[Calendar] Saving ${items.length} items for booking ${bookingId}`)
+      
+      const payload = {
+        bookingId,
+        items: items.map((item: any) => ({
+          product_id: item.product_id || null,
+          package_id: item.package_id || null,
+          variant_id: item.variant_id || null,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price || 0,
+          total_price: item.total_price || 0,
+          security_deposit: item.security_deposit || 0,
+        })),
+        source: 'product_orders',
+      }
+      
+      const response = await fetch('/api/bookings-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to save items')
+      }
+      
+      // Refresh bookings to get updated data
+      await fetchBookings()
+      
+      return true
+    } catch (error: any) {
+      console.error('[Calendar] Save failed:', error)
+      return false
+    }
   }
 
   const getDateStatus = (date: Date) => {
@@ -380,11 +466,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                       <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[140px]">
                         Payment Status
                       </th>
-                      <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[100px]">
-                        Area
-                      </th>
                       <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[150px]">
-                        Payment Status
+                        Venue Name
+                      </th>
+                      <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[120px]">
+                        Area
                       </th>
                       <th className="border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[100px]">
                         City
@@ -426,6 +512,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                   <Badge 
                                     variant="outline" 
                                     className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
+                                    onClick={() => {
+                                      setCurrentBookingForSelection(booking)
+                                      setSelectedItems([])
+                                      setShowProductSelection(true)
+                                    }}
                                   >
                                     ⏳ Selection Pending
                                   </Badge>
@@ -596,6 +687,82 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             securityDeposit: 0,
             total: selectedBookingForItems.total_amount || 0,
           }}
+        />
+      )}
+
+      {/* Product Selection Dialog for Items */}
+      {currentBookingForSelection && (
+        <ItemsSelectionDialog
+          open={showProductSelection}
+          onOpenChange={async (open) => {
+            if (!open && currentBookingForSelection) {
+              // When modal closes, save the selected items
+              await saveSelectedItems(currentBookingForSelection.id, selectedItems)
+            }
+            setShowProductSelection(open)
+          }}
+          mode="select"
+          type="product"
+          items={products}
+          categories={categories}
+          subcategories={subcategories}
+          buttonText="Update Products"
+          context={{
+            bookingType: 'rental',
+            eventDate: currentBookingForSelection.event_date,
+            deliveryDate: currentBookingForSelection.delivery_date,
+            returnDate: currentBookingForSelection.return_date,
+            onItemSelect: (item) => {
+              const existingItem = selectedItems.find(si => {
+                if ('variants' in item || 'package_variants' in item) {
+                  return 'package_id' in si && si.package_id === item.id
+                } else {
+                  return 'product_id' in si && si.product_id === item.id
+                }
+              })
+
+              if (existingItem) {
+                setSelectedItems(prev => prev.filter(si => si.id !== existingItem.id))
+              } else {
+                if ('variants' in item || 'package_variants' in item) {
+                  const newItem: SelectedItem = {
+                    id: `pkg-${item.id}-${Date.now()}`,
+                    package_id: item.id,
+                    variant_id: undefined,
+                    package: item as any,
+                    variant: undefined,
+                    quantity: (item as any).requestedQuantity || 1,
+                    extra_safas: 0,
+                    variant_inclusions: [],
+                    unit_price: 0,
+                    total_price: 0,
+                  } as any
+                  setSelectedItems(prev => [...prev, newItem])
+                } else {
+                  const prod = item as any
+                  const newItem: SelectedItem = {
+                    id: `prod-${item.id}-${Date.now()}`,
+                    product_id: item.id,
+                    product: prod,
+                    quantity: (item as any).requestedQuantity || 1,
+                    unit_price: prod.rental_price || 0,
+                    total_price: (prod.rental_price || 0) * ((item as any).requestedQuantity || 1),
+                  } as any
+                  setSelectedItems(prev => [...prev, newItem])
+                }
+              }
+            },
+            onQuantityChange: (itemId: string, qty: number) => {
+              setSelectedItems(prev => prev.map(si => {
+                const id = 'product_id' in si ? si.product_id : si.package_id
+                if (id === itemId) {
+                  return { ...si, quantity: qty, total_price: (si.unit_price || 0) * qty }
+                }
+                return si
+              }))
+            },
+          }}
+          selectedItems={selectedItems}
         />
       )}
     </Card>
