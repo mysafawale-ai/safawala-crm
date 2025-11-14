@@ -377,8 +377,8 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                       <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[200px]">
                         Total Safas
                       </th>
-                      <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[150px]">
-                        Venue Name
+                      <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[140px]">
+                        Payment Status
                       </th>
                       <th className="border-r border-muted px-4 py-3 text-left text-sm font-semibold text-foreground min-w-[100px]">
                         Area
@@ -412,44 +412,31 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          <div className="flex flex-col items-center gap-2">
-                            {/* Check if items selection is pending (0 safas) */}
-                            {(booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)) === 0 ? (
-                              <>
+                          <div className="text-center space-y-2">
+                            <div>
+                              <span className="text-2xl font-bold text-primary">
+                                {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
+                              </span>
+                              <div className="text-xs text-gray-500 mt-1">Total Safas</div>
+                            </div>
+                            {(() => {
+                              const totalSafas = booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)
+                              if (totalSafas === 0) {
+                                return (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
+                                  >
+                                    ⏳ Selection Pending
+                                  </Badge>
+                                )
+                              }
+                              return (
                                 <Badge 
-                                  variant="outline" 
-                                  className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
-                                >
-                                  ⏳ Selection Pending
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-[10px] border-orange-500 text-orange-600 hover:bg-orange-50"
-                                  onClick={() => {
-                                    // Navigate to booking edit page to add products
-                                    window.location.href = `/bookings/${booking.id}/edit`
-                                  }}
-                                >
-                                  <Package className="h-3 w-3 mr-1" />
-                                  Select Products
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <div className="text-center">
-                                  <span className="text-2xl font-bold text-primary">
-                                    {booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)}
-                                  </span>
-                                  <div className="text-xs text-gray-500 mt-1">Total Safas</div>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-[10px]"
+                                  variant="default"
+                                  className="bg-blue-600 cursor-pointer hover:bg-blue-700"
                                   onClick={async () => {
                                     setSelectedBookingForItems(booking)
-                                    // Fetch booking items
                                     try {
                                       const res = await fetch(`/api/bookings/${booking.id}/items`)
                                       if (res.ok) {
@@ -474,18 +461,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                     }
                                   }}
                                 >
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  View Items
-                                </Button>
-                              </>
-                            )}
+                                  📦 Items
+                                </Badge>
+                              )
+                            })()}
                           </div>
-                        </td>
-                        <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          <div className="font-medium">{booking.venue_name}</div>
-                        </td>
-                        <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          {booking.area_name || 'Not Specified'}
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
                           {(() => {
@@ -502,7 +482,15 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                             }
                           })()}
                         </td>
-                        <td className="border-muted px-4 py-3 text-sm text-foreground">{booking.customer.city}</td>
+                        <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
+                          <div className="font-medium">{booking.venue_name}</div>
+                        </td>
+                        <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
+                          {booking.area_name || 'Not Specified'}
+                        </td>
+                        <td className="border-muted px-4 py-3 text-sm text-foreground">
+                          {booking.customer.city}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
