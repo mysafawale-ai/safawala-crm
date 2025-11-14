@@ -598,8 +598,19 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               <div className="text-xs text-gray-500 mt-1">Total Safas</div>
                             </div>
                             {(() => {
-                              const totalSafas = booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)
-                              if (totalSafas === 0) {
+                              // Determine booking type - matching bookings page logic
+                              const source = (booking as any).source || 'product_orders'
+                              const bookingType = source === 'package_bookings' ? 'sale' : 'rental'
+                              
+                              // For direct sales: don't show items column at all
+                              if (bookingType === 'sale') {
+                                return <span className="text-muted-foreground text-sm">—</span>
+                              }
+                              
+                              // Check if there are items using has_items flag - matching bookings page
+                              const hasItems = (booking as any).has_items
+                              
+                              if (!hasItems) {
                                 return (
                                   <button
                                     onClick={(e: React.MouseEvent) => {
@@ -616,21 +627,27 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                   </button>
                                 )
                               }
-                              return (
-                                <button
-                                  onClick={(e: React.MouseEvent) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    console.log('[Calendar] Items button clicked for booking:', booking.id)
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('items')
-                                    setShowProductDialog(true)
-                                  }}
-                                  className="px-3 py-1.5 rounded-full border border-transparent bg-blue-600 text-white hover:bg-blue-700 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
-                                >
-                                  📦 Items
-                                </button>
-                              )
+                              
+                              // For product rentals with items: show "items" with click handler
+                              if (bookingType === 'rental') {
+                                return (
+                                  <button
+                                    onClick={(e: React.MouseEvent) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      console.log('[Calendar] Items button clicked for booking:', booking.id)
+                                      setProductDialogBooking(booking)
+                                      setProductDialogType('items')
+                                      setShowProductDialog(true)
+                                    }}
+                                    className="px-3 py-1.5 rounded-full border border-transparent bg-blue-600 text-white hover:bg-blue-700 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                  >
+                                    📦 Items
+                                  </button>
+                                )
+                              }
+                              
+                              return null
                             })()}
                           </div>
                         </td>
