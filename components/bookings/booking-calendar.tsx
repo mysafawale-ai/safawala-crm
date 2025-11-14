@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, isBefore, startOfDay } from "date-fns"
 import { Search, CalendarIcon, Package, Eye, Wrench } from "lucide-react"
-import { ItemsDisplayDialog, ItemsSelectionDialog } from "@/components/shared"
+import { ItemsDisplayDialog, ItemsSelectionDialog, CompactItemsDisplayDialog } from "@/components/shared"
 import type { SelectedItem } from "@/components/shared/types/items"
 import { PincodeService } from "@/lib/pincode-service"
 
@@ -737,11 +737,19 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         </DialogContent>
       </Dialog>
       
-      {/* Items Display Dialog - Using Reusable Component - Matching Bookings Page */}
+      {/* Compact Items Display Dialog - Matching Bookings Page */}
       {productDialogBooking && productDialogType === 'items' && !itemsLoading[productDialogBooking.id] && !itemsError[productDialogBooking.id] && bookingItems[productDialogBooking.id] && (
-        <ItemsDisplayDialog
+        <CompactItemsDisplayDialog
           open={showProductDialog}
-          onOpenChange={setShowProductDialog}
+          onOpenChange={async (open) => {
+            if (!open && productDialogBooking) {
+              // When closing, save any changes
+              const bookingType = (productDialogBooking as any).type || 'rental'
+              const source = bookingType === 'package' ? 'package_bookings' : 'product_orders'
+              await saveSelectedItems(productDialogBooking.id, selectedItems)
+            }
+            setShowProductDialog(open)
+          }}
           items={(() => {
             const items = bookingItems[productDialogBooking.id] || []
             return items.map((item: any) => {
@@ -786,28 +794,46 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
               }
             })
           })()}
-          context={{
-            bookingType: (productDialogBooking as any).source === 'package_bookings' ? 'sale' : 'rental',
-            eventDate: productDialogBooking.event_date,
-            isEditable: true,
-            showPricing: true,
-          }}
-          title={`📦 Booking Items - ${productDialogBooking.booking_number}`}
-          description={`${productDialogBooking.customer?.name} • ${new Date(productDialogBooking.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
-          onQuantityChange={() => {}}
-          onRemoveItem={() => {}}
+          title={`📦 ${productDialogBooking.booking_number}`}
           onEditProducts={() => {
             setShowProductDialog(false)
             setCurrentBookingForItems(productDialogBooking)
+            const items = bookingItems[productDialogBooking.id] || []
+            setSelectedItems(items.map((item: any) => {
+              if (item.package_name) {
+                return {
+                  id: item.id || `item-${Math.random()}`,
+                  package_id: item.package_id || item.id,
+                  variant_id: item.variant_id,
+                  package: {
+                    id: item.package_id || item.id,
+                    name: item.package_name,
+                  },
+                  variant: item.variant_name ? {
+                    id: item.variant_id,
+                    name: item.variant_name,
+                  } : undefined,
+                  quantity: item.quantity || 1,
+                  extra_safas: item.extra_safas || 0,
+                } as any
+              } else {
+                return {
+                  id: item.product_id || item.id || `item-${Math.random()}`,
+                  product_id: item.product_id || item.id,
+                  product: {
+                    id: item.product_id || item.id,
+                    name: item.product_name || 'Item',
+                  },
+                  quantity: item.quantity || 1,
+                } as any
+              }
+            }))
             setShowItemsSelection(true)
           }}
-          summaryData={{
-            subtotal: productDialogBooking.total_amount || 0,
-            discount: (productDialogBooking as any).discount_amount || 0,
-            gst: (productDialogBooking as any).tax_amount || 0,
-            securityDeposit: (productDialogBooking as any).security_deposit || 0,
-            total: productDialogBooking.total_amount || 0,
+          onRemoveItem={(itemId) => {
+            setSelectedItems(prev => prev.filter(item => item.id !== itemId))
           }}
+          showPricing={true}
         />
       )}
 
