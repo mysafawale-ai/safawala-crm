@@ -43,7 +43,7 @@ const fallbackPincodes: { [key: string]: { area: string; city: string; state: st
   "390011": { area: "Subhanpura", city: "Vadodara", state: "Gujarat" },
 }
 
-export async function lookupPincode(pincode: string): Promise<{ area: string; city: string; state: string } | null> {
+export async function lookupPincode(pincode: string, showToast: boolean = true): Promise<{ area: string; city: string; state: string } | null> {
   console.log("PincodeService.lookupPincode called with:", pincode)
   
   if (!/^\d{6}$/.test(pincode)) {
@@ -71,7 +71,9 @@ export async function lookupPincode(pincode: string): Promise<{ area: string; ci
         state: postOffice.State,
       }
       pincodeCache.set(pincode, result) // Cache the result
-      toast.success(`Location auto-filled: ${result.area}, ${result.city}, ${result.state}`)
+      if (showToast) {
+        toast.success(`Location auto-filled: ${result.area}, ${result.city}, ${result.state}`)
+      }
       return result
     } else {
       // Fallback to local data if API returns no success or no post office
@@ -79,11 +81,15 @@ export async function lookupPincode(pincode: string): Promise<{ area: string; ci
       const fallback = fallbackPincodes[pincode]
       console.log("Fallback result:", fallback)
       if (fallback) {
-        toast.success(`Location auto-filled: ${fallback.area}, ${fallback.city}, ${fallback.state}`)
+        if (showToast) {
+          toast.success(`Location auto-filled: ${fallback.area}, ${fallback.city}, ${fallback.state}`)
+        }
         return fallback
       }
       console.log("No fallback data found for:", pincode)
-      toast.error("Could not find area, city and state for this pincode. Please enter manually.")
+      if (showToast) {
+        toast.error("Could not find area, city and state for this pincode. Please enter manually.")
+      }
       return null
     }
   } catch (error) {
@@ -93,18 +99,22 @@ export async function lookupPincode(pincode: string): Promise<{ area: string; ci
     const fallback = fallbackPincodes[pincode]
     console.log("Fallback result:", fallback)
     if (fallback) {
-      toast.success(`Location auto-filled: ${fallback.area}, ${fallback.city}, ${fallback.state}`)
+      if (showToast) {
+        toast.success(`Location auto-filled: ${fallback.area}, ${fallback.city}, ${fallback.state}`)
+      }
       return fallback
     }
     console.log("No fallback data found for:", pincode)
-    toast.error("Failed to lookup pincode. Please enter area, city and state manually.")
+    if (showToast) {
+      toast.error("Failed to lookup pincode. Please enter area, city and state manually.")
+    }
     return null
   }
 }
 
 export class PincodeService {
-  static async lookup(pincode: string): Promise<{ area: string; city: string; state: string } | null> {
-    return lookupPincode(pincode)
+  static async lookup(pincode: string, showToast: boolean = true): Promise<{ area: string; city: string; state: string } | null> {
+    return lookupPincode(pincode, showToast)
   }
 
   static validate(pincode: string): boolean {

@@ -157,10 +157,10 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         let area_name = 'Not Specified'
         let venue_name = 'Not Specified'
 
-        // 1. Get area from pincode using pincode API
+        // 1. Get area from pincode using pincode API (silent - no toast)
         if (r.customer?.pincode) {
           try {
-            const pincodeData = await PincodeService.lookup(r.customer.pincode)
+            const pincodeData = await PincodeService.lookup(r.customer.pincode, false)
             if (pincodeData) {
               area_name = pincodeData.area
             }
