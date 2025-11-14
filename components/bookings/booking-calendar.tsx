@@ -601,30 +601,39 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               <div className="text-xs text-gray-500 mt-1">Total Safas</div>
                             </div>
                             {(() => {
-                              // Determine booking type - matching bookings page logic
-                              const source = (booking as any).source || 'product_orders'
-                              const bookingType = source === 'package_bookings' ? 'sale' : 'rental'
+                              const items = bookingItems[booking.id] || []
                               const hasItems = (booking as any).has_items
+                              const bookingType = (booking as any).type
                               
-                              // Debug log
-                              console.log(`[Calendar] Booking ${booking.booking_number}:`, {
-                                has_items: hasItems,
-                                source,
-                                bookingType,
-                                booking
-                              })
-                              
-                              // For direct sales: don't show items column at all
+                              // ✅ For direct sales: don't show items column at all
                               if (bookingType === 'sale') {
                                 return <span className="text-muted-foreground text-sm">—</span>
                               }
                               
-                              // Check both: has_items flag AND actual items in array - matching bookings page logic
-                              const items = bookingItems[booking.id] || []
+                              // Check if there are actually no items in the fetched data
+                              // Priority: actual items array > has_items flag
                               const actuallyHasItems = items.length > 0
                               
-                              // If has_items is true, show "Items" button
-                              if (hasItems) {
+                              if (!hasItems || !actuallyHasItems) {
+                                return (
+                                  <button
+                                    onClick={(e: React.MouseEvent) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      console.log('[Calendar] Selection Pending clicked for booking:', booking.id)
+                                      setCurrentBookingForItems(booking)
+                                      setSelectedItems([])
+                                      setShowItemsSelection(true)
+                                    }}
+                                    className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                  >
+                                    ⏳ Selection Pending
+                                  </button>
+                                )
+                              }
+                              
+                              // For product rentals: show "items" with click handler
+                              if (bookingType === 'rental') {
                                 return (
                                   <button
                                     onClick={(e: React.MouseEvent) => {
@@ -642,20 +651,36 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                 )
                               }
                               
-                              // Show Selection Pending if has_items is false
+                              // For packages: show "items"
+                              if (items.length === 0) {
+                                return (
+                                  <button
+                                    onClick={(e: React.MouseEvent) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      setProductDialogBooking(booking)
+                                      setProductDialogType('items')
+                                      setShowProductDialog(true)
+                                    }}
+                                    className="px-3 py-1.5 rounded-full border border-transparent bg-primary text-white hover:bg-primary/80 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                  >
+                                    Items
+                                  </button>
+                                )
+                              }
+                              
                               return (
                                 <button
                                   onClick={(e: React.MouseEvent) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    console.log('[Calendar] Selection Pending clicked for booking:', booking.id)
-                                    setCurrentBookingForItems(booking)
-                                    setSelectedItems([])
-                                    setShowItemsSelection(true)
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('items')
+                                    setShowProductDialog(true)
                                   }}
-                                  className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                  className="px-3 py-1.5 rounded-full border border-gray-300 text-foreground bg-white hover:bg-gray-100 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
                                 >
-                                  ⏳ Selection Pending
+                                  Items
                                 </button>
                               )
                             })()}
