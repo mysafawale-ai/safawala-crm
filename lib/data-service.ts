@@ -152,25 +152,83 @@ class DataService {
       if (response.success && response.data) {
         this.cache.lastFetch[cacheKey] = Date.now()
         this.cache.cachedData[cacheKey] = response.data
+        console.log("[DataService] Dashboard stats received:", response.data)
         return response.data
       }
+      
+      console.error("[DataService] Dashboard stats API returned unsuccessful response:", response)
     } catch (error) {
-      console.log("Dashboard stats API not available, using mock data")
+      console.error("[DataService] Dashboard stats API error:", error)
     }
     
-    // Return mock data if API fails or doesn't exist yet
-    const mockStats = {
-      totalBookings: 15,
-      activeBookings: 8,
-      totalCustomers: 7,
-      totalRevenue: 125000,
-      monthlyGrowth: 15.5,
-      lowStockItems: 3
+    // Fallback: Calculate stats from bookings data
+    console.log("[DataService] Calculating stats from bookings data...")
+    try {
+      const bookings = await this.getBookings(true)
+      const customers = await this.getCustomers(true)
+      
+      const activeBookings = bookings.filter((b: any) => 
+        ['confirmed', 'delivered'].includes(b.status)
+      ).length
+      
+      const totalRevenue = bookings.reduce((sum: number, b: any) => 
+        sum + (Number(b.total_amount) || 0), 0
+      )
+      
+      const avgBookingValue = bookings.length > 0 ? totalRevenue / bookings.length : 0
+      
+      const confirmedBookings = bookings.filter((b: any) => b.status === 'confirmed').length
+      const quotesCount = bookings.filter((b: any) => b.status === 'quote').length
+      const conversionRate = (confirmedBookings + quotesCount) > 0 
+        ? (confirmedBookings / (confirmedBookings + quotesCount)) * 100 
+        : 0
+      
+      const calculatedStats = {
+        totalBookings: bookings.length,
+        activeBookings,
+        totalCustomers: customers.length,
+        totalRevenue,
+        monthlyGrowth: 0,
+        lowStockItems: 0,
+        conversionRate: Math.round(conversionRate),
+        avgBookingValue: Math.round(avgBookingValue),
+        revenueByMonth: [],
+        bookingsByType: {
+          package: bookings.filter((b: any) => b.type === 'package').length,
+          product: bookings.filter((b: any) => b.type !== 'package').length
+        },
+        pendingActions: {
+          payments: bookings.filter((b: any) => b.status === 'pending_payment').length,
+          deliveries: bookings.filter((b: any) => b.status === 'confirmed').length,
+          returns: bookings.filter((b: any) => b.status === 'delivered').length,
+          overdue: 0
+        }
+      }
+      
+      console.log("[DataService] Calculated stats:", calculatedStats)
+      this.cache.lastFetch[cacheKey] = Date.now()
+      this.cache.cachedData[cacheKey] = calculatedStats
+      return calculatedStats
+    } catch (fallbackError) {
+      console.error("[DataService] Failed to calculate fallback stats:", fallbackError)
+      
+      // Last resort: return empty stats
+      const emptyStats = {
+        totalBookings: 0,
+        activeBookings: 0,
+        totalCustomers: 0,
+        totalRevenue: 0,
+        monthlyGrowth: 0,
+        lowStockItems: 0,
+        conversionRate: 0,
+        avgBookingValue: 0,
+        revenueByMonth: [],
+        bookingsByType: { package: 0, product: 0 },
+        pendingActions: { payments: 0, deliveries: 0, returns: 0, overdue: 0 }
+      }
+      
+      return emptyStats
     }
-    
-    this.cache.lastFetch[cacheKey] = Date.now()
-    this.cache.cachedData[cacheKey] = mockStats
-    return mockStats
   }
 
   async getRecentBookings(forceRefresh = false): Promise<Booking[]> {

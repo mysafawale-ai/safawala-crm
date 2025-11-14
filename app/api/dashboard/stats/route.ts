@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     let bookingsQuery = supabase
       .from("bookings")
       .select("id, status, total_amount, created_at, type", { count: 'exact' })
+      .order('created_at', { ascending: false })
 
     // Apply franchise filter
     if (!isSuperAdmin && franchiseId) {
@@ -44,6 +45,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 })
     }
 
+    // Ensure bookingsData is an array
+    const bookings = Array.isArray(bookingsData) ? bookingsData : []
+    console.log(`[Dashboard Stats API] Fetched ${bookings.length} bookings from database`)
+
     // Parallel queries for other data
     const [customersResult, productsResult] = await Promise.all([
       isSuperAdmin || !franchiseId
@@ -56,19 +61,19 @@ export async function GET(request: NextRequest) {
 
     const totalCustomers = customersResult.count || 0
     const productsData = productsResult.data || []
-    const activeBookings = bookingsData.filter((b: any) => 
+    const activeBookings = bookings.filter((b: any) => 
       ['confirmed', 'delivered'].includes(b.status)
     ).length
 
-    const totalRevenue = bookingsData.reduce((sum: number, booking: any) => 
+    const totalRevenue = bookings.reduce((sum: number, booking: any) => 
       sum + (booking.total_amount || 0), 0
     )
 
-    const thisMonthBookings = bookingsData.filter((b: any) => 
+    const thisMonthBookings = bookings.filter((b: any) => 
       new Date(b.created_at) >= startOfMonth
     ).length
 
-    const lastMonthBookings = bookingsData.filter((b: any) => {
+    const lastMonthBookings = bookings.filter((b: any) => {
       const date = new Date(b.created_at)
       return date >= startOfLastMonth && date <= endOfLastMonth
     }).length
@@ -82,8 +87,8 @@ export async function GET(request: NextRequest) {
     ).length
 
     // Calculate additional metrics
-    const confirmedBookings = bookingsData.filter((b: any) => b.status === 'confirmed').length
-    const quotesCount = bookingsData.filter((b: any) => b.status === 'quote').length
+    const confirmedBookings = bookings.filter((b: any) => b.status === 'confirmed').length
+    const quotesCount = bookings.filter((b: any) => b.status === 'quote').length
     const conversionRate = quotesCount > 0 ? ((confirmedBookings / (confirmedBookings + quotesCount)) * 100) : 0
     
     const bookingsCount = totalBookings || 0
@@ -94,7 +99,7 @@ export async function GET(request: NextRequest) {
     for (let i = 5; i >= 0; i--) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
-      const monthRevenue = bookingsData
+      const monthRevenue = bookings
         .filter((b: any) => {
           const date = new Date(b.created_at)
           return date >= monthDate && date <= monthEnd
@@ -108,13 +113,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Bookings by type
-    const packageBookings = bookingsData.filter((b: any) => b.type === 'package').length
-    const productBookings = bookingsData.filter((b: any) => b.type !== 'package').length
+    const packageBookings = bookings.filter((b: any) => b.type === 'package').length
+    const productBookings = bookings.filter((b: any) => b.type !== 'package').length
 
     // Pending actions
-    const pendingPayments = bookingsData.filter((b: any) => b.status === 'pending_payment').length
-    const pendingDeliveries = bookingsData.filter((b: any) => b.status === 'confirmed').length
-    const pendingReturns = bookingsData.filter((b: any) => b.status === 'delivered').length
+    const pendingPayments = bookings.filter((b: any) => b.status === 'pending_payment').length
+    const pendingDeliveries = bookings.filter((b: any) => b.status === 'confirmed').length
+    const pendingReturns = bookings.filter((b: any) => b.status === 'delivered').length
     const overdueTasks = 0 // Can be enhanced with actual due date logic
 
     const stats = {

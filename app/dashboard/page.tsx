@@ -51,7 +51,7 @@ export default function DashboardPage() {
   const router = useRouter()
 
   // Fetch all dashboard data in parallel for better performance
-  const { data: stats, loading: statsLoading, refresh: refreshStats } = useData<DashboardStats>("dashboard-stats")
+  const { data: stats, loading: statsLoading, refresh: refreshStats, error: statsError } = useData<DashboardStats>("dashboard-stats")
   
   // Only fetch bookings data if user has bookings permission
   const shouldFetchBookings = user?.permissions?.bookings ?? false
@@ -65,6 +65,24 @@ export default function DashboardPage() {
     loading: calendarLoading,
     refresh: refreshCalendar,
   } = useData<any[]>(shouldFetchBookings ? "calendar-bookings" : "skip")
+
+  // Debug: Log stats when they change and force refresh on mount if no data
+  useEffect(() => {
+    if (stats) {
+      console.log("[Dashboard] Stats received:", stats)
+    }
+    if (statsError) {
+      console.error("[Dashboard] Stats error:", statsError)
+    }
+  }, [stats, statsError])
+
+  // Force refresh stats on mount to ensure real data
+  useEffect(() => {
+    if (user) {
+      console.log("[Dashboard] Component mounted, forcing stats refresh...")
+      refreshStats()
+    }
+  }, [user, refreshStats])
 
   // Combined loading state for better UX
   const isLoading = statsLoading || (shouldFetchBookings && (bookingsLoading || calendarLoading))
