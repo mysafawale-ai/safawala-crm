@@ -601,45 +601,15 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               <div className="text-xs text-gray-500 mt-1">Total Safas</div>
                             </div>
                             {(() => {
-                              const items = bookingItems[booking.id] || []
                               const hasItems = (booking as any).has_items
-                              const bookingType = (booking as any).type
                               
-                              // ✅ For direct sales: don't show items column at all
-                              if (bookingType === 'sale') {
-                                return <span className="text-muted-foreground text-sm">—</span>
-                              }
-                              
-                              // Check if there are actually no items in the fetched data
-                              // Priority: actual items array > has_items flag
-                              const actuallyHasItems = items.length > 0
-                              
-                              if (!hasItems || !actuallyHasItems) {
+                              // If has_items is true, show "Items" button
+                              if (hasItems) {
                                 return (
                                   <button
                                     onClick={(e: React.MouseEvent) => {
                                       e.preventDefault()
                                       e.stopPropagation()
-                                      console.log('[Calendar] Selection Pending clicked for booking:', booking.id)
-                                      setCurrentBookingForItems(booking)
-                                      setSelectedItems([])
-                                      setShowItemsSelection(true)
-                                    }}
-                                    className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
-                                  >
-                                    ⏳ Selection Pending
-                                  </button>
-                                )
-                              }
-                              
-                              // For product rentals: show "items" with click handler
-                              if (bookingType === 'rental') {
-                                return (
-                                  <button
-                                    onClick={(e: React.MouseEvent) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      console.log('[Calendar] Items button clicked for booking:', booking.id)
                                       setProductDialogBooking(booking)
                                       setProductDialogType('items')
                                       setShowProductDialog(true)
@@ -651,36 +621,19 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                 )
                               }
                               
-                              // For packages: show "items"
-                              if (items.length === 0) {
-                                return (
-                                  <button
-                                    onClick={(e: React.MouseEvent) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      setProductDialogBooking(booking)
-                                      setProductDialogType('items')
-                                      setShowProductDialog(true)
-                                    }}
-                                    className="px-3 py-1.5 rounded-full border border-transparent bg-primary text-white hover:bg-primary/80 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
-                                  >
-                                    Items
-                                  </button>
-                                )
-                              }
-                              
+                              // If has_items is false, show "Selection Pending"
                               return (
                                 <button
                                   onClick={(e: React.MouseEvent) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('items')
-                                    setShowProductDialog(true)
+                                    setCurrentBookingForItems(booking)
+                                    setSelectedItems([])
+                                    setShowItemsSelection(true)
                                   }}
-                                  className="px-3 py-1.5 rounded-full border border-gray-300 text-foreground bg-white hover:bg-gray-100 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                                  className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
                                 >
-                                  Items
+                                  ⏳ Selection Pending
                                 </button>
                               )
                             })()}
