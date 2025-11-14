@@ -51,9 +51,9 @@ export default function ManageOffersDialog() {
   const [couponToDelete, setCouponToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     code: '',
-    description: '',
     discount_type: 'percentage',
     discount_value: 0,
+    description: '',
     min_order_value: 0,
     max_discount: null,
     usage_limit: null,
@@ -193,9 +193,9 @@ export default function ManageOffersDialog() {
     setEditingCoupon(null);
     setFormData({
       code: '',
-      description: '',
       discount_type: 'percentage',
       discount_value: 0,
+      description: '',
       min_order_value: 0,
       max_discount: null,
       usage_limit: null,
