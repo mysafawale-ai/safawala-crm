@@ -61,14 +61,17 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
   
-  // New reusable dialog states
-  const [showItemsDisplay, setShowItemsDisplay] = React.useState(false)
-  const [selectedBookingForItems, setSelectedBookingForItems] = React.useState<BookingData | null>(null)
-  const [bookingItems, setBookingItems] = React.useState<SelectedItem[]>([])
+  // Items display dialog states - matching bookings page architecture
+  const [showProductDialog, setShowProductDialog] = React.useState(false)
+  const [productDialogBooking, setProductDialogBooking] = React.useState<BookingData | null>(null)
+  const [productDialogType, setProductDialogType] = React.useState<'items' | 'pending'>('items')
+  const [bookingItems, setBookingItems] = React.useState<Record<string, any[]>>({})
+  const [itemsLoading, setItemsLoading] = React.useState<Record<string, boolean>>({})
+  const [itemsError, setItemsError] = React.useState<Record<string, string>>({})
   
   // Product selection states
-  const [showProductSelection, setShowProductSelection] = React.useState(false)
-  const [currentBookingForSelection, setCurrentBookingForSelection] = React.useState<BookingData | null>(null)
+  const [showItemsSelection, setShowItemsSelection] = React.useState(false)
+  const [currentBookingForItems, setCurrentBookingForItems] = React.useState<BookingData | null>(null)
   const [selectedItems, setSelectedItems] = React.useState<SelectedItem[]>([])
   
   // Product data states
@@ -281,40 +284,54 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       return false
     }
   }
-
-  // Fetch items when items display dialog opens
+  // Fetch items for a specific booking when dialog opens - matching bookings page
   React.useEffect(() => {
-    if (showItemsDisplay && selectedBookingForItems) {
+    if (showProductDialog && productDialogBooking && productDialogType === 'items') {
       (async () => {
+        const bookingId = productDialogBooking.id
+        const bookingNumber = productDialogBooking.booking_number
+        
         try {
-          console.log(`[Calendar] Fetching items from /api/bookings/${selectedBookingForItems.id}/items`)
-          const res = await fetch(`/api/bookings/${selectedBookingForItems.id}/items`)
-          if (res.ok) {
-            const data = await res.json()
-            console.log('[Calendar] Items fetched:', data.items?.length || 0)
-            const items: SelectedItem[] = (data.items || []).map((item: any) => ({
-              id: item.product_id || item.id || `item-${Math.random()}`,
-              name: item.product_name || item.package_name || 'Item',
-              quantity: item.quantity || 1,
-              price: item.unit_price || item.price || 0,
-              category: item.category_name || 'Uncategorized',
-              image_url: item.product?.image_url,
-              type: item.package_name ? 'package' : 'product',
-              variant_name: item.variant_name,
-              extra_safas: item.extra_safas || 0,
-              variant_inclusions: item.variant_inclusions || [],
-            }))
-            setBookingItems(items)
-            console.log('[Calendar] Items state updated')
-          } else {
-            console.error('[Calendar] Failed to fetch items - status:', res.status)
+          setItemsLoading(prev => ({ ...prev, [bookingId]: true }))
+          console.log(`[Calendar] Fetching items for ${bookingNumber}...`)
+          
+          // Use the source field from booking to determine the API parameter
+          const source = (productDialogBooking as any).source || 'product_order'
+          const normalizedSource = source.endsWith('s') ? source.slice(0, -1) : source
+          
+          const url = `/api/bookings-items?id=${bookingId}&source=${normalizedSource}`
+          console.log(`[Calendar] GET ${url}`)
+          
+          const res = await fetch(url)
+          
+          if (!res.ok) {
+            const errorText = await res.text()
+            console.error(`[Calendar] HTTP ${res.status}:`, errorText)
+            setItemsError(prev => ({ ...prev, [bookingId]: `HTTP ${res.status}` }))
+            setItemsLoading(prev => ({ ...prev, [bookingId]: false }))
+            return
           }
-        } catch (e) {
-          console.error('[Calendar] Failed to fetch items:', e)
+          
+          const data = await res.json()
+          
+          if (Array.isArray(data.items)) {
+            setBookingItems(prev => ({ ...prev, [bookingId]: data.items }))
+            console.log(`[Calendar] ✓ Loaded ${data.items.length} items for ${bookingNumber}`)
+            setItemsError(prev => ({ ...prev, [bookingId]: '' }))
+          } else {
+            const errorDetail = data.details || data.error || 'Unknown error'
+            console.warn(`[Calendar] API returned error:`, errorDetail)
+            setItemsError(prev => ({ ...prev, [bookingId]: errorDetail }))
+          }
+        } catch (e: any) {
+          console.error(`[Calendar] Fetch error for ${bookingNumber}:`, e)
+          setItemsError(prev => ({ ...prev, [bookingId]: e.message || 'Network error' }))
+        } finally {
+          setItemsLoading(prev => ({ ...prev, [bookingId]: false }))
         }
       })()
     }
-  }, [showItemsDisplay, selectedBookingForItems?.id])
+  }, [showProductDialog, productDialogBooking?.id, productDialogType])
 
   const getDateStatus = (date: Date) => {
     const today = startOfDay(new Date())
@@ -589,9 +606,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                       e.preventDefault()
                                       e.stopPropagation()
                                       console.log('[Calendar] Selection Pending clicked for booking:', booking.id)
-                                      setCurrentBookingForSelection(booking)
+                                      setCurrentBookingForItems(booking)
                                       setSelectedItems([])
-                                      setShowProductSelection(true)
+                                      setShowItemsSelection(true)
                                     }}
                                     className="px-3 py-1.5 rounded-full border border-orange-300 text-orange-600 bg-white hover:bg-orange-50 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
                                   >
@@ -605,9 +622,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                     e.preventDefault()
                                     e.stopPropagation()
                                     console.log('[Calendar] Items button clicked for booking:', booking.id)
-                                    setSelectedBookingForItems(booking)
-                                    setShowItemsDisplay(true)
-                                    console.log('[Calendar] Items dialog opening, will fetch items...')
+                                    setProductDialogBooking(booking)
+                                    setProductDialogType('items')
+                                    setShowProductDialog(true)
                                   }}
                                   className="px-3 py-1.5 rounded-full border border-transparent bg-blue-600 text-white hover:bg-blue-700 cursor-pointer text-xs font-semibold transition-colors inline-flex items-center gap-1"
                                 >
@@ -715,50 +732,90 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
         </DialogContent>
       </Dialog>
       
-      {/* Reusable Items Display Dialog */}
-      {selectedBookingForItems && (
+      {/* Items Display Dialog - Using Reusable Component - Matching Bookings Page */}
+      {productDialogBooking && productDialogType === 'items' && !itemsLoading[productDialogBooking.id] && !itemsError[productDialogBooking.id] && bookingItems[productDialogBooking.id] && (
         <ItemsDisplayDialog
-          open={showItemsDisplay}
-          onOpenChange={setShowItemsDisplay}
-          items={bookingItems}
+          open={showProductDialog}
+          onOpenChange={setShowProductDialog}
+          items={(() => {
+            const items = bookingItems[productDialogBooking.id] || []
+            return items.map((item: any) => {
+              if (item.package_name) {
+                return {
+                  id: item.id || `item-${Math.random()}`,
+                  package_id: item.package_id || item.id,
+                  variant_id: item.variant_id,
+                  package: {
+                    id: item.package_id || item.id,
+                    name: item.package_name,
+                    description: item.package_description,
+                  },
+                  variant: item.variant_name ? {
+                    id: item.variant_id,
+                    name: item.variant_name,
+                    price: item.unit_price || item.price || 0,
+                  } : undefined,
+                  quantity: item.quantity || 1,
+                  extra_safas: item.extra_safas || 0,
+                  variant_inclusions: item.variant_inclusions || [],
+                  unit_price: item.unit_price || item.price || 0,
+                  total_price: item.price || item.total_price || 0,
+                } as any
+              } else {
+                return {
+                  id: item.product_id || item.id || `item-${Math.random()}`,
+                  product_id: item.product_id || item.id,
+                  product: {
+                    id: item.product_id || item.id,
+                    name: item.product_name || 'Item',
+                    barcode: item.product?.barcode || item.barcode || item.product_code,
+                    product_code: item.product_code,
+                    category: item.category_name,
+                    image_url: item.product?.image_url,
+                  },
+                  quantity: item.quantity || 1,
+                  unit_price: item.unit_price || item.price || 0,
+                  total_price: (item.unit_price || item.price || 0) * (item.quantity || 1),
+                  variant_name: item.variant_name,
+                } as any
+              }
+            })
+          })()}
           context={{
-            bookingType: 'rental',
-            eventDate: selectedBookingForItems.event_date,
-            isEditable: false,
+            bookingType: (productDialogBooking as any).source === 'package_bookings' ? 'sale' : 'rental',
+            eventDate: productDialogBooking.event_date,
+            isEditable: true,
             showPricing: true,
           }}
-          onQuantityChange={(itemId, newQuantity) => {
-            // Read-only mode, no changes allowed
-          }}
-          onRemoveItem={(itemId) => {
-            // Read-only mode, no changes allowed
+          title={`📦 Booking Items - ${productDialogBooking.booking_number}`}
+          description={`${productDialogBooking.customer?.name} • ${new Date(productDialogBooking.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+          onQuantityChange={() => {}}
+          onRemoveItem={() => {}}
+          onEditProducts={() => {
+            setShowProductDialog(false)
+            setCurrentBookingForItems(productDialogBooking)
+            setShowItemsSelection(true)
           }}
           summaryData={{
-            subtotal: bookingItems.reduce((sum, item) => {
-              // Type-safe price extraction using type guards
-              const price = 'unit_price' in item 
-                ? item.unit_price 
-                : (item as any).variant?.base_price || 0
-              return sum + (price * item.quantity)
-            }, 0),
-            discount: 0,
-            gst: 0,
-            securityDeposit: 0,
-            total: selectedBookingForItems.total_amount || 0,
+            subtotal: productDialogBooking.total_amount || 0,
+            discount: (productDialogBooking as any).discount_amount || 0,
+            gst: (productDialogBooking as any).tax_amount || 0,
+            securityDeposit: (productDialogBooking as any).security_deposit || 0,
+            total: productDialogBooking.total_amount || 0,
           }}
         />
       )}
 
       {/* Product Selection Dialog for Items */}
-      {currentBookingForSelection && (
+      {currentBookingForItems && (
         <ItemsSelectionDialog
-          open={showProductSelection}
+          open={showItemsSelection}
           onOpenChange={async (open) => {
-            if (!open && currentBookingForSelection) {
+            if (!open && currentBookingForItems) {
               // When modal closes, save the selected items
-              await saveSelectedItems(currentBookingForSelection.id, selectedItems)
+              await saveSelectedItems(currentBookingForItems.id, selectedItems)
             }
-            setShowProductSelection(open)
+            setShowItemsSelection(open)
           }}
           mode="select"
           type="product"
@@ -768,9 +825,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           buttonText="Update Products"
           context={{
             bookingType: 'rental',
-            eventDate: currentBookingForSelection.event_date,
-            deliveryDate: currentBookingForSelection.delivery_date,
-            returnDate: currentBookingForSelection.return_date,
+            eventDate: currentBookingForItems.event_date,
+            deliveryDate: currentBookingForItems.delivery_date,
+            returnDate: currentBookingForItems.return_date,
             onItemSelect: (item) => {
               const existingItem = selectedItems.find(si => {
                 if ('variants' in item || 'package_variants' in item) {
