@@ -607,10 +607,14 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                 return <span className="text-muted-foreground text-sm">—</span>
                               }
                               
-                              // Check if there are items using has_items flag - matching bookings page
+                              // Check both: has_items flag AND actual items in array - matching bookings page logic
                               const hasItems = (booking as any).has_items
+                              const items = bookingItems[booking.id] || []
+                              const actuallyHasItems = items.length > 0
                               
-                              if (!hasItems) {
+                              // Priority: actual items array > has_items flag
+                              // Show Selection Pending if either has_items is false OR items array is empty
+                              if (!hasItems || !actuallyHasItems) {
                                 return (
                                   <button
                                     onClick={(e: React.MouseEvent) => {
