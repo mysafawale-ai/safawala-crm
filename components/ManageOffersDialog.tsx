@@ -264,17 +264,6 @@ export default function ManageOffersDialog() {
               </div>
 
               <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe this offer..."
-                  rows={2}
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="discount_type">Discount Type *</Label>
                 <Select 
                   value={formData.discount_type} 
@@ -284,7 +273,7 @@ export default function ManageOffersDialog() {
                     <SelectValue placeholder="Select discount type" />
                   </SelectTrigger>
                   <SelectContent position="popper" className="z-[100]">
-                    <SelectItem value="percentage">Percentage Discount (e.g., 10% off)</SelectItem>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
                     <SelectItem value="flat">Flat Amount Discount (e.g., ₹500 off)</SelectItem>
                     <SelectItem value="buy_x_get_y">Buy X Get Y Free (e.g., Buy 2 Get 1)</SelectItem>
                     <SelectItem value="free_shipping">Free Shipping</SelectItem>
@@ -292,112 +281,7 @@ export default function ManageOffersDialog() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="discount_value">
-                    {formData.discount_type === 'percentage' ? 'Percentage (%)' : 
-                     formData.discount_type === 'buy_x_get_y' ? 'Buy Quantity (X)' : 'Amount (₹)'}
-                  </Label>
-                  <Input
-                    id="discount_value"
-                    type="number"
-                    value={formData.discount_value || ''}
-                    onChange={(e) => setFormData({ ...formData, discount_value: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                    min={0}
-                    max={formData.discount_type === 'percentage' ? 100 : undefined}
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="min_order_value">Min Order Value (₹)</Label>
-                  <Input
-                    id="min_order_value"
-                    type="number"
-                    value={formData.min_order_value || ''}
-                    onChange={(e) => setFormData({ ...formData, min_order_value: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                    min={0}
-                    step="0.01"
-                  />
-                </div>
-              </div>
-
-              {(formData.discount_type === 'percentage' || formData.discount_type === 'buy_x_get_y') && (
-                <div>
-                  <Label htmlFor="max_discount">
-                    {formData.discount_type === 'percentage' ? 'Max Discount Cap (₹)' : 'Get Quantity (Y) Free'}
-                  </Label>
-                  <Input
-                    id="max_discount"
-                    type="number"
-                    value={formData.max_discount || ''}
-                    onChange={(e) => setFormData({ ...formData, max_discount: e.target.value ? parseFloat(e.target.value) : null })}
-                    min={0}
-                    step={formData.discount_type === 'percentage' ? '0.01' : '1'}
-                    placeholder={formData.discount_type === 'percentage' ? 'No limit' : 'Get 1 free'}
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="usage_limit">Total Usage Limit</Label>
-                  <Input
-                    id="usage_limit"
-                    type="number"
-                    value={formData.usage_limit || ''}
-                    onChange={(e) => setFormData({ ...formData, usage_limit: e.target.value ? parseInt(e.target.value) : null })}
-                    min={1}
-                    placeholder="Unlimited"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="per_user_limit">Per User Limit</Label>
-                  <Input
-                    id="per_user_limit"
-                    type="number"
-                    value={formData.per_user_limit || ''}
-                    onChange={(e) => setFormData({ ...formData, per_user_limit: e.target.value ? parseInt(e.target.value) : null })}
-                    min={1}
-                    placeholder="Unlimited"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="valid_from">Valid From</Label>
-                  <Input
-                    id="valid_from"
-                    type="date"
-                    value={formData.valid_from}
-                    onChange={(e) => setFormData({ ...formData, valid_from: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="valid_until">Valid Until</Label>
-                  <Input
-                    id="valid_until"
-                    type="date"
-                    value={formData.valid_until}
-                    onChange={(e) => setFormData({ ...formData, valid_until: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="is_active">Active</Label>
-                <Switch
-                  id="is_active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-4">
                 <Button type="submit" disabled={loading} className="flex-1">
                   {loading ? 'Saving...' : editingCoupon ? 'Update Coupon' : 'Create Coupon'}
                 </Button>
