@@ -12,6 +12,7 @@ import { format, isBefore, startOfDay } from "date-fns"
 import { Search, CalendarIcon, Package, Eye, Wrench } from "lucide-react"
 import { ItemsDisplayDialog, ItemsSelectionDialog } from "@/components/shared"
 import type { SelectedItem } from "@/components/shared/types/items"
+import { PincodeService } from "@/lib/pincode-service"
 
 interface BookingData {
   id: string
@@ -150,32 +151,72 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       const rows: any[] = json?.data || []
 
       const toDateOnly = (v: any) => (v ? format(new Date(v), 'yyyy-MM-dd') : '')
-      const formattedBookings: BookingData[] = rows.map((r: any) => ({
-        id: r.id,
-        booking_number: r.booking_number,
-        customer_name: r.customer?.name || 'Unknown Customer',
-        customer_phone: r.customer?.phone || '',
-        event_date: toDateOnly(r.event_date),
-        delivery_date: toDateOnly(r.delivery_date),
-        return_date: toDateOnly(r.pickup_date), // API field name
-        modification_date: r.modification_date ? toDateOnly(r.modification_date) : undefined,
-        modification_details: r.modification_details || undefined,
-        has_modifications: r.has_modifications || false,
-        event_type: r.event_type,
-        venue_name: r.venue_address?.split(/[,\n]/)[0]?.trim() || 'Not Specified',
-        venue_address: r.venue_address || '',
-        area_name: r.customer?.pincode || 'Not Specified',
-        total_amount: Number(r.total_amount) || 0,
-        paid_amount: Number(r.paid_amount) || 0,
-        status: r.status,
-        total_safas: Number(r.total_safas) || 0,
-        assigned_staff_name: undefined,
-        booking_items: [],
-        customer: {
-          name: r.customer?.name || 'Unknown Customer',
-          city: r.customer?.city || 'Not Specified',
-          address: r.customer?.address || 'Not Specified',
-        },
+      
+      // Process bookings with area and venue extraction
+      const formattedBookings: BookingData[] = await Promise.all(rows.map(async (r: any) => {
+        let area_name = 'Not Specified'
+        let venue_name = 'Not Specified'
+
+        // 1. Get area from pincode using pincode API
+        if (r.customer?.pincode) {
+          try {
+            const pincodeData = await PincodeService.lookup(r.customer.pincode)
+            if (pincodeData) {
+              area_name = pincodeData.area
+            }
+          } catch (error) {
+            console.error(`Error looking up pincode ${r.customer.pincode}:`, error)
+            area_name = 'Not Specified'
+          }
+        }
+
+        // 2. Extract venue name from venue_address using venue extraction API
+        if (r.venue_address) {
+          try {
+            const extractRes = await fetch('/api/venue-area-extractor', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: r.venue_address }),
+            })
+            if (extractRes.ok) {
+              const extractData = await extractRes.json()
+              if (extractData.success && extractData.data) {
+                venue_name = extractData.data.venue_name
+              }
+            }
+          } catch (error) {
+            console.error(`Error extracting venue from address "${r.venue_address}":`, error)
+            venue_name = r.venue_address?.split(/[,\n]/)[0]?.trim() || 'Not Specified'
+          }
+        }
+
+        return {
+          id: r.id,
+          booking_number: r.booking_number,
+          customer_name: r.customer?.name || 'Unknown Customer',
+          customer_phone: r.customer?.phone || '',
+          event_date: toDateOnly(r.event_date),
+          delivery_date: toDateOnly(r.delivery_date),
+          return_date: toDateOnly(r.pickup_date), // API field name
+          modification_date: r.modification_date ? toDateOnly(r.modification_date) : undefined,
+          modification_details: r.modification_details || undefined,
+          has_modifications: r.has_modifications || false,
+          event_type: r.event_type,
+          venue_name,
+          venue_address: r.venue_address || '',
+          area_name,
+          total_amount: Number(r.total_amount) || 0,
+          paid_amount: Number(r.paid_amount) || 0,
+          status: r.status,
+          total_safas: Number(r.total_safas) || 0,
+          assigned_staff_name: undefined,
+          booking_items: [],
+          customer: {
+            name: r.customer?.name || 'Unknown Customer',
+            city: r.customer?.city || 'Not Specified',
+            address: r.customer?.address || 'Not Specified',
+          },
+        }
       }))
 
       setBookings(formattedBookings)
