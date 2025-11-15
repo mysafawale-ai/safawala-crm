@@ -703,15 +703,28 @@ export default function DeliveriesPage() {
           // If delivery address still not filled, fetch from customer profile
           if (!deliveryAddress && d.customer_id) {
             try {
+              console.log('📍 Fetching customer address for customer_id:', d.customer_id)
               const res = await fetch(`/api/customers/${d.customer_id}`)
+              console.log('📍 Customer API response status:', res.status)
               if (res.ok) {
                 const json = await res.json()
+                console.log('📍 Customer API response:', json)
                 const customer = json.data || json
-                if (customer.address) {
+                console.log('📍 Extracted customer object:', customer)
+                if (customer?.address) {
                   deliveryAddress = customer.address
+                  console.log('✓ Fetched delivery address from customer:', deliveryAddress)
+                } else {
+                  console.log('⚠ Customer has no address - address value:', customer?.address)
                 }
+              } else {
+                console.log('⚠ Failed to fetch customer, status:', res.status)
+                const errorBody = await res.text()
+                console.log('⚠ Error response:', errorBody)
               }
-            } catch {}
+            } catch (error) {
+              console.log('⚠ Error fetching customer:', error)
+            }
           }
           
           setEditForm({
