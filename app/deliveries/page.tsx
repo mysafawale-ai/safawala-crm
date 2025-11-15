@@ -684,6 +684,7 @@ export default function DeliveriesPage() {
           let deliveryDate = d.delivery_date
           let deliveryTime = d.delivery_time || ""
           let deliveryAddress = d.delivery_address
+          
           // Always try to fill from booking if not already filled
           if (d.booking_id) {
             const linkedBooking = bookings.find((b: any) => b.id === d.booking_id && b.source === d.booking_source)
@@ -694,6 +695,21 @@ export default function DeliveriesPage() {
               deliveryAddress = deliveryAddress || linkedBooking.delivery_address || ""
             }
           }
+          
+          // If delivery address still not filled, fetch from customer profile
+          if (!deliveryAddress && d.customer_id) {
+            try {
+              const res = await fetch(`/api/customers/${d.customer_id}`)
+              if (res.ok) {
+                const json = await res.json()
+                const customer = json.data || json
+                if (customer.address) {
+                  deliveryAddress = customer.address
+                }
+              }
+            } catch {}
+          }
+          
           setEditForm({
             customer_name: d.customer_name,
             customer_phone: d.customer_phone,
