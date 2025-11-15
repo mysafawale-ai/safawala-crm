@@ -684,9 +684,11 @@ export default function DeliveriesPage() {
           let deliveryDate = d.delivery_date
           let deliveryTime = d.delivery_time || ""
           let deliveryAddress = d.delivery_address
-          if (d.booking_id && (!deliveryDate || !deliveryTime)) {
+          // Always try to fill from booking if not already filled
+          if (d.booking_id) {
             const linkedBooking = bookings.find((b: any) => b.id === d.booking_id && b.source === d.booking_source)
             if (linkedBooking) {
+              // Auto-fill from booking with priority to existing delivery values
               deliveryDate = deliveryDate || linkedBooking.delivery_date || ""
               deliveryTime = deliveryTime || linkedBooking.delivery_time || ""
               deliveryAddress = deliveryAddress || linkedBooking.delivery_address || ""
@@ -901,6 +903,9 @@ export default function DeliveriesPage() {
       { key: 'driver_name', label: 'Driver Name', value: delivery.driver_name },
       { key: 'vehicle_number', label: 'Vehicle Number', value: delivery.vehicle_number },
       { key: 'pickup_address', label: 'Pickup Address', value: delivery.pickup_address },
+      { key: 'delivery_address', label: 'Delivery Address', value: delivery.delivery_address },
+      { key: 'delivery_date', label: 'Delivery Date', value: delivery.delivery_date },
+      { key: 'delivery_time', label: 'Delivery Time', value: delivery.delivery_time },
       { key: 'customer_phone', label: 'Customer Phone', value: delivery.customer_phone },
       { key: 'special_instructions', label: 'Special Instructions', value: delivery.special_instructions },
     ]
