@@ -87,7 +87,7 @@ export function useInvoiceGenerator() {
     // Extract extended booking details
     const bookingExtended = booking as any
 
-    return {
+    const invoiceData: InvoiceData = {
       bookingId: booking.id,
       bookingNumber: booking.booking_number,
       bookingDate: booking.created_at,
@@ -172,6 +172,13 @@ export function useInvoiceGenerator() {
       accentColor: settings?.accent_color || '#10B981',
       termsAndConditions: settings?.default_terms_conditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
     }
+
+    // DEBUG: Log terms and conditions
+    console.log('📋 DEBUG: Terms & Conditions')
+    console.log('📋 Terms from settings:', settings?.default_terms_conditions)
+    console.log('📋 Final terms in invoice data:', invoiceData.termsAndConditions)
+    
+    return invoiceData
   }
 
   const generateAndDownload = async (booking: BookingData, items: BookingItem[], filename?: string) => {

@@ -308,12 +308,24 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       border-radius: 3px;
       font-size: 10px;
       color: #666;
+      line-height: 1.6;
     }
     
     .terms-title {
       font-weight: bold;
       color: #333;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+    
+    .terms ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    
+    .terms li {
       margin-bottom: 5px;
+      color: #555;
     }
     
     .footer {
@@ -630,7 +642,19 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     ${termsAndConditions ? `
     <div class="terms">
       <div class="terms-title">Terms & Conditions</div>
-      ${termsAndConditions}
+      <div style="white-space: pre-wrap; color: #555;">
+        ${termsAndConditions
+          .split('\n')
+          .filter((line: string) => line.trim())
+          .map((line: string) => {
+            // Check if line starts with a number and period (numbered list)
+            if (/^\d+\.\s/.test(line.trim())) {
+              return `<div style="margin-bottom: 6px;">${line.trim()}</div>`;
+            }
+            return `<div style="margin-bottom: 6px;">${line.trim()}</div>`;
+          })
+          .join('')}
+      </div>
     </div>
     ` : ''}
     
