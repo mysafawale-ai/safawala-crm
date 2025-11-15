@@ -1029,10 +1029,27 @@ export default function DeliveriesPage() {
                         const customerBookings = bookings.filter((b: any) => b.customer_id === value)
                         const firstBooking = customerBookings[0]
                         
+                        // Convert delivery_date to YYYY-MM-DD format if it exists
+                        let deliveryDate = ""
+                        if (firstBooking?.delivery_date) {
+                          // If it's an ISO string or timestamp, extract just the date part
+                          const dateObj = new Date(firstBooking.delivery_date)
+                          deliveryDate = dateObj.toISOString().split('T')[0] // YYYY-MM-DD
+                        }
+                        
+                        // Convert delivery_time to HH:MM format if it exists
+                        let deliveryTime = ""
+                        if (firstBooking?.delivery_time) {
+                          // If it's already in HH:MM format, use as-is; otherwise try to parse
+                          deliveryTime = String(firstBooking.delivery_time).substring(0, 5) // Take first 5 chars for HH:MM
+                        }
+                        
                         console.log('📍 Customer selected:', value)
                         console.log('📍 First booking:', firstBooking)
-                        console.log('📍 Delivery date from booking:', firstBooking?.delivery_date)
-                        console.log('📍 Delivery time from booking:', firstBooking?.delivery_time)
+                        console.log('📍 Delivery date from booking (raw):', firstBooking?.delivery_date)
+                        console.log('📍 Delivery date converted:', deliveryDate)
+                        console.log('📍 Delivery time from booking (raw):', firstBooking?.delivery_time)
+                        console.log('📍 Delivery time converted:', deliveryTime)
                         
                         setScheduleForm({
                           ...scheduleForm,
@@ -1041,9 +1058,9 @@ export default function DeliveriesPage() {
                           booking_source: "",
                           // Auto-fill delivery address from customer profile
                           delivery_address: customerAddress,
-                          // Auto-fill delivery date & time from first available booking
-                          delivery_date: firstBooking?.delivery_date || "",
-                          delivery_time: firstBooking?.delivery_time || "",
+                          // Auto-fill delivery date & time from first available booking (converted to proper format)
+                          delivery_date: deliveryDate,
+                          delivery_time: deliveryTime,
                         })
                       }}
                     >
@@ -1079,6 +1096,19 @@ export default function DeliveriesPage() {
                         const selectedBooking = bookings.find((b: any) => b.id === id)
                         
                         if (selectedBooking) {
+                          // Convert delivery_date to YYYY-MM-DD format
+                          let deliveryDate = ""
+                          if (selectedBooking.delivery_date) {
+                            const dateObj = new Date(selectedBooking.delivery_date)
+                            deliveryDate = dateObj.toISOString().split('T')[0] // YYYY-MM-DD
+                          }
+                          
+                          // Convert delivery_time to HH:MM format
+                          let deliveryTime = ""
+                          if (selectedBooking.delivery_time) {
+                            deliveryTime = String(selectedBooking.delivery_time).substring(0, 5) // HH:MM
+                          }
+                          
                           // Auto-fill data from booking
                           setScheduleForm((prev) => ({
                             ...prev,
@@ -1086,9 +1116,9 @@ export default function DeliveriesPage() {
                             booking_source: source,
                             // Auto-fill customer if not already selected
                             customer_id: prev.customer_id || selectedBooking.customer_id || "",
-                            // Auto-fill delivery date and time from booking
-                            delivery_date: selectedBooking.delivery_date || prev.delivery_date || "",
-                            delivery_time: selectedBooking.delivery_time || prev.delivery_time || "",
+                            // Auto-fill delivery date and time from booking (with proper formatting)
+                            delivery_date: deliveryDate || prev.delivery_date || "",
+                            delivery_time: deliveryTime || prev.delivery_time || "",
                             // Auto-fill delivery address if available
                             delivery_address: selectedBooking.delivery_address || prev.delivery_address || "",
                           }))
