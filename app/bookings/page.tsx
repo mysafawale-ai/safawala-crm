@@ -345,73 +345,33 @@ export default function BookingsPage() {
   useEffect(() => {
     const fetchArchivedBookings = async () => {
       try {
-        const supabase = createClient()
-        
-        // Fetch archived bookings from all sources
-        const tables = ['package_bookings', 'product_orders', 'direct_sales_orders', 'bookings']
-        let allArchivedBookings: Booking[] = []
-        
-        for (const table of tables) {
-          let query = supabase
-            .from(table)
-            .select('*')
-            .eq('is_archived', true)
-            .order('created_at', { ascending: false })
-            .limit(5)
-          
-          // Apply franchise filter if user is not super_admin
-          if (currentUser?.role !== 'super_admin' && currentUser?.franchise_id) {
-            query = query.eq('franchise_id', currentUser.franchise_id)
-          }
-          
-          const { data, error } = await query
-          if (error) {
-            console.warn(`[Bookings] Failed to fetch archived from ${table}:`, error)
-            continue
-          }
-          
-          if (data && data.length > 0) {
-            // Add source field to each booking
-            const bookingsWithSource = data.map(booking => ({
-              ...booking,
-              source: table
-            }))
-            allArchivedBookings = [...allArchivedBookings, ...bookingsWithSource as any]
-          }
+        const res = await fetch('/api/bookings/archived', { cache: 'no-store' })
+        if (!res.ok) {
+          console.warn('[Bookings] Archived API error:', res.status, await res.text().catch(()=>''))
+          return
         }
-        
-        // Sort by created_at and take top 5
-        allArchivedBookings = allArchivedBookings
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 5)
-        
-        // Fetch customer data separately for each booking
-        const bookingsWithCustomers = await Promise.all(
-          allArchivedBookings.map(async (booking) => {
-            if (booking.customer_id) {
-              try {
-                const { data: customerData } = await supabase
-                  .from('customers')
-                  .select('*')
-                  .eq('id', booking.customer_id)
-                  .single()
-                
-                if (customerData) {
-                  return {
-                    ...booking,
-                    customer: customerData
-                  }
-                }
-              } catch (err) {
-                console.warn(`[Bookings] Failed to fetch customer for booking ${booking.id}:`, err)
-              }
+        const json = await res.json()
+        let archived = (json.data || []) as any[]
+
+        // Fallback hydration: if no customer object but we have basic fields on row
+        archived = archived.map(b => {
+          if (!b.customer && (b.customer_name || b.customer_phone)) {
+            b.customer = {
+              id: b.customer_id,
+              name: b.customer_name || null,
+              phone: b.customer_phone || null,
+              email: b.customer_email || null,
+              address: b.customer_address || null,
+              city: b.customer_city || null,
+              state: b.customer_state || null,
+              pincode: b.customer_pincode || null,
             }
-            return booking
-          })
-        )
-        
-        setArchivedBookings(bookingsWithCustomers)
-        console.log(`[Bookings] Loaded ${bookingsWithCustomers.length} archived bookings with customer data`)
+          }
+          return b
+        })
+
+        setArchivedBookings(archived as any)
+        console.log(`[Bookings] Loaded ${archived.length} archived bookings (API)`)
       } catch (error) {
         console.error('[Bookings] Error fetching archived bookings:', error)
       }
