@@ -377,7 +377,7 @@ export default function DeliveriesPage() {
     customer_id: "",
     booking_id: "",
     booking_source: "",
-    delivery_type: "standard",
+    delivery_type: "package_rental",
     pickup_address: "",
     delivery_address: "",
     delivery_date: "",
@@ -1088,28 +1088,22 @@ export default function DeliveriesPage() {
                       </SelectTrigger>
                       <SelectContent position="popper" side="top" align="start" className="z-[100] bg-white border border-gray-200 shadow-lg rounded-md p-1">
                         <SelectItem 
-                          value="standard"
+                          value="package_rental"
                           className="cursor-pointer pl-8 pr-3 py-2.5 mb-1 hover:bg-gray-100 focus:bg-blue-50 data-[state=checked]:bg-blue-100 data-[state=checked]:text-blue-900 transition-colors rounded-sm relative"
                         >
-                          <span className="font-medium">Standard Delivery</span>
+                          <span className="font-medium">Package Rental</span>
                         </SelectItem>
                         <SelectItem 
-                          value="express"
+                          value="product_rental"
                           className="cursor-pointer pl-8 pr-3 py-2.5 mb-1 hover:bg-gray-100 focus:bg-blue-50 data-[state=checked]:bg-blue-100 data-[state=checked]:text-blue-900 transition-colors rounded-sm relative"
                         >
-                          <span className="font-medium">Express Delivery</span>
+                          <span className="font-medium">Product Rental</span>
                         </SelectItem>
                         <SelectItem 
-                          value="same_day"
+                          value="product_sale"
                           className="cursor-pointer pl-8 pr-3 py-2.5 mb-1 hover:bg-gray-100 focus:bg-blue-50 data-[state=checked]:bg-blue-100 data-[state=checked]:text-blue-900 transition-colors rounded-sm relative"
                         >
-                          <span className="font-medium">Same Day Delivery</span>
-                        </SelectItem>
-                        <SelectItem 
-                          value="scheduled"
-                          className="cursor-pointer pl-8 pr-3 py-2.5 mb-1 hover:bg-gray-100 focus:bg-blue-50 data-[state=checked]:bg-blue-100 data-[state=checked]:text-blue-900 transition-colors rounded-sm relative"
-                        >
-                          <span className="font-medium">Scheduled Delivery</span>
+                          <span className="font-medium">Product Sale</span>
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1371,7 +1365,7 @@ export default function DeliveriesPage() {
                         customer_id: "",
                         booking_id: "",
                         booking_source: "",
-                        delivery_type: "standard",
+                        delivery_type: "package_rental",
                         pickup_address: "",
                         delivery_address: "",
                         delivery_date: "",
