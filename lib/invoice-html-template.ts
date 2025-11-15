@@ -359,6 +359,20 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       .terms {
         page-break-inside: avoid;
       }
+      @page {
+        margin: 0;
+        size: A4;
+      }
+      /* Disable browser print headers and footers */
+      @page :first {
+        margin: 0;
+      }
+      @page :left {
+        margin: 0;
+      }
+      @page :right {
+        margin: 0;
+      }
     }
   </style>
 </head>

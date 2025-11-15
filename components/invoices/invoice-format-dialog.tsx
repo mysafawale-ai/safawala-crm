@@ -59,7 +59,11 @@ export function InvoiceFormatDialog({
       const printWindow = window.open(htmlUrl, '_blank')
       if (printWindow) {
         printWindow.onload = () => {
-          setTimeout(() => printWindow.print(), 250)
+          setTimeout(() => {
+            // Show alert to guide user to remove headers/footers
+            alert('📋 Print Tip: When the print dialog opens:\n\n1. Click "More Settings" (bottom left)\n2. Uncheck "Headers and footers"\n3. Save as PDF\n\nThis will remove the date/filename from the PDF.')
+            printWindow.print()
+          }, 250)
         }
       }
     }
