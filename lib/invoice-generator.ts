@@ -102,6 +102,15 @@ export class InvoiceGenerator {
    * Compatible with existing PDF viewer dialog
    */
   static async generatePDF(invoiceData: InvoiceData): Promise<{ output: (format: string) => string }> {
+    // DEBUG: Log invoice data
+    console.log('🔍 DEBUG: Invoice Data Received')
+    console.log('🖼️ Company Logo:', invoiceData.companyLogo)
+    console.log('🏢 Company Name:', invoiceData.companyName)
+    console.log('🎨 Primary Color:', invoiceData.primaryColor)
+    console.log('🎨 Secondary Color:', invoiceData.secondaryColor)
+    console.log('🎨 Accent Color:', invoiceData.accentColor)
+    console.log('📄 Full Invoice Data:', invoiceData)
+    
     const html = generateInvoiceHTML(invoiceData)
     
     // Return a mock PDF-like object that contains the HTML

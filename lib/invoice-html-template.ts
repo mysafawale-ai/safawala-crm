@@ -66,6 +66,13 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     termsAndConditions
   } = data
 
+  // DEBUG: Log logo info
+  console.log('📝 HTML Template: Logo Info')
+  console.log('🖼️ companyLogo:', companyLogo)
+  console.log('🖼️ companyLogo exists?:', !!companyLogo)
+  console.log('🖼️ companyLogo type:', typeof companyLogo)
+  console.log('🖼️ companyLogo length:', companyLogo?.length)
+
   const primaryColorValue = primaryColor || '#3B82F6'
   const secondaryColorValue = secondaryColor || '#EF4444'
   const accentColorValue = accentColor || '#10B981'

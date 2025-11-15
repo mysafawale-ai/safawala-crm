@@ -57,8 +57,19 @@ export function useCompanySettings() {
 
         const data = await res.json()
         // Use merged settings for convenience
-        setSettings(data.merged || data.company)
+        const mergedSettings = data.merged || data.company
+        setSettings(mergedSettings)
         setError(null)
+        
+        // DEBUG: Log all settings including logo
+        console.log('🔍 DEBUG: Company Settings Fetched')
+        console.log('📦 Full Data:', data)
+        console.log('🎯 Merged Settings:', mergedSettings)
+        console.log('🖼️ Logo URL:', mergedSettings?.logo_url)
+        console.log('🎨 Primary Color:', mergedSettings?.primary_color)
+        console.log('🎨 Secondary Color:', mergedSettings?.secondary_color)
+        console.log('🎨 Accent Color:', mergedSettings?.accent_color)
+        
       } catch (err) {
         console.error('Error fetching company settings:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch settings')
