@@ -191,11 +191,13 @@ export class InvoiceGenerator {
     }
 
     const colors: PDFColors = {
-      primary: invoiceData.primaryColor ? parseHexColor(invoiceData.primaryColor) : [34, 197, 94],
+      primary: invoiceData.primaryColor ? parseHexColor(invoiceData.primaryColor) : [59, 130, 246],
       secondary: invoiceData.secondaryColor ? parseHexColor(invoiceData.secondaryColor) : [239, 68, 68],
       text: [51, 51, 51],
       lightText: [100, 100, 100],
-      border: [200, 200, 200]
+      border: [200, 200, 200],
+      accent: invoiceData.accentColor ? parseHexColor(invoiceData.accentColor) : [16, 185, 129],
+      background: [248, 250, 252]
     }
 
     const config: PDFConfig = {
@@ -259,7 +261,6 @@ export class InvoiceGenerator {
         eventType: invoiceData.eventType,
         eventParticipant: invoiceData.eventParticipant,
         eventFor: invoiceData.eventFor,
-        eventDate: invoiceData.eventDate,
         eventTime: invoiceData.eventTime,
         deliveryDate: invoiceData.deliveryDate,
         deliveryTime: invoiceData.deliveryTime,
@@ -268,11 +269,7 @@ export class InvoiceGenerator {
         venueName: invoiceData.venueName,
         venueAddress: invoiceData.venueAddress,
         groomName: invoiceData.groomName,
-        groomPhone: invoiceData.groomPhone,
-        groomAddress: invoiceData.groomAddress,
-        brideName: invoiceData.brideName,
-        bridePhone: invoiceData.bridePhone,
-        brideAddress: invoiceData.brideAddress
+        brideName: invoiceData.brideName
       })
     }
 
