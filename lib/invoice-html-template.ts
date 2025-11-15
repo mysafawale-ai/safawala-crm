@@ -128,6 +128,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     .company-logo {
       max-width: 150px;
       max-height: 80px;
+      object-fit: contain;
+      vertical-align: middle;
     }
     
     /* Invoice Title */
@@ -329,6 +331,11 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   <div class="invoice-container">
     <!-- Header -->
     <div class="header">
+      ${companyLogo ? `
+      <div style="flex-shrink: 0; margin-right: 20px;">
+        <img src="${companyLogo}" alt="Company Logo" class="company-logo" style="display: block;">
+      </div>
+      ` : ''}
       <div class="company-info">
         <div class="company-name">${companyName || 'SAFAWALA'}</div>
         <div class="company-details">
@@ -340,7 +347,6 @@ export function generateInvoiceHTML(data: InvoiceData): string {
           ${companyWebsite ? `Website: ${companyWebsite}` : ''}
         </div>
       </div>
-      ${companyLogo ? `<img src="${companyLogo}" alt="Company Logo" class="company-logo">` : ''}
     </div>
     
     <!-- Invoice Title -->
