@@ -4,12 +4,26 @@ import autoTable from 'jspdf-autotable'
 // Helper function to convert image URL to base64
 async function getBase64FromUrl(url: string): Promise<string> {
   try {
-    const response = await fetch(url)
+    // Use proxy API to avoid CORS issues
+    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(url)}`
+    const response = await fetch(proxyUrl)
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.statusText}`)
+    }
+    
     const blob = await response.blob()
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = reject
+      reader.onloadend = () => {
+        const result = reader.result as string
+        console.log('Image loaded successfully, base64 length:', result.length)
+        resolve(result)
+      }
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error)
+        reject(error)
+      }
       reader.readAsDataURL(blob)
     })
   } catch (error) {
@@ -123,9 +137,12 @@ export class InvoiceGenerator {
     let logoBase64: string | null = null
     if (invoiceData.companyLogo) {
       try {
+        console.log('Loading logo from URL:', invoiceData.companyLogo)
         logoBase64 = await getBase64FromUrl(invoiceData.companyLogo)
+        console.log('Logo loaded successfully')
       } catch (e) {
         console.error('Failed to load logo:', e)
+        // Continue without logo
       }
     }
 
@@ -158,14 +175,27 @@ export class InvoiceGenerator {
     if (logoBase64) {
       try {
         // Position logo on top right corner
-        const logoWidth = 40
-        const logoHeight = 20
+        const logoWidth = 45
+        const logoHeight = 22
         const logoX = pageWidth - margin - logoWidth
         const logoY = yPosition - 5
-        pdf.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight)
+        
+        // Detect image format from base64 string
+        let format = 'PNG'
+        if (logoBase64.includes('data:image/jpeg') || logoBase64.includes('data:image/jpg')) {
+          format = 'JPEG'
+        } else if (logoBase64.includes('data:image/png')) {
+          format = 'PNG'
+        }
+        
+        console.log(`Adding logo: format=${format}, position=(${logoX}, ${logoY}), size=(${logoWidth}x${logoHeight})`)
+        pdf.addImage(logoBase64, format, logoX, logoY, logoWidth, logoHeight)
+        console.log('Logo added successfully to PDF')
       } catch (e) {
-        console.error('Error adding logo:', e)
+        console.error('Error adding logo to PDF:', e)
       }
+    } else {
+      console.log('No logo base64 data available')
     }
 
     // Header - Company Info with branding (left side)
