@@ -77,6 +77,23 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   const secondaryColorValue = secondaryColor || '#EF4444'
   const accentColorValue = accentColor || '#10B981'
   
+  // Helper function to format time to 12-hour format with AM/PM
+  const formatTimeTo12Hour = (timeStr: string): string => {
+    if (!timeStr) return ''
+    try {
+      // If it's HH:MM format
+      if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
+        const [hours, minutes] = timeStr.split(':').map(Number)
+        const period = hours >= 12 ? 'PM' : 'AM'
+        const displayHours = hours % 12 || 12
+        return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`
+      }
+      return timeStr
+    } catch (e) {
+      return timeStr
+    }
+  }
+  
   // Use provided logo or fallback to test URL
   const logoUrl = companyLogo || 'https://xplnyaxkusvuajtmorss.supabase.co/storage/v1/object/public/settings-uploads/1a518dde-85b7-44ef-8bc4-092f53ddfd99/logo-1761570887109.png'
 
@@ -547,16 +564,22 @@ export function generateInvoiceHTML(data: InvoiceData): string {
           <span class="info-value">${venueAddress}</span>
         </div>
         ` : ''}
+        ${eventDate ? `
+        <div class="info-item">
+          <span class="info-label">Event Date & Time:</span>
+          <span class="info-value">${new Date(eventDate).toLocaleDateString('en-IN')}${eventTime ? ' at ' + formatTimeTo12Hour(eventTime) : ''}</span>
+        </div>
+        ` : ''}
         ${deliveryDate ? `
         <div class="info-item">
-          <span class="info-label">Delivery:</span>
-          <span class="info-value">${new Date(deliveryDate).toLocaleDateString('en-IN')}${deliveryTime ? ' at ' + deliveryTime : ''}</span>
+          <span class="info-label">Delivery Date & Time:</span>
+          <span class="info-value">${new Date(deliveryDate).toLocaleDateString('en-IN')}${deliveryTime ? ' at ' + formatTimeTo12Hour(deliveryTime) : ''}</span>
         </div>
         ` : ''}
         ${returnDate ? `
         <div class="info-item">
-          <span class="info-label">Return:</span>
-          <span class="info-value">${new Date(returnDate).toLocaleDateString('en-IN')}${returnTime ? ' at ' + returnTime : ''}</span>
+          <span class="info-label">Return Date & Time:</span>
+          <span class="info-value">${new Date(returnDate).toLocaleDateString('en-IN')}${returnTime ? ' at ' + formatTimeTo12Hour(returnTime) : ''}</span>
         </div>
         ` : ''}
       </div>
