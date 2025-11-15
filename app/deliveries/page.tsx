@@ -1019,7 +1019,27 @@ export default function DeliveriesPage() {
                     <Select
                       value={scheduleForm.customer_id}
                       onValueChange={(value) => {
-                        setScheduleForm({ ...scheduleForm, customer_id: value, booking_id: "", booking_source: "" })
+                        // Find selected customer
+                        const selectedCustomer = customers.find(c => c.id === value)
+                        
+                        // Get customer's address if available
+                        let customerAddress = selectedCustomer?.address || ""
+                        
+                        // Get first booking for this customer to auto-fill date/time if available
+                        const customerBookings = bookings.filter((b: any) => b.customer_id === value)
+                        const firstBooking = customerBookings[0]
+                        
+                        setScheduleForm({
+                          ...scheduleForm,
+                          customer_id: value,
+                          booking_id: "",
+                          booking_source: "",
+                          // Auto-fill delivery address from customer profile
+                          delivery_address: customerAddress,
+                          // Auto-fill delivery date & time from first available booking
+                          delivery_date: firstBooking?.delivery_date || "",
+                          delivery_time: firstBooking?.delivery_time || "",
+                        })
                       }}
                     >
                       <SelectTrigger className="border-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-blue-500">
