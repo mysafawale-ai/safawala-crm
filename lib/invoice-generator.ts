@@ -53,6 +53,10 @@ export interface InvoiceData {
   companyAddress?: string
   companyGST?: string
   companyLogo?: string
+  companyWebsite?: string
+  companySignature?: string
+  brandingColor?: string
+  termsAndConditions?: string
 }
 
 export interface InvoiceItem {
@@ -73,15 +77,47 @@ export class InvoiceGenerator {
     let yPosition = 15
     const margin = 15
     const contentWidth = pageWidth - 2 * margin
+    const brandColor = invoiceData.brandingColor || [34, 197, 94] // Default green
+
+    // Parse branding color if it's a string
+    let brandingRGB: [number, number, number] = [34, 197, 94]
+    if (typeof brandColor === 'string') {
+      if (brandColor.startsWith('#')) {
+        const hex = brandColor.substring(1)
+        brandingRGB = [
+          parseInt(hex.substring(0, 2), 16),
+          parseInt(hex.substring(2, 4), 16),
+          parseInt(hex.substring(4, 6), 16)
+        ]
+      }
+    } else if (Array.isArray(brandColor)) {
+      brandingRGB = (brandColor as any) as [number, number, number]
+    }
 
     // Set default font
     pdf.setFont('helvetica')
 
-    // Header - Company Info
+    // Add logo if available
+    if (invoiceData.companyLogo) {
+      try {
+        pdf.addImage(invoiceData.companyLogo, 'PNG', margin, yPosition - 5, 30, 15)
+        yPosition += 20
+      } catch (e) {
+        console.error('Error adding logo:', e)
+        yPosition += 5
+      }
+    }
+
+    // Header - Company Info with branding
     pdf.setFontSize(16)
-    pdf.setTextColor(51, 51, 51)
-    pdf.text(invoiceData.companyName || 'SAFAWALA', margin, yPosition)
-    yPosition += 8
+    pdf.setTextColor(brandingRGB[0], brandingRGB[1], brandingRGB[2])
+    pdf.text(invoiceData.companyName || 'SAFAWALA', margin + (invoiceData.companyLogo ? 35 : 0), invoiceData.companyLogo ? 17 : yPosition)
+    
+    if (!invoiceData.companyLogo) {
+      yPosition += 8
+    } else {
+      yPosition = 35
+    }
 
     pdf.setFontSize(9)
     pdf.setTextColor(100, 100, 100)
@@ -368,9 +404,23 @@ export class InvoiceGenerator {
     pdf.setTextColor(100, 100, 100)
     pdf.text('Terms & Conditions:', margin, yPosition)
     yPosition += 3
-    const termsText = 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
+    const termsText = invoiceData.termsAndConditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
     const termsLines = pdf.splitTextToSize(termsText, contentWidth)
     pdf.text(termsLines, margin, yPosition)
+    yPosition += termsLines.length * 3 + 3
+
+    // Add signature if available
+    if (invoiceData.companySignature) {
+      try {
+        pdf.setFontSize(8)
+        pdf.setTextColor(100, 100, 100)
+        pdf.text('Authorized By:', pageWidth - margin - 50, yPosition)
+        pdf.addImage(invoiceData.companySignature, 'PNG', pageWidth - margin - 50, yPosition + 2, 40, 12)
+        yPosition += 15
+      } catch (e) {
+        console.error('Error adding signature:', e)
+      }
+    }
 
     // Set metadata
     pdf.setProperties({

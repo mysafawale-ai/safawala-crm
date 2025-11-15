@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Download, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Download, X, Printer } from 'lucide-react'
 
 interface PDFViewerProps {
   pdfBytes: Uint8Array | ArrayBuffer | Blob | any
@@ -67,6 +67,12 @@ export function InlinePDFViewer({ pdfBytes, filename = 'document.pdf', onClose }
     URL.revokeObjectURL(url)
   }
 
+  const handlePrint = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.print()
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-gray-100">
       {/* Toolbar */}
@@ -75,6 +81,15 @@ export function InlinePDFViewer({ pdfBytes, filename = 'document.pdf', onClose }
           <h3 className="font-semibold text-gray-800">{filename}</h3>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrint}
+            className="flex items-center gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Print
+          </Button>
           <Button
             variant="outline"
             size="sm"

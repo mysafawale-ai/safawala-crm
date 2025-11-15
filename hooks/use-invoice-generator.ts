@@ -1,4 +1,5 @@
 import { InvoiceData, InvoiceGenerator } from '@/lib/invoice-generator'
+import { useCompanySettings } from './use-company-settings'
 
 interface BookingData {
   id: string
@@ -59,6 +60,8 @@ interface BookingItem {
 }
 
 export function useInvoiceGenerator() {
+  const { settings } = useCompanySettings()
+
   const generateInvoiceData = (booking: BookingData, items: BookingItem[]): InvoiceData => {
     const totalAmount = Number(booking.total_amount || 0)
     const paidAmount = Number(booking.paid_amount || 0)
@@ -126,12 +129,17 @@ export function useInvoiceGenerator() {
       // Items
       items: invoiceItems,
       
-      // Company (can be populated from settings)
-      companyName: 'SAFAWALA',
-      companyPhone: '+91-XXXXXXXXXX',
-      companyEmail: 'support@safawala.com',
-      companyAddress: 'Your Address Here',
-      companyGST: 'XX AAXXXXXXX XXXXX'
+      // Company - from settings
+      companyName: settings?.company_name || 'SAFAWALA',
+      companyPhone: settings?.phone || '+91-XXXXXXXXXX',
+      companyEmail: settings?.email || 'support@safawala.com',
+      companyAddress: settings?.address || 'Your Address Here',
+      companyGST: settings?.gst_number || 'XX AAXXXXXXX XXXXX',
+      companyWebsite: settings?.website || undefined,
+      companyLogo: settings?.logo_url || undefined,
+      companySignature: settings?.signature_url || undefined,
+      brandingColor: '#22C55E', // Default green, can be customized
+      termsAndConditions: 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
     }
   }
 

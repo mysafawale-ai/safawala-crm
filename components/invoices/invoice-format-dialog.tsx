@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { InlinePDFViewer } from './inline-pdf-viewer'
 import { useInvoiceGenerator } from '@/hooks/use-invoice-generator'
-import { Download, Eye } from 'lucide-react'
+import { Eye } from 'lucide-react'
 
 interface InvoiceFormatDialogProps {
   open: boolean
@@ -34,11 +34,6 @@ export function InvoiceFormatDialog({
     setShowViewer(true)
   }
 
-  const handleDownload = () => {
-    const pdf = generatePDFObject(booking, bookingItems)
-    pdf.save(`Invoice_${booking.booking_number}.pdf`)
-  }
-
   if (showViewer && pdfData) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,7 +54,7 @@ export function InvoiceFormatDialog({
         <DialogHeader>
           <DialogTitle>Generate Invoice</DialogTitle>
           <DialogDescription>
-            Select format and view or download your invoice
+            Select format and preview your invoice. Download and print options available in viewer.
           </DialogDescription>
         </DialogHeader>
 
@@ -101,21 +96,13 @@ export function InvoiceFormatDialog({
           {/* Action Buttons */}
           <div className="flex gap-2 pt-4">
             <Button
-              variant="outline"
-              className="flex-1"
+              className="w-full"
               onClick={() => {
                 handlePreview()
               }}
             >
               <Eye className="mr-2 h-4 w-4" />
-              Preview
-            </Button>
-            <Button
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              onClick={handleDownload}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download
+              Preview Invoice
             </Button>
           </div>
         </div>
