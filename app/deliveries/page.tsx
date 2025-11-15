@@ -411,14 +411,19 @@ export default function DeliveriesPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // Fetch customers
-      const { data: customersData, error: customersError } = await supabase.from("customers").select("*").order("name")
-
-      if (customersError) {
-        console.warn("Error fetching customers:", customersError)
+      // Fetch customers from API (handles franchise filtering)
+      try {
+        const res = await fetch("/api/customers", { cache: "no-store" })
+        if (res.ok) {
+          const json = await res.json()
+          setCustomers(json?.data || [])
+        } else {
+          console.warn("Error fetching customers from API:", res.status)
+          setCustomers([])
+        }
+      } catch (e) {
+        console.warn("Error fetching customers:", e)
         setCustomers([])
-      } else {
-        setCustomers(customersData || [])
       }
 
       // Fetch bookings from unified API (includes product_orders and package_bookings)
