@@ -351,6 +351,8 @@ export default function DeliveriesPage() {
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
   const [loadingAddresses, setLoadingAddresses] = useState(false)
+  const [assignedStaffIds, setAssignedStaffIds] = useState<Set<string>>(new Set())
+  const [editAssignedStaffIds, setEditAssignedStaffIds] = useState<Set<string>>(new Set())
   const [editForm, setEditForm] = useState({
     customer_name: "",
     customer_phone: "",
@@ -724,6 +726,8 @@ export default function DeliveriesPage() {
             fuel_cost: d.fuel_cost.toString(),
             special_instructions: d.special_instructions,
           })
+          // Reset edit staff selection
+          setEditAssignedStaffIds(new Set())
           if (d.customer_id) {
             setLoadingAddresses(true)
             try {
@@ -1248,6 +1252,41 @@ export default function DeliveriesPage() {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <Label>Assign Staff</Label>
+                  <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-gray-50">
+                    {staff.length > 0 ? (
+                      staff.map((member) => (
+                        <div key={member.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`staff_${member.id}`}
+                            checked={assignedStaffIds.has(member.id)}
+                            onChange={(e) => {
+                              const newSet = new Set(assignedStaffIds)
+                              if (e.target.checked) {
+                                newSet.add(member.id)
+                              } else {
+                                newSet.delete(member.id)
+                              }
+                              setAssignedStaffIds(newSet)
+                            }}
+                            className="rounded"
+                          />
+                          <label htmlFor={`staff_${member.id}`} className="text-sm cursor-pointer flex-1">
+                            {member.name}
+                          </label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No staff members available</p>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selected: {assignedStaffIds.size} staff member{assignedStaffIds.size !== 1 ? 's' : ''}
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="delivery_charge">Delivery Charge (₹)</Label>
@@ -1393,6 +1432,7 @@ export default function DeliveriesPage() {
                         fuel_cost: "",
                         special_instructions: "",
                       })
+                      setAssignedStaffIds(new Set())
                       setShowScheduleDialog(false)
                       
                       // Refresh deliveries list
@@ -2149,6 +2189,40 @@ export default function DeliveriesPage() {
                   onChange={(e) => setEditForm({ ...editForm, vehicle_number: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Assign Staff</Label>
+              <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-gray-50">
+                {staff.length > 0 ? (
+                  staff.map((member) => (
+                    <div key={member.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`edit_staff_${member.id}`}
+                        checked={editAssignedStaffIds.has(member.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(editAssignedStaffIds)
+                          if (e.target.checked) {
+                            newSet.add(member.id)
+                          } else {
+                            newSet.delete(member.id)
+                          }
+                          setEditAssignedStaffIds(newSet)
+                        }}
+                        className="rounded"
+                      />
+                      <label htmlFor={`edit_staff_${member.id}`} className="text-sm cursor-pointer flex-1">
+                        {member.name}
+                      </label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">No staff members available</p>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Selected: {editAssignedStaffIds.size} staff member{editAssignedStaffIds.size !== 1 ? 's' : ''}
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
