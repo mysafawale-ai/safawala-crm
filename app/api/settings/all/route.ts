@@ -12,7 +12,9 @@ export async function GET(request: Request) {
 
     // Fetch all settings tables with optional franchise_id filter
     const [companyResult, brandingResult, documentResult] = await Promise.all([
-      supabase.from('company_settings').select('*').single(),
+      franchiseId
+        ? supabase.from('company_settings').select('*').eq('franchise_id', franchiseId).single()
+        : supabase.from('company_settings').select('*').single(),
       franchiseId
         ? supabase.from('branding_settings').select('*').eq('franchise_id', franchiseId).single()
         : supabase.from('branding_settings').select('*').single(),
