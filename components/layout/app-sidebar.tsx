@@ -133,14 +133,13 @@ const navigationItems = {
       permission: "laundry",
       description: "Track laundry batches, vendor relationships, and cleaning schedules",
     },
-    // TODO: Temporarily hidden - Expenses/Financials
-    // {
-    //   title: "Expenses",
-    //   url: "/expenses",
-    //   icon: Receipt,
-    //   permission: "expenses",
-    //   description: "Record business expenses, categorize costs, and track spending patterns",
-    // },
+    {
+      title: "Expenses",
+      url: "/expenses",
+      icon: Receipt,
+      permission: "expenses",
+      description: "Record business expenses, categorize costs, and track spending patterns",
+    },
     {
       title: "Deliveries & Returns",
       url: "/deliveries",
@@ -179,14 +178,15 @@ const navigationItems = {
       permission: "reports",
       description: "Generate business reports, analytics, and performance insights",
     },
-    {
-      title: "Financials",
-      url: "/financials",
-      icon: FileText,
-      roles: ["super_admin", "franchise_admin"],
-      permission: "financials",
-      description: "Financial overview, revenue tracking, and profit/loss analysis",
-    },
+    // TODO: Temporarily hidden - Financials page
+    // {
+    //   title: "Financials",
+    //   url: "/financials",
+    //   icon: FileText,
+    //   roles: ["super_admin", "franchise_admin"],
+    //   permission: "financials",
+    //   description: "Financial overview, revenue tracking, and profit/loss analysis",
+    // },
   ],
   admin: [
     {
