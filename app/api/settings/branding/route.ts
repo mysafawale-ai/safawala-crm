@@ -62,6 +62,10 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString()
     }
 
+    console.log('🔍 DEBUG: Branding Settings Save')
+    console.log('Received logo_url:', logo_url)
+    console.log('Branding Data:', brandingData)
+
     let result
     if (existing) {
       // Update existing

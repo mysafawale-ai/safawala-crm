@@ -49,17 +49,28 @@ export async function GET() {
     const brandingSettings = brandingResult.data || defaultBranding
     const documentSettings = documentResult.data || defaultDocument
 
-    // Return combined settings
+    console.log('🔍 DEBUG API: Settings Merge')
+    console.log('Company Settings:', companySettings)
+    console.log('Branding Settings:', brandingSettings)
+    console.log('Company logo_url:', companySettings.logo_url)
+    console.log('Branding logo_url:', brandingSettings.logo_url)
+
+    // Return combined settings with proper logo_url priority
+    const merged = {
+      ...companySettings,
+      ...brandingSettings,
+      ...documentSettings,
+      // Ensure logo_url from branding takes priority if available
+      logo_url: brandingSettings.logo_url || companySettings.logo_url
+    }
+
+    console.log('Merged logo_url:', merged.logo_url)
+
     return NextResponse.json({
       company: companySettings,
       branding: brandingSettings,
       document: documentSettings,
-      // Merged for easy access
-      merged: {
-        ...companySettings,
-        ...brandingSettings,
-        ...documentSettings
-      }
+      merged
     })
   } catch (error) {
     console.error('Settings API error:', error)

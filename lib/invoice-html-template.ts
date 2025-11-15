@@ -76,6 +76,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   const primaryColorValue = primaryColor || '#3B82F6'
   const secondaryColorValue = secondaryColor || '#EF4444'
   const accentColorValue = accentColor || '#10B981'
+  
+  // Use provided logo or fallback to test URL
+  const logoUrl = companyLogo || 'https://xplnyaxkusvuajtmorss.supabase.co/storage/v1/object/public/settings-uploads/1a518dde-85b7-44ef-8bc4-092f53ddfd99/logo-1761570887109.png'
 
   return `
 <!DOCTYPE html>
@@ -339,8 +342,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     <!-- Header -->
     <div class="header">
       <div style="flex-shrink: 0; margin-right: 20px;">
-        ${companyLogo ? `
-        <img src="${companyLogo}" alt="Company Logo" class="company-logo" style="display: block;">
+        ${logoUrl ? `
+        <img src="${logoUrl}" alt="Company Logo" class="company-logo" style="display: block;">
         ` : `
         <div class="company-name">${companyName || 'SAFAWALA'}</div>
         `}
