@@ -30,13 +30,23 @@ export function InvoiceFormatDialog({
       if (open && !htmlUrl) {
         setIsLoading(true)
         try {
-          const pdf = await generatePDFObject(booking, bookingItems)
-          const html = pdf.output('html')
+          console.log('📄 Starting invoice generation...')
+          const result = await generatePDFObject(booking, bookingItems)
+          console.log('✅ Invoice generated, creating blob...')
+          
+          // Get HTML from the output method
+          const html = result.output('html')
+          console.log('📝 HTML output type:', typeof html, 'Length:', html.length)
+          
+          // Create blob and object URL
           const blob = new Blob([html], { type: 'text/html' })
           const url = URL.createObjectURL(blob)
+          console.log('🔗 Blob URL created:', url)
+          
           setHtmlUrl(url)
         } catch (error) {
-          console.error('Error generating invoice:', error)
+          console.error('❌ Error generating invoice:', error)
+          alert(`Error generating invoice: ${error instanceof Error ? error.message : String(error)}`)
         } finally {
           setIsLoading(false)
         }

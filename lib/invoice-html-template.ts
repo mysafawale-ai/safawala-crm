@@ -7,6 +7,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   const {
     bookingNumber,
     bookingDate,
+    eventDate,
     bookingType,
     bookingStatus,
     customerName,
