@@ -66,7 +66,10 @@ export function useInvoiceGenerator() {
     const totalAmount = Number(booking.total_amount || 0)
     const paidAmount = Number(booking.paid_amount || 0)
     const securityDeposit = Number(booking.security_deposit || 0)
-    const subtotal = Number(booking.subtotal_amount || booking.total_amount || 0)
+    const distanceAmount = Number(booking.distance_amount || 0)
+    // Include distance charges in subtotal
+    const baseSubtotal = Number(booking.subtotal_amount || booking.total_amount || 0)
+    const subtotal = baseSubtotal + distanceAmount
     const pendingAmount = Math.max(0, (totalAmount + securityDeposit) - paidAmount)
     const customAmount = Number((booking as any).custom_amount || 0)
 
@@ -134,13 +137,13 @@ export function useInvoiceGenerator() {
       categoryName: items && items.length > 0 ? items[0]?.category_name : undefined,
       extraSafas: bookingExtended.extra_safas,
       
-      // Financial - All fields
+      // Financial - All fields (distance charge now included in subtotal)
       subtotal,
       discountAmount: booking.discount_amount,
       discountPercentage: booking.discount_percentage,
       couponCode: booking.coupon_code,
       couponDiscount: booking.coupon_discount,
-      distanceAmount: booking.distance_amount,
+      distanceAmount: 0, // Distance charge is now included in subtotal above
       customAmount,
       taxAmount: booking.tax_amount,
       taxPercentage: booking.gst_percentage,

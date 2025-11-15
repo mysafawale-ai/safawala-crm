@@ -563,13 +563,6 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       </div>
       ` : ''}
       
-      ${distanceAmount && distanceAmount > 0 ? `
-      <div class="summary-row">
-        <span>Distance Charges:</span>
-        <span>₹${distanceAmount.toFixed(2)}</span>
-      </div>
-      ` : ''}
-      
       ${customAmount && customAmount !== 0 ? `
       <div class="summary-row">
         <span>${customAmount > 0 ? 'Additional Charges' : 'Adjustment'}:</span>
