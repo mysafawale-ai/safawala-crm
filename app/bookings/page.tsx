@@ -354,10 +354,7 @@ export default function BookingsPage() {
         for (const table of tables) {
           let query = supabase
             .from(table)
-            .select(`
-              *,
-              customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
-            `)
+            .select('*')
             .eq('is_archived', true)
             .order('created_at', { ascending: false })
             .limit(5)
@@ -388,8 +385,33 @@ export default function BookingsPage() {
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 5)
         
-        setArchivedBookings(allArchivedBookings)
-        console.log(`[Bookings] Loaded ${allArchivedBookings.length} archived bookings`)
+        // Fetch customer data separately for each booking
+        const bookingsWithCustomers = await Promise.all(
+          allArchivedBookings.map(async (booking) => {
+            if (booking.customer_id) {
+              try {
+                const { data: customerData } = await supabase
+                  .from('customers')
+                  .select('*')
+                  .eq('id', booking.customer_id)
+                  .single()
+                
+                if (customerData) {
+                  return {
+                    ...booking,
+                    customer: customerData
+                  }
+                }
+              } catch (err) {
+                console.warn(`[Bookings] Failed to fetch customer for booking ${booking.id}:`, err)
+              }
+            }
+            return booking
+          })
+        )
+        
+        setArchivedBookings(bookingsWithCustomers)
+        console.log(`[Bookings] Loaded ${bookingsWithCustomers.length} archived bookings with customer data`)
       } catch (error) {
         console.error('[Bookings] Error fetching archived bookings:', error)
       }
