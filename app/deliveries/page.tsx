@@ -305,6 +305,7 @@ interface Delivery {
   delivery_address: string
   delivery_date: string
   delivery_time?: string
+  delivery_type?: string
   status: string
   driver_name: string
   vehicle_number: string
@@ -337,6 +338,7 @@ export default function DeliveriesPage() {
   const [activeTab, setActiveTab] = useState("deliveries")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [deliveryTypeFilter, setDeliveryTypeFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const [showScheduleDialog, setShowScheduleDialog] = useState(false)
@@ -863,8 +865,9 @@ export default function DeliveriesPage() {
       delivery.driver_name?.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = statusFilter === "all" || delivery.status === statusFilter
+    const matchesDeliveryType = deliveryTypeFilter === "all" || delivery.delivery_type === deliveryTypeFilter
 
-    return matchesSearch && matchesStatus
+    return matchesSearch && matchesStatus && matchesDeliveryType
   })
 
   const paginatedDeliveries = useMemo(() => {
@@ -877,7 +880,7 @@ export default function DeliveriesPage() {
   // Reset to page 1 when search or filter changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, statusFilter])
+  }, [searchTerm, statusFilter, deliveryTypeFilter])
 
   // Mock drivers data (since we don't have a drivers table)
   const mockDrivers = [
@@ -1552,6 +1555,17 @@ export default function DeliveriesPage() {
                 <SelectItem value="in_transit">In Transit</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={deliveryTypeFilter} onValueChange={setDeliveryTypeFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="package_rental">Package Rental</SelectItem>
+                <SelectItem value="product_rental">Product Rental</SelectItem>
+                <SelectItem value="product_sale">Product Sale</SelectItem>
               </SelectContent>
             </Select>
           </div>
