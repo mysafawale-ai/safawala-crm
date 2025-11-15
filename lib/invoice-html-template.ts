@@ -490,7 +490,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     <!-- Package Details (if applicable) -->
     ${bookingType === 'package' && packageName ? `
     <div class="section">
-      <div class="section-title">PACKAGE DETAILS</div>
+      <div class="section-title">PACKAGE DETAILS & PRICING</div>
       <div class="info-grid">
         <div class="info-item">
           <span class="info-label">Package:</span>
@@ -502,16 +502,20 @@ export function generateInvoiceHTML(data: InvoiceData): string {
           <span class="info-value">${variantName}</span>
         </div>
         ` : ''}
-        ${categoryName ? `
         <div class="info-item">
-          <span class="info-label">Category:</span>
-          <span class="info-value">${categoryName}</span>
+          <span class="info-label">Base Price:</span>
+          <span class="info-value" style="color: #0066cc; font-weight: 600;">₹${subtotal.toFixed(2)}</span>
         </div>
-        ` : ''}
         ${extraSafas ? `
         <div class="info-item">
           <span class="info-label">Extra Safas:</span>
           <span class="info-value">${extraSafas}</span>
+        </div>
+        ` : ''}
+        ${categoryName ? `
+        <div class="info-item">
+          <span class="info-label">Category:</span>
+          <span class="info-value">${categoryName}</span>
         </div>
         ` : ''}
         ${packageDescription ? `
@@ -587,38 +591,22 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     </div>
     ` : ''}
     
-    <!-- Items Table -->
+    <!-- Selected Products List -->
     ${items && items.length > 0 ? `
     <div class="section">
-      <div class="section-title">ITEMS</div>
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Item Name</th>
-            <th>Category</th>
-            <th class="text-right">Qty</th>
-            <th class="text-right">Unit Price</th>
-            <th class="text-right">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map((item, index) => `
-          <tr>
-            <td>${index + 1}</td>
-            <td>
-              <strong>${item.name}</strong>
-              ${item.description ? `<br><small style="color: #666;">${item.description}</small>` : ''}
-              ${item.barcode ? `<br><small style="color: #999;">Barcode: ${item.barcode}</small>` : ''}
-            </td>
-            <td>${item.category || '-'}</td>
-            <td class="text-right">${item.quantity}</td>
-            <td class="text-right">₹${item.unitPrice.toFixed(2)}</td>
-            <td class="text-right"><strong>₹${item.totalPrice.toFixed(2)}</strong></td>
-          </tr>
-          `).join('')}
-        </tbody>
-      </table>
+      <div class="section-title">SELECTED PRODUCTS</div>
+      <div class="products-list" style="display: grid; grid-template-columns: 1fr; gap: 8px; padding: 12px;">
+        ${items.map((item, index) => `
+        <div style="display: flex; align-items: center; padding: 10px; background: #f9f9f9; border-radius: 4px; border-left: 3px solid #840101;">
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #840101; color: white; border-radius: 50%; font-weight: bold; font-size: 12px; margin-right: 10px;">${index + 1}</span>
+          <div style="flex: 1;">
+            <strong style="font-size: 14px;">${item.name}</strong>
+            ${item.description ? `<br><small style="color: #666; font-size: 12px;">${item.description}</small>` : ''}
+            ${item.category ? `<br><small style="color: #999; font-size: 11px;">Category: ${item.category}</small>` : ''}
+          </div>
+        </div>
+        `).join('')}
+      </div>
     </div>
     ` : ''}
     
