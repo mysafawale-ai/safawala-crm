@@ -591,6 +591,43 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     </div>
     ` : ''}
     
+    <!-- Package Details (Detailed) -->
+    ${bookingType === 'package' && packageName ? `
+    <div class="section">
+      <div class="section-title">PACKAGE DETAILS</div>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Package Name:</span>
+          <span class="info-value" style="font-weight: 600; color: #840101;">${packageName}</span>
+        </div>
+        ${variantName ? `
+        <div class="info-item">
+          <span class="info-label">Variant:</span>
+          <span class="info-value" style="font-weight: 600;">${variantName}</span>
+        </div>
+        ` : ''}
+        ${packageDescription ? `
+        <div class="info-item" style="grid-column: span 2;">
+          <span class="info-label">Description:</span>
+          <span class="info-value">${packageDescription}</span>
+        </div>
+        ` : ''}
+        ${extraSafas ? `
+        <div class="info-item">
+          <span class="info-label">Extra Safas:</span>
+          <span class="info-value" style="font-weight: 600; background: #fff3cd; padding: 4px 8px; border-radius: 3px;">${extraSafas}</span>
+        </div>
+        ` : ''}
+        ${categoryName ? `
+        <div class="info-item">
+          <span class="info-label">Category:</span>
+          <span class="info-value">${categoryName}</span>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+    ` : ''}
+    
     <!-- Selected Products List -->
     ${items && items.length > 0 ? `
     <div class="section">
