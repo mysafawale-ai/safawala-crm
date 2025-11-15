@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     let productQuery = supabase
       .from("product_orders")
       .select(`
-        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, return_date, booking_type,
+        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         payment_method, payment_type, discount_amount, tax_amount,
         is_quote,

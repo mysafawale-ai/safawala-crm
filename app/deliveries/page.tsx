@@ -1029,6 +1029,11 @@ export default function DeliveriesPage() {
                         const customerBookings = bookings.filter((b: any) => b.customer_id === value)
                         const firstBooking = customerBookings[0]
                         
+                        console.log('📍 Customer selected:', value)
+                        console.log('📍 First booking:', firstBooking)
+                        console.log('📍 Delivery date from booking:', firstBooking?.delivery_date)
+                        console.log('📍 Delivery time from booking:', firstBooking?.delivery_time)
+                        
                         setScheduleForm({
                           ...scheduleForm,
                           customer_id: value,
