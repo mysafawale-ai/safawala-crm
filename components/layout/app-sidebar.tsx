@@ -118,13 +118,14 @@ const navigationItems = {
       permission: "quotes",
       description: "Generate price quotes, proposals, and estimates for wedding services",
     },
-    {
-      title: "Invoices",
-      url: "/invoices",
-      icon: FileCheck,
-      permission: "invoices",
-      description: "View and manage invoices for confirmed bookings and orders",
-    },
+    // TODO: Temporarily hidden - Invoices feature
+    // {
+    //   title: "Invoices",
+    //   url: "/invoices",
+    //   icon: FileCheck,
+    //   permission: "invoices",
+    //   description: "View and manage invoices for confirmed bookings and orders",
+    // },
     {
       title: "Laundry",
       url: "/laundry",
@@ -132,13 +133,14 @@ const navigationItems = {
       permission: "laundry",
       description: "Track laundry batches, vendor relationships, and cleaning schedules",
     },
-    {
-      title: "Expenses",
-      url: "/expenses",
-      icon: Receipt,
-      permission: "expenses",
-      description: "Record business expenses, categorize costs, and track spending patterns",
-    },
+    // TODO: Temporarily hidden - Expenses/Financials
+    // {
+    //   title: "Expenses",
+    //   url: "/expenses",
+    //   icon: Receipt,
+    //   permission: "expenses",
+    //   description: "Record business expenses, categorize costs, and track spending patterns",
+    // },
     {
       title: "Deliveries & Returns",
       url: "/deliveries",
