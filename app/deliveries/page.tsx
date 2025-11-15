@@ -709,13 +709,11 @@ export default function DeliveriesPage() {
           if (d.customer_id) {
             setLoadingAddresses(true)
             try {
-              const { data } = await supabase
-                .from("customer_addresses")
-                .select("*")
-                .eq("customer_id", d.customer_id)
-                .order("last_used_at", { ascending: false })
-                .limit(10)
-              if (data) setSavedAddresses(data)
+              const res = await fetch(`/api/customer-addresses?customer_id=${d.customer_id}`)
+              if (res.ok) {
+                const json = await res.json()
+                if (json.data) setSavedAddresses(json.data)
+              }
             } catch {}
             setLoadingAddresses(false)
           }
@@ -735,13 +733,11 @@ export default function DeliveriesPage() {
       (async () => {
         setLoadingAddresses(true)
         try {
-          const { data } = await supabase
-            .from("customer_addresses")
-            .select("*")
-            .eq("customer_id", scheduleForm.customer_id)
-            .order("last_used_at", { ascending: false })
-            .limit(10)
-          if (data) setSavedAddresses(data)
+          const res = await fetch(`/api/customer-addresses?customer_id=${scheduleForm.customer_id}`)
+          if (res.ok) {
+            const json = await res.json()
+            if (json.data) setSavedAddresses(json.data)
+          }
         } catch {}
         setLoadingAddresses(false)
       })()
@@ -754,13 +750,11 @@ export default function DeliveriesPage() {
       (async () => {
         setLoadingAddresses(true)
         try {
-          const { data } = await supabase
-            .from("customer_addresses")
-            .select("*")
-            .eq("customer_id", editForm.customer_id)
-            .order("last_used_at", { ascending: false })
-            .limit(10)
-          if (data) setSavedAddresses(data)
+          const res = await fetch(`/api/customer-addresses?customer_id=${editForm.customer_id}`)
+          if (res.ok) {
+            const json = await res.json()
+            if (json.data) setSavedAddresses(json.data)
+          }
         } catch {}
         setLoadingAddresses(false)
       })()
@@ -1343,34 +1337,19 @@ export default function DeliveriesPage() {
                       // Save pickup address to customer_addresses if it's new
                       if (scheduleForm.customer_id && scheduleForm.pickup_address.trim()) {
                         try {
-                          const { data: existingAddresses } = await supabase
-                            .from('customer_addresses')
-                            .select('id')
-                            .eq('customer_id', scheduleForm.customer_id)
-                            .ilike('full_address', scheduleForm.pickup_address.trim())
-                            .limit(1)
-                          
-                          if (!existingAddresses || existingAddresses.length === 0) {
-                            // New address - save it
-                            await supabase
-                              .from('customer_addresses')
-                              .insert({
-                                customer_id: scheduleForm.customer_id,
-                                full_address: scheduleForm.pickup_address.trim(),
-                                address_line_1: scheduleForm.pickup_address.trim(),
-                                address_type: 'pickup',
-                                usage_count: 1,
-                                last_used_at: new Date().toISOString(),
-                              })
-                          } else {
-                            // Update usage count
-                            await supabase
-                              .from('customer_addresses')
-                              .update({
-                                usage_count: supabase.sql`usage_count + 1`,
-                                last_used_at: new Date().toISOString(),
-                              })
-                              .eq('id', existingAddresses[0].id)
+                          const res = await fetch('/api/customer-addresses', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              customer_id: scheduleForm.customer_id,
+                              full_address: scheduleForm.pickup_address.trim(),
+                              address_line_1: scheduleForm.pickup_address.trim(),
+                              address_type: 'pickup'
+                            })
+                          })
+                          if (!res.ok) {
+                            const error = await res.json()
+                            console.warn('Could not save pickup address:', error)
                           }
                         } catch (e) {
                           console.warn('Could not save pickup address:', e)
@@ -2215,34 +2194,19 @@ export default function DeliveriesPage() {
                   // Save pickup address to customer_addresses if it's new
                   if (editForm.customer_id && editForm.pickup_address.trim()) {
                     try {
-                      const { data: existingAddresses } = await supabase
-                        .from('customer_addresses')
-                        .select('id')
-                        .eq('customer_id', editForm.customer_id)
-                        .ilike('full_address', editForm.pickup_address.trim())
-                        .limit(1)
-                      
-                      if (!existingAddresses || existingAddresses.length === 0) {
-                        // New address - save it
-                        await supabase
-                          .from('customer_addresses')
-                          .insert({
-                            customer_id: editForm.customer_id,
-                            full_address: editForm.pickup_address.trim(),
-                            address_line_1: editForm.pickup_address.trim(),
-                            address_type: 'pickup',
-                            usage_count: 1,
-                            last_used_at: new Date().toISOString(),
-                          })
-                      } else {
-                        // Update usage count
-                        await supabase
-                          .from('customer_addresses')
-                          .update({
-                            usage_count: supabase.sql`usage_count + 1`,
-                            last_used_at: new Date().toISOString(),
-                          })
-                          .eq('id', existingAddresses[0].id)
+                      const res = await fetch('/api/customer-addresses', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          customer_id: editForm.customer_id,
+                          full_address: editForm.pickup_address.trim(),
+                          address_line_1: editForm.pickup_address.trim(),
+                          address_type: 'pickup'
+                        })
+                      })
+                      if (!res.ok) {
+                        const error = await res.json()
+                        console.warn('Could not save pickup address:', error)
                       }
                     } catch (e) {
                       console.warn('Could not save pickup address:', e)
