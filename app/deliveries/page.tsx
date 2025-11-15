@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
@@ -985,15 +986,7 @@ export default function DeliveriesPage() {
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 relative">
-      {loading && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
-          <div className="flex items-center gap-3 text-gray-700">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading deliveries…</span>
-          </div>
-        </div>
-      )}
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       {/* Header */}
       <div className="flex items-center justify-between space-y-2">
         <div className="flex items-center space-x-4">
@@ -1612,6 +1605,19 @@ export default function DeliveriesPage() {
                 <p className="text-xs text-gray-500 mt-4">
                   See <code className="bg-gray-100 px-1 py-0.5 rounded">DELIVERIES_BACKEND_COMPLETE.md</code> for full instructions
                 </p>
+              </div>
+            ) : loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 border rounded-lg space-x-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-[200px]" />
+                      <Skeleton className="h-3 w-[300px]" />
+                    </div>
+                    <Skeleton className="h-8 w-[80px]" />
+                  </div>
+                ))}
               </div>
             ) : filteredDeliveries.length === 0 ? (
               <div className="text-center py-8">
