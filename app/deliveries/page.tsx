@@ -729,6 +729,44 @@ export default function DeliveriesPage() {
     }
   }, [searchParams, returns, deliveries, bookings])
 
+  // Load saved addresses when customer is selected in schedule form
+  useEffect(() => {
+    if (showScheduleDialog && scheduleForm.customer_id) {
+      (async () => {
+        setLoadingAddresses(true)
+        try {
+          const { data } = await supabase
+            .from("customer_addresses")
+            .select("*")
+            .eq("customer_id", scheduleForm.customer_id)
+            .order("last_used_at", { ascending: false })
+            .limit(10)
+          if (data) setSavedAddresses(data)
+        } catch {}
+        setLoadingAddresses(false)
+      })()
+    }
+  }, [showScheduleDialog, scheduleForm.customer_id])
+
+  // Load saved addresses when Edit dialog opens
+  useEffect(() => {
+    if (showEditDialog && editForm.customer_id) {
+      (async () => {
+        setLoadingAddresses(true)
+        try {
+          const { data } = await supabase
+            .from("customer_addresses")
+            .select("*")
+            .eq("customer_id", editForm.customer_id)
+            .order("last_used_at", { ascending: false })
+            .limit(10)
+          if (data) setSavedAddresses(data)
+        } catch {}
+        setLoadingAddresses(false)
+      })()
+    }
+  }, [showEditDialog, editForm.customer_id])
+
   const handleCancelDelivery = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
     try {
@@ -1106,12 +1144,47 @@ export default function DeliveriesPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="pickup_address">Pickup Address</Label>
+                  
+                  {/* Smart Address Dropdown - Only for Pickup */}
+                  {savedAddresses.length > 0 && (
+                    <Select
+                      onValueChange={(value) => {
+                        if (value === 'new') {
+                          setScheduleForm({ ...scheduleForm, pickup_address: '' })
+                        } else if (value === 'current') {
+                          // Keep current value
+                        } else {
+                          const selected = savedAddresses.find(a => a.id === value)
+                          if (selected) {
+                            setScheduleForm({ ...scheduleForm, pickup_address: selected.full_address })
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="mb-2">
+                        <SelectValue placeholder="📍 Quick Select from Saved Addresses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="current">Use Current Address</SelectItem>
+                        <SelectItem value="new">✏️ Type New Address</SelectItem>
+                        {savedAddresses.map(addr => (
+                          <SelectItem key={addr.id} value={addr.id}>
+                            {addr.label ? `${addr.label}: ` : ''}{addr.full_address.substring(0, 50)}{addr.full_address.length > 50 ? '...' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  
                   <Textarea
                     id="pickup_address"
-                    placeholder="Enter pickup address"
+                    placeholder="Enter pickup address or select from saved addresses above"
                     value={scheduleForm.pickup_address}
                     onChange={(e) => setScheduleForm({ ...scheduleForm, pickup_address: e.target.value })}
                   />
+                  {loadingAddresses && (
+                    <p className="text-xs text-muted-foreground">Loading saved addresses...</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1266,6 +1339,43 @@ export default function DeliveriesPage() {
                       }
 
                       const result = await response.json()
+
+                      // Save pickup address to customer_addresses if it's new
+                      if (scheduleForm.customer_id && scheduleForm.pickup_address.trim()) {
+                        try {
+                          const { data: existingAddresses } = await supabase
+                            .from('customer_addresses')
+                            .select('id')
+                            .eq('customer_id', scheduleForm.customer_id)
+                            .ilike('full_address', scheduleForm.pickup_address.trim())
+                            .limit(1)
+                          
+                          if (!existingAddresses || existingAddresses.length === 0) {
+                            // New address - save it
+                            await supabase
+                              .from('customer_addresses')
+                              .insert({
+                                customer_id: scheduleForm.customer_id,
+                                full_address: scheduleForm.pickup_address.trim(),
+                                address_line_1: scheduleForm.pickup_address.trim(),
+                                address_type: 'pickup',
+                                usage_count: 1,
+                                last_used_at: new Date().toISOString(),
+                              })
+                          } else {
+                            // Update usage count
+                            await supabase
+                              .from('customer_addresses')
+                              .update({
+                                usage_count: supabase.sql`usage_count + 1`,
+                                last_used_at: new Date().toISOString(),
+                              })
+                              .eq('id', existingAddresses[0].id)
+                          }
+                        } catch (e) {
+                          console.warn('Could not save pickup address:', e)
+                        }
+                      }
 
                       toast({
                         title: "Success!",
@@ -1958,7 +2068,7 @@ export default function DeliveriesPage() {
             <div className="space-y-2">
               <Label htmlFor="edit_pickup_address">Pickup Address</Label>
               
-              {/* Smart Address Dropdown */}
+              {/* Smart Address Dropdown - Only for Pickup */}
               {savedAddresses.length > 0 && (
                 <Select
                   onValueChange={(value) => {
@@ -2135,7 +2245,7 @@ export default function DeliveriesPage() {
                           .eq('id', existingAddresses[0].id)
                       }
                     } catch (e) {
-                      console.warn('Could not save address:', e)
+                      console.warn('Could not save pickup address:', e)
                     }
                   }
 
