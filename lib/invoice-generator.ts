@@ -198,8 +198,21 @@ export class InvoiceGenerator {
     pdf.setFontSize(9)
     pdf.text(invoiceData.customerName, margin, yPosition)
     yPosition += 4
+    
+    // Customer Code
+    if (invoiceData.customerCode) {
+      pdf.text(`Customer Code: ${invoiceData.customerCode}`, margin, yPosition)
+      yPosition += 4
+    }
+    
+    // Phone and WhatsApp
     pdf.text(`Phone: ${invoiceData.customerPhone}`, margin, yPosition)
     yPosition += 4
+    if (invoiceData.customerWhatsApp && invoiceData.customerWhatsApp !== invoiceData.customerPhone) {
+      pdf.text(`WhatsApp: ${invoiceData.customerWhatsApp}`, margin, yPosition)
+      yPosition += 4
+    }
+    
     if (invoiceData.customerEmail) {
       pdf.text(`Email: ${invoiceData.customerEmail}`, margin, yPosition)
       yPosition += 4
@@ -214,6 +227,47 @@ export class InvoiceGenerator {
     }
     yPosition += 4
 
+    // Package Details (for package bookings)
+    if (invoiceData.bookingType === 'package' && (invoiceData.packageName || invoiceData.variantName)) {
+      pdf.setDrawColor(200, 200, 200)
+      pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
+      yPosition += 3
+
+      pdf.setFontSize(10)
+      pdf.setTextColor(primaryRGB[0], primaryRGB[1], primaryRGB[2])
+      pdf.text('PACKAGE DETAILS:', margin, yPosition)
+      yPosition += 5
+
+      pdf.setFontSize(9)
+      pdf.setTextColor(51, 51, 51)
+      if (invoiceData.packageName) {
+        pdf.text(`Package: ${invoiceData.packageName}`, margin, yPosition)
+        yPosition += 4
+      }
+      if (invoiceData.variantName) {
+        pdf.text(`Variant: ${invoiceData.variantName}`, margin, yPosition)
+        yPosition += 4
+      }
+      if (invoiceData.categoryName) {
+        pdf.text(`Category: ${invoiceData.categoryName}`, margin, yPosition)
+        yPosition += 4
+      }
+      if (invoiceData.extraSafas && invoiceData.extraSafas > 0) {
+        pdf.text(`Extra Safas: ${invoiceData.extraSafas}`, margin, yPosition)
+        yPosition += 4
+      }
+      if (invoiceData.packageDescription) {
+        pdf.setFontSize(8)
+        pdf.setTextColor(100, 100, 100)
+        const descLines = pdf.splitTextToSize(invoiceData.packageDescription, contentWidth - 20)
+        pdf.text(descLines, margin, yPosition)
+        yPosition += descLines.length * 3.5
+        pdf.setFontSize(9)
+        pdf.setTextColor(51, 51, 51)
+      }
+      yPosition += 4
+    }
+
     // Event Details (for package/rental bookings)
     if (['package', 'product_rental'].includes(invoiceData.bookingType)) {
       pdf.setDrawColor(200, 200, 200)
@@ -221,13 +275,18 @@ export class InvoiceGenerator {
       yPosition += 3
 
       pdf.setFontSize(10)
-      pdf.setTextColor(51, 51, 51)
+      pdf.setTextColor(primaryRGB[0], primaryRGB[1], primaryRGB[2])
       pdf.text('EVENT DETAILS:', margin, yPosition)
       yPosition += 5
 
       pdf.setFontSize(9)
+      pdf.setTextColor(51, 51, 51)
       if (invoiceData.eventType) {
         pdf.text(`Type: ${invoiceData.eventType.replace(/_/g, ' ').toUpperCase()}`, margin, yPosition)
+        yPosition += 4
+      }
+      if (invoiceData.eventParticipant) {
+        pdf.text(`Participant: ${invoiceData.eventParticipant}`, margin, yPosition)
         yPosition += 4
       }
       if (invoiceData.eventFor) {
@@ -235,15 +294,27 @@ export class InvoiceGenerator {
         yPosition += 4
       }
       if (invoiceData.eventDate) {
-        pdf.text(`Event Date: ${new Date(invoiceData.eventDate).toLocaleDateString('en-IN')}`, margin, yPosition)
+        let eventDateStr = `Event Date: ${new Date(invoiceData.eventDate).toLocaleDateString('en-IN')}`
+        if (invoiceData.eventTime) {
+          eventDateStr += ` at ${invoiceData.eventTime}`
+        }
+        pdf.text(eventDateStr, margin, yPosition)
         yPosition += 4
       }
       if (invoiceData.deliveryDate) {
-        pdf.text(`Delivery Date: ${new Date(invoiceData.deliveryDate).toLocaleDateString('en-IN')}`, margin, yPosition)
+        let deliveryStr = `Delivery: ${new Date(invoiceData.deliveryDate).toLocaleDateString('en-IN')}`
+        if (invoiceData.deliveryTime) {
+          deliveryStr += ` at ${invoiceData.deliveryTime}`
+        }
+        pdf.text(deliveryStr, margin, yPosition)
         yPosition += 4
       }
       if (invoiceData.returnDate) {
-        pdf.text(`Return Date: ${new Date(invoiceData.returnDate).toLocaleDateString('en-IN')}`, margin, yPosition)
+        let returnStr = `Return: ${new Date(invoiceData.returnDate).toLocaleDateString('en-IN')}`
+        if (invoiceData.returnTime) {
+          returnStr += ` at ${invoiceData.returnTime}`
+        }
+        pdf.text(returnStr, margin, yPosition)
         yPosition += 4
       }
       if (invoiceData.venueName) {
@@ -251,17 +322,55 @@ export class InvoiceGenerator {
         yPosition += 4
       }
       if (invoiceData.venueAddress) {
-        pdf.text(`Venue Address: ${invoiceData.venueAddress}`, margin, yPosition)
-        yPosition += 4
+        const venueLines = pdf.splitTextToSize(`Venue Address: ${invoiceData.venueAddress}`, contentWidth - 20)
+        pdf.text(venueLines, margin, yPosition)
+        yPosition += venueLines.length * 4
       }
+      
+      // Groom Details
       if (invoiceData.groomName) {
-        pdf.text(`Groom: ${invoiceData.groomName}`, margin, yPosition)
+        yPosition += 2
+        pdf.setFontSize(8)
+        pdf.setTextColor(100, 100, 100)
+        pdf.text('Groom Details:', margin, yPosition)
+        yPosition += 3
+        pdf.setFontSize(9)
+        pdf.setTextColor(51, 51, 51)
+        pdf.text(`Name: ${invoiceData.groomName}`, margin + 5, yPosition)
         yPosition += 4
+        if (invoiceData.groomPhone) {
+          pdf.text(`Phone: ${invoiceData.groomPhone}`, margin + 5, yPosition)
+          yPosition += 4
+        }
+        if (invoiceData.groomAddress) {
+          const groomAddrLines = pdf.splitTextToSize(`Address: ${invoiceData.groomAddress}`, contentWidth - 25)
+          pdf.text(groomAddrLines, margin + 5, yPosition)
+          yPosition += groomAddrLines.length * 4
+        }
       }
+      
+      // Bride Details
       if (invoiceData.brideName) {
-        pdf.text(`Bride: ${invoiceData.brideName}`, margin, yPosition)
+        yPosition += 2
+        pdf.setFontSize(8)
+        pdf.setTextColor(100, 100, 100)
+        pdf.text('Bride Details:', margin, yPosition)
+        yPosition += 3
+        pdf.setFontSize(9)
+        pdf.setTextColor(51, 51, 51)
+        pdf.text(`Name: ${invoiceData.brideName}`, margin + 5, yPosition)
         yPosition += 4
+        if (invoiceData.bridePhone) {
+          pdf.text(`Phone: ${invoiceData.bridePhone}`, margin + 5, yPosition)
+          yPosition += 4
+        }
+        if (invoiceData.brideAddress) {
+          const brideAddrLines = pdf.splitTextToSize(`Address: ${invoiceData.brideAddress}`, contentWidth - 25)
+          pdf.text(brideAddrLines, margin + 5, yPosition)
+          yPosition += brideAddrLines.length * 4
+        }
       }
+      
       yPosition += 2
     }
 
@@ -330,6 +439,13 @@ export class InvoiceGenerator {
     if (invoiceData.distanceAmount && invoiceData.distanceAmount > 0) {
       pdf.text('Distance Charges:', summaryLeft, yPosition)
       pdf.text(`₹${invoiceData.distanceAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
+      yPosition += 4
+    }
+
+    // Custom Amount
+    if (invoiceData.customAmount && invoiceData.customAmount > 0) {
+      pdf.text('Custom Charges:', summaryLeft, yPosition)
+      pdf.text(`₹${invoiceData.customAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
       yPosition += 4
     }
 
