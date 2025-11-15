@@ -173,19 +173,25 @@ export function useInvoiceGenerator() {
 
   const generateAndDownload = async (booking: BookingData, items: BookingItem[], filename?: string) => {
     const invoiceData = generateInvoiceData(booking, items)
-    const pdf = await InvoiceGenerator.generatePDF(invoiceData)
-    const finalFilename = filename || `Invoice_${booking.booking_number}_${new Date().toISOString().split('T')[0]}.pdf`
-    InvoiceGenerator.downloadPDF(pdf, finalFilename)
+    // Open print dialog - user can save as PDF from there
+    await InvoiceGenerator.printInvoice(invoiceData)
   }
 
   const generatePDFObject = async (booking: BookingData, items: BookingItem[]) => {
     const invoiceData = generateInvoiceData(booking, items)
+    // Generate and return HTML-based invoice object
     return await InvoiceGenerator.generatePDF(invoiceData)
+  }
+
+  const previewInvoice = (booking: BookingData, items: BookingItem[]) => {
+    const invoiceData = generateInvoiceData(booking, items)
+    InvoiceGenerator.previewInvoice(invoiceData)
   }
 
   return {
     generateInvoiceData,
     generateAndDownload,
-    generatePDFObject
+    generatePDFObject,
+    previewInvoice
   }
 }

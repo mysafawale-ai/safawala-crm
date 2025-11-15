@@ -18,48 +18,87 @@ export function InvoiceFormatDialog({
   booking,
   bookingItems
 }: InvoiceFormatDialogProps) {
-  const [pdfData, setPdfData] = useState<Uint8Array | null>(null)
+  const [htmlUrl, setHtmlUrl] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const { generatePDFObject } = useInvoiceGenerator()
 
-  // Auto-generate PDF when dialog opens
+  // Auto-generate invoice when dialog opens
   useEffect(() => {
-    const generatePDF = async () => {
-      if (open && !pdfData) {
+    const generateInvoice = async () => {
+      if (open && !htmlUrl) {
+        setIsLoading(true)
         try {
           const pdf = await generatePDFObject(booking, bookingItems)
-          const pdfBytes = pdf.output('arraybuffer')
-          setPdfData(new Uint8Array(pdfBytes as ArrayBuffer))
+          const html = pdf.output('html')
+          const blob = new Blob([html], { type: 'text/html' })
+          const url = URL.createObjectURL(blob)
+          setHtmlUrl(url)
         } catch (error) {
-          console.error('Error generating PDF:', error)
+          console.error('Error generating invoice:', error)
+        } finally {
+          setIsLoading(false)
         }
       }
     }
 
-    generatePDF()
+    generateInvoice()
     
     // Reset when dialog closes
     if (!open) {
-      setPdfData(null)
+      if (htmlUrl) {
+        URL.revokeObjectURL(htmlUrl)
+      }
+      setHtmlUrl(null)
     }
-  }, [open, booking, bookingItems, pdfData, generatePDFObject])
+  }, [open, booking, bookingItems, htmlUrl, generatePDFObject])
+
+  const handlePrint = () => {
+    if (htmlUrl) {
+      const printWindow = window.open(htmlUrl, '_blank')
+      if (printWindow) {
+        printWindow.onload = () => {
+          setTimeout(() => printWindow.print(), 250)
+        }
+      }
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-        {pdfData ? (
-          <InlinePDFViewer
-            pdfBytes={pdfData}
-            filename={`Invoice_${booking.booking_number}.pdf`}
-            onClose={() => onOpenChange(false)}
-          />
-        ) : (
+        {htmlUrl ? (
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Invoice Preview</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Print / Save as PDF
+                </button>
+                <button
+                  onClick={() => onOpenChange(false)}
+                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <iframe
+              src={htmlUrl}
+              className="w-full flex-1 border-0"
+              title="Invoice Preview"
+            />
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center h-96">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
               <p className="text-gray-600">Generating invoice...</p>
             </div>
           </div>
-        )}
+        ) : null}
       </DialogContent>
     </Dialog>
   )
