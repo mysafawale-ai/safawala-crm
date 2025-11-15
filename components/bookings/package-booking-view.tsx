@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatTime12Hour } from "@/lib/utils"
 import { PricingBreakdownDialog } from "./pricing-breakdown-dialog"
-import { DollarSign } from "lucide-react"
+import { InvoiceFormatDialog } from "@/components/invoices"
+import { DollarSign, FileText } from "lucide-react"
 
 interface PackageBookingViewProps {
   booking: any
@@ -15,6 +16,7 @@ interface PackageBookingViewProps {
 
 export function PackageBookingView({ booking, bookingItems = [] }: PackageBookingViewProps) {
   const [showPricingBreakdown, setShowPricingBreakdown] = useState(false)
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   const totalAmount = Number(booking.total_amount || 0)
   const paidAmount = Number(booking.paid_amount || 0)
   const securityDeposit = Number(booking.security_deposit || 0)
@@ -356,13 +358,20 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
       )}
 
       {/* Pricing Breakdown Button */}
-      <div className="border-t pt-4">
+      <div className="border-t pt-4 flex gap-2">
         <Button
           onClick={() => setShowPricingBreakdown(true)}
-          className="w-full bg-amber-600 hover:bg-amber-700"
+          className="flex-1 bg-amber-600 hover:bg-amber-700"
         >
           <DollarSign className="h-4 w-4 mr-2" />
           View Detailed Pricing Breakdown
+        </Button>
+        <Button
+          onClick={() => setShowInvoiceDialog(true)}
+          className="flex-1 bg-blue-600 hover:bg-blue-700"
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Generate Invoice
         </Button>
       </div>
 
@@ -387,6 +396,14 @@ export function PackageBookingView({ booking, bookingItems = [] }: PackageBookin
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Dialog */}
+      <InvoiceFormatDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+        booking={booking}
+        bookingItems={bookingItems}
+      />
     </div>
   )
 }

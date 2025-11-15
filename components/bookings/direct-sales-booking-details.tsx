@@ -30,6 +30,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { PricingBreakdownDialog } from "./pricing-breakdown-dialog"
+import { InvoiceFormatDialog } from "@/components/invoices"
 import type { Booking } from "@/lib/types"
 import { formatTime12Hour } from "@/lib/utils"
 
@@ -43,6 +44,7 @@ interface DirectSalesBookingDetailsProps {
 
 export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetailsProps) {
   const [showPricingBreakdown, setShowPricingBreakdown] = useState(false)
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
   if (!booking) return null
 
   const bookingType = (booking as any).booking_type || (booking as any).booking_subtype || 'sale'
@@ -462,13 +464,20 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
       </div>
 
       {/* Pricing Breakdown Button */}
-      <div>
+      <div className="flex gap-2">
         <Button
           onClick={() => setShowPricingBreakdown(true)}
-          className="w-full bg-indigo-600 hover:bg-indigo-700"
+          className="flex-1 bg-indigo-600 hover:bg-indigo-700"
         >
           <DollarSign className="h-4 w-4 mr-2" />
           View Detailed Pricing Breakdown
+        </Button>
+        <Button
+          onClick={() => setShowInvoiceDialog(true)}
+          className="flex-1 bg-blue-600 hover:bg-blue-700"
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Generate Invoice
         </Button>
       </div>
 
@@ -489,6 +498,14 @@ export function DirectSalesBookingDetails({ booking }: DirectSalesBookingDetails
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Dialog */}
+      <InvoiceFormatDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+        booking={booking}
+        bookingItems={booking.bookingItems || []}
+      />
     </div>
   )
 }
