@@ -1,6 +1,23 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
+// Helper function to convert image URL to base64
+async function getBase64FromUrl(url: string): Promise<string> {
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch (error) {
+    console.error('Error converting image to base64:', error)
+    throw error
+  }
+}
+
 export interface InvoiceData {
   bookingId: string
   bookingNumber: string
@@ -94,13 +111,24 @@ export interface InvoiceItem {
 }
 
 export class InvoiceGenerator {
-  static generatePDF(invoiceData: InvoiceData): jsPDF {
+  static async generatePDF(invoiceData: InvoiceData): Promise<jsPDF> {
     const pdf = new jsPDF()
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
     let yPosition = 15
     const margin = 15
     const contentWidth = pageWidth - 2 * margin
+
+    // Convert logo URL to base64 if available
+    let logoBase64: string | null = null
+    if (invoiceData.companyLogo) {
+      try {
+        logoBase64 = await getBase64FromUrl(invoiceData.companyLogo)
+      } catch (e) {
+        console.error('Failed to load logo:', e)
+      }
+    }
+
     // Parse primary color for branding
     let primaryRGB: [number, number, number] = [34, 197, 94] // Default green
     let secondaryRGB: [number, number, number] = [239, 68, 68] // Default red
@@ -126,27 +154,26 @@ export class InvoiceGenerator {
     // Set default font
     pdf.setFont('helvetica')
 
-    // Add logo if available
-    if (invoiceData.companyLogo) {
+    // Add logo on top right if available
+    if (logoBase64) {
       try {
-        pdf.addImage(invoiceData.companyLogo, 'PNG', margin, yPosition - 5, 30, 15)
-        yPosition += 20
+        // Position logo on top right corner
+        const logoWidth = 40
+        const logoHeight = 20
+        const logoX = pageWidth - margin - logoWidth
+        const logoY = yPosition - 5
+        pdf.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight)
       } catch (e) {
         console.error('Error adding logo:', e)
-        yPosition += 5
       }
     }
 
-    // Header - Company Info with branding
-    pdf.setFontSize(16)
+    // Header - Company Info with branding (left side)
+    pdf.setFontSize(18)
+    pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(primaryRGB[0], primaryRGB[1], primaryRGB[2])
-    pdf.text(invoiceData.companyName || 'SAFAWALA', margin + (invoiceData.companyLogo ? 35 : 0), invoiceData.companyLogo ? 17 : yPosition)
-    
-    if (!invoiceData.companyLogo) {
-      yPosition += 8
-    } else {
-      yPosition = 35
-    }
+    pdf.text(invoiceData.companyName || 'SAFAWALA', margin, yPosition + 5)
+    yPosition += 10
 
     pdf.setFontSize(9)
     pdf.setTextColor(100, 100, 100)

@@ -23,11 +23,19 @@ export function InvoiceFormatDialog({
 
   // Auto-generate PDF when dialog opens
   useEffect(() => {
-    if (open && !pdfData) {
-      const pdf = generatePDFObject(booking, bookingItems)
-      const pdfBytes = pdf.output('arraybuffer')
-      setPdfData(new Uint8Array(pdfBytes as ArrayBuffer))
+    const generatePDF = async () => {
+      if (open && !pdfData) {
+        try {
+          const pdf = await generatePDFObject(booking, bookingItems)
+          const pdfBytes = pdf.output('arraybuffer')
+          setPdfData(new Uint8Array(pdfBytes as ArrayBuffer))
+        } catch (error) {
+          console.error('Error generating PDF:', error)
+        }
+      }
     }
+
+    generatePDF()
     
     // Reset when dialog closes
     if (!open) {

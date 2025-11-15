@@ -171,16 +171,16 @@ export function useInvoiceGenerator() {
     }
   }
 
-  const generateAndDownload = (booking: BookingData, items: BookingItem[], filename?: string) => {
+  const generateAndDownload = async (booking: BookingData, items: BookingItem[], filename?: string) => {
     const invoiceData = generateInvoiceData(booking, items)
-    const pdf = InvoiceGenerator.generatePDF(invoiceData)
+    const pdf = await InvoiceGenerator.generatePDF(invoiceData)
     const finalFilename = filename || `Invoice_${booking.booking_number}_${new Date().toISOString().split('T')[0]}.pdf`
     InvoiceGenerator.downloadPDF(pdf, finalFilename)
   }
 
-  const generatePDFObject = (booking: BookingData, items: BookingItem[]) => {
+  const generatePDFObject = async (booking: BookingData, items: BookingItem[]) => {
     const invoiceData = generateInvoiceData(booking, items)
-    return InvoiceGenerator.generatePDF(invoiceData)
+    return await InvoiceGenerator.generatePDF(invoiceData)
   }
 
   return {
