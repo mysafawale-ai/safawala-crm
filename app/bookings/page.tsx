@@ -354,7 +354,10 @@ export default function BookingsPage() {
         for (const table of tables) {
           let query = supabase
             .from(table)
-            .select('*')
+            .select(`
+              *,
+              customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
+            `)
             .eq('is_archived', true)
             .order('created_at', { ascending: false })
             .limit(5)
