@@ -68,6 +68,7 @@ export function useInvoiceGenerator() {
     const securityDeposit = Number(booking.security_deposit || 0)
     const subtotal = Number(booking.subtotal_amount || booking.total_amount || 0)
     const pendingAmount = Math.max(0, (totalAmount + securityDeposit) - paidAmount)
+    const customAmount = Number((booking as any).custom_amount || 0)
 
     // Format items for invoice
     const invoiceItems = items.map(item => ({
@@ -80,6 +81,9 @@ export function useInvoiceGenerator() {
       barcode: item.barcode
     }))
 
+    // Extract extended booking details
+    const bookingExtended = booking as any
+
     return {
       bookingId: booking.id,
       bookingNumber: booking.booking_number,
@@ -91,33 +95,53 @@ export function useInvoiceGenerator() {
         booking.source === 'product_orders' ? 'product_rental' :
         'package',
       paymentType: (booking.payment_type as 'full' | 'advance' | 'partial') || 'full',
+      bookingStatus: bookingExtended.status,
+      isQuote: bookingExtended.is_quote,
       
-      // Customer
+      // Customer - All fields
       customerName: booking.customer?.name || 'N/A',
       customerPhone: booking.customer?.phone || 'N/A',
       customerEmail: booking.customer?.email,
+      customerWhatsApp: bookingExtended.customer?.whatsapp || booking.customer?.phone,
       customerAddress: booking.customer?.address,
       customerCity: booking.customer?.city,
       customerState: booking.customer?.state,
       customerPincode: booking.customer?.pincode,
+      customerCode: bookingExtended.customer?.customer_code,
       
-      // Event
+      // Event - All fields
       eventType: booking.event_type,
+      eventParticipant: bookingExtended.event_participant,
       eventFor: booking.event_for,
+      eventTime: bookingExtended.event_time,
       venueName: booking.venue_name,
       venueAddress: booking.venue_address,
       groomName: booking.groom_name,
-      brideName: booking.bride_name,
+      groomPhone: bookingExtended.groom_whatsapp || bookingExtended.groom_additional_whatsapp,
+      groomAddress: bookingExtended.groom_address || bookingExtended.groom_home_address,
+      brideName: bookingExtended.bride_name,
+      bridePhone: bookingExtended.bride_whatsapp || bookingExtended.bride_additional_whatsapp,
+      brideAddress: bookingExtended.bride_address || bookingExtended.bride_home_address,
       deliveryDate: booking.delivery_date,
+      deliveryTime: bookingExtended.delivery_time,
       returnDate: booking.return_date,
+      returnTime: bookingExtended.return_time,
       
-      // Financial
+      // Package details
+      packageName: bookingExtended.package_details?.name,
+      packageDescription: bookingExtended.package_details?.description,
+      variantName: bookingExtended.variant_name,
+      categoryName: items && items.length > 0 ? items[0]?.category_name : undefined,
+      extraSafas: bookingExtended.extra_safas,
+      
+      // Financial - All fields
       subtotal,
       discountAmount: booking.discount_amount,
       discountPercentage: booking.discount_percentage,
       couponCode: booking.coupon_code,
       couponDiscount: booking.coupon_discount,
       distanceAmount: booking.distance_amount,
+      customAmount,
       taxAmount: booking.tax_amount,
       taxPercentage: booking.gst_percentage,
       totalAmount,
@@ -129,17 +153,21 @@ export function useInvoiceGenerator() {
       // Items
       items: invoiceItems,
       
-      // Company - from settings
+      // Company - from settings with branding
       companyName: settings?.company_name || 'SAFAWALA',
       companyPhone: settings?.phone || '+91-XXXXXXXXXX',
       companyEmail: settings?.email || 'support@safawala.com',
       companyAddress: settings?.address || 'Your Address Here',
+      companyCity: settings?.city,
+      companyState: settings?.state,
       companyGST: settings?.gst_number || 'XX AAXXXXXXX XXXXX',
       companyWebsite: settings?.website || undefined,
       companyLogo: settings?.logo_url || undefined,
       companySignature: settings?.signature_url || undefined,
-      brandingColor: '#22C55E', // Default green, can be customized
-      termsAndConditions: 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
+      primaryColor: settings?.primary_color || '#3B82F6',
+      secondaryColor: settings?.secondary_color || '#EF4444',
+      accentColor: settings?.accent_color || '#10B981',
+      termsAndConditions: settings?.default_terms_conditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
     }
   }
 

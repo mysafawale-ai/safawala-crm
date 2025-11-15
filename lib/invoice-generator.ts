@@ -8,25 +8,44 @@ export interface InvoiceData {
   eventDate: string
   bookingType: 'package' | 'product_rental' | 'product_sale' | 'direct_sale'
   paymentType: 'full' | 'advance' | 'partial'
+  bookingStatus?: string
+  isQuote?: boolean
   
   // Customer details
   customerName: string
   customerPhone: string
   customerEmail?: string
+  customerWhatsApp?: string
   customerAddress?: string
   customerCity?: string
   customerState?: string
   customerPincode?: string
+  customerCode?: string
   
   // Event details
   eventType?: string
+  eventParticipant?: string
   eventFor?: string
   venueName?: string
   venueAddress?: string
   groomName?: string
+  groomPhone?: string
+  groomAddress?: string
   brideName?: string
+  bridePhone?: string
+  brideAddress?: string
   deliveryDate?: string
+  deliveryTime?: string
   returnDate?: string
+  returnTime?: string
+  eventTime?: string
+  
+  // Package details
+  packageName?: string
+  packageDescription?: string
+  variantName?: string
+  categoryName?: string
+  extraSafas?: number
   
   // Financial details
   subtotal: number
@@ -35,6 +54,7 @@ export interface InvoiceData {
   couponCode?: string
   couponDiscount?: number
   distanceAmount?: number
+  customAmount?: number
   taxAmount?: number
   taxPercentage?: number
   totalAmount: number
@@ -51,11 +71,15 @@ export interface InvoiceData {
   companyPhone?: string
   companyEmail?: string
   companyAddress?: string
+  companyCity?: string
+  companyState?: string
   companyGST?: string
   companyLogo?: string
   companyWebsite?: string
   companySignature?: string
-  brandingColor?: string
+  primaryColor?: string
+  secondaryColor?: string
+  accentColor?: string
   termsAndConditions?: string
 }
 
@@ -77,21 +101,26 @@ export class InvoiceGenerator {
     let yPosition = 15
     const margin = 15
     const contentWidth = pageWidth - 2 * margin
-    const brandColor = invoiceData.brandingColor || [34, 197, 94] // Default green
-
-    // Parse branding color if it's a string
-    let brandingRGB: [number, number, number] = [34, 197, 94]
-    if (typeof brandColor === 'string') {
-      if (brandColor.startsWith('#')) {
-        const hex = brandColor.substring(1)
-        brandingRGB = [
-          parseInt(hex.substring(0, 2), 16),
-          parseInt(hex.substring(2, 4), 16),
-          parseInt(hex.substring(4, 6), 16)
-        ]
-      }
-    } else if (Array.isArray(brandColor)) {
-      brandingRGB = (brandColor as any) as [number, number, number]
+    // Parse primary color for branding
+    let primaryRGB: [number, number, number] = [34, 197, 94] // Default green
+    let secondaryRGB: [number, number, number] = [239, 68, 68] // Default red
+    
+    if (invoiceData.primaryColor && invoiceData.primaryColor.startsWith('#')) {
+      const hex = invoiceData.primaryColor.substring(1)
+      primaryRGB = [
+        parseInt(hex.substring(0, 2), 16),
+        parseInt(hex.substring(2, 4), 16),
+        parseInt(hex.substring(4, 6), 16)
+      ]
+    }
+    
+    if (invoiceData.secondaryColor && invoiceData.secondaryColor.startsWith('#')) {
+      const hex = invoiceData.secondaryColor.substring(1)
+      secondaryRGB = [
+        parseInt(hex.substring(0, 2), 16),
+        parseInt(hex.substring(2, 4), 16),
+        parseInt(hex.substring(4, 6), 16)
+      ]
     }
 
     // Set default font
@@ -110,7 +139,7 @@ export class InvoiceGenerator {
 
     // Header - Company Info with branding
     pdf.setFontSize(16)
-    pdf.setTextColor(brandingRGB[0], brandingRGB[1], brandingRGB[2])
+    pdf.setTextColor(primaryRGB[0], primaryRGB[1], primaryRGB[2])
     pdf.text(invoiceData.companyName || 'SAFAWALA', margin + (invoiceData.companyLogo ? 35 : 0), invoiceData.companyLogo ? 17 : yPosition)
     
     if (!invoiceData.companyLogo) {
