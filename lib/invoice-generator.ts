@@ -1,5 +1,17 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import {
+  PDFHeader,
+  PDFInvoiceTitle,
+  PDFCustomerDetails,
+  PDFPackageDetails,
+  PDFEventDetails,
+  PDFFinancialSummary,
+  PDFPaymentStatus,
+  PDFFooter,
+  PDFColors,
+  PDFConfig
+} from './pdf-components'
 
 // Helper function to convert image URL to base64 with retry logic
 async function getBase64FromUrl(url: string, retries: number = 3): Promise<string> {
@@ -144,305 +156,127 @@ export class InvoiceGenerator {
     const margin = 15
     const contentWidth = pageWidth - 2 * margin
 
-    // Convert logo URL to base64 if available
+    console.log('🚀 Starting PDF generation for:', invoiceData.bookingNumber)
+
+    // Load logo and signature
     let logoBase64: string | null = null
+    let signatureBase64: string | null = null
+
     if (invoiceData.companyLogo) {
       try {
-        console.log('🚀 Starting logo load process...')
         logoBase64 = await getBase64FromUrl(invoiceData.companyLogo, 3)
-        console.log('✅ Logo loaded and ready for PDF')
+        console.log('✅ Logo loaded successfully')
       } catch (e) {
-        console.error('❌ Failed to load logo after all retries:', e)
-        // Continue without logo
+        console.error('❌ Failed to load logo:', e)
       }
-    } else {
-      console.log('ℹ️ No logo URL provided in company settings')
     }
 
-    // Parse primary color for branding
-    let primaryRGB: [number, number, number] = [34, 197, 94] // Default green
-    let secondaryRGB: [number, number, number] = [239, 68, 68] // Default red
-    
-    if (invoiceData.primaryColor && invoiceData.primaryColor.startsWith('#')) {
-      const hex = invoiceData.primaryColor.substring(1)
-      primaryRGB = [
-        parseInt(hex.substring(0, 2), 16),
-        parseInt(hex.substring(2, 4), 16),
-        parseInt(hex.substring(4, 6), 16)
+    if (invoiceData.companySignature) {
+      try {
+        signatureBase64 = await getBase64FromUrl(invoiceData.companySignature, 2)
+        console.log('✅ Signature loaded successfully')
+      } catch (e) {
+        console.error('❌ Failed to load signature:', e)
+      }
+    }
+
+    // Parse colors
+    const parseHexColor = (hex: string): [number, number, number] => {
+      const cleanHex = hex.replace('#', '')
+      return [
+        parseInt(cleanHex.substring(0, 2), 16),
+        parseInt(cleanHex.substring(2, 4), 16),
+        parseInt(cleanHex.substring(4, 6), 16)
       ]
     }
-    
-    if (invoiceData.secondaryColor && invoiceData.secondaryColor.startsWith('#')) {
-      const hex = invoiceData.secondaryColor.substring(1)
-      secondaryRGB = [
-        parseInt(hex.substring(0, 2), 16),
-        parseInt(hex.substring(2, 4), 16),
-        parseInt(hex.substring(4, 6), 16)
-      ]
+
+    const colors: PDFColors = {
+      primary: invoiceData.primaryColor ? parseHexColor(invoiceData.primaryColor) : [34, 197, 94],
+      secondary: invoiceData.secondaryColor ? parseHexColor(invoiceData.secondaryColor) : [239, 68, 68],
+      text: [51, 51, 51],
+      lightText: [100, 100, 100],
+      border: [200, 200, 200]
+    }
+
+    const config: PDFConfig = {
+      pageWidth,
+      pageHeight,
+      margin,
+      contentWidth,
+      colors
     }
 
     // Set default font
     pdf.setFont('helvetica')
 
-    // Add logo on top right if available
-    if (logoBase64) {
-      try {
-        // Position logo on top right corner with better visibility
-        const logoWidth = 50
-        const logoHeight = 25
-        const logoX = pageWidth - margin - logoWidth
-        const logoY = yPosition
-        
-        // Detect image format from base64 string
-        let format: 'PNG' | 'JPEG' | 'JPG' = 'PNG'
-        if (logoBase64.includes('data:image/jpeg') || logoBase64.includes('data:image/jpg')) {
-          format = 'JPEG'
-        } else if (logoBase64.includes('data:image/png')) {
-          format = 'PNG'
-        }
-        
-        console.log(`✅ Adding logo: format=${format}, position=(${logoX}, ${logoY}), size=(${logoWidth}x${logoHeight})`)
-        pdf.addImage(logoBase64, format, logoX, logoY, logoWidth, logoHeight)
-        console.log('✅ Logo added successfully to PDF')
-      } catch (e) {
-        console.error('❌ Error adding logo to PDF:', e)
-      }
-    } else {
-      console.log('⚠️ No logo base64 data available')
+    // === RENDER HEADER COMPONENT ===
+    yPosition = await PDFHeader.render(pdf, config, yPosition, {
+      companyName: invoiceData.companyName || 'SAFAWALA',
+      companyAddress: invoiceData.companyAddress,
+      companyPhone: invoiceData.companyPhone,
+      companyEmail: invoiceData.companyEmail,
+      companyGST: invoiceData.companyGST,
+      companyWebsite: invoiceData.companyWebsite,
+      logoBase64
+    })
+
+    // === RENDER INVOICE TITLE COMPONENT ===
+    yPosition = PDFInvoiceTitle.render(pdf, config, yPosition, {
+      invoiceNumber: invoiceData.bookingNumber,
+      bookingId: invoiceData.bookingId,
+      date: new Date(invoiceData.bookingDate).toLocaleDateString('en-IN'),
+      type: invoiceData.bookingType.replace(/_/g, ' ').toUpperCase(),
+      status: invoiceData.bookingStatus
+    })
+
+    // === RENDER CUSTOMER DETAILS COMPONENT ===
+    yPosition = PDFCustomerDetails.render(pdf, config, yPosition, {
+      customerName: invoiceData.customerName,
+      customerCode: invoiceData.customerCode,
+      customerPhone: invoiceData.customerPhone,
+      customerWhatsApp: invoiceData.customerWhatsApp,
+      customerEmail: invoiceData.customerEmail,
+      customerAddress: invoiceData.customerAddress,
+      customerCity: invoiceData.customerCity,
+      customerState: invoiceData.customerState,
+      customerPincode: invoiceData.customerPincode
+    })
+
+    // === RENDER PACKAGE DETAILS COMPONENT (if package booking) ===
+    if (invoiceData.bookingType === 'package') {
+      yPosition = PDFPackageDetails.render(pdf, config, yPosition, {
+        packageName: invoiceData.packageName,
+        variantName: invoiceData.variantName,
+        categoryName: invoiceData.categoryName,
+        extraSafas: invoiceData.extraSafas,
+        packageDescription: invoiceData.packageDescription
+      })
     }
 
-    // Header - Company Info with branding (left side)
-    pdf.setFontSize(18)
-    pdf.setFont('helvetica', 'bold')
-    pdf.setTextColor(primaryRGB[0], primaryRGB[1], primaryRGB[2])
-    pdf.text(invoiceData.companyName || 'SAFAWALA', margin, yPosition + 5)
-    yPosition += 10
-
-    pdf.setFontSize(9)
-    pdf.setTextColor(100, 100, 100)
-    if (invoiceData.companyAddress) {
-      pdf.text(invoiceData.companyAddress, margin, yPosition)
-      yPosition += 4
-    }
-    if (invoiceData.companyPhone) {
-      pdf.text(`Phone: ${invoiceData.companyPhone}`, margin, yPosition)
-      yPosition += 4
-    }
-    if (invoiceData.companyEmail) {
-      pdf.text(`Email: ${invoiceData.companyEmail}`, margin, yPosition)
-      yPosition += 4
-    }
-    if (invoiceData.companyGST) {
-      pdf.text(`GST: ${invoiceData.companyGST}`, margin, yPosition)
-      yPosition += 4
-    }
-    yPosition += 4
-
-    // Invoice Title and Number
-    pdf.setFontSize(14)
-    pdf.setTextColor(0, 0, 0)
-    pdf.text('INVOICE', margin, yPosition)
-    yPosition += 6
-
-    pdf.setFontSize(10)
-    pdf.setTextColor(100, 100, 100)
-    pdf.text(`Invoice #: ${invoiceData.bookingNumber}`, margin, yPosition)
-    yPosition += 4
-    pdf.text(`Booking ID: ${invoiceData.bookingId}`, margin, yPosition)
-    yPosition += 4
-    pdf.text(`Date: ${new Date(invoiceData.bookingDate).toLocaleDateString('en-IN')}`, margin, yPosition)
-    yPosition += 4
-    pdf.text(`Type: ${invoiceData.bookingType.replace(/_/g, ' ').toUpperCase()}`, margin, yPosition)
-    yPosition += 6
-
-    // Customer Details Section
-    pdf.setDrawColor(200, 200, 200)
-    pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
-    yPosition += 3
-
-    pdf.setFontSize(10)
-    pdf.setTextColor(51, 51, 51)
-    pdf.text('BILL TO:', margin, yPosition)
-    yPosition += 5
-
-    pdf.setFontSize(9)
-    pdf.text(invoiceData.customerName, margin, yPosition)
-    yPosition += 4
-    
-    // Customer Code
-    if (invoiceData.customerCode) {
-      pdf.text(`Customer Code: ${invoiceData.customerCode}`, margin, yPosition)
-      yPosition += 4
-    }
-    
-    // Phone and WhatsApp
-    pdf.text(`Phone: ${invoiceData.customerPhone}`, margin, yPosition)
-    yPosition += 4
-    if (invoiceData.customerWhatsApp && invoiceData.customerWhatsApp !== invoiceData.customerPhone) {
-      pdf.text(`WhatsApp: ${invoiceData.customerWhatsApp}`, margin, yPosition)
-      yPosition += 4
-    }
-    
-    if (invoiceData.customerEmail) {
-      pdf.text(`Email: ${invoiceData.customerEmail}`, margin, yPosition)
-      yPosition += 4
-    }
-    if (invoiceData.customerAddress) {
-      const addressLines = pdf.splitTextToSize(
-        `${invoiceData.customerAddress}${invoiceData.customerCity ? ', ' + invoiceData.customerCity : ''}${invoiceData.customerState ? ', ' + invoiceData.customerState : ''}${invoiceData.customerPincode ? ' - ' + invoiceData.customerPincode : ''}`,
-        contentWidth - 20
-      )
-      pdf.text(addressLines, margin, yPosition)
-      yPosition += addressLines.length * 4
-    }
-    yPosition += 4
-
-    // Package Details (for package bookings)
-    if (invoiceData.bookingType === 'package' && (invoiceData.packageName || invoiceData.variantName)) {
-      pdf.setDrawColor(200, 200, 200)
-      pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
-      yPosition += 3
-
-      pdf.setFontSize(10)
-      pdf.setTextColor(primaryRGB[0], primaryRGB[1], primaryRGB[2])
-      pdf.text('PACKAGE DETAILS:', margin, yPosition)
-      yPosition += 5
-
-      pdf.setFontSize(9)
-      pdf.setTextColor(51, 51, 51)
-      if (invoiceData.packageName) {
-        pdf.text(`Package: ${invoiceData.packageName}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.variantName) {
-        pdf.text(`Variant: ${invoiceData.variantName}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.categoryName) {
-        pdf.text(`Category: ${invoiceData.categoryName}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.extraSafas && invoiceData.extraSafas > 0) {
-        pdf.text(`Extra Safas: ${invoiceData.extraSafas}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.packageDescription) {
-        pdf.setFontSize(8)
-        pdf.setTextColor(100, 100, 100)
-        const descLines = pdf.splitTextToSize(invoiceData.packageDescription, contentWidth - 20)
-        pdf.text(descLines, margin, yPosition)
-        yPosition += descLines.length * 3.5
-        pdf.setFontSize(9)
-        pdf.setTextColor(51, 51, 51)
-      }
-      yPosition += 4
-    }
-
-    // Event Details (for package/rental bookings)
+    // === RENDER EVENT DETAILS COMPONENT (if applicable) ===
     if (['package', 'product_rental'].includes(invoiceData.bookingType)) {
-      pdf.setDrawColor(200, 200, 200)
-      pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
-      yPosition += 3
-
-      pdf.setFontSize(10)
-      pdf.setTextColor(primaryRGB[0], primaryRGB[1], primaryRGB[2])
-      pdf.text('EVENT DETAILS:', margin, yPosition)
-      yPosition += 5
-
-      pdf.setFontSize(9)
-      pdf.setTextColor(51, 51, 51)
-      if (invoiceData.eventType) {
-        pdf.text(`Type: ${invoiceData.eventType.replace(/_/g, ' ').toUpperCase()}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.eventParticipant) {
-        pdf.text(`Participant: ${invoiceData.eventParticipant}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.eventFor) {
-        pdf.text(`For: ${invoiceData.eventFor}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.eventDate) {
-        let eventDateStr = `Event Date: ${new Date(invoiceData.eventDate).toLocaleDateString('en-IN')}`
-        if (invoiceData.eventTime) {
-          eventDateStr += ` at ${invoiceData.eventTime}`
-        }
-        pdf.text(eventDateStr, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.deliveryDate) {
-        let deliveryStr = `Delivery: ${new Date(invoiceData.deliveryDate).toLocaleDateString('en-IN')}`
-        if (invoiceData.deliveryTime) {
-          deliveryStr += ` at ${invoiceData.deliveryTime}`
-        }
-        pdf.text(deliveryStr, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.returnDate) {
-        let returnStr = `Return: ${new Date(invoiceData.returnDate).toLocaleDateString('en-IN')}`
-        if (invoiceData.returnTime) {
-          returnStr += ` at ${invoiceData.returnTime}`
-        }
-        pdf.text(returnStr, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.venueName) {
-        pdf.text(`Venue: ${invoiceData.venueName}`, margin, yPosition)
-        yPosition += 4
-      }
-      if (invoiceData.venueAddress) {
-        const venueLines = pdf.splitTextToSize(`Venue Address: ${invoiceData.venueAddress}`, contentWidth - 20)
-        pdf.text(venueLines, margin, yPosition)
-        yPosition += venueLines.length * 4
-      }
-      
-      // Groom Details
-      if (invoiceData.groomName) {
-        yPosition += 2
-        pdf.setFontSize(8)
-        pdf.setTextColor(100, 100, 100)
-        pdf.text('Groom Details:', margin, yPosition)
-        yPosition += 3
-        pdf.setFontSize(9)
-        pdf.setTextColor(51, 51, 51)
-        pdf.text(`Name: ${invoiceData.groomName}`, margin + 5, yPosition)
-        yPosition += 4
-        if (invoiceData.groomPhone) {
-          pdf.text(`Phone: ${invoiceData.groomPhone}`, margin + 5, yPosition)
-          yPosition += 4
-        }
-        if (invoiceData.groomAddress) {
-          const groomAddrLines = pdf.splitTextToSize(`Address: ${invoiceData.groomAddress}`, contentWidth - 25)
-          pdf.text(groomAddrLines, margin + 5, yPosition)
-          yPosition += groomAddrLines.length * 4
-        }
-      }
-      
-      // Bride Details
-      if (invoiceData.brideName) {
-        yPosition += 2
-        pdf.setFontSize(8)
-        pdf.setTextColor(100, 100, 100)
-        pdf.text('Bride Details:', margin, yPosition)
-        yPosition += 3
-        pdf.setFontSize(9)
-        pdf.setTextColor(51, 51, 51)
-        pdf.text(`Name: ${invoiceData.brideName}`, margin + 5, yPosition)
-        yPosition += 4
-        if (invoiceData.bridePhone) {
-          pdf.text(`Phone: ${invoiceData.bridePhone}`, margin + 5, yPosition)
-          yPosition += 4
-        }
-        if (invoiceData.brideAddress) {
-          const brideAddrLines = pdf.splitTextToSize(`Address: ${invoiceData.brideAddress}`, contentWidth - 25)
-          pdf.text(brideAddrLines, margin + 5, yPosition)
-          yPosition += brideAddrLines.length * 4
-        }
-      }
-      
-      yPosition += 2
+      yPosition = PDFEventDetails.render(pdf, config, yPosition, {
+        eventType: invoiceData.eventType,
+        eventParticipant: invoiceData.eventParticipant,
+        eventFor: invoiceData.eventFor,
+        eventDate: invoiceData.eventDate,
+        eventTime: invoiceData.eventTime,
+        deliveryDate: invoiceData.deliveryDate,
+        deliveryTime: invoiceData.deliveryTime,
+        returnDate: invoiceData.returnDate,
+        returnTime: invoiceData.returnTime,
+        venueName: invoiceData.venueName,
+        venueAddress: invoiceData.venueAddress,
+        groomName: invoiceData.groomName,
+        groomPhone: invoiceData.groomPhone,
+        groomAddress: invoiceData.groomAddress,
+        brideName: invoiceData.brideName,
+        bridePhone: invoiceData.bridePhone,
+        brideAddress: invoiceData.brideAddress
+      })
     }
+
+    // Package and event details already rendered by components above
 
     // Items Table
     if (invoiceData.items && invoiceData.items.length > 0) {
@@ -488,154 +322,34 @@ export class InvoiceGenerator {
       yPosition = (pdf as any).lastAutoTable.finalY + 5
     }
 
-    // Financial Summary Section
-    yPosition += 5
-    pdf.setDrawColor(200, 200, 200)
-    pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
-    yPosition += 3
+    // === RENDER FINANCIAL SUMMARY COMPONENT ===
+    yPosition = PDFFinancialSummary.render(pdf, config, yPosition, {
+      subtotal: invoiceData.subtotal,
+      distanceAmount: invoiceData.distanceAmount,
+      customAmount: invoiceData.customAmount,
+      discountAmount: invoiceData.discountAmount,
+      discountPercentage: invoiceData.discountPercentage,
+      couponDiscount: invoiceData.couponDiscount,
+      couponCode: invoiceData.couponCode,
+      taxAmount: invoiceData.taxAmount,
+      taxPercentage: invoiceData.taxPercentage,
+      totalAmount: invoiceData.totalAmount,
+      securityDeposit: invoiceData.securityDeposit
+    })
 
-    pdf.setFontSize(9)
-    pdf.setTextColor(51, 51, 51)
+    // === RENDER PAYMENT STATUS COMPONENT ===
+    yPosition = PDFPaymentStatus.render(pdf, config, yPosition, {
+      paidAmount: invoiceData.paidAmount,
+      pendingAmount: invoiceData.pendingAmount,
+      paymentMethod: invoiceData.paymentMethod,
+      paymentType: invoiceData.paymentType
+    })
 
-    const summaryLeft = margin
-    const summaryRight = pageWidth - margin - 50
-
-    // Subtotal
-    pdf.text('Subtotal:', summaryLeft, yPosition)
-    pdf.text(`₹${invoiceData.subtotal.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-    yPosition += 4
-
-    // Distance Charges
-    if (invoiceData.distanceAmount && invoiceData.distanceAmount > 0) {
-      pdf.text('Distance Charges:', summaryLeft, yPosition)
-      pdf.text(`₹${invoiceData.distanceAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-      yPosition += 4
-    }
-
-    // Custom Amount
-    if (invoiceData.customAmount && invoiceData.customAmount > 0) {
-      pdf.text('Custom Charges:', summaryLeft, yPosition)
-      pdf.text(`₹${invoiceData.customAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-      yPosition += 4
-    }
-
-    // Discount
-    if (invoiceData.discountAmount && invoiceData.discountAmount > 0) {
-      pdf.setTextColor(34, 139, 34) // Green
-      pdf.text(`Discount${invoiceData.discountPercentage ? ` (${invoiceData.discountPercentage}%)` : ''}:`, summaryLeft, yPosition)
-      pdf.text(`-₹${invoiceData.discountAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-      pdf.setTextColor(51, 51, 51)
-      yPosition += 4
-    }
-
-    // Coupon Discount
-    if (invoiceData.couponDiscount && invoiceData.couponDiscount > 0) {
-      pdf.setTextColor(34, 139, 34) // Green
-      pdf.text(`Coupon ${invoiceData.couponCode ? `(${invoiceData.couponCode})` : ''}:`, summaryLeft, yPosition)
-      pdf.text(`-₹${invoiceData.couponDiscount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-      pdf.setTextColor(51, 51, 51)
-      yPosition += 4
-    }
-
-    // Tax/GST
-    if (invoiceData.taxAmount && invoiceData.taxAmount > 0) {
-      pdf.text(`GST${invoiceData.taxPercentage ? ` (${invoiceData.taxPercentage}%)` : ''}:`, summaryLeft, yPosition)
-      pdf.text(`₹${invoiceData.taxAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-      yPosition += 4
-    }
-
-    // Total Amount (Highlighted)
-    yPosition += 2
-    pdf.setDrawColor(200, 200, 200)
-    pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
-    yPosition += 3
-
-    pdf.setFontSize(11)
-    pdf.setFont('helvetica', 'bold')
-    pdf.setTextColor(0, 0, 0)
-    pdf.text('Total Amount:', summaryLeft, yPosition)
-    pdf.text(`₹${invoiceData.totalAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-    yPosition += 5
-
-    // Security Deposit (if applicable)
-    if (invoiceData.securityDeposit && invoiceData.securityDeposit > 0) {
-      pdf.setFont('helvetica', 'normal')
-      pdf.setFontSize(9)
-      pdf.setTextColor(100, 100, 100)
-      pdf.text('Security Deposit (Refundable):', summaryLeft, yPosition)
-      pdf.text(`₹${invoiceData.securityDeposit.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-      yPosition += 4
-    }
-
-    // Payment Status Section
-    yPosition += 3
-    pdf.setDrawColor(200, 200, 200)
-    pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
-    yPosition += 3
-
-    pdf.setFontSize(9)
-    pdf.setFont('helvetica', 'bold')
-    pdf.setTextColor(51, 51, 51)
-    pdf.text('PAYMENT STATUS:', margin, yPosition)
-    yPosition += 5
-
-    pdf.setFont('helvetica', 'normal')
-    pdf.setFontSize(9)
-
-    // Amount Paid
-    pdf.setTextColor(34, 139, 34) // Green
-    pdf.text('Amount Paid:', summaryLeft, yPosition)
-    pdf.text(`₹${invoiceData.paidAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-    yPosition += 4
-
-    // Amount Pending
-    if (invoiceData.pendingAmount && invoiceData.pendingAmount > 0) {
-      pdf.setTextColor(255, 140, 0) // Orange
-      pdf.text('Amount Pending:', summaryLeft, yPosition)
-      pdf.text(`₹${invoiceData.pendingAmount.toLocaleString('en-IN')}`, summaryRight, yPosition, { align: 'right' })
-      yPosition += 4
-    }
-
-    // Payment Method
-    if (invoiceData.paymentMethod) {
-      pdf.setTextColor(51, 51, 51)
-      pdf.text('Payment Method:', summaryLeft, yPosition)
-      pdf.text(invoiceData.paymentMethod, summaryRight, yPosition, { align: 'right' })
-      yPosition += 4
-    }
-
-    // Payment Type
-    pdf.text('Payment Type:', summaryLeft, yPosition)
-    pdf.text(invoiceData.paymentType.replace(/_/g, ' ').toUpperCase(), summaryRight, yPosition, { align: 'right' })
-    yPosition += 6
-
-    // Terms and Conditions
-    yPosition += 3
-    pdf.setDrawColor(200, 200, 200)
-    pdf.rect(margin, yPosition - 2, contentWidth, 0.5)
-    yPosition += 3
-
-    pdf.setFontSize(8)
-    pdf.setTextColor(100, 100, 100)
-    pdf.text('Terms & Conditions:', margin, yPosition)
-    yPosition += 3
-    const termsText = invoiceData.termsAndConditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
-    const termsLines = pdf.splitTextToSize(termsText, contentWidth)
-    pdf.text(termsLines, margin, yPosition)
-    yPosition += termsLines.length * 3 + 3
-
-    // Add signature if available
-    if (invoiceData.companySignature) {
-      try {
-        pdf.setFontSize(8)
-        pdf.setTextColor(100, 100, 100)
-        pdf.text('Authorized By:', pageWidth - margin - 50, yPosition)
-        pdf.addImage(invoiceData.companySignature, 'PNG', pageWidth - margin - 50, yPosition + 2, 40, 12)
-        yPosition += 15
-      } catch (e) {
-        console.error('Error adding signature:', e)
-      }
-    }
+    // === RENDER FOOTER COMPONENT ===
+    yPosition = await PDFFooter.render(pdf, config, yPosition, {
+      termsAndConditions: invoiceData.termsAndConditions,
+      signatureBase64
+    })
 
     // Set metadata
     pdf.setProperties({
