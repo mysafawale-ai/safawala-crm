@@ -96,7 +96,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     
     body {
       font-family: 'Arial', sans-serif;
-      font-size: 11px;
+      font-size: 14px;
       line-height: 1.2;
       color: #333;
       background: #fff;
@@ -123,14 +123,14 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .company-name {
-      font-size: 18px;
+      font-size: 23px;
       font-weight: bold;
       color: ${primaryColorValue};
       margin-bottom: 2px;
     }
     
     .company-details {
-      font-size: 9px;
+      font-size: 12px;
       color: #666;
       line-height: 1.2;
     }
@@ -149,7 +149,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .invoice-title h1 {
-      font-size: 16px;
+      font-size: 21px;
       color: ${primaryColorValue};
       margin-bottom: 1px;
     }
@@ -168,7 +168,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .invoice-meta-label {
-      font-size: 8px;
+      font-size: 13px;
       color: #666;
       text-transform: uppercase;
       line-height: 1.1;
@@ -176,7 +176,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     
     .invoice-meta-value {
       font-weight: bold;
-      font-size: 10px;
+      font-size: 13px;
       color: #333;
       line-height: 1.1;
     }
@@ -185,7 +185,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       display: inline-block;
       padding: 3px 8px;
       border-radius: 10px;
-      font-size: 8px;
+      font-size: 13px;
       font-weight: bold;
       text-transform: uppercase;
     }
@@ -200,7 +200,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .section-title {
-      font-size: 11px;
+      font-size: 14px;
       font-weight: bold;
       color: ${primaryColorValue};
       margin-bottom: 3px;
@@ -218,7 +218,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .info-item {
-      font-size: 9px;
+      font-size: 12px;
       line-height: 1.1;
     }
     
@@ -247,7 +247,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     .items-table th {
       padding: 5px 6px;
       text-align: left;
-      font-size: 9px;
+      font-size: 12px;
       font-weight: 600;
       line-height: 1.1;
     }
@@ -255,7 +255,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     .items-table td {
       padding: 5px 6px;
       border-bottom: 1px solid #e5e7eb;
-      font-size: 9px;
+      font-size: 12px;
       line-height: 1.1;
     }
     
@@ -278,7 +278,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       display: flex;
       justify-content: space-between;
       padding: 3px 0;
-      font-size: 10px;
+      font-size: 13px;
       line-height: 1.1;
     }
     
@@ -289,7 +289,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     .summary-row.total {
       border-top: 1px solid #333;
       font-weight: bold;
-      font-size: 11px;
+      font-size: 14px;
       color: ${primaryColorValue};
       margin-top: 4px;
       padding-top: 4px;
@@ -312,7 +312,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       background: #f9fafb;
       border-left: 2px solid ${primaryColorValue};
       border-radius: 2px;
-      font-size: 8px;
+      font-size: 13px;
       color: #666;
       line-height: 1.2;
       max-height: 150px;
@@ -323,7 +323,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       font-weight: bold;
       color: #333;
       margin-bottom: 3px;
-      font-size: 9px;
+      font-size: 12px;
     }
     
     .terms ol {
@@ -342,7 +342,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       padding-top: 6px;
       border-top: 1px solid #e5e7eb;
       text-align: center;
-      font-size: 8px;
+      font-size: 13px;
       color: #666;
       line-height: 1.1;
     }
@@ -644,7 +644,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       ` : ''}
       
       ${paymentMethod || paymentType ? `
-      <div style="margin-top: 10px; font-size: 10px; color: #666;">
+      <div style="margin-top: 10px; font-size: 13px; color: #666;">
         ${paymentMethod ? `Method: ${paymentMethod}` : ''}
         ${paymentType ? ` | Type: ${paymentType}` : ''}
       </div>
