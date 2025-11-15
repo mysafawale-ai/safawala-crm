@@ -31,11 +31,12 @@ export interface CompanySettings {
   default_tax_rate?: number
   show_gst_breakdown?: boolean
   default_terms_conditions?: string
+  terms_conditions?: string  // From company_settings table (fallback)
   created_at?: string
   updated_at?: string
 }
 
-export function useCompanySettings() {
+export function useCompanySettings(franchiseId?: string) {
   const [settings, setSettings] = useState<CompanySettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +45,24 @@ export function useCompanySettings() {
     const fetchSettings = async () => {
       try {
         setLoading(true)
-        const res = await fetch('/api/settings/all', {
+        
+        // Get franchise_id from parameter or try to get from localStorage (fallback)
+        let fId = franchiseId
+        if (!fId && typeof window !== 'undefined') {
+          // Try to get from localStorage if available
+          const stored = localStorage.getItem('franchise_id')
+          if (stored) fId = stored
+        }
+
+        console.log('🔍 [useCompanySettings] Fetching with franchise_id:', fId)
+
+        // Build API URL with franchise_id if available
+        let apiUrl = '/api/settings/all'
+        if (fId) {
+          apiUrl += `?franchise_id=${encodeURIComponent(fId)}`
+        }
+
+        const res = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -66,6 +84,7 @@ export function useCompanySettings() {
         console.log('📦 Full Data:', data)
         console.log('🎯 Merged Settings:', mergedSettings)
         console.log('🖼️ Logo URL:', mergedSettings?.logo_url)
+        console.log('📋 Terms & Conditions:', mergedSettings?.default_terms_conditions)
         console.log('🎨 Primary Color:', mergedSettings?.primary_color)
         console.log('🎨 Secondary Color:', mergedSettings?.secondary_color)
         console.log('🎨 Accent Color:', mergedSettings?.accent_color)
@@ -95,7 +114,7 @@ export function useCompanySettings() {
     }
 
     fetchSettings()
-  }, [])
+  }, [franchiseId])
 
   return { settings, loading, error }
 }

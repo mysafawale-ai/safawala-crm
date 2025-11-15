@@ -96,8 +96,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     
     body {
       font-family: 'Arial', sans-serif;
-      font-size: 12px;
-      line-height: 1.6;
+      font-size: 11px;
+      line-height: 1.2;
       color: #333;
       background: #fff;
     }
@@ -105,7 +105,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     .invoice-container {
       max-width: 800px;
       margin: 0 auto;
-      padding: 20px;
+      padding: 10px;
     }
     
     /* Header */
@@ -113,9 +113,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 3px solid ${primaryColorValue};
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid ${primaryColorValue};
     }
     
     .company-info {
@@ -123,21 +123,21 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .company-name {
-      font-size: 24px;
+      font-size: 18px;
       font-weight: bold;
       color: ${primaryColorValue};
-      margin-bottom: 5px;
+      margin-bottom: 2px;
     }
     
     .company-details {
-      font-size: 11px;
+      font-size: 9px;
       color: #666;
-      line-height: 1.5;
+      line-height: 1.2;
     }
     
     .company-logo {
-      max-width: 200px;
-      max-height: 100px;
+      max-width: 120px;
+      max-height: 60px;
       object-fit: contain;
       vertical-align: middle;
     }
@@ -145,22 +145,22 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     /* Invoice Title */
     .invoice-title {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 5px;
     }
     
     .invoice-title h1 {
-      font-size: 28px;
+      font-size: 16px;
       color: ${primaryColorValue};
-      margin-bottom: 10px;
+      margin-bottom: 1px;
     }
     
     .invoice-meta {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 20px;
+      margin-bottom: 8px;
       background: #f8f9fa;
-      padding: 15px;
-      border-radius: 5px;
+      padding: 6px 8px;
+      border-radius: 2px;
     }
     
     .invoice-meta-item {
@@ -168,22 +168,24 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .invoice-meta-label {
-      font-size: 10px;
+      font-size: 8px;
       color: #666;
       text-transform: uppercase;
+      line-height: 1.1;
     }
     
     .invoice-meta-value {
       font-weight: bold;
-      font-size: 13px;
+      font-size: 10px;
       color: #333;
+      line-height: 1.1;
     }
     
     .status-badge {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 8px;
       font-weight: bold;
       text-transform: uppercase;
     }
@@ -194,29 +196,30 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     
     /* Customer Details */
     .section {
-      margin-bottom: 25px;
+      margin-bottom: 8px;
     }
     
     .section-title {
-      font-size: 14px;
+      font-size: 11px;
       font-weight: bold;
       color: ${primaryColorValue};
-      margin-bottom: 10px;
-      padding-bottom: 5px;
-      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 3px;
+      padding-bottom: 2px;
+      border-bottom: 1px solid #e5e7eb;
     }
     
     .info-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
+      gap: 3px;
       background: #f9fafb;
-      padding: 15px;
-      border-radius: 5px;
+      padding: 6px;
+      border-radius: 3px;
     }
     
     .info-item {
-      font-size: 11px;
+      font-size: 9px;
+      line-height: 1.1;
     }
     
     .info-label {
@@ -233,7 +236,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 20px;
+      margin-bottom: 6px;
     }
     
     .items-table thead {
@@ -242,16 +245,18 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .items-table th {
-      padding: 10px;
+      padding: 5px 6px;
       text-align: left;
-      font-size: 11px;
+      font-size: 9px;
       font-weight: 600;
+      line-height: 1.1;
     }
     
     .items-table td {
-      padding: 10px;
+      padding: 5px 6px;
       border-bottom: 1px solid #e5e7eb;
-      font-size: 11px;
+      font-size: 9px;
+      line-height: 1.1;
     }
     
     .items-table tbody tr:hover {
@@ -265,15 +270,16 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     /* Financial Summary */
     .financial-summary {
       margin-left: auto;
-      width: 300px;
-      margin-bottom: 20px;
+      width: 250px;
+      margin-bottom: 8px;
     }
     
     .summary-row {
       display: flex;
       justify-content: space-between;
-      padding: 8px 0;
-      font-size: 12px;
+      padding: 3px 0;
+      font-size: 10px;
+      line-height: 1.1;
     }
     
     .summary-row.discount {
@@ -281,12 +287,12 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .summary-row.total {
-      border-top: 2px solid #333;
+      border-top: 1px solid #333;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 11px;
       color: ${primaryColorValue};
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 4px;
+      padding-top: 4px;
     }
     
     .summary-row.paid {
@@ -301,40 +307,44 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     
     /* Terms & Footer */
     .terms {
-      margin-top: 30px;
-      padding: 15px;
+      margin-top: 6px;
+      padding: 6px 8px;
       background: #f9fafb;
-      border-left: 3px solid ${primaryColorValue};
-      border-radius: 3px;
-      font-size: 10px;
+      border-left: 2px solid ${primaryColorValue};
+      border-radius: 2px;
+      font-size: 8px;
       color: #666;
-      line-height: 1.6;
+      line-height: 1.2;
+      max-height: 150px;
+      overflow-y: auto;
     }
     
     .terms-title {
       font-weight: bold;
       color: #333;
-      margin-bottom: 10px;
-      font-size: 11px;
+      margin-bottom: 3px;
+      font-size: 9px;
     }
     
     .terms ol {
       margin: 0;
-      padding-left: 20px;
+      padding-left: 14px;
     }
     
     .terms li {
-      margin-bottom: 5px;
+      margin-bottom: 2px;
       color: #555;
+      line-height: 1.2;
     }
     
     .footer {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 2px solid #e5e7eb;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #e5e7eb;
       text-align: center;
-      font-size: 10px;
+      font-size: 8px;
       color: #666;
+      line-height: 1.1;
     }
     
     @media print {
@@ -345,6 +355,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       .invoice-container {
         max-width: 100%;
         padding: 10px;
+      }
+      .terms {
+        page-break-inside: avoid;
       }
     }
   </style>

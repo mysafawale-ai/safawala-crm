@@ -1,4 +1,5 @@
 import { InvoiceData, InvoiceGenerator } from '@/lib/invoice-generator'
+import { useEffect } from 'react'
 import { useCompanySettings } from './use-company-settings'
 
 interface BookingData {
@@ -59,8 +60,19 @@ interface BookingItem {
   package_name?: string
 }
 
-export function useInvoiceGenerator() {
-  const { settings } = useCompanySettings()
+export function useInvoiceGenerator(franchiseId?: string) {
+  const { settings, loading } = useCompanySettings(franchiseId)
+  
+  // DEBUG: Log settings changes
+  useEffect(() => {
+    console.log('🔄 [useInvoiceGenerator] Settings updated:', {
+      loading,
+      has_settings: !!settings,
+      franchise_id: franchiseId,
+      settings_keys: settings ? Object.keys(settings) : []
+    })
+    console.log('🔄 [useInvoiceGenerator] Settings data:', settings)
+  }, [settings, loading, franchiseId])
 
   const generateInvoiceData = (booking: BookingData, items: BookingItem[]): InvoiceData => {
     const totalAmount = Number(booking.total_amount || 0)
@@ -170,7 +182,8 @@ export function useInvoiceGenerator() {
       primaryColor: settings?.primary_color || '#3B82F6',
       secondaryColor: settings?.secondary_color || '#EF4444',
       accentColor: settings?.accent_color || '#10B981',
-      termsAndConditions: settings?.default_terms_conditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
+      // Fetch terms from document_settings (default_terms_conditions) OR company_settings (terms_conditions) as fallback
+      termsAndConditions: settings?.default_terms_conditions || settings?.terms_conditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
     }
 
     // DEBUG: Log terms and conditions

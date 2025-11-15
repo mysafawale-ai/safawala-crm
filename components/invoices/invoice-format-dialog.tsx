@@ -20,7 +20,9 @@ export function InvoiceFormatDialog({
 }: InvoiceFormatDialogProps) {
   const [htmlUrl, setHtmlUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const { generatePDFObject } = useInvoiceGenerator()
+  
+  // Pass franchise_id to the hook if available
+  const { generatePDFObject } = useInvoiceGenerator(booking?.franchise_id)
 
   // Auto-generate invoice when dialog opens
   useEffect(() => {
