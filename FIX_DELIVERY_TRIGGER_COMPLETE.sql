@@ -11,6 +11,7 @@ DECLARE
   new_delivery_number TEXT;
   delivery_address TEXT;
   delivery_date DATE;
+  delivery_time TIME;
   booking_type_val TEXT;
 BEGIN
   -- Generate delivery number
@@ -24,11 +25,13 @@ BEGIN
     -- FIXED: Check if delivery_address column exists, fallback to venue_address
     delivery_address := COALESCE(NEW.delivery_address, NEW.venue_address, 'To be confirmed');
     delivery_date := COALESCE(NEW.delivery_date::date, NEW.event_date::date, CURRENT_DATE + INTERVAL '1 day');
+    delivery_time := NEW.delivery_time;
     
   ELSIF TG_TABLE_NAME = 'package_bookings' THEN
     booking_type_val := 'rental'; -- Packages are always rentals
     delivery_address := COALESCE(NEW.venue_address, 'To be confirmed');
     delivery_date := COALESCE(NEW.delivery_date::date, NEW.event_date::date, CURRENT_DATE + INTERVAL '1 day');
+    delivery_time := NEW.delivery_time;
     
   ELSE
     -- Fallback for bookings table (legacy)
@@ -46,6 +49,7 @@ BEGIN
     booking_type,
     delivery_address,
     delivery_date,
+    delivery_time,
     status,
     franchise_id,
     created_by,
@@ -62,6 +66,7 @@ BEGIN
     booking_type_val,
     delivery_address,
     delivery_date,
+    delivery_time,
     'pending',
     NEW.franchise_id,
     COALESCE(NEW.created_by, NEW.customer_id), -- Fallback if created_by is null

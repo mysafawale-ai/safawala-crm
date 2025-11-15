@@ -17,6 +17,7 @@ DECLARE
   new_delivery_number TEXT;
   delivery_address TEXT;
   delivery_date DATE;
+  delivery_time TIME;
   booking_type_val TEXT;
 BEGIN
   -- Generate delivery number
@@ -27,17 +28,20 @@ BEGIN
     booking_type_val := NEW.booking_type;
     delivery_address := COALESCE(NEW.delivery_address, NEW.venue_address, 'To be confirmed');
     delivery_date := COALESCE(NEW.delivery_date::date, NEW.event_date::date, CURRENT_DATE + INTERVAL '1 day');
+    delivery_time := NEW.delivery_time;
     
   ELSIF TG_TABLE_NAME = 'package_bookings' THEN
     booking_type_val := 'rental'; -- Packages are always rentals
     delivery_address := COALESCE(NEW.venue_address, 'To be confirmed');
     delivery_date := COALESCE(NEW.delivery_date::date, NEW.event_date::date, CURRENT_DATE + INTERVAL '1 day');
+    delivery_time := NEW.delivery_time;
     
   ELSE
     -- Fallback for bookings table (legacy)
     booking_type_val := COALESCE(NEW.type, 'rental');
     delivery_address := COALESCE(NEW.delivery_address, NEW.venue_address, 'To be confirmed');
     delivery_date := COALESCE(NEW.delivery_date::date, NEW.event_date::date, CURRENT_DATE + INTERVAL '1 day');
+    delivery_time := NULL;
   END IF;
   
   -- Insert delivery record
@@ -49,6 +53,7 @@ BEGIN
     booking_type,
     delivery_address,
     delivery_date,
+    delivery_time,
     status,
     franchise_id,
     created_by,
@@ -65,6 +70,7 @@ BEGIN
     booking_type_val,
     delivery_address,
     delivery_date,
+    delivery_time,
     'pending',
     NEW.franchise_id,
     COALESCE(NEW.created_by, NEW.customer_id),
