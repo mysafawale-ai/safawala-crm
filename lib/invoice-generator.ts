@@ -45,6 +45,7 @@ export interface InvoiceData {
   variantName?: string
   categoryName?: string
   extraSafas?: number
+  variantInclusions?: Array<{ name: string; description?: string }>
   
   // Financial details
   subtotal: number

@@ -636,19 +636,19 @@ export function generateInvoiceHTML(data: InvoiceData): string {
         </div>
         ${categoryName ? `
         <div class="info-item">
-          <span class="info-label">Category:</span>
+          <span class="info-label">Package Category:</span>
           <span class="info-value" style="font-weight: 600;">${categoryName}</span>
         </div>
         ` : ''}
         ${variantName ? `
         <div class="info-item">
-          <span class="info-label">Variant:</span>
+          <span class="info-label">Variant Name:</span>
           <span class="info-value" style="font-weight: 600;">${variantName}</span>
         </div>
         ` : ''}
         ${subtotal ? `
         <div class="info-item">
-          <span class="info-label">Package Price:</span>
+          <span class="info-label">Variant Price (Inc. Distance):</span>
           <span class="info-value" style="font-weight: 600; color: #0066cc;">₹${subtotal.toFixed(2)}</span>
         </div>
         ` : ''}
@@ -662,6 +662,18 @@ export function generateInvoiceHTML(data: InvoiceData): string {
         <div class="info-item">
           <span class="info-label">Extra Safas:</span>
           <span class="info-value" style="font-weight: 600; background: #fff3cd; padding: 4px 8px; border-radius: 3px;">${extraSafas}</span>
+        </div>
+        ` : ''}
+        ${variantInclusions && variantInclusions.length > 0 ? `
+        <div class="info-item" style="grid-column: span 2;">
+          <span class="info-label">Inclusions:</span>
+          <div style="margin-top: 4px;">
+            ${variantInclusions.map((inc: any) => `
+              <div style="font-size: 11px; color: #555; margin-bottom: 3px; padding: 4px 8px; background: #f0f9ff; border-left: 2px solid #0066cc; border-radius: 2px;">
+                <strong>${inc.name || inc}</strong>${inc.description ? ` - ${inc.description}` : ''}
+              </div>
+            `).join('')}
+          </div>
         </div>
         ` : ''}
       </div>

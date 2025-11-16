@@ -201,6 +201,7 @@ export function useInvoiceGenerator(franchiseId?: string) {
       variantName: bookingExtended.variant_name,
       categoryName: items && items.length > 0 ? items[0]?.category_name : undefined,
       extraSafas: bookingExtended.extra_safas,
+      variantInclusions: bookingExtended.variant_inclusions || bookingExtended.package_variant_details?.inclusions,
       
       // Financial - All fields (distance charge now included in subtotal)
       subtotal,
