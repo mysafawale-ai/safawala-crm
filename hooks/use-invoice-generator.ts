@@ -78,12 +78,19 @@ export function useInvoiceGenerator(franchiseId?: string) {
   // Fetch banking details
   useEffect(() => {
     const fetchBankingDetails = async () => {
-      if (!franchiseId) return
+      console.log('🏦 Fetching banking details for franchise_id:', franchiseId)
+      if (!franchiseId) {
+        console.log('⚠️ No franchiseId provided, skipping banking details fetch')
+        return
+      }
       try {
-        const response = await fetch(`/api/settings/banking?franchise_id=${franchiseId}`)
+        const url = `/api/settings/banking?franchise_id=${franchiseId}`
+        console.log('🏦 Fetching from:', url)
+        const response = await fetch(url)
         const result = await response.json()
+        console.log('🏦 Banking Details API Response:', result)
         if (response.ok && result.data) {
-          setBankingDetails(result.data.map((bank: any) => ({
+          const mapped = result.data.map((bank: any) => ({
             bankName: bank.bank_name,
             accountHolderName: bank.account_holder_name,
             accountNumber: bank.account_number,
@@ -91,7 +98,9 @@ export function useInvoiceGenerator(franchiseId?: string) {
             upiId: bank.upi_id,
             qrCodeUrl: bank.qr_code_url,
             isPrimary: bank.is_primary
-          })))
+          }))
+          console.log('🏦 Mapped Banking Details:', mapped)
+          setBankingDetails(mapped)
         }
       } catch (error) {
         console.error('Error fetching banking details:', error)
@@ -210,8 +219,18 @@ export function useInvoiceGenerator(franchiseId?: string) {
       accentColor: settings?.accent_color || '#10B981',
       // Fetch terms from document_settings (default_terms_conditions) OR company_settings (terms_conditions) as fallback
       termsAndConditions: settings?.default_terms_conditions || settings?.terms_conditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.',
-      // Banking details
-      bankingDetails: bankingDetails.filter(b => b.isPrimary || bankingDetails.length > 0).slice(0, 1) || undefined
+      // Banking details - show primary account or first account
+      bankingDetails: (() => {
+        console.log('💳 Banking details check:', { has_data: bankingDetails.length > 0, count: bankingDetails.length, data: bankingDetails })
+        if (bankingDetails.length === 0) return undefined
+        const primary = bankingDetails.filter(b => b.isPrimary)
+        if (primary.length > 0) {
+          console.log('💳 Using primary account:', primary)
+          return primary
+        }
+        console.log('💳 Using first account:', [bankingDetails[0]])
+        return [bankingDetails[0]]
+      })()
     }
 
     // DEBUG: Log terms and conditions
