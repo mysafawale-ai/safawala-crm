@@ -727,9 +727,10 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       </div>
       
       ${securityDeposit && securityDeposit > 0 ? `
-      <div class="summary-row" style="color: #f59e0b;">
+      <div class="summary-row" style="color: ${paymentType && (paymentType.toLowerCase() === 'full' || paymentType.toLowerCase() === 'advance') ? '#10b981' : '#f59e0b'};">
         <span>Security Deposit:</span>
         <span>₹${securityDeposit.toFixed(2)}</span>
+        ${paymentType && (paymentType.toLowerCase() === 'full' || paymentType.toLowerCase() === 'advance') ? `<span style="font-size: 10px; margin-left: 4px; color: #10b981;">(Paid)</span>` : paymentType && paymentType.toLowerCase() === 'partial' ? `<span style="font-size: 10px; margin-left: 4px; color: #f59e0b;">(Pending)</span>` : ''}
       </div>
       ` : ''}
       
