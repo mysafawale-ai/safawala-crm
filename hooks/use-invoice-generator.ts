@@ -90,15 +90,33 @@ export function useInvoiceGenerator(franchiseId?: string) {
         const result = await response.json()
         console.log('🏦 Banking Details API Response:', result)
         if (response.ok && result.data) {
-          const mapped = result.data.map((bank: any) => ({
-            bankName: bank.bank_name,
-            accountHolderName: bank.account_holder_name,
-            accountNumber: bank.account_number,
-            ifscCode: bank.ifsc_code,
-            upiId: bank.upi_id,
-            qrCodeUrl: bank.qr_code_url,
-            isPrimary: bank.is_primary
-          }))
+          const mapped = result.data.map((bank: any) => {
+            // Try qr_file_path first, then qr_code_url
+            let qrUrl = bank.qr_file_path || bank.qr_code_url
+            
+            // If it's a file path in storage, convert to public URL
+            if (qrUrl && !qrUrl.startsWith('http')) {
+              // Convert storage path to public URL
+              qrUrl = `https://xplnyaxkusvuajtmorss.supabase.co/storage/v1/object/public/${qrUrl}`
+            }
+            
+            console.log('🏦 Bank QR URL:', { 
+              bankName: bank.bank_name, 
+              qr_file_path: bank.qr_file_path,
+              qr_code_url: bank.qr_code_url,
+              finalQrUrl: qrUrl 
+            })
+            
+            return {
+              bankName: bank.bank_name,
+              accountHolderName: bank.account_holder_name,
+              accountNumber: bank.account_number,
+              ifscCode: bank.ifsc_code,
+              upiId: bank.upi_id,
+              qrCodeUrl: qrUrl,
+              isPrimary: bank.is_primary
+            }
+          })
           console.log('🏦 Mapped Banking Details:', mapped)
           setBankingDetails(mapped)
         }
