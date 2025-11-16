@@ -80,6 +80,17 @@ export interface InvoiceData {
   secondaryColor?: string
   accentColor?: string
   termsAndConditions?: string
+  
+  // Banking details
+  bankingDetails?: Array<{
+    bankName: string
+    accountHolderName: string
+    accountNumber: string
+    ifscCode: string
+    upiId?: string
+    qrCodeUrl?: string
+    isPrimary: boolean
+  }>
 }
 
 export interface InvoiceItem {

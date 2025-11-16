@@ -1,5 +1,5 @@
 import { InvoiceData, InvoiceGenerator } from '@/lib/invoice-generator'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useCompanySettings } from './use-company-settings'
 
 interface BookingData {
@@ -62,6 +62,7 @@ interface BookingItem {
 
 export function useInvoiceGenerator(franchiseId?: string) {
   const { settings, loading } = useCompanySettings(franchiseId)
+  const [bankingDetails, setBankingDetails] = useState<any[]>([])
   
   // DEBUG: Log settings changes
   useEffect(() => {
@@ -73,6 +74,31 @@ export function useInvoiceGenerator(franchiseId?: string) {
     })
     console.log('🔄 [useInvoiceGenerator] Settings data:', settings)
   }, [settings, loading, franchiseId])
+
+  // Fetch banking details
+  useEffect(() => {
+    const fetchBankingDetails = async () => {
+      if (!franchiseId) return
+      try {
+        const response = await fetch(`/api/settings/banking?franchise_id=${franchiseId}`)
+        const result = await response.json()
+        if (response.ok && result.data) {
+          setBankingDetails(result.data.map((bank: any) => ({
+            bankName: bank.bank_name,
+            accountHolderName: bank.account_holder_name,
+            accountNumber: bank.account_number,
+            ifscCode: bank.ifsc_code,
+            upiId: bank.upi_id,
+            qrCodeUrl: bank.qr_code_url,
+            isPrimary: bank.is_primary
+          })))
+        }
+      } catch (error) {
+        console.error('Error fetching banking details:', error)
+      }
+    }
+    fetchBankingDetails()
+  }, [franchiseId])
 
   const generateInvoiceData = (booking: BookingData, items: BookingItem[]): InvoiceData => {
     const totalAmount = Number(booking.total_amount || 0)
@@ -183,7 +209,9 @@ export function useInvoiceGenerator(franchiseId?: string) {
       secondaryColor: settings?.secondary_color || '#EF4444',
       accentColor: settings?.accent_color || '#10B981',
       // Fetch terms from document_settings (default_terms_conditions) OR company_settings (terms_conditions) as fallback
-      termsAndConditions: settings?.default_terms_conditions || settings?.terms_conditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
+      termsAndConditions: settings?.default_terms_conditions || settings?.terms_conditions || 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.',
+      // Banking details
+      bankingDetails: bankingDetails.filter(b => b.isPrimary || bankingDetails.length > 0).slice(0, 1) || undefined
     }
 
     // DEBUG: Log terms and conditions

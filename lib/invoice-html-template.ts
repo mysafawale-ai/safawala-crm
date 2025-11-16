@@ -64,7 +64,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     primaryColor,
     secondaryColor,
     accentColor,
-    termsAndConditions
+    termsAndConditions,
+    bankingDetails
   } = data
 
   // DEBUG: Log logo info
@@ -605,10 +606,22 @@ export function generateInvoiceHTML(data: InvoiceData): string {
           <span class="info-label">Package Name:</span>
           <span class="info-value" style="font-weight: 600; color: #840101;">${packageName}</span>
         </div>
+        ${categoryName ? `
+        <div class="info-item">
+          <span class="info-label">Category:</span>
+          <span class="info-value" style="font-weight: 600;">${categoryName}</span>
+        </div>
+        ` : ''}
         ${variantName ? `
         <div class="info-item">
           <span class="info-label">Variant:</span>
           <span class="info-value" style="font-weight: 600;">${variantName}</span>
+        </div>
+        ` : ''}
+        ${subtotal ? `
+        <div class="info-item">
+          <span class="info-label">Package Price:</span>
+          <span class="info-value" style="font-weight: 600; color: #0066cc;">₹${subtotal.toFixed(2)}</span>
         </div>
         ` : ''}
         ${packageDescription ? `
@@ -621,12 +634,6 @@ export function generateInvoiceHTML(data: InvoiceData): string {
         <div class="info-item">
           <span class="info-label">Extra Safas:</span>
           <span class="info-value" style="font-weight: 600; background: #fff3cd; padding: 4px 8px; border-radius: 3px;">${extraSafas}</span>
-        </div>
-        ` : ''}
-        ${categoryName ? `
-        <div class="info-item">
-          <span class="info-label">Category:</span>
-          <span class="info-value">${categoryName}</span>
         </div>
         ` : ''}
       </div>
@@ -718,6 +725,36 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       </div>
       ` : ''}
     </div>
+    
+    <!-- Banking Details -->
+    ${bankingDetails && bankingDetails.length > 0 ? `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+      <!-- Left: Bank Details -->
+      <div>
+        ${bankingDetails.map((bank: any) => `
+          <div style="background: #f9fafb; border-left: 2px solid ${primaryColorValue}; padding: 8px; border-radius: 2px;">
+            <div style="font-weight: bold; color: #333; font-size: 12px; margin-bottom: 4px;">Payment Details</div>
+            <div style="font-size: 12px; color: #555; line-height: 1.6;">
+              <div><strong>${bank.bankName}</strong></div>
+              <div>A/C: ${bank.accountNumber.replace(/\d(?=\d{4})/g, '*')}</div>
+              <div>IFSC: ${bank.ifscCode}</div>
+              ${bank.upiId ? `<div>UPI: ${bank.upiId}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      
+      <!-- Right: QR Code -->
+      ${bankingDetails.find((b: any) => b.qrCodeUrl) ? `
+      <div style="display: flex; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+          <img src="${bankingDetails.find((b: any) => b.qrCodeUrl)?.qrCodeUrl}" alt="QR Code" style="width: 100px; height: 100px;" />
+          <div style="text-align: center; font-size: 11px; color: #666; margin-top: 2px;">Scan to Pay</div>
+        </div>
+      </div>
+      ` : ''}
+    </div>
+    ` : ''}
     
     <!-- Terms & Conditions -->
     ${termsAndConditions ? `
