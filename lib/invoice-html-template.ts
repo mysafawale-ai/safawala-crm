@@ -334,7 +334,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       color: #666;
       line-height: 1.4;
       min-height: 80px;
-      max-height: 300px;
+      max-height: 450px;
       overflow-y: auto;
     }
     
@@ -722,7 +722,11 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       <div style="white-space: pre-wrap; color: #555;">
         ${termsAndConditions
           .split('\n')
-          .filter((line: string) => line.trim())
+          .filter((line: string) => {
+            const trimmed = line.trim();
+            // Filter out duplicate "TERMS & CONDITIONS" or "Terms & Conditions" headers
+            return trimmed && !trimmed.toUpperCase().match(/^TERMS\s*&\s*CONDITIONS/);
+          })
           .map((line: string) => {
             // Check if line starts with a number and period (numbered list)
             if (/^\d+\.\s/.test(line.trim())) {
