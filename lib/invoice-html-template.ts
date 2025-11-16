@@ -328,15 +328,16 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     
     /* Terms & Footer */
     .terms {
-      margin-top: 6px;
-      padding: 6px 8px;
+      margin-top: 4px;
+      margin-bottom: 2px;
+      padding: 4px 6px;
       background: #f9fafb;
       border-left: 2px solid ${primaryColorValue};
       border-radius: 2px;
-      font-size: 13px;
+      font-size: 10px;
       color: #666;
-      line-height: 1.4;
-      min-height: 80px;
+      line-height: 1.3;
+      min-height: 60px;
       max-height: 450px;
       overflow-y: auto;
     }
@@ -344,8 +345,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     .terms-title {
       font-weight: bold;
       color: #333;
-      margin-bottom: 3px;
-      font-size: 12px;
+      margin-bottom: 2px;
+      font-size: 11px;
     }
     
     .terms ol {
@@ -360,12 +361,12 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
     
     .footer {
-      margin-top: 8px;
-      padding-top: 6px;
+      margin-top: 2px;
+      padding-top: 2px;
       border-top: 1px solid #e5e7eb;
       text-align: center;
-      font-size: 13px;
-      color: #666;
+      font-size: 11px;
+      color: #999;
       line-height: 1.1;
     }
     
@@ -728,14 +729,15 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     
     <!-- Banking Details -->
     ${bankingDetails && bankingDetails.length > 0 ? `
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
       <!-- Left: Bank Details -->
       <div>
         ${bankingDetails.map((bank: any) => `
           <div style="background: #f9fafb; border-left: 2px solid ${primaryColorValue}; padding: 8px; border-radius: 2px;">
             <div style="font-weight: bold; color: #333; font-size: 12px; margin-bottom: 4px;">Payment Details</div>
-            <div style="font-size: 12px; color: #555; line-height: 1.6;">
+            <div style="font-size: 11px; color: #555; line-height: 1.5;">
               <div><strong>${bank.bankName}</strong></div>
+              <div style="font-size: 10px; color: #666;">${bank.accountHolderName}</div>
               <div>A/C: ${bank.accountNumber.replace(/\d(?=\d{4})/g, '*')}</div>
               <div>IFSC: ${bank.ifscCode}</div>
               ${bank.upiId ? `<div>UPI: ${bank.upiId}</div>` : ''}
@@ -745,11 +747,11 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       </div>
       
       <!-- Right: QR Code -->
-      ${bankingDetails.find((b: any) => b.qrCodeUrl) ? `
+      ${bankingDetails.find((b: any) => b.qrCodeUrl && b.qrCodeUrl.trim()) ? `
       <div style="display: flex; justify-content: center; align-items: center;">
-        <div style="background: white; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
-          <img src="${bankingDetails.find((b: any) => b.qrCodeUrl)?.qrCodeUrl}" alt="QR Code" style="width: 100px; height: 100px;" />
-          <div style="text-align: center; font-size: 11px; color: #666; margin-top: 2px;">Scan to Pay</div>
+        <div style="background: white; padding: 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center;">
+          <img src="${bankingDetails.find((b: any) => b.qrCodeUrl && b.qrCodeUrl.trim())?.qrCodeUrl}" alt="QR Code" style="width: 80px; height: 80px; object-fit: contain;" onerror="this.style.display='none'" />
+          <div style="text-align: center; font-size: 10px; color: #666; margin-top: 2px;">Scan to Pay</div>
         </div>
       </div>
       ` : ''}
