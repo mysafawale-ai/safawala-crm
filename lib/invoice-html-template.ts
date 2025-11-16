@@ -738,7 +738,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
             <div style="font-size: 11px; color: #555; line-height: 1.5;">
               <div><strong>${bank.bankName}</strong></div>
               <div style="font-size: 10px; color: #666;">${bank.accountHolderName}</div>
-              <div>A/C: ${bank.accountNumber.replace(/\d(?=\d{4})/g, '*')}</div>
+              <div>A/C: ${bank.accountNumber}</div>
               <div>IFSC: ${bank.ifscCode}</div>
               ${bank.upiId ? `<div>UPI: ${bank.upiId}</div>` : ''}
             </div>
