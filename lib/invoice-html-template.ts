@@ -674,10 +674,12 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       <div class="section-title">SELECTED PRODUCTS</div>
       <div class="products-list" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px;">
         ${items.map((item, index) => `
-        <div style="padding: 6px; background: #f9f9f9; border-radius: 3px; border-left: 2px solid #840101; font-size: 11px;">
-          <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${item.name}</div>
-          ${item.description ? `<div style="color: #666; font-size: 10px; margin-bottom: 1px;">${item.description}</div>` : ''}
-          ${item.category ? `<div style="color: #999; font-size: 9px;">${item.category}</div>` : ''}
+        <div style="padding: 6px; background: #f9f9f9; border-radius: 3px; border-left: 2px solid #840101; font-size: 10px;">
+          <div style="font-weight: 600; color: #333; margin-bottom: 2px; line-height: 1.3;">
+            ${item.name}${item.quantity ? ` <span style="color: #666; font-size: 9px;">(x${item.quantity})</span>` : ''}
+          </div>
+          ${item.description ? `<div style="color: #666; font-size: 9px; margin-bottom: 1px;">${item.description}</div>` : ''}
+          ${item.category ? `<div style="color: #999; font-size: 8px;">${item.category}</div>` : ''}
         </div>
         `).join('')}
       </div>
@@ -744,9 +746,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       ` : ''}
       
       ${paymentMethod || paymentType ? `
-      <div style="margin-top: 10px; font-size: 13px; color: #666;">
-        ${paymentMethod ? `Method: ${paymentMethod}` : ''}
-        ${paymentType ? ` | Type: ${paymentType}` : ''}
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #333;">
+        ${paymentMethod ? `<div style="margin-bottom: 3px;"><strong>Payment Method:</strong> ${paymentMethod}</div>` : ''}
+        ${paymentType ? `<div><strong>Type:</strong> ${paymentType.toUpperCase()}</div>` : ''}
       </div>
       ` : ''}
     </div>
