@@ -598,6 +598,33 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     </div>
     ` : ''}
     
+    <!-- Package Details (Summary) -->
+    ${packageName ? `
+    <div class="section">
+      <div class="section-title">PACKAGE DETAILS</div>
+      <div class="info-grid">
+        ${categoryName ? `
+        <div class="info-item">
+          <span class="info-label">Category:</span>
+          <span class="info-value" style="font-weight: 600;">${categoryName}</span>
+        </div>
+        ` : ''}
+        ${variantName ? `
+        <div class="info-item">
+          <span class="info-label">Variant:</span>
+          <span class="info-value" style="font-weight: 600;">${variantName}</span>
+        </div>
+        ` : ''}
+        ${subtotal && subtotal > 0 ? `
+        <div class="info-item">
+          <span class="info-label">Base Price:</span>
+          <span class="info-value" style="font-weight: 600; color: #0066cc;">₹${subtotal.toFixed(2)}</span>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+    ` : ''}
+    
     <!-- Package Details (Detailed) -->
     ${bookingType === 'package' && packageName ? `
     <div class="section">
@@ -645,15 +672,12 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     ${items && items.length > 0 ? `
     <div class="section">
       <div class="section-title">SELECTED PRODUCTS</div>
-      <div class="products-list" style="display: grid; grid-template-columns: 1fr; gap: 8px; padding: 12px;">
+      <div class="products-list" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px;">
         ${items.map((item, index) => `
-        <div style="display: flex; align-items: center; padding: 10px; background: #f9f9f9; border-radius: 4px; border-left: 3px solid #840101;">
-          <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #840101; color: white; border-radius: 50%; font-weight: bold; font-size: 12px; margin-right: 10px;">${index + 1}</span>
-          <div style="flex: 1;">
-            <strong style="font-size: 14px;">${item.name}</strong>
-            ${item.description ? `<br><small style="color: #666; font-size: 12px;">${item.description}</small>` : ''}
-            ${item.category ? `<br><small style="color: #999; font-size: 11px;">Category: ${item.category}</small>` : ''}
-          </div>
+        <div style="padding: 6px; background: #f9f9f9; border-radius: 3px; border-left: 2px solid #840101; font-size: 11px;">
+          <div style="font-weight: 600; color: #333; margin-bottom: 2px;">${item.name}</div>
+          ${item.description ? `<div style="color: #666; font-size: 10px; margin-bottom: 1px;">${item.description}</div>` : ''}
+          ${item.category ? `<div style="color: #999; font-size: 9px;">${item.category}</div>` : ''}
         </div>
         `).join('')}
       </div>
