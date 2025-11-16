@@ -124,6 +124,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       max-width: 800px;
       margin: 0 auto;
       padding: 10px;
+      margin-left: 30px;
+      margin-right: 30px;
     }
     
     /* Header */
@@ -374,6 +376,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       .invoice-container {
         max-width: 100%;
         padding: 10px;
+        margin-left: 30px;
+        margin-right: 30px;
       }
       .terms {
         page-break-inside: avoid;
