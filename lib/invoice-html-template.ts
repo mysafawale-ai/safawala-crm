@@ -332,8 +332,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       border-radius: 2px;
       font-size: 13px;
       color: #666;
-      line-height: 1.2;
-      max-height: 150px;
+      line-height: 1.4;
+      min-height: 80px;
+      max-height: 300px;
       overflow-y: auto;
     }
     
