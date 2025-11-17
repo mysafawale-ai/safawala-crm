@@ -3,19 +3,26 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Service-role auth helper
+ * Validates session and returns user context
+ * No RLS checks - auth is enforced at API layer only
+ */
 async function getUserFromSession(request: NextRequest) {
   try {
     const cookieHeader = request.cookies.get("safawala_session")
     if (!cookieHeader?.value) {
+      console.error('[Auth] No session cookie found');
       throw new Error("No session found")
     }
     
     const sessionData = JSON.parse(cookieHeader.value)
     if (!sessionData.id) {
+      console.error('[Auth] Invalid session data: missing id');
       throw new Error("Invalid session data")
     }
 
-    // Use service role to fetch user details
+    // Use service role to fetch user details (bypasses RLS)
     const { data: user, error } = await supabase
       .from("users")
       .select("id, franchise_id, role")
@@ -23,85 +30,82 @@ async function getUserFromSession(request: NextRequest) {
       .eq("is_active", true)
       .single()
 
-    if (error || !user) {
+    if (error) {
+      console.error('[Auth] User query error:', error.message);
       throw new Error("User not found")
     }
 
-    return {
+    if (!user) {
+      console.error('[Auth] User not found in database');
+      throw new Error("User not found")
+    }
+
+    const result = {
       userId: user.id,
       franchiseId: user.franchise_id,
+      role: user.role,
       isSuperAdmin: user.role === "super_admin"
-    }
+    };
+
+    console.log('[Auth] User authenticated:', { userId: result.userId, franchiseId: result.franchiseId, role: result.role });
+    return result;
   } catch (error: any) {
-    console.error('[Coupons Auth Error]:', error.message);
-    throw new Error("Authentication required")
+    console.error('[Auth] Authentication error:', error.message);
+    throw error;
   }
 }
 
 // GET: List all coupons
 export async function GET(request: NextRequest) {
   try {
+    console.log('[Coupons GET] Request received');
     
     let franchiseId: string | null = null;
     let isSuperAdmin = false;
     
-    // Try to get user from session for filtering
+    // Authenticate user
     try {
       const authData = await getUserFromSession(request);
       franchiseId = authData.franchiseId;
       isSuperAdmin = authData.isSuperAdmin;
-      console.log('[Coupons API GET] User authenticated:', { franchiseId, isSuperAdmin });
     } catch (authError) {
-      console.log('[Coupons API GET] No valid session, will still try to fetch coupons');
+      console.log('[Coupons GET] Auth failed, returning 401');
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Build query with franchise isolation
+    // Build query - service role client doesn't have RLS restrictions
     let query = supabase
       .from('coupons')
       .select('*')
       .order('created_at', { ascending: false });
 
-    // Apply franchise filter if user is not super admin
+    // Apply franchise isolation (not RLS, but API logic)
     if (!isSuperAdmin && franchiseId) {
-      console.log('[Coupons API GET] Filtering by franchise:', franchiseId);
+      console.log('[Coupons GET] Filtering by franchise:', franchiseId);
       query = query.eq('franchise_id', franchiseId);
     } else if (!isSuperAdmin && !franchiseId) {
-      console.log('[Coupons API GET] No franchiseId found, returning empty list');
+      console.log('[Coupons GET] Non-admin user with no franchise, returning empty');
       return NextResponse.json({ coupons: [] });
     }
 
     const { data: coupons, error } = await query;
 
     if (error) {
-      console.error('[Coupons API GET] Supabase error:', { 
-        code: error.code, 
-        message: error.message,
-        hint: error.hint 
-      });
-
-      // Helpful message when DB schema is mismatched
-      const details = error.message || '';
-      if (details.toLowerCase().includes('franchise_id') || details.toLowerCase().includes("column \"franchise_id\" does not exist")) {
-        return NextResponse.json(
-          {
-            error: 'Failed to fetch coupons',
-            details: 'Missing required column franchise_id in coupons table. Run the SQL migration ADD_COUPON_COLUMNS.sql to add missing columns.'
-          },
-          { status: 500 }
-        );
-      }
-
+      console.error('[Coupons GET] Query error:', error.message);
       return NextResponse.json(
-        { error: 'Failed to fetch coupons', details },
+        { error: 'Failed to fetch coupons', details: error.message },
         { status: 500 }
       );
     }
 
-    console.log('[Coupons API GET] Successfully fetched', coupons?.length || 0, 'coupons');
+    console.log('[Coupons GET] Successfully fetched', coupons?.length || 0, 'coupons');
     return NextResponse.json({ coupons: coupons || [] });
 
   } catch (error: any) {
-    console.error('[Coupons API GET] Exception:', error);
+    console.error('[Coupons GET] Unexpected error:', error.message);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
@@ -112,127 +116,118 @@ export async function GET(request: NextRequest) {
 // POST: Create new coupon
 export async function POST(request: NextRequest) {
   try {
-    console.log('[Coupons API POST] Request received');
+    console.log('[Coupons POST] Request received');
     
+    // Authenticate user first
     let userId: string | null = null;
     let franchiseId: string | null = null;
+    let isSuperAdmin = false;
     
+    let role = '';
     try {
       const authData = await getUserFromSession(request);
       userId = authData.userId;
       franchiseId = authData.franchiseId;
-      console.log('[Coupons API POST] User authenticated:', { userId, franchiseId });
+      isSuperAdmin = authData.isSuperAdmin;
+      role = authData.role;
     } catch (authError) {
-      console.error('[Coupons API POST] Auth error:', authError);
+      console.error('[Coupons POST] Auth failed');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const body = await request.json();
-    console.log('[Coupons API POST] Request body:', body);
-    
-    const {
-      code,
-      discount_type,
-      discount_value,
-    } = body;
+    // Only franchise_admin and super_admin can create coupons
+    if (!isSuperAdmin && role !== 'franchise_admin') {
+      console.error('[Coupons POST] User lacks admin role for franchise:', role);
+      return NextResponse.json(
+        { error: 'Only franchise admins can create coupons' },
+        { status: 403 }
+      );
+    }
 
-    // Validation
+    const body = await request.json();
+    console.log('[Coupons POST] Request body:', { code: body.code, discount_type: body.discount_type });
+    
+    const { code, discount_type, discount_value } = body;
+
+    // Validation: required fields
     if (!code || !discount_type) {
-      console.error('[Coupons API POST] Validation failed: missing required fields');
+      console.error('[Coupons POST] Validation failed: missing code or discount_type');
       return NextResponse.json(
         { error: 'Code and discount type are required' },
         { status: 400 }
       );
     }
 
-    // Validate discount_value for non-free-shipping types
+    // Validation: discount value
     if (discount_type !== 'free_shipping' && (discount_value === undefined || discount_value <= 0)) {
-      console.error('[Coupons API POST] Validation failed: discount value required');
+      console.error('[Coupons POST] Validation failed: invalid discount_value for', discount_type);
       return NextResponse.json(
-        { error: 'Discount value is required for this discount type' },
+        { error: 'Discount value is required and must be > 0' },
         { status: 400 }
       );
     }
 
-    // Validate percentage discount
+    // Validation: percentage cap
     if (discount_type === 'percentage' && discount_value > 100) {
-      console.error('[Coupons API POST] Validation failed: discount value exceeds 100%');
+      console.error('[Coupons POST] Validation failed: percentage > 100');
       return NextResponse.json(
         { error: 'Percentage discount cannot exceed 100%' },
         { status: 400 }
       );
     }
 
-    // Sanitized data - only the fields we're keeping
-    // Note: Don't include created_by to avoid foreign key constraint issues
+    // Sanitize and prepare data
     const sanitizedData = {
       code: code.trim().toUpperCase(),
       discount_type,
-      discount_value: discount_type === 'free_shipping' ? 0 : discount_value,
+      discount_value: discount_type === 'free_shipping' ? 0 : Number(discount_value),
       franchise_id: franchiseId,
+      created_by: userId,
+      is_active: true,
     };
-    console.log('[Coupons API POST] Sanitized data:', sanitizedData);
 
-    // Insert coupon
+    console.log('[Coupons POST] Inserting coupon:', { code: sanitizedData.code, franchise_id: sanitizedData.franchise_id });
+
+    // Insert coupon using service role (no RLS)
     const { data: coupon, error } = await supabase
       .from('coupons')
-      .insert(sanitizedData)
+      .insert([sanitizedData])
       .select()
       .single();
 
     if (error) {
-      console.error('[Coupons API POST] Supabase error:', { 
-        code: error.code, 
-        message: error.message, 
-        hint: error.hint,
-        details: error.details 
-      });
+      console.error('[Coupons POST] Insert error:', { code: error.code, message: error.message });
       
-      const message = error.message || '';
-      
-      // Handle RLS policy error
-      if (message.includes('violates row level security') || message.includes('row level security policy')) {
-        return NextResponse.json(
-          { 
-            error: 'Permission denied', 
-            details: 'RLS policy is blocking the insert. Please contact support.' 
-          },
-          { status: 403 }
-        );
-      }
-      
-      if (message.toLowerCase().includes('franchise_id')) {
-        return NextResponse.json(
-          {
-            error: 'Failed to create coupon',
-            details: 'Franchise ID issue. Please check your franchise assignment.'
-          },
-          { status: 400 }
-        );
-      }
-
-      // Handle duplicate code error
+      // Duplicate code
       if (error.code === '23505') {
         return NextResponse.json(
           { error: 'Coupon code already exists' },
           { status: 409 }
         );
       }
+
+      // Foreign key error
+      if (error.code === '23503') {
+        return NextResponse.json(
+          { error: 'Invalid franchise reference' },
+          { status: 400 }
+        );
+      }
       
       return NextResponse.json(
-        { error: 'Failed to create coupon', details: message },
+        { error: 'Failed to create coupon', details: error.message },
         { status: 500 }
       );
     }
 
-    console.log('[Coupons API POST] Coupon created successfully:', coupon);
+    console.log('[Coupons POST] Coupon created successfully:', coupon.id);
     return NextResponse.json({ coupon }, { status: 201 });
 
   } catch (error: any) {
-    console.error('[Coupons API POST] Exception:', error);
+    console.error('[Coupons POST] Unexpected error:', error.message);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
