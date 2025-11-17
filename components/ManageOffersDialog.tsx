@@ -48,7 +48,9 @@ export default function ManageOffersDialog() {
   const fetchCoupons = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/coupons');
+      const response = await fetch('/api/coupons', {
+        credentials: 'include',
+      });
       const data = await response.json();
       
       if (response.ok) {
@@ -94,6 +96,7 @@ export default function ManageOffersDialog() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -134,6 +137,7 @@ export default function ManageOffersDialog() {
       setLoading(true);
       const response = await fetch(`/api/coupons?id=${couponToDelete}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       const data = await response.json();
