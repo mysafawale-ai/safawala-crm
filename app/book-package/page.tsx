@@ -1003,7 +1003,7 @@ export default function BookPackageWizard() {
     setCouponError("")
 
     try {
-      const response = await fetch('/api/coupons/validate', {
+      const response = await fetch('/api/offers/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
