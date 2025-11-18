@@ -1,5 +1,55 @@
 import { createClient } from "@/lib/supabase/server"
+import { supabaseServer } from "@/lib/supabase-server-simple"
 import { NextRequest, NextResponse } from "next/server"
+
+/**
+ * GET user from safawala_user or safawala_session cookie
+ */
+async function getUserFromCookie(request: NextRequest) {
+  try {
+    // Try to get the session cookie (newer format)
+    let sessionCookie = request.cookies.get("safawala_session")
+    
+    // Fallback to safawala_user cookie if session not found (current format)
+    if (!sessionCookie) {
+      sessionCookie = request.cookies.get("safawala_user")
+    }
+    
+    if (!sessionCookie?.value) {
+      console.error('[Direct Sales] No session cookie found');
+      throw new Error("No session found")
+    }
+
+    const sessionData = JSON.parse(sessionCookie.value)
+    if (!sessionData.id) {
+      console.error('[Direct Sales] Invalid session data: missing id');
+      throw new Error("Invalid session data")
+    }
+
+    // Use service role to fetch user details
+    const { data: user, error } = await supabaseServer
+      .from("users")
+      .select("id, franchise_id, role")
+      .eq("id", sessionData.id)
+      .eq("is_active", true)
+      .single()
+
+    if (error || !user) {
+      console.error('[Direct Sales] User not found:', error?.message);
+      throw new Error("User not found")
+    }
+
+    console.log('[Direct Sales] User authenticated:', { userId: user.id, franchiseId: user.franchise_id });
+    return {
+      userId: user.id,
+      franchiseId: user.franchise_id,
+      role: user.role
+    };
+  } catch (error) {
+    console.error('[Direct Sales] Auth error:', error);
+    throw error;
+  }
+}
 
 /**
  * POST /api/direct-sales
@@ -10,24 +60,26 @@ import { NextRequest, NextResponse } from "next/server"
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      console.error('[Direct Sales API] Authentication error:', authError)
+    // Get user from cookie instead of Supabase Auth
+    console.log('[Direct Sales] POST request started');
+    let userAuth;
+    try {
+      userAuth = await getUserFromCookie(request);
+    } catch (authError) {
+      console.error('[Direct Sales] Authentication failed:', authError);
       return NextResponse.json(
-        { error: 'Unauthorized', details: authError?.message },
+        { error: 'Unauthorized', details: (authError as Error).message },
         { status: 401 }
       )
     }
 
-    // Get user details with franchise
-    const { data: userData, error: userError } = await supabase
+    const supabase = await createClient()
+    
+    // Get full user details using service role
+    const { data: userData, error: userError } = await supabaseServer
       .from('users')
       .select('id, franchise_id, role')
-      .eq('id', user.id)
+      .eq('id', userAuth.userId)
       .single()
 
     if (userError || !userData) {
@@ -56,7 +108,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[Direct Sales API] Creating direct sale for user:', user.email)
+    console.log('[Direct Sales API] Creating direct sale for user:', userAuth.userId)
     console.log('[Direct Sales API] Franchise:', userData.franchise_id)
     console.log('[Direct Sales API] Sale number:', sale.sale_number)
 
@@ -195,11 +247,13 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
+    // Get user from cookie instead of Supabase Auth
+    console.log('[Direct Sales GET] Request started');
+    let userAuth;
+    try {
+      userAuth = await getUserFromCookie(request);
+    } catch (authError) {
+      console.error('[Direct Sales GET] Authentication failed:', authError);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -207,10 +261,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's franchise
-    const { data: userData } = await supabase
+    const { data: userData } = await supabaseServer
       .from('users')
       .select('franchise_id, role')
-      .eq('id', user.id)
+      .eq('id', userAuth.userId)
       .single()
 
     if (!userData?.franchise_id) {
@@ -219,6 +273,8 @@ export async function GET(request: NextRequest) {
         { status: 403 }
       )
     }
+
+    const supabase = await createClient()
 
     // Fetch direct sales for franchise
     const { data: sales, error: salesError } = await supabase
