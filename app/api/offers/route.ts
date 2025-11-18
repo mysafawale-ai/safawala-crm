@@ -23,13 +23,20 @@ export const dynamic = 'force-dynamic';
  */
 async function getUserFromSession(request: NextRequest) {
   try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) {
-      console.error('[Auth] No session cookie found');
+    // Try to get the session cookie (newer format)
+    let sessionCookie = request.cookies.get("safawala_session")
+    
+    // Fallback to safawala_user cookie if session not found (current format)
+    if (!sessionCookie) {
+      sessionCookie = request.cookies.get("safawala_user")
+    }
+    
+    if (!sessionCookie?.value) {
+      console.error('[Auth] No session cookie found (checked safawala_session and safawala_user)');
       throw new Error("No session found")
     }
 
-    const sessionData = JSON.parse(cookieHeader.value)
+    const sessionData = JSON.parse(sessionCookie.value)
     if (!sessionData.id) {
       console.error('[Auth] Invalid session data: missing id');
       throw new Error("Invalid session data")

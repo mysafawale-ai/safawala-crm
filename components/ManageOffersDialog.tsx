@@ -53,15 +53,24 @@ export default function ManageOffersDialog() {
   const fetchOffers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/offers', { credentials: 'include' });
+      console.log('[ManageOffers] Fetching offers with credentials: include');
+      const response = await fetch('/api/offers', { 
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       const data = await response.json();
+      console.log('[ManageOffers] Response status:', response.status, 'data:', data);
       if (response.ok) {
+        console.log('[ManageOffers] Successfully loaded', data.offers?.length || 0, 'offers');
         setOffers(data.offers || []);
       } else {
-        toast.error(data.error || 'Failed to fetch offers');
+        console.error('[ManageOffers] API error:', data);
+        toast.error(data.error || data.details || 'Failed to fetch offers');
       }
     } catch (error) {
-      console.error('Error fetching offers:', error);
+      console.error('[ManageOffers] Error fetching offers:', error);
       toast.error('Failed to load offers');
     } finally {
       setLoading(false);
