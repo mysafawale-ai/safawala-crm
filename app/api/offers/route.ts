@@ -1,6 +1,19 @@
 import { supabaseServer as supabase } from '@/lib/supabase-server-simple';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Helper to map Postgres error codes for clearer responses
+function mapDbError(e: any, context: string) {
+  if (!e) return { status: 500, error: `${context} failed` };
+  const code = e.code || e.details || '';
+  // Undefined table
+  if (code === '42P01' || /relation .* does not exist/i.test(e.message || '')) {
+    return { status: 500, error: 'Offers tables missing. Run OFFERS_SYSTEM_MIGRATION.sql on the database.' };
+  }
+  return { status: 500, error: `${context} failed` };
+}
+
+class AuthError extends Error {}
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -51,7 +64,7 @@ async function getUserFromSession(request: NextRequest) {
     return result;
   } catch (error) {
     console.error('[Auth] Authentication failed:', error);
-    throw error;
+    throw new AuthError((error as Error).message || 'auth_failed');
   }
 }
 
@@ -78,20 +91,23 @@ export async function GET(request: NextRequest) {
     const { data: offers, error } = await query;
 
     if (error) {
-      console.error('Error fetching offers:', error);
-      return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 });
+      console.error('[Offers][GET] Query error:', error);
+      const mapped = mapDbError(error, 'Fetch offers');
+      return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
 
     return NextResponse.json({ offers: offers || [] });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    console.error('[Offers][GET] Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user from session
     const userContext = await getUserFromSession(request);
 
     const body = await request.json();
@@ -125,10 +141,12 @@ export async function POST(request: NextRequest) {
       .eq('code', code.toUpperCase())
       .eq('franchise_id', userContext.franchiseId)
       .single();
-
-    if (existingOffer) {
-      return NextResponse.json({ error: 'Offer code already exists' }, { status: 409 });
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = No rows found (PostgREST)
+      console.error('[Offers][POST] Existence check error:', checkError);
+      const mapped = mapDbError(checkError, 'Offer existence check');
+      return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
+    if (existingOffer) return NextResponse.json({ error: 'Offer code already exists' }, { status: 409 });
 
     // Create offer
     const { data: offer, error: insertError } = await supabase
@@ -143,22 +161,22 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
-
     if (insertError) {
-      console.error('Error creating offer:', insertError);
-      return NextResponse.json({ error: 'Failed to create offer' }, { status: 500 });
+      console.error('[Offers][POST] Insert error:', insertError);
+      const mapped = mapDbError(insertError, 'Create offer');
+      return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
 
     return NextResponse.json({ offer }, { status: 201 });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    if (error instanceof AuthError) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('[Offers][POST] Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get user from session
     const userContext = await getUserFromSession(request);
 
     const body = await request.json();
@@ -175,10 +193,13 @@ export async function PUT(request: NextRequest) {
       .eq('id', id)
       .eq('franchise_id', userContext.franchiseId)
       .single();
-
-    if (checkError || !existingOffer) {
-      return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
+    if (checkError) {
+      if (checkError.code === 'PGRST116') return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
+      console.error('[Offers][PUT] Existence check error:', checkError);
+      const mapped = mapDbError(checkError, 'Fetch offer');
+      return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
+    if (!existingOffer) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
 
     // Prepare update data
     const updateData: any = {};
@@ -199,15 +220,16 @@ export async function PUT(request: NextRequest) {
       .eq('franchise_id', userContext.franchiseId)
       .select()
       .single();
-
     if (updateError) {
-      console.error('Error updating offer:', updateError);
-      return NextResponse.json({ error: 'Failed to update offer' }, { status: 500 });
+      console.error('[Offers][PUT] Update error:', updateError);
+      const mapped = mapDbError(updateError, 'Update offer');
+      return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
 
     return NextResponse.json({ offer });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    if (error instanceof AuthError) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('[Offers][PUT] Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -230,10 +252,10 @@ export async function DELETE(request: NextRequest) {
       .select('id')
       .eq('offer_id', id)
       .limit(1);
-
     if (redemptionCheckError) {
-      console.error('Error checking redemptions:', redemptionCheckError);
-      return NextResponse.json({ error: 'Failed to check offer usage' }, { status: 500 });
+      console.error('[Offers][DELETE] Redemption check error:', redemptionCheckError);
+      const mapped = mapDbError(redemptionCheckError, 'Redemption check');
+      return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
 
     if (redemptions && redemptions.length > 0) {
@@ -246,15 +268,16 @@ export async function DELETE(request: NextRequest) {
       .delete()
       .eq('id', id)
       .eq('franchise_id', userContext.franchiseId);
-
     if (deleteError) {
-      console.error('Error deleting offer:', deleteError);
-      return NextResponse.json({ error: 'Failed to delete offer' }, { status: 500 });
+      console.error('[Offers][DELETE] Delete error:', deleteError);
+      const mapped = mapDbError(deleteError, 'Delete offer');
+      return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    if (error instanceof AuthError) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('[Offers][DELETE] Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
