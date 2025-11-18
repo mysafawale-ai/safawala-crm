@@ -63,7 +63,6 @@ export async function GET(request: NextRequest) {
       // Include legacy rows where is_quote is NULL as non-quotes
       .or('is_quote.is.null,is_quote.eq.false')
       .eq('is_archived', false)
-      .order("created_at", { ascending: false })
 
     let packageQuery = supabase
       .from("package_bookings")
@@ -78,19 +77,24 @@ export async function GET(request: NextRequest) {
       `)
       .eq("is_quote", false)
       .eq('is_archived', false)
-      .order("created_at", { ascending: false })
 
     // CRITICAL: Filter by franchise_id unless super admin
     if (!isSuperAdmin && franchiseId) {
-      // Include legacy rows without franchise assignment (NULL) for all booking types
+      console.log(`[Bookings API] Applying franchise filter: ${franchiseId}`)
+      // Filter by franchise_id OR null (for legacy data)
       productQuery = productQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
       packageQuery = packageQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-      console.log(`[Bookings API] Applied franchise filter: ${franchiseId}`)
-    } else {
+    } else if (isSuperAdmin) {
       console.log(`[Bookings API] Super admin mode - showing all bookings`)
+    } else {
+      console.log(`[Bookings API] WARNING: User has no franchise_id!`)
     }
 
-  const [productRes, packageRes] = await Promise.all([productQuery, packageQuery])
+    // Add ordering last, after all filters
+    productQuery = productQuery.order("created_at", { ascending: false })
+    packageQuery = packageQuery.order("created_at", { ascending: false })
+
+    const [productRes, packageRes] = await Promise.all([productQuery, packageQuery])
     
     if (productRes.error && packageRes.error) {
       console.error("[Bookings API] Error:", productRes.error || packageRes.error)
@@ -282,12 +286,17 @@ export async function GET(request: NextRequest) {
         customer:customers(name, phone, email)
       `)
       .eq('is_archived', false)
-      .order("created_at", { ascending: false })
 
     if (!isSuperAdmin && franchiseId) {
       // Include legacy rows without franchise assignment (NULL) for consistency
       directSalesQuery = directSalesQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+      console.log(`[Bookings API] Direct sales franchise filter: ${franchiseId}`)
+    } else if (isSuperAdmin) {
+      console.log(`[Bookings API] Direct sales: super admin mode`)
     }
+
+    // Add ordering last
+    directSalesQuery = directSalesQuery.order("created_at", { ascending: false })
 
     const directSalesRes = await directSalesQuery
     if (directSalesRes.error) {
