@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Percent, DollarSign, Plus, Pencil, Trash2, Tag, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Tag, X } from "lucide-react";
 
 interface Offer {
   id: string;
@@ -18,7 +18,6 @@ interface Offer {
   discount_type: 'percent' | 'fixed';
   discount_value: number;
   is_active: boolean;
-  created_at: string;
 }
 
 interface FormData {
@@ -36,7 +35,7 @@ export default function ManageOffersDialog() {
   const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [offerToDelete, setOfferToDelete] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  
   const [formData, setFormData] = useState<FormData>({
     code: '',
     name: '',
@@ -45,7 +44,6 @@ export default function ManageOffersDialog() {
     is_active: true,
   });
 
-  // Fetch offers when dialog opens
   useEffect(() => {
     if (open) {
       fetchOffers();
@@ -55,11 +53,8 @@ export default function ManageOffersDialog() {
   const fetchOffers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/offers', {
-        credentials: 'include',
-      });
+      const response = await fetch('/api/offers', { credentials: 'include' });
       const data = await response.json();
-
       if (response.ok) {
         setOffers(data.offers || []);
       } else {
@@ -87,35 +82,29 @@ export default function ManageOffersDialog() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
     if (!formData.code.trim()) {
       toast.error('Offer code is required');
       return;
     }
-
     if (!formData.name.trim()) {
       toast.error('Offer name is required');
       return;
     }
-
     if (formData.discount_value <= 0) {
       toast.error('Discount value must be greater than 0');
       return;
     }
-
     if (formData.discount_type === 'percent' && formData.discount_value > 100) {
-      toast.error('Percentage discount cannot exceed 100%');
+      toast.error('Percentage cannot exceed 100%');
       return;
     }
 
     try {
       setLoading(true);
-
-      const url = editingOffer ? '/api/offers' : '/api/offers';
       const method = editingOffer ? 'PUT' : 'POST';
       const body = editingOffer ? { id: editingOffer.id, ...formData } : formData;
 
-      const response = await fetch(url, {
+      const response = await fetch('/api/offers', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -123,9 +112,8 @@ export default function ManageOffersDialog() {
       });
 
       const data = await response.json();
-
       if (response.ok) {
-        toast.success(editingOffer ? 'Offer updated successfully' : 'Offer created successfully');
+        toast.success(editingOffer ? 'Offer updated' : 'Offer created');
         resetForm();
         fetchOffers();
       } else {
@@ -150,25 +138,22 @@ export default function ManageOffersDialog() {
     });
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDelete = async (id: string) => {
     setOfferToDelete(id);
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
+  const confirmDelete = async () => {
     if (!offerToDelete) return;
-
     try {
       setLoading(true);
       const response = await fetch(`/api/offers?id=${offerToDelete}`, {
         method: 'DELETE',
         credentials: 'include',
       });
-
       const data = await response.json();
-
       if (response.ok) {
-        toast.success('Offer deleted successfully');
+        toast.success('Offer deleted');
         fetchOffers();
       } else {
         toast.error(data.error || 'Failed to delete offer');
@@ -183,11 +168,6 @@ export default function ManageOffersDialog() {
     }
   };
 
-  const filteredOffers = offers.filter(offer =>
-    offer.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -197,108 +177,91 @@ export default function ManageOffersDialog() {
             Manage Offers
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Manage Offers</DialogTitle>
             <DialogDescription>
-              Create and manage discount offers for your franchise
+              Create, edit, and manage discount offers
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Create/Edit Form */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">
-                {editingOffer ? 'Edit Offer' : 'Create New Offer'}
+          <div className="space-y-6">
+            {/* Form Section */}
+            <div className="border-b pb-6">
+              <h3 className="text-sm font-semibold mb-4">
+                {editingOffer ? 'Edit Offer' : 'New Offer'}
               </h3>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="code">Offer Code *</Label>
-                  <Input
-                    id="code"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                    placeholder="SUMMER2025"
-                    disabled={!!editingOffer} // Can't change code when editing
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    3-20 characters, unique per franchise
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="code">Code *</Label>
+                    <Input
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                      placeholder="e.g., SAVE10"
+                      disabled={!!editingOffer}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="name">Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., Summer Sale"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="name">Offer Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Summer Sale 2025"
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Human-readable name for admin reference
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="discount_type">Discount Type *</Label>
-                  <Select
-                    value={formData.discount_type}
-                    onValueChange={(value: 'percent' | 'fixed') =>
-                      setFormData({ ...formData, discount_type: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="percent">
-                        <div className="flex items-center">
-                          <Percent className="w-4 h-4 mr-2" />
-                          Percentage
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="fixed">
-                        <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          Fixed Amount
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="discount_value">
-                    Discount Value * ({formData.discount_type === 'percent' ? '%' : '₹'})
-                  </Label>
-                  <Input
-                    id="discount_value"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max={formData.discount_type === 'percent' ? 100 : undefined}
-                    value={formData.discount_value}
-                    onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
-                    placeholder={formData.discount_type === 'percent' ? '10' : '100'}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="type">Type *</Label>
+                    <Select
+                      value={formData.discount_type}
+                      onValueChange={(value: 'percent' | 'fixed') =>
+                        setFormData({ ...formData, discount_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percent">Percentage (%)</SelectItem>
+                        <SelectItem value="fixed">Fixed (₹)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="value">Value * ({formData.discount_type === 'percent' ? '%' : '₹'})</Label>
+                    <Input
+                      id="value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.discount_value}
+                      onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
+                      placeholder="0"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2">
                   <Switch
-                    id="is_active"
+                    id="active"
                     checked={formData.is_active}
                     onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                   />
-                  <Label htmlFor="is_active">Active</Label>
+                  <Label htmlFor="active" className="cursor-pointer">Active</Label>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? 'Saving...' : editingOffer ? 'Update Offer' : 'Create Offer'}
+                  <Button type="submit" disabled={loading} size="sm">
+                    {loading ? 'Saving...' : editingOffer ? 'Update' : 'Create'}
                   </Button>
                   {editingOffer && (
-                    <Button type="button" variant="outline" onClick={resetForm}>
+                    <Button type="button" variant="outline" size="sm" onClick={resetForm}>
                       Cancel
                     </Button>
                   )}
@@ -307,61 +270,54 @@ export default function ManageOffersDialog() {
             </div>
 
             {/* Offers List */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Active Offers</h3>
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search offers..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 w-48"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div>
+              <h3 className="text-sm font-semibold mb-3">All Offers ({offers.length})</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
                 {loading ? (
-                  <div className="text-center py-4">Loading offers...</div>
-                ) : filteredOffers.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    {searchQuery ? 'No offers found matching your search' : 'No active offers yet'}
-                  </div>
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : offers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No offers yet</p>
                 ) : (
-                  filteredOffers.map((offer) => (
+                  offers.map((offer) => (
                     <div
                       key={offer.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                      className="flex items-center justify-between p-3 border rounded bg-muted/30 hover:bg-muted/50 transition"
                     >
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <code className="font-mono text-sm bg-muted px-2 py-1 rounded">
+                          <code className="text-xs bg-background px-2 py-1 rounded font-mono">
                             {offer.code}
                           </code>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm">
                             {offer.discount_type === 'percent'
-                              ? `${offer.discount_value}% off`
-                              : `₹${offer.discount_value} off`
+                              ? `${offer.discount_value}%`
+                              : `₹${offer.discount_value}`
                             }
                           </span>
+                          {!offer.is_active && (
+                            <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                              Inactive
+                            </span>
+                          )}
                         </div>
-                        <p className="text-sm font-medium mt-1">{offer.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{offer.name}</p>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex gap-1 ml-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(offer)}
+                          className="h-8 w-8 p-0"
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteClick(offer.id)}
+                          onClick={() => handleDelete(offer.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -373,19 +329,21 @@ export default function ManageOffersDialog() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Offer</AlertDialogTitle>
+            <AlertDialogTitle>Delete Offer?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this offer? This action cannot be undone.
-              If the offer has been used by customers, it cannot be deleted.
+              This cannot be undone. If customers have used this offer, consider deactivating instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
