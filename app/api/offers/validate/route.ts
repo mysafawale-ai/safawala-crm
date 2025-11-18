@@ -7,10 +7,17 @@ class AuthError extends Error {}
 
 async function getUserFromSession(request: NextRequest) {
   try {
-    const cookieHeader = request.cookies.get("safawala_session")
-    if (!cookieHeader?.value) throw new Error("No session")
+    // Try to get the session cookie (newer format)
+    let sessionCookie = request.cookies.get("safawala_session")
     
-    const sessionData = JSON.parse(cookieHeader.value)
+    // Fallback to safawala_user cookie if session not found (current format)
+    if (!sessionCookie) {
+      sessionCookie = request.cookies.get("safawala_user")
+    }
+    
+    if (!sessionCookie?.value) throw new Error("No session")
+    
+    const sessionData = JSON.parse(sessionCookie.value)
     if (!sessionData.id) throw new Error("Invalid session")
 
     const { data: user, error } = await supabase
@@ -47,13 +54,17 @@ interface ValidateOfferRequest {
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Offers Validate] POST request started');
     const { franchiseId } = await getUserFromSession(request);
+    console.log('[Offers Validate] User franchise:', franchiseId);
+    
     const body: ValidateOfferRequest = await request.json();
     
     const { code, orderValue, customerId } = body;
 
     // Validation
     if (!code || orderValue === undefined) {
+      console.log('[Offers Validate] Missing required fields');
       return NextResponse.json(
         { 
           valid: false, 
@@ -64,6 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (orderValue <= 0) {
+      console.log('[Offers Validate] Invalid order value:', orderValue);
       return NextResponse.json(
         { 
           valid: false, 
@@ -72,6 +84,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    console.log('[Offers Validate] Looking for offer code:', code, 'in franchise:', franchiseId);
 
     // Fetch offer from NEW offers table (not old coupons table!)
     const { data: offer, error: offerError } = await supabase
@@ -83,6 +97,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (offerError || !offer) {
+      console.log('[Offers Validate] Offer not found:', offerError?.message || 'No matching offer');
       return NextResponse.json(
         { 
           valid: false, 
@@ -92,6 +107,8 @@ export async function POST(request: NextRequest) {
         { status: 200 }  // Return 200 with valid: false for consistency
       );
     }
+
+    console.log('[Offers Validate] Offer found:', offer.code);
 
     // Calculate discount based on type
     let discountAmount = 0;
@@ -106,6 +123,8 @@ export async function POST(request: NextRequest) {
 
     // Ensure discount doesn't exceed order value
     discountAmount = Math.min(discountAmount, orderValue);
+
+    console.log('[Offers Validate] Discount calculated:', discountAmount);
 
     return NextResponse.json({
       valid: true,
@@ -122,7 +141,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      console.error('[Offers Validate] Auth failed:', error.message);
+      return NextResponse.json({ error: 'Unauthorized', details: error.message }, { status: 401 });
     }
     console.error('[Offers Validate] Error:', error);
     return NextResponse.json(
