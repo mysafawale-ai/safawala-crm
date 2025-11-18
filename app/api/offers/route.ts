@@ -73,8 +73,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
 
+    console.log('[Offers][GET] Starting request');
+
     // Get user from session
     const userContext = await getUserFromSession(request);
+    console.log('[Offers][GET] User context:', { userId: userContext.userId, franchiseId: userContext.franchiseId });
 
     let query = supabase
       .from('offers')
@@ -96,10 +99,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: mapped.error }, { status: mapped.status });
     }
 
+    console.log('[Offers][GET] Success: loaded', offers?.length || 0, 'offers');
     return NextResponse.json({ offers: offers || [] });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      console.error('[Offers][GET] Auth error:', error.message);
+      return NextResponse.json({ error: 'Unauthorized', details: (error as Error).message }, { status: 401 });
     }
     console.error('[Offers][GET] Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
