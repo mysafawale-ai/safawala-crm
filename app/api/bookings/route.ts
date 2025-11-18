@@ -48,22 +48,25 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Bookings API] Fetching bookings for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
-    // Build queries with franchise filter (unless super admin)
-    // NOTE: Only show confirmed bookings (is_quote = false) for consistency with package bookings
+    // Fetch ALL data WITHOUT franchise filter first (RLS will handle it)
+    // Then apply client-side filtering if needed
+
+    // ============ PRODUCT ORDERS ============
     let productQuery = supabase
       .from("product_orders")
       .select(`
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
-        payment_method, payment_type, discount_amount, tax_amount,
+        payment_method, payment_type, discount_amount, tax_amount, security_deposit,
         is_quote,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
-      // Include legacy rows where is_quote is NULL as non-quotes
       .or('is_quote.is.null,is_quote.eq.false')
       .eq('is_archived', false)
+      .order("created_at", { ascending: false })
 
+    // ============ PACKAGE BOOKINGS ============
     let packageQuery = supabase
       .from("package_bookings")
       .select(`
@@ -77,43 +80,30 @@ export async function GET(request: NextRequest) {
       `)
       .eq("is_quote", false)
       .eq('is_archived', false)
+      .order("created_at", { ascending: false })
 
-    // CRITICAL: Filter by franchise_id unless super admin
-    if (!isSuperAdmin && franchiseId) {
-      console.log(`[Bookings API] Applying franchise filter: ${franchiseId}`)
-      // Filter by franchise_id OR null (for legacy data)
-      productQuery = productQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-      packageQuery = packageQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-    } else if (isSuperAdmin) {
-      console.log(`[Bookings API] Super admin mode - showing all bookings`)
-    } else {
-      console.log(`[Bookings API] WARNING: User has no franchise_id!`)
-    }
+    // ============ DIRECT SALES ============
+    let directSalesQuery = supabase
+      .from("direct_sales_orders")
+      .select(`
+        id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, delivery_time, venue_address,
+        total_amount, amount_paid, notes, created_at,
+        customer:customers(name, phone, email)
+      `)
+      .eq('is_archived', false)
+      .order("created_at", { ascending: false })
 
-    // Add ordering last, after all filters
-    productQuery = productQuery.order("created_at", { ascending: false })
-    packageQuery = packageQuery.order("created_at", { ascending: false })
+    // Execute all three queries in parallel
+    const [productRes, packageRes, directSalesRes] = await Promise.all([
+      productQuery,
+      packageQuery,
+      directSalesQuery
+    ])
 
-    const [productRes, packageRes] = await Promise.all([productQuery, packageQuery])
-    
-    if (productRes.error && packageRes.error) {
-      console.error("[Bookings API] Error:", productRes.error || packageRes.error)
-      const msg = productRes.error?.message || packageRes.error?.message || 'Failed to fetch bookings'
-      return NextResponse.json({ error: msg }, { status: 500 })
-    }
-
-    console.log(`[Bookings API] Product orders fetched: ${(productRes.data || []).length}`)
-    console.log(`[Bookings API] Package bookings fetched: ${(packageRes.data || []).length}`)
-    try {
-      const prod = (productRes.data || []) as any[]
-      const saleByType = prod.filter(r => r.booking_type === 'sale').length
-      const ordPrefix = prod.filter(r => (r.order_number || '').startsWith('ORD')).length
-      const nullFranchise = prod.filter(r => !r.franchise_id).length
-      const nullIsQuote = prod.filter(r => r.is_quote === null).length
-      console.log(`[Bookings API] Product stats → saleByType: ${saleByType}, ordPrefix: ${ordPrefix}, nullFranchise: ${nullFranchise}, nullIsQuote: ${nullIsQuote}`)
-    } catch {}
-    if (productRes.error) console.log(`[Bookings API] Product error:`, productRes.error)
-    if (packageRes.error) console.log(`[Bookings API] Package error:`, packageRes.error)
+    // Log results
+    console.log(`[Bookings API] Product orders: ${(productRes.data || []).length}, Error: ${productRes.error?.message || 'none'}`)
+    console.log(`[Bookings API] Package bookings: ${(packageRes.data || []).length}, Error: ${packageRes.error?.message || 'none'}`)
+    console.log(`[Bookings API] Direct sales: ${(directSalesRes.data || []).length}, Error: ${directSalesRes.error?.message || 'none'}`)
 
     // Compute item quantity totals for each booking
     const productIds = (productRes.data || []).map((r: any) => r.id)
@@ -277,48 +267,6 @@ export async function GET(request: NextRequest) {
       extra_safas: extraSafas,
     }})
 
-    // ✅ NEW: Fetch direct_sales_orders for current franchise
-    let directSalesQuery = supabase
-      .from("direct_sales_orders")
-      .select(`
-        id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, delivery_time, venue_address,
-        total_amount, amount_paid, notes, created_at,
-        customer:customers(name, phone, email)
-      `)
-      .eq('is_archived', false)
-
-    if (!isSuperAdmin && franchiseId) {
-      // Include legacy rows without franchise assignment (NULL) for consistency
-      directSalesQuery = directSalesQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-      console.log(`[Bookings API] Direct sales franchise filter: ${franchiseId}`)
-    } else if (isSuperAdmin) {
-      console.log(`[Bookings API] Direct sales: super admin mode`)
-    }
-
-    // Add ordering last
-    directSalesQuery = directSalesQuery.order("created_at", { ascending: false })
-
-    const directSalesRes = await directSalesQuery
-    if (directSalesRes.error) {
-      console.warn(`[Bookings API] Direct sales fetch warning (may be first run):`, directSalesRes.error?.message)
-    } else {
-      console.log(`[Bookings API] Direct sales orders fetched: ${(directSalesRes.data || []).length}`)
-    }
-
-    // Compute item totals for direct sales
-    const directSalesIds = (directSalesRes.data || []).map((r: any) => r.id)
-    let directSalesTotals: Record<string, number> = {}
-
-    if (directSalesIds.length > 0) {
-      const { data: dsiItems } = await supabase
-        .from('direct_sales_items')
-        .select('sale_id, quantity')
-        .in('sale_id', directSalesIds)
-      for (const row of dsiItems || []) {
-        directSalesTotals[row.sale_id] = (directSalesTotals[row.sale_id] || 0) + (Number(row.quantity) || 0)
-      }
-    }
-
     // Map to unified Booking shape with total_safas
     const productRows = (productRes.data || []).map((r: any) => ({
       id: r.id,
@@ -346,6 +294,20 @@ export async function GET(request: NextRequest) {
       has_items: (productTotals[r.id] || 0) > 0,
       security_deposit: Number((r as any).security_deposit || 0),
     }))
+
+    // Compute item totals for direct sales
+    const directSalesIds = (directSalesRes.data || []).map((r: any) => r.id)
+    let directSalesTotals: Record<string, number> = {}
+
+    if (directSalesIds.length > 0) {
+      const { data: dsiItems } = await supabase
+        .from('direct_sales_items')
+        .select('sale_id, quantity')
+        .in('sale_id', directSalesIds)
+      for (const row of dsiItems || []) {
+        directSalesTotals[row.sale_id] = (directSalesTotals[row.sale_id] || 0) + (Number(row.quantity) || 0)
+      }
+    }
 
     // Map direct sales orders to unified Booking shape
     const directSalesRows = (directSalesRes.data || []).map((r: any) => ({
