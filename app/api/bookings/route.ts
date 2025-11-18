@@ -48,8 +48,12 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Bookings API] Fetching bookings for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
-    // Fetch ALL data WITHOUT franchise filter first (RLS will handle it)
-    // Then apply client-side filtering if needed
+    // Build franchise filter
+    let franchiseFilter = null
+    if (!isSuperAdmin) {
+      // Staff: see only their franchise + legacy null franchise_id entries
+      franchiseFilter = `or(franchise_id.eq.${franchiseId},franchise_id.is.null)`
+    }
 
     // ============ PRODUCT ORDERS ============
     let productQuery = supabase
@@ -58,13 +62,19 @@ export async function GET(request: NextRequest) {
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
         event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
         payment_method, payment_type, discount_amount, tax_amount, security_deposit,
-        is_quote,
+        is_quote, event_time, event_participant, return_time, venue_name, groom_name, groom_address, groom_whatsapp, 
+        bride_name, bride_address, bride_whatsapp, subtotal_amount, distance_amount, distance_km, coupon_code, coupon_discount,
+        gst_percentage,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
       .or('is_quote.is.null,is_quote.eq.false')
       .eq('is_archived', false)
-      .order("created_at", { ascending: false })
+    
+    if (!isSuperAdmin) {
+      productQuery = productQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+    }
+    productQuery = productQuery.order("created_at", { ascending: false })
 
     // ============ PACKAGE BOOKINGS ============
     let packageQuery = supabase
@@ -80,18 +90,27 @@ export async function GET(request: NextRequest) {
       `)
       .eq("is_quote", false)
       .eq('is_archived', false)
-      .order("created_at", { ascending: false })
+    
+    if (!isSuperAdmin) {
+      packageQuery = packageQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+    }
+    packageQuery = packageQuery.order("created_at", { ascending: false })
 
     // ============ DIRECT SALES ============
     let directSalesQuery = supabase
       .from("direct_sales_orders")
       .select(`
         id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, delivery_time, venue_address,
-        total_amount, amount_paid, notes, created_at,
+        total_amount, amount_paid, notes, created_at, event_time, event_participant, event_type, venue_name,
+        subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, tax_amount, gst_percentage,
         customer:customers(name, phone, email)
       `)
       .eq('is_archived', false)
-      .order("created_at", { ascending: false })
+    
+    if (!isSuperAdmin) {
+      directSalesQuery = directSalesQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+    }
+    directSalesQuery = directSalesQuery.order("created_at", { ascending: false })
 
     // Execute all three queries in parallel
     const [productRes, packageRes, directSalesRes] = await Promise.all([
