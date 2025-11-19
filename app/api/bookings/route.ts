@@ -48,13 +48,6 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Bookings API] Fetching bookings for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
-    // Build franchise filter
-    let franchiseFilter = null
-    if (!isSuperAdmin) {
-      // Staff: see only their franchise + legacy null franchise_id entries
-      franchiseFilter = `or(franchise_id.eq.${franchiseId},franchise_id.is.null)`
-    }
-
     // ============ PRODUCT ORDERS ============
     let productQuery = supabase
       .from("product_orders")
@@ -68,8 +61,8 @@ export async function GET(request: NextRequest) {
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
-      .or('is_quote.is.null,is_quote.eq.false')
       .eq('is_archived', false)
+      .or('is_quote.is.null,is_quote.eq.false')
     
     if (!isSuperAdmin) {
       productQuery = productQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
@@ -88,8 +81,8 @@ export async function GET(request: NextRequest) {
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at),
         quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
       `)
-      .eq("is_quote", false)
       .eq('is_archived', false)
+      .eq("is_quote", false)
     
     if (!isSuperAdmin) {
       packageQuery = packageQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
@@ -120,9 +113,14 @@ export async function GET(request: NextRequest) {
     ])
 
     // Log results
+    console.log(`[Bookings API] Fetching for franchiseId: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
     console.log(`[Bookings API] Product orders: ${(productRes.data || []).length}, Error: ${productRes.error?.message || 'none'}`)
     console.log(`[Bookings API] Package bookings: ${(packageRes.data || []).length}, Error: ${packageRes.error?.message || 'none'}`)
     console.log(`[Bookings API] Direct sales: ${(directSalesRes.data || []).length}, Error: ${directSalesRes.error?.message || 'none'}`)
+    
+    if (productRes.error) console.error(`[Bookings API] Product error details:`, productRes.error)
+    if (packageRes.error) console.error(`[Bookings API] Package error details:`, packageRes.error)
+    if (directSalesRes.error) console.error(`[Bookings API] Direct sales error details:`, directSalesRes.error)
 
     // Compute item quantity totals for each booking
     const productIds = (productRes.data || []).map((r: any) => r.id)
