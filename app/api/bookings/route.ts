@@ -58,16 +58,9 @@ export async function GET(request: NextRequest) {
         is_quote, event_time, event_participant, return_time, venue_name, groom_name, groom_address, groom_whatsapp, 
         bride_name, bride_address, bride_whatsapp, subtotal_amount, distance_amount, distance_km, coupon_code, coupon_discount,
         gst_percentage,
-        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at),
-        quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
+        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
-      .eq('is_archived', false)
-      .or('is_quote.is.null,is_quote.eq.false')
-    
-    if (!isSuperAdmin) {
-      productQuery = productQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-    }
-    productQuery = productQuery.order("created_at", { ascending: false })
+      .order("created_at", { ascending: false })
 
     // ============ PACKAGE BOOKINGS ============
     let packageQuery = supabase
@@ -78,16 +71,9 @@ export async function GET(request: NextRequest) {
         groom_name, groom_address, groom_whatsapp, bride_name, bride_address, bride_whatsapp, event_participant,
         subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, 
         tax_amount, gst_percentage, security_deposit, event_time,
-        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at),
-        quote:from_quote_id(sales_closed_by_id, sales_staff:sales_closed_by_id(id, name))
+        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
-      .eq('is_archived', false)
-      .eq("is_quote", false)
-    
-    if (!isSuperAdmin) {
-      packageQuery = packageQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-    }
-    packageQuery = packageQuery.order("created_at", { ascending: false })
+      .order("created_at", { ascending: false })
 
     // ============ DIRECT SALES ============
     let directSalesQuery = supabase
@@ -98,12 +84,7 @@ export async function GET(request: NextRequest) {
         subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, tax_amount, gst_percentage,
         customer:customers(name, phone, email)
       `)
-      .eq('is_archived', false)
-    
-    if (!isSuperAdmin) {
-      directSalesQuery = directSalesQuery.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
-    }
-    directSalesQuery = directSalesQuery.order("created_at", { ascending: false })
+      .order("created_at", { ascending: false })
 
     // Execute all three queries in parallel
     const [productRes, packageRes, directSalesRes] = await Promise.all([
