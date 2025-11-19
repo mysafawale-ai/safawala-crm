@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
         gst_percentage,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
+      .eq("franchise_id", franchiseId)
       .order("created_at", { ascending: false })
 
     // ============ PACKAGE BOOKINGS ============
@@ -73,6 +74,7 @@ export async function GET(request: NextRequest) {
         tax_amount, gst_percentage, security_deposit, event_time,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
+      .eq("franchise_id", franchiseId)
       .order("created_at", { ascending: false })
 
     // ============ DIRECT SALES ============
@@ -84,6 +86,7 @@ export async function GET(request: NextRequest) {
         subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, tax_amount, gst_percentage,
         customer:customers(name, phone, email)
       `)
+      .eq("franchise_id", franchiseId)
       .order("created_at", { ascending: false })
 
     // Execute all three queries in parallel
