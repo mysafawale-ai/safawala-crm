@@ -57,7 +57,6 @@ export async function GET(request: NextRequest) {
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('is_quote', false)
-      .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
     // ============ PACKAGE BOOKINGS ============
@@ -96,6 +95,9 @@ export async function GET(request: NextRequest) {
     // Log results
     console.log(`[Bookings API] Fetching for franchiseId: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
     console.log(`[Bookings API] Product orders: ${(productRes.data || []).length}, Error: ${productRes.error?.message || 'none'}`)
+    if (productRes.data && productRes.data.length > 0) {
+      console.log(`[Bookings API] Product sample - first 3 franchise_ids:`, productRes.data.slice(0, 3).map((r: any) => r.franchise_id))
+    }
     console.log(`[Bookings API] Package bookings: ${(packageRes.data || []).length}, Error: ${packageRes.error?.message || 'none'}`)
     console.log(`[Bookings API] Direct sales: ${(directSalesRes.data || []).length}, Error: ${directSalesRes.error?.message || 'none'}`)
     
