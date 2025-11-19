@@ -53,11 +53,7 @@ export async function GET(request: NextRequest) {
       .from("product_orders")
       .select(`
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
-        event_type, venue_address, total_amount, amount_paid, notes, created_at, from_quote_id,
-        payment_method, payment_type, discount_amount, tax_amount, security_deposit,
-        is_quote, event_time, event_participant, return_time, venue_name, groom_name, groom_address, groom_whatsapp, 
-        bride_name, bride_address, bride_whatsapp, subtotal_amount, distance_amount, distance_km, coupon_code, coupon_discount,
-        gst_percentage,
+        event_type, venue_address, total_amount, amount_paid, notes, created_at,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .order("created_at", { ascending: false })
