@@ -1102,11 +1102,14 @@ export default function CreateProductOrderPage() {
           security_deposit: totals.deposit, // Track order-level deposit (rental)
           amount_paid: amountPaidNow,  // Payable portion plus refundable deposit (if rental)
           pending_amount: totals.remaining,  // Remaining on the grand total (excludes deposit)
-          has_modifications: formData.has_modifications,
-          modifications_details: formData.modifications_details,
-          modification_date: modificationDateTime,
+          // Only include modification fields for sales, not rentals
+          ...(formData.booking_type === 'sale' && {
+            has_modifications: formData.has_modifications,
+            modifications_details: formData.modifications_details,
+            modification_date: modificationDateTime,
+            modification_time: formData.modification_time || null,
+          }),
           delivery_time: formData.delivery_time || null,
-          modification_time: formData.modification_time || null,
           status: bookingStatus,
           is_quote: isQuote,
           sales_closed_by_id: selectedStaff && selectedStaff !== "none" ? selectedStaff : null
