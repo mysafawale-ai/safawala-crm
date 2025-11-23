@@ -161,6 +161,7 @@ export default function CreateProductOrderPage() {
     payment_type: "full" as "full" | "advance" | "partial",
     payment_method: "Cash / Offline Payment",
     custom_amount: 0,
+    custom_subtotal: 0, // Custom subtotal before GST
     deposit_amount: 0,
     discount_amount: 0,
     coupon_code: "",
@@ -718,7 +719,7 @@ export default function CreateProductOrderPage() {
 
   // Calculate totals
   const totals = useMemo(() => {
-    const subtotal = items.reduce((s, i) => s + i.total_price, 0)
+    const subtotal = formData.custom_subtotal > 0 ? formData.custom_subtotal : items.reduce((s, i) => s + i.total_price, 0)
     const autoDeposit = 0 // Disabled: no auto security deposit from products
     const customDeposit = formData.deposit_amount || 0
     const totalDeposit = customDeposit // Only use custom deposit
@@ -2216,6 +2217,29 @@ export default function CreateProductOrderPage() {
                   </div>
                 )}
 
+                {/* Custom Subtotal (before GST) */}
+                <div>
+                  <Label className="text-sm">Custom Subtotal (₹) - Before GST (Optional)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={formData.custom_subtotal || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        custom_subtotal: e.target.value === '' ? 0 : Number(e.target.value),
+                      })
+                    }
+                    className="mt-1"
+                    placeholder="Leave empty to use items total"
+                  />
+                  {formData.custom_subtotal > 0 && (
+                    <p className="text-xs text-purple-600 mt-1">
+                      ✓ Custom Subtotal: ₹{(formData.custom_subtotal || 0).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+
                 {/* Discount */}
                 <div>
                   <Label className="text-sm">Discount Amount (₹)</Label>
@@ -2297,9 +2321,14 @@ export default function CreateProductOrderPage() {
               <CardContent className="space-y-2 text-sm">
                 {/* Items Subtotal */}
                 <div className="flex justify-between">
-                  <span>Items Subtotal</span>
+                  <span>{formData.custom_subtotal > 0 ? 'Custom Subtotal' : 'Items Subtotal'}</span>
                   <span className="font-medium">₹{totals.subtotal.toFixed(2)}</span>
                 </div>
+                {formData.custom_subtotal > 0 && items.length > 0 && (
+                  <div className="text-[11px] text-purple-600 -mt-1">
+                    (Actual items total: ₹{items.reduce((s, i) => s + i.total_price, 0).toFixed(2)})
+                  </div>
+                )}
 
                 {/* Manual Discount */}
                 {totals.discount > 0 && (
