@@ -61,17 +61,16 @@ export async function GET(request: NextRequest) {
       .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
-    // ============ DIRECT SALES ORDERS (FROM PRODUCT_ORDERS_ALL VIEW) ============
-    // Query the product_orders_all view which combines direct_sales_orders and product_orders sales
+    // ============ DIRECT SALES ORDERS (FROM DIRECT_SALES_ORDERS TABLE) ============
+    // Query the direct_sales_orders table directly - this table has the direct sales data
     let directSalesQuery = supabase
-      .from("product_orders_all")
+      .from("direct_sales_orders")
       .select(`
         id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, venue_address,
-        total_amount, amount_paid, notes, created_at, source,
+        total_amount, amount_paid, notes, created_at,
         subtotal_amount, discount_amount, coupon_code, coupon_discount, tax_amount,
         customer:customers(name, phone, email)
       `)
-      .eq('source', 'direct_sales')
       .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
