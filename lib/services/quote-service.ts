@@ -339,7 +339,7 @@ export class QuoteService {
         created_at: order.created_at,
         quote_items: items.map((item: any) => ({
           ...item,
-          product_name: item.product_name || 'Product',
+          product_name: item.product_name_copy || item.product_name || 'Product',
           product_security_deposit: 0
         })),
         booking_type: 'product',
@@ -393,11 +393,11 @@ export class QuoteService {
         created_at: booking.created_at,
         quote_items: items.map((item: any) => ({
           ...item,
-          product_name: item.package_name || 'Package',
-          package_name: item.package_name || '',
+          product_name: item.package_name_copy || item.package_name || 'Package',
+          package_name: item.package_name_copy || item.package_name || '',
           package_description: '',
           package_security_deposit: 0,
-          category: '',
+          category: item.category || '',
           variant_name: item.variant_name || '',
           extra_safas: item.extra_safas || 0,
           variant_inclusions: []

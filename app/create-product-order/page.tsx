@@ -902,7 +902,7 @@ export default function CreateProductOrderPage() {
             coupon_code: formData.coupon_code || null,
             coupon_discount: formData.coupon_discount || 0,
             tax_amount: totals.gst,
-            subtotal_amount: totals.subtotalAfterDiscount,
+            subtotal_amount: totals.subtotal,
             total_amount: totals.grand,
             security_deposit: totals.deposit,
             amount_paid: amountPaidNow,
@@ -931,6 +931,8 @@ export default function CreateProductOrderPage() {
         const rows = items.map((it) => ({
           order_id: editQuoteId,
           product_id: it.product_id,
+          product_name_copy: it.product_name,
+          category: it.category,
           quantity: it.quantity,
           unit_price: it.unit_price,
           total_price: it.total_price,
@@ -1010,7 +1012,7 @@ export default function CreateProductOrderPage() {
           bride_address: formData.bride_address,
           payment_method: formData.payment_method,
           payment_type: formData.payment_type,
-          subtotal_amount: totals.subtotalAfterDiscount,
+          subtotal_amount: totals.subtotal,
           discount_amount: formData.discount_amount,
           coupon_code: formData.coupon_code || null,
           coupon_discount: formData.coupon_discount || 0,
@@ -1097,7 +1099,7 @@ export default function CreateProductOrderPage() {
           coupon_code: formData.coupon_code || null,
           coupon_discount: formData.coupon_discount || 0,
           tax_amount: totals.gst,
-          subtotal_amount: totals.subtotalAfterDiscount,
+          subtotal_amount: totals.subtotal,
           total_amount: totals.grand,
           security_deposit: totals.deposit, // Track order-level deposit (rental)
           amount_paid: amountPaidNow,  // Payable portion plus refundable deposit (if rental)
@@ -1125,6 +1127,8 @@ export default function CreateProductOrderPage() {
       const rows = items.map((it) => ({
         order_id: order.id,
         product_id: it.product_id,
+        product_name_copy: it.product_name,
+        category: it.category,
         quantity: it.quantity,
         unit_price: it.unit_price,
         total_price: it.total_price,
