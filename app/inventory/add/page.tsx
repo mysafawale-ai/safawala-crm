@@ -47,7 +47,7 @@ interface FormData {
   price: string | number
   rental_price: string | number
   cost_price: string | number
-  security_deposit: string | number
+  lost_safa_price: string | number
   stock_total: number
   reorder_level: number
   is_active: boolean
@@ -81,7 +81,7 @@ export default function AddProductPage() {
     price: "",
     rental_price: "",
     cost_price: "",
-    security_deposit: "",
+    lost_safa_price: "",
     stock_total: 1,
     reorder_level: 5,
     is_active: true,
@@ -182,12 +182,12 @@ export default function AddProductPage() {
     const price = Number(formData.price) || 0
     const rentalPrice = Number(formData.rental_price) || 0
     const costPrice = Number(formData.cost_price) || 0
-    const securityDeposit = Number(formData.security_deposit) || 0
+    const lostSafaPrice = Number(formData.lost_safa_price) || 0
 
     if (price < 0) errors.push("Price cannot be negative")
     if (rentalPrice < 0) errors.push("Rental price cannot be negative")
     if (costPrice < 0) errors.push("Cost price cannot be negative")
-    if (securityDeposit < 0) errors.push("Security deposit cannot be negative")
+    if (lostSafaPrice < 0) errors.push("Lost safa price cannot be negative")
     if (formData.stock_total < 1) errors.push("Stock total must be at least 1")
     if (formData.reorder_level < 0) errors.push("Reorder level cannot be negative")
 
@@ -362,7 +362,7 @@ export default function AddProductPage() {
         price: Number(formData.price) || 0,
         rental_price: Number(formData.rental_price) || 0,
         cost_price: Number(formData.cost_price) || 0,
-        security_deposit: Number(formData.security_deposit) || 0,
+        security_deposit: Number(formData.lost_safa_price) || 0,
         stock_total: formData.stock_total,
         stock_available: formData.stock_total,
         stock_booked: 0,
@@ -807,14 +807,14 @@ export default function AddProductPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="security_deposit">Security Deposit (₹)</Label>
+                      <Label htmlFor="lost_safa_price">Lost Safa Price (₹) - Replacement Cost</Label>
                       <Input
-                        id="security_deposit"
+                        id="lost_safa_price"
                         type="number"
-                        value={formData.security_deposit}
+                        value={formData.lost_safa_price}
                         onChange={(e) =>
                           handleInputChange(
-                            "security_deposit",
+                            "lost_safa_price",
                             e.target.value === "" ? "" : Number.parseFloat(e.target.value) || "",
                           )
                         }
