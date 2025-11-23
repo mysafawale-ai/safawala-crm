@@ -50,14 +50,12 @@ export async function GET(request: NextRequest) {
 
     // ============ PRODUCT ORDERS (RENTALS ONLY) ============
     let productQuery = supabase
-      .from("product_orders")
+      .from("product_rental_orders_extended")
       .select(`
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
         event_type, venue_address, total_amount, amount_paid, notes, created_at,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
-      .eq('is_quote', false)
-      .eq('booking_type', 'rental')
       .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
