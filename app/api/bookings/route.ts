@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('franchise_id', franchiseId)
+      .eq('is_quote', false)
       .order("created_at", { ascending: false })
 
     // Execute all three queries in parallel
