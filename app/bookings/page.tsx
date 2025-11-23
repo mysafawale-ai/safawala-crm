@@ -58,6 +58,7 @@ import ManageOffersDialog from "@/components/ManageOffersDialog"
 import { apiClient } from "@/lib/api-client"
 import { archiveBooking, restoreBooking } from "@/lib/bookings"
 import { PackageBookingView } from "@/components/bookings/package-booking-view"
+import { BookingsTabs } from "@/components/bookings/bookings-tabs"
 
 export default function BookingsPage() {
   const router = useRouter()
@@ -1362,342 +1363,39 @@ export default function BookingsPage() {
         </div>
 
         <TabsContent value="table">
-          <Card>
-            <CardHeader>
-              <CardTitle>All Bookings ({filteredBookings.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <TableSkeleton rows={10} />
-              ) : paginatedBookings.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No bookings found</h3>
-                  <p className="text-muted-foreground mb-6">
-                    {searchTerm || statusFilter !== "all"
-                      ? "Try adjusting your search or filters"
-                      : "Get started by creating your first booking"}
-                  </p>
-                  <Link href="/book-package">
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Booking
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Booking #</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Products</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Event Date</TableHead>
-                      <TableHead>Created At</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedBookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell className="font-medium">{booking.booking_number}</TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{booking.customer?.name}</div>
-                            <div className="text-sm text-muted-foreground">{booking.customer?.phone}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const b: any = booking
-                            if (b.type === 'package') {
-                              const totalSafas = (b.total_safas || 0)
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  <Badge variant="default">Package</Badge>
-                                  <span className="text-xs text-gray-600">{totalSafas} Safas</span>
-                                </div>
-                              )
-                            }
-                            if (b.type === 'sale') return <Badge variant="secondary">Product • Sale</Badge>
-                            if (b.type === 'rental') return <Badge>Product • Rental</Badge>
-                            return <Badge variant="outline">Unknown</Badge>
-                          })()}
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const items = bookingItems[booking.id] || []
-                            const hasItems = (booking as any).has_items || bookingsWithItems.has(booking.id)
-                            const bookingType = (booking as any).type
-                            
-                            // ✅ For direct sales: don't show items column at all
-                            if (bookingType === 'sale') {
-                              return <span className="text-muted-foreground text-sm">—</span>
-                            }
-                            
-                            // Check if there are actually no items in the fetched data
-                            // Priority: actual items array > has_items flag
-                            const actuallyHasItems = items.length > 0
-                            
-                            if (!hasItems || !actuallyHasItems) {
-                              return (
-                                <Badge 
-                                  variant="outline" 
-                                  className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
-                                  onClick={() => {
-                                    // Open product selection directly
-                                    setCurrentBookingForItems(booking)
-                                    setSelectedItems([])
-                                    setShowItemsSelection(true)
-                                  }}
-                                >
-                                  ⏳ Selection Pending
-                                </Badge>
-                              )
-                            }
-                            
-                            // For product rentals: show "items" with click handler
-                            if (bookingType === 'rental') {
-                              return (
-                                <Badge 
-                                  variant="default"
-                                  className="bg-blue-600 cursor-pointer hover:bg-blue-700"
-                                  onClick={() => {
-                                    setProductDialogBooking(booking)
-                                    setProductDialogType('items')
-                                    setShowProductDialog(true)
-                                  }}
-                                >
-                                  📦 Items
-                                </Badge>
-                              )
-                            }
-                            
-                            // For packages: show "items"
-                            if (items.length === 0) {
-                              return (
-                                <Badge 
-                                  variant="default"
-                                  className="cursor-pointer hover:bg-primary/80"
-                                  onClick={() => handleOpenCompactDisplay(booking)}
-                                >
-                                  Items
-                                </Badge>
-                              )
-                            }
-                            
-                            return (
-                              <Badge 
-                                variant="outline"
-                                className="cursor-pointer hover:bg-gray-100 border-gray-300"
-                                onClick={() => handleOpenCompactDisplay(booking)}
-                              >
-                                Items
-                              </Badge>
-                            )
-                          })()}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(booking.status, booking)}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-col items-start">
-                            <span>₹{booking.total_amount?.toLocaleString() || 0}</span>
-                            {typeof (booking as any).security_deposit === 'number' && (booking as any).security_deposit > 0 && (
-                              <span className="text-xs text-muted-foreground">Payable Now: ₹{(((booking as any).total_amount || 0) + ((booking as any).security_deposit || 0)).toLocaleString()}</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8"
-                              onClick={() => {
-                                setSelectedBooking(booking)
-                                setShowViewDialog(true)
-                              }}
-                              title="View Booking"
-                            >
-                              <Eye className="h-4 w-4"/>
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8"
-                              onClick={() => handleEditBooking(booking.id, (booking as any).source)}
-                              title="Edit Booking"
-                            >
-                              <Edit className="h-4 w-4"/>
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-amber-600 hover:text-amber-700"
-                              onClick={() => handleArchiveBooking(booking.id, (booking as any).source)}
-                              title="Archive Booking"
-                            >
-                              <Archive className="h-4 w-4"/>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-              
-              {/* Pagination Controls */}
-              {totalItems > 0 && (
-                <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-                  <div className="flex items-center gap-4">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} results
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Per page:</span>
-                      <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-                        setItemsPerPage(parseInt(value))
-                        setCurrentPage(1)
-                      }}>
-                        <SelectTrigger className="w-[80px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="25">25</SelectItem>
-                          <SelectItem value="50">50</SelectItem>
-                          <SelectItem value="100">100</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => goToPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    
-                    <div className="flex items-center gap-1">
-                      {getPageNumbers().map((page, idx) => (
-                        page === '...' ? (
-                          <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
-                        ) : (
-                          <Button
-                            key={page}
-                            variant={currentPage === page ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => goToPage(page as number)}
-                            className="min-w-[2.5rem]"
-                          >
-                            {page}
-                          </Button>
-                        )
-                      ))}
-                    </div>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => goToPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Archived Bookings Section */}
-              {archivedBookings.length > 0 && (
-                <div className="mt-8 pt-8 border-t">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Archive className="h-5 w-5 text-amber-600" />
-                      <h3 className="text-lg font-semibold">Archived Bookings ({archivedBookings.length})</h3>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowArchivedSection(!showArchivedSection)}
-                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                    >
-                      {showArchivedSection ? '▼ Hide' : '▶ Show'}
-                    </Button>
-                  </div>
-                  
-                  {showArchivedSection && (
-                    <div className="overflow-x-auto pb-2">
-                      <div className="flex gap-4">
-                        {archivedBookings.map((booking) => (
-                          <Card key={booking.id} className="flex-shrink-0 w-80 border-amber-200 bg-amber-50">
-                            <CardContent className="p-4">
-                              <div className="space-y-3">
-                                {/* Header with booking number and date */}
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="font-semibold text-sm">{booking.booking_number}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {new Date(booking.created_at).toLocaleDateString()}
-                                    </p>
-                                  </div>
-                                  <Badge variant="secondary" className="bg-amber-100 text-amber-800">Archived</Badge>
-                                </div>
-
-                                {/* Customer info */}
-                                <div className="bg-white rounded p-2">
-                                  <p className="text-sm font-medium">{booking.customer?.name || 'N/A'}</p>
-                                  <p className="text-xs text-muted-foreground">{booking.venue_name || 'N/A'}</p>
-                                </div>
-
-                                {/* Amount */}
-                                <div className="flex justify-between items-center text-sm">
-                                  <span className="text-muted-foreground">Total:</span>
-                                  <span className="font-semibold">₹{(booking.total_amount || 0).toLocaleString()}</span>
-                                </div>
-
-                                {/* Action buttons */}
-                                <div className="flex gap-2 pt-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1 h-8 text-xs"
-                                    onClick={() => {
-                                      setSelectedBooking(booking)
-                                      setShowViewDialog(true)
-                                    }}
-                                  >
-                                    <Eye className="h-3 w-3 mr-1" />
-                                    View
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                    onClick={() => handleRestoreBooking(booking.id, (booking as any).source || 'unified')}
-                                  >
-                                    <RotateCcw className="h-3 w-3 mr-1" />
-                                    Restore
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <BookingsTabs 
+            bookings={filteredBookings}
+            loading={loading}
+            paginatedBookings={paginatedBookings}
+            totalItems={totalItems}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            totalPages={totalPages}
+            getStatusBadge={getStatusBadge}
+            bookingItems={bookingItems}
+            bookingsWithItems={bookingsWithItems}
+            getPageNumbers={getPageNumbers}
+            goToPage={goToPage}
+            setItemsPerPage={setItemsPerPage}
+            setCurrentPage={setCurrentPage}
+            handleOpenCompactDisplay={handleOpenCompactDisplay}
+            setProductDialogBooking={setProductDialogBooking}
+            setProductDialogType={setProductDialogType}
+            setShowProductDialog={setShowProductDialog}
+            setCurrentBookingForItems={setCurrentBookingForItems}
+            setSelectedItems={setSelectedItems}
+            setShowItemsSelection={setShowItemsSelection}
+            setSelectedBooking={setSelectedBooking}
+            setShowViewDialog={setShowViewDialog}
+            handleEditBooking={handleEditBooking}
+            handleArchiveBooking={handleArchiveBooking}
+            archivedBookings={archivedBookings}
+            showArchivedSection={showArchivedSection}
+            setShowArchivedSection={setShowArchivedSection}
+            handleRestoreBooking={handleRestoreBooking}
+          />
         </TabsContent>
 
         <TabsContent value="calendar">
