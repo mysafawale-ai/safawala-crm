@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Bookings API] Fetching bookings for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
 
-    // ============ PRODUCT ORDERS (RENTALS) ============
+    // ============ PRODUCT ORDERS (RENTALS ONLY) ============
     let productQuery = supabase
       .from("product_orders")
       .select(`
@@ -61,16 +61,15 @@ export async function GET(request: NextRequest) {
       .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
-    // ============ PRODUCT ORDERS (DIRECT SALES) ============
+    // ============ DIRECT SALES ORDERS (SEPARATE TABLE) ============
     let directSalesQuery = supabase
-      .from("product_orders")
+      .from("direct_sales_orders")
       .select(`
-        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
-        event_type, venue_address, total_amount, amount_paid, notes, created_at,
-        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
+        id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, delivery_time, venue_address,
+        total_amount, amount_paid, notes, created_at, event_time, event_type, venue_name,
+        subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, tax_amount, gst_percentage,
+        customer:customers(name, phone, email)
       `)
-      .eq('is_quote', false)
-      .eq('booking_type', 'sale')
       .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
@@ -317,47 +316,47 @@ export async function GET(request: NextRequest) {
       has_items: (productTotals[r.id] || 0) > 0,
     }))
 
-    // Compute item totals for direct sales (now from product_orders with booking_type='sale')
+    // Compute item totals for direct sales
     const directSalesIds = (directSalesRes.data || []).map((r: any) => r.id)
     let directSalesTotals: Record<string, number> = {}
 
     if (directSalesIds.length > 0) {
       const { data: dsiItems } = await supabase
-        .from('product_order_items')
-        .select('order_id, quantity')
-        .in('order_id', directSalesIds)
+        .from('direct_sales_items')
+        .select('sale_id, quantity')
+        .in('sale_id', directSalesIds)
       for (const row of dsiItems || []) {
-        directSalesTotals[row.order_id] = (directSalesTotals[row.order_id] || 0) + (Number(row.quantity) || 0)
+        directSalesTotals[row.sale_id] = (directSalesTotals[row.sale_id] || 0) + (Number(row.quantity) || 0)
       }
     }
 
     // Map direct sales orders to unified Booking shape
     const directSalesRows = (directSalesRes.data || []).map((r: any) => ({
       id: r.id,
-      booking_number: r.order_number,
+      booking_number: r.sale_number,
       customer_id: r.customer_id,
       franchise_id: r.franchise_id,
-      event_date: r.event_date,
+      event_date: r.sale_date,
       event_time: r.event_time || null,
       delivery_date: r.delivery_date,
       delivery_time: r.delivery_time || null,
       delivery_address: r.venue_address || null,
-      pickup_date: r.return_date,
-      return_date: r.return_date,
-      return_time: r.return_time || null,
+      pickup_date: null,
+      return_date: null,
+      return_time: null,
       event_type: r.event_type || 'Direct Sale',
-      event_participant: r.event_participant || null,
+      event_participant: null,
       status: r.status,
       total_amount: Number(r.total_amount) || 0,
       paid_amount: Number(r.amount_paid) || 0,
-      subtotal_amount: Number((r as any).subtotal_amount || 0),
-      distance_amount: Number((r as any).distance_amount || 0),
-      distance_km: Number((r as any).distance_km || 0),
-      discount_amount: Number((r as any).discount_amount || 0),
-      coupon_code: (r as any).coupon_code || null,
-      coupon_discount: Number((r as any).coupon_discount || 0),
-      tax_amount: Number((r as any).tax_amount || 0),
-      gst_percentage: Number((r as any).gst_percentage || 0),
+      subtotal_amount: Number(r.subtotal_amount || 0),
+      distance_amount: Number(r.distance_amount || 0),
+      distance_km: Number(r.distance_km || 0),
+      discount_amount: Number(r.discount_amount || 0),
+      coupon_code: r.coupon_code || null,
+      coupon_discount: Number(r.coupon_discount || 0),
+      tax_amount: Number(r.tax_amount || 0),
+      gst_percentage: Number(r.gst_percentage || 0),
       security_deposit: 0,
       notes: r.notes,
       created_at: r.created_at,
@@ -365,12 +364,12 @@ export async function GET(request: NextRequest) {
       customer: r.customer || null,
       venue_address: r.venue_address || null,
       venue_name: r.venue_name || null,
-      groom_name: r.groom_name || null,
-      groom_address: r.groom_address || null,
-      groom_whatsapp: r.groom_whatsapp || null,
-      bride_name: r.bride_name || null,
-      bride_address: r.bride_address || null,
-      bride_whatsapp: r.bride_whatsapp || null,
+      groom_name: null,
+      groom_address: null,
+      groom_whatsapp: null,
+      bride_name: null,
+      bride_address: null,
+      bride_whatsapp: null,
       // Mark as direct_sales source for tab filtering
       source: 'direct_sales' as const,
       type: 'sale' as const,
