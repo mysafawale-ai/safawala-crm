@@ -719,9 +719,9 @@ export default function CreateProductOrderPage() {
   // Calculate totals
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + i.total_price, 0)
-    const autoDeposit = items.reduce((s, i) => s + i.security_deposit, 0)
+    const autoDeposit = 0 // Disabled: no auto security deposit from products
     const customDeposit = formData.deposit_amount || 0
-    const totalDeposit = autoDeposit + customDeposit
+    const totalDeposit = customDeposit // Only use custom deposit
     const discount = formData.discount_amount || 0
     const couponDiscount = formData.coupon_discount || 0
     const totalDiscount = discount + couponDiscount
@@ -2202,16 +2202,13 @@ export default function CreateProductOrderPage() {
                         })
                       }
                       className="mt-1"
-                      placeholder="Enter custom deposit amount (will be added to auto-calculated deposit)"
+                      placeholder="Enter deposit amount"
                     />
                     {(formData.deposit_amount || 0) > 0 && (
                       <p className="text-xs text-blue-600 mt-1">
-                        ✓ Additional Deposit: ₹{(formData.deposit_amount || 0).toFixed(2)}
+                        ✓ Deposit Amount: ₹{(formData.deposit_amount || 0).toFixed(2)}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      Note: Auto-calculated security deposit from products will be added to this amount
-                    </p>
                   </div>
                 )}
 
@@ -2345,18 +2342,7 @@ export default function CreateProductOrderPage() {
                       </span>
                       <span className="font-medium text-blue-700">₹{totals.deposit.toFixed(2)}</span>
                     </div>
-                    {totals.autoDeposit > 0 && (
-                      <div className="flex justify-between text-xs bg-blue-100 p-1.5 rounded pl-4">
-                        <span>From products:</span>
-                        <span className="text-blue-600">₹{totals.autoDeposit.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {totals.customDeposit > 0 && (
-                      <div className="flex justify-between text-xs bg-blue-100 p-1.5 rounded pl-4">
-                        <span>Additional amount:</span>
-                        <span className="text-blue-600">₹{totals.customDeposit.toFixed(2)}</span>
-                      </div>
-                    )}
+                    {/* From products breakdown removed - using only custom deposit */}
                   </div>
                 )}
 
