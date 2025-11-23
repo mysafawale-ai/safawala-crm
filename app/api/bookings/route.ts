@@ -61,15 +61,17 @@ export async function GET(request: NextRequest) {
       .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
-    // ============ DIRECT SALES ORDERS (SEPARATE TABLE) ============
+    // ============ DIRECT SALES ORDERS (FROM PRODUCT_ORDERS_ALL VIEW) ============
+    // Query the product_orders_all view which combines direct_sales_orders and product_orders sales
     let directSalesQuery = supabase
-      .from("direct_sales_orders")
+      .from("product_orders_all")
       .select(`
-        id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, delivery_time, venue_address,
-        total_amount, amount_paid, notes, created_at, event_time, event_type, venue_name,
-        subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, tax_amount, gst_percentage,
+        id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, venue_address,
+        total_amount, amount_paid, notes, created_at, source,
+        subtotal_amount, discount_amount, coupon_code, coupon_discount, tax_amount,
         customer:customers(name, phone, email)
       `)
+      .eq('source', 'direct_sales')
       .eq('franchise_id', franchiseId)
       .order("created_at", { ascending: false })
 
@@ -321,12 +323,24 @@ export async function GET(request: NextRequest) {
     let directSalesTotals: Record<string, number> = {}
 
     if (directSalesIds.length > 0) {
+      // Fetch from both direct_sales_items and product_order_items for combined view
       const { data: dsiItems } = await supabase
         .from('direct_sales_items')
         .select('sale_id, quantity')
         .in('sale_id', directSalesIds)
+      
+      // Also check product_order_items for orders that came from product_orders table with booking_type='sale'
+      const { data: poiItems } = await supabase
+        .from('product_order_items')
+        .select('order_id, quantity')
+        .in('order_id', directSalesIds)
+      
+      // Combine both results
       for (const row of dsiItems || []) {
         directSalesTotals[row.sale_id] = (directSalesTotals[row.sale_id] || 0) + (Number(row.quantity) || 0)
+      }
+      for (const row of poiItems || []) {
+        directSalesTotals[row.order_id] = (directSalesTotals[row.order_id] || 0) + (Number(row.quantity) || 0)
       }
     }
 
