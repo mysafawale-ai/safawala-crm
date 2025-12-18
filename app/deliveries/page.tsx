@@ -2431,8 +2431,9 @@ export default function DeliveriesPage() {
                     }
                   }
 
-                  // Close dialog FIRST before refreshing data
+                  // Close dialog and clear query params FIRST before refreshing data
                   setShowEditDialog(false)
+                  clearActionParams()
                   
                   // Then refresh data
                   await fetchData()
