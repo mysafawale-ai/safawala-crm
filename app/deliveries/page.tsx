@@ -438,21 +438,30 @@ export default function DeliveriesPage() {
         setBookings([])
       }
 
-      // Fetch staff (optional - table may not exist)
+      // Fetch staff from users table (staff members with deliveries permission)
       try {
-        const { data: staffData, error: staffError } = await supabase
-          .from("staff")
-          .select("*, franchise:franchises(name)")
-          .order("name")
-
-        if (staffError) {
-          console.warn("Staff table not available:", staffError.message)
-          setStaff([])
+        const staffRes = await fetch("/api/staff/delivery-team", { cache: "no-store" })
+        if (staffRes.ok) {
+          const staffJson = await staffRes.json()
+          setStaff(staffJson?.data || [])
         } else {
-          setStaff(staffData || [])
+          console.warn("Staff API error:", staffRes.status)
+          // Fallback: try direct query to users table
+          const { data: staffData, error: staffError } = await supabase
+            .from("users")
+            .select("id, name, email, role, franchise_id")
+            .in("role", ["staff", "franchise_admin", "super_admin"])
+            .order("name")
+
+          if (staffError) {
+            console.warn("Staff query error:", staffError.message)
+            setStaff([])
+          } else {
+            setStaff(staffData || [])
+          }
         }
       } catch (e) {
-        console.warn("Staff feature not available")
+        console.warn("Staff feature not available:", e)
         setStaff([])
       }
 
@@ -746,8 +755,27 @@ export default function DeliveriesPage() {
             fuel_cost: d.fuel_cost.toString(),
             special_instructions: d.special_instructions,
           })
-          // Reset edit staff selection
-          setEditAssignedStaffIds(new Set())
+          // Load existing staff assignments
+          if (d.assigned_staff) {
+            setEditAssignedStaffIds(new Set([d.assigned_staff]))
+          } else {
+            setEditAssignedStaffIds(new Set())
+          }
+          // Try to fetch all assigned staff from junction table
+          try {
+            const staffRes = await fetch(`/api/deliveries/${d.id}/staff`)
+            if (staffRes.ok) {
+              const staffJson = await staffRes.json()
+              if (staffJson.data && staffJson.data.length > 0) {
+                const staffIdSet = new Set(staffJson.data.map((s: any) => s.staff?.id || s.staff_id).filter(Boolean))
+                if (staffIdSet.size > 0) {
+                  setEditAssignedStaffIds(staffIdSet as Set<string>)
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Could not fetch staff assignments:", e)
+          }
           if (d.customer_id) {
             setLoadingAddresses(true)
             try {

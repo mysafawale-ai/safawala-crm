@@ -33,6 +33,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json()
+    const deliveryId = params.id
 
     // Build update object (only include fields that are provided)
     const updateData: any = {
@@ -48,10 +49,37 @@ export async function PATCH(
     if (body.driver_name !== undefined) updateData.driver_name = body.driver_name
     if (body.vehicle_number !== undefined) updateData.vehicle_number = body.vehicle_number
     if (body.assigned_staff_id !== undefined) updateData.assigned_staff_id = body.assigned_staff_id
-    // Handle assigned_staff_ids array (save as JSON if supported, otherwise use first ID)
-    if (body.assigned_staff_ids !== undefined && Array.isArray(body.assigned_staff_ids)) {
-      updateData.assigned_staff_id = body.assigned_staff_ids.length > 0 ? body.assigned_staff_ids[0] : null
+    
+    // Handle assigned_staff_ids array
+    const staffIds = body.assigned_staff_ids
+    if (staffIds !== undefined && Array.isArray(staffIds)) {
+      updateData.assigned_staff_id = staffIds.length > 0 ? staffIds[0] : null
+      
+      // Also update delivery_staff junction table
+      try {
+        // Delete existing assignments
+        await supabaseServer
+          .from("delivery_staff")
+          .delete()
+          .eq("delivery_id", deliveryId)
+
+        // Insert new assignments
+        if (staffIds.length > 0) {
+          const assignments = staffIds.map((staffId: string) => ({
+            delivery_id: deliveryId,
+            staff_id: staffId,
+            role: 'assigned',
+          }))
+          await supabaseServer
+            .from("delivery_staff")
+            .insert(assignments)
+        }
+      } catch (staffError) {
+        // delivery_staff table might not exist - that's ok, we still save the first staff_id
+        console.warn("[Deliveries API] delivery_staff table not available:", staffError)
+      }
     }
+    
     if (body.delivery_charge !== undefined) updateData.delivery_charge = parseFloat(body.delivery_charge)
     if (body.fuel_cost !== undefined) updateData.fuel_cost = parseFloat(body.fuel_cost)
     if (body.special_instructions !== undefined) updateData.special_instructions = body.special_instructions
@@ -59,7 +87,7 @@ export async function PATCH(
     const { data: delivery, error } = await supabaseServer
       .from("deliveries")
       .update(updateData)
-      .eq("id", params.id)
+      .eq("id", deliveryId)
       .select(`
         *,
         customer:customers(id, name, phone, email)

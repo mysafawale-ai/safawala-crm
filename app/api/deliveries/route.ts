@@ -176,6 +176,9 @@ export async function POST(request: NextRequest) {
     const safeFranchiseId = computedFranchiseId
     const safeCreatedBy = uuidRegex.test(userId) ? userId : null
 
+    // Get staff IDs array for junction table
+    const staffIds = Array.isArray(body.assigned_staff_ids) ? body.assigned_staff_ids.filter((id: string) => uuidRegex.test(id)) : []
+
     // Create delivery
     const deliveryData = {
       delivery_number: deliveryNumber,
@@ -220,6 +223,24 @@ export async function POST(request: NextRequest) {
       }
       
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Insert staff assignments into junction table if we have staff IDs
+    if (delivery && staffIds.length > 0) {
+      try {
+        const assignments = staffIds.map((staffId: string) => ({
+          delivery_id: delivery.id,
+          staff_id: staffId,
+          role: 'assigned',
+          assigned_by: safeCreatedBy,
+        }))
+        await supabaseServer
+          .from("delivery_staff")
+          .insert(assignments)
+      } catch (staffError) {
+        // delivery_staff table might not exist yet - that's ok
+        console.warn("[Deliveries API] Could not create staff assignments:", staffError)
+      }
     }
 
     return NextResponse.json({ success: true, data: delivery }, { status: 201 })
