@@ -2431,13 +2431,16 @@ export default function DeliveriesPage() {
                     }
                   }
 
+                  // Close dialog FIRST before refreshing data
+                  setShowEditDialog(false)
+                  
+                  // Then refresh data
                   await fetchData()
+                  
                   toast({
                     title: "Success",
                     description: "Delivery order updated successfully",
                   })
-
-                  setShowEditDialog(false)
                 } catch (error: any) {
                   console.error('[Update Delivery] Failed:', error)
                   toast({
