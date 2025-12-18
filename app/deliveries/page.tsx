@@ -443,7 +443,6 @@ export default function DeliveriesPage() {
         const { data: staffData, error: staffError } = await supabase
           .from("staff")
           .select("*, franchise:franchises(name)")
-          .eq("is_active", true)
           .order("name")
 
         if (staffError) {
@@ -1444,6 +1443,7 @@ export default function DeliveriesPage() {
                           driver_name: scheduleForm.driver_name,
                           vehicle_number: scheduleForm.vehicle_number,
                           assigned_staff_id: safeAssignedStaff,
+                          assigned_staff_ids: Array.from(assignedStaffIds),
                           delivery_charge: scheduleForm.delivery_charge,
                           fuel_cost: scheduleForm.fuel_cost,
                           special_instructions: scheduleForm.special_instructions,
@@ -2368,6 +2368,7 @@ export default function DeliveriesPage() {
                       delivery_charge: editForm.delivery_charge,
                       fuel_cost: editForm.fuel_cost,
                       special_instructions: editForm.special_instructions,
+                      assigned_staff_ids: Array.from(editAssignedStaffIds),
                     }),
                   })
 

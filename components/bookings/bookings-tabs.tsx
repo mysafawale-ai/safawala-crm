@@ -123,14 +123,9 @@ export function BookingsTabs({
               <TableHead>Amount</TableHead>
               <TableHead>Event Date</TableHead>
               <TableHead>Created At</TableHead>
-              {activeTab === 'product-rental' || activeTab === 'package' ? (
-                <>
-                  <TableHead>Quote Status</TableHead>
-                  <TableHead>Invoice</TableHead>
-                </>
-              ) : activeTab === 'direct-sale' ? (
+              {(activeTab === 'product-rental' || activeTab === 'package' || activeTab === 'direct-sale') && (
                 <TableHead>Invoice</TableHead>
-              ) : null}
+              )}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -241,24 +236,8 @@ export function BookingsTabs({
                 <TableCell>{new Date(booking.event_date).toLocaleDateString()}</TableCell>
                 <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                 
-                {/* Quote and Invoice columns for rentals and packages */}
-                {(activeTab === 'product-rental' || activeTab === 'package') && (
-                  <>
-                    <TableCell>
-                      <Badge variant={booking.status === 'confirmed' ? 'default' : 'outline'}>
-                        {booking.status === 'confirmed' ? '✓ Done' : '⏳ Pending'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-                        📄 View
-                      </Badge>
-                    </TableCell>
-                  </>
-                )}
-                
-                {/* Invoice column for direct sales only */}
-                {activeTab === 'direct-sale' && (
+                {/* Invoice column for all booking types */}
+                {(activeTab === 'product-rental' || activeTab === 'package' || activeTab === 'direct-sale') && (
                   <TableCell>
                     <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
                       📄 View

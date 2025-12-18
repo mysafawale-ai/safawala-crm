@@ -152,10 +152,17 @@ export async function POST(request: NextRequest) {
 
     // Sanitize IDs (accept only valid UUIDs)
     const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-    const assignedStaffId =
+    let assignedStaffId =
       typeof body.assigned_staff_id === 'string' && uuidRegex.test(body.assigned_staff_id)
         ? body.assigned_staff_id
         : null
+    // Handle assigned_staff_ids array (prefer first element over assigned_staff_id)
+    if (Array.isArray(body.assigned_staff_ids) && body.assigned_staff_ids.length > 0) {
+      const firstId = body.assigned_staff_ids[0]
+      if (typeof firstId === 'string' && uuidRegex.test(firstId)) {
+        assignedStaffId = firstId
+      }
+    }
     // Determine franchise assignment
     let computedFranchiseId: string | null = null
     if (user.is_super_admin) {

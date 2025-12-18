@@ -48,6 +48,10 @@ export async function PATCH(
     if (body.driver_name !== undefined) updateData.driver_name = body.driver_name
     if (body.vehicle_number !== undefined) updateData.vehicle_number = body.vehicle_number
     if (body.assigned_staff_id !== undefined) updateData.assigned_staff_id = body.assigned_staff_id
+    // Handle assigned_staff_ids array (save as JSON if supported, otherwise use first ID)
+    if (body.assigned_staff_ids !== undefined && Array.isArray(body.assigned_staff_ids)) {
+      updateData.assigned_staff_id = body.assigned_staff_ids.length > 0 ? body.assigned_staff_ids[0] : null
+    }
     if (body.delivery_charge !== undefined) updateData.delivery_charge = parseFloat(body.delivery_charge)
     if (body.fuel_cost !== undefined) updateData.fuel_cost = parseFloat(body.fuel_cost)
     if (body.special_instructions !== undefined) updateData.special_instructions = body.special_instructions
