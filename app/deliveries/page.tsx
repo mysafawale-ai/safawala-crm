@@ -2379,13 +2379,19 @@ export default function DeliveriesPage() {
               Cancel
             </Button>
             <Button
+              disabled={loading}
               onClick={async () => {
                 if (!selectedDelivery) return
 
+                setLoading(true)
                 try {
+                  console.log('[Update Delivery] Sending update for:', selectedDelivery.id)
+                  console.log('[Update Delivery] Staff IDs:', Array.from(editAssignedStaffIds))
+                  
                   const response = await fetch(`/api/deliveries/${selectedDelivery.id}`, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
+                    credentials: "include",
                     body: JSON.stringify({
                       pickup_address: editForm.pickup_address,
                       delivery_address: editForm.delivery_address,
@@ -2400,7 +2406,11 @@ export default function DeliveriesPage() {
                     }),
                   })
 
-                  if (!response.ok) throw new Error("Failed to update delivery")
+                  if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}))
+                    console.error('[Update Delivery] Error:', errorData)
+                    throw new Error(errorData.error || "Failed to update delivery")
+                  }
 
                   // Save pickup address to customer_addresses if it's new
                   if (editForm.customer_id && editForm.pickup_address.trim()) {
@@ -2431,15 +2441,19 @@ export default function DeliveriesPage() {
                   })
 
                   setShowEditDialog(false)
-                } catch (error) {
+                } catch (error: any) {
+                  console.error('[Update Delivery] Failed:', error)
                   toast({
                     title: "Error",
-                    description: "Failed to update delivery",
+                    description: error.message || "Failed to update delivery",
                     variant: "destructive",
                   })
+                } finally {
+                  setLoading(false)
                 }
               }}
             >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Update Delivery
             </Button>
           </div>

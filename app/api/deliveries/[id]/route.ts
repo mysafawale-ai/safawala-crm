@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseServer } from "@/lib/supabase-server-simple"
+import { authenticateRequest } from "@/lib/auth-middleware"
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET(
   request: NextRequest,
@@ -32,7 +36,15 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate user
+    const auth = await authenticateRequest(request, { minRole: 'staff' })
+    if (!auth.authorized) {
+      console.error("[Deliveries API] Unauthorized:", auth.error)
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
+
     const body = await request.json()
+    console.log('[Deliveries API] PATCH request for delivery:', params.id)
     const deliveryId = params.id
 
     // Build update object (only include fields that are provided)
@@ -99,10 +111,11 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    console.log('[Deliveries API] Successfully updated delivery:', deliveryId)
     return NextResponse.json({ success: true, data: delivery })
-  } catch (error) {
-    console.error("[Deliveries API] Error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  } catch (error: any) {
+    console.error("[Deliveries API] PATCH Error:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
 
@@ -111,6 +124,12 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate user
+    const auth = await authenticateRequest(request, { minRole: 'franchise_admin' })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
+
     const { error } = await supabaseServer
       .from("deliveries")
       .delete()
