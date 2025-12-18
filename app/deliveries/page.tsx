@@ -1451,14 +1451,11 @@ export default function DeliveriesPage() {
                         return
                       }
 
-                      // Call API to create delivery
-                      // Ensure assigned_staff_id is a valid UUID; otherwise send null
-                      const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-                      const safeAssignedStaff = uuidRegex.test(scheduleForm.assigned_staff) ? scheduleForm.assigned_staff : null
-
-                      const response = await fetch("/api/deliveries", {
+                      // Call API to create delivery using simpler endpoint
+                      const response = await fetch("/api/deliveries/create", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
+                        credentials: "include",
                         body: JSON.stringify({
                           customer_id: scheduleForm.customer_id,
                           booking_id: scheduleForm.booking_id || null,
@@ -1470,7 +1467,6 @@ export default function DeliveriesPage() {
                           delivery_time: scheduleForm.delivery_time || null,
                           driver_name: scheduleForm.driver_name,
                           vehicle_number: scheduleForm.vehicle_number,
-                          assigned_staff_id: safeAssignedStaff,
                           assigned_staff_ids: Array.from(assignedStaffIds),
                           delivery_charge: scheduleForm.delivery_charge,
                           fuel_cost: scheduleForm.fuel_cost,
@@ -2388,11 +2384,12 @@ export default function DeliveriesPage() {
                   console.log('[Update Delivery] Sending update for:', selectedDelivery.id)
                   console.log('[Update Delivery] Staff IDs:', Array.from(editAssignedStaffIds))
                   
-                  const response = await fetch(`/api/deliveries/${selectedDelivery.id}`, {
+                  const response = await fetch(`/api/deliveries/update`, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
                     body: JSON.stringify({
+                      id: selectedDelivery.id,
                       pickup_address: editForm.pickup_address,
                       delivery_address: editForm.delivery_address,
                       delivery_date: editForm.delivery_date,
