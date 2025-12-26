@@ -281,8 +281,6 @@ export async function POST(request: NextRequest) {
         const baseItem = {
           [foreignKeyField]: bookingId,
           product_id: item.product_id || null,
-          package_id: item.package_id || null,
-          variant_id: item.variant_id || null,
           quantity: item.quantity || 1,
           unit_price: item.unit_price || 0,
           total_price: item.total_price || 0,
@@ -295,8 +293,17 @@ export async function POST(request: NextRequest) {
             security_deposit: item.security_deposit || 0,
           }
         }
-        // For package_bookings, just use base fields (no extra_safas column)
         
+        // For package_bookings, include variant_id and package_id
+        if (normalizedSource === 'package_booking') {
+          return {
+            ...baseItem,
+            variant_id: item.variant_id || null,
+            package_id: item.package_id || null,
+          }
+        }
+        
+        // For direct_sales, just use base fields
         return baseItem
       })
       
