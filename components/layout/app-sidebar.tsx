@@ -118,6 +118,13 @@ const navigationItems = {
       permission: "quotes",
       description: "Generate price quotes, proposals, and estimates for wedding services",
     },
+    {
+      title: "Rental Invoices",
+      url: "/product-rental-invoices",
+      icon: FileCheck,
+      permission: "invoices",
+      description: "Manage product rental invoices, payment tracking, and rental periods",
+    },
     // TODO: Temporarily hidden - Invoices feature
     // {
     //   title: "Invoices",
