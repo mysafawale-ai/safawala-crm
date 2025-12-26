@@ -55,6 +55,8 @@ import {
   Send,
   X,
   Minus,
+  Tag,
+  FileCheck,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
@@ -84,6 +86,13 @@ interface Product {
   stock_available: number
 }
 
+interface StaffMember {
+  id: string
+  name: string
+  email: string
+  role: string
+}
+
 interface InvoiceItem {
   id: string
   product_id: string
@@ -102,7 +111,9 @@ interface InvoiceItem {
 
 interface LostDamagedItem {
   id: string
+  product_id: string
   product_name: string
+  barcode?: string
   type: "lost" | "damaged"
   quantity: number
   charge_per_item: number
@@ -126,11 +137,13 @@ export default function CreateInvoicePage() {
   const [saving, setSaving] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [customerSearch, setCustomerSearch] = useState("")
   const [productSearch, setProductSearch] = useState("")
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [showProductDropdown, setShowProductDropdown] = useState(false)
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false)
+  const [lostDamagedProductSearch, setLostDamagedProductSearch] = useState<string | null>(null) // ID of item being searched
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -140,18 +153,31 @@ export default function CreateInvoicePage() {
   const [invoiceData, setInvoiceData] = useState({
     invoice_number: "",
     invoice_type: "rental" as "rental" | "sale",
+    event_type: "wedding" as "wedding" | "engagement" | "reception" | "other",
+    event_participant: "both" as "both" | "groom" | "bride",
     event_date: "",
+    event_time: "",
     delivery_date: "",
+    delivery_time: "",
     return_date: "",
+    return_time: "",
     venue_address: "",
+    delivery_address: "",
     groom_name: "",
+    groom_whatsapp: "",
+    groom_address: "",
     bride_name: "",
+    bride_whatsapp: "",
+    bride_address: "",
     payment_method: "full" as "full" | "advance" | "partial",
     amount_paid: 0,
     security_deposit: 0,
     gst_percentage: 5,
     discount_amount: 0,
     discount_type: "fixed" as "fixed" | "percentage",
+    coupon_code: "",
+    coupon_discount: 0,
+    sales_closed_by_id: "",
     notes: "",
   })
 
@@ -181,6 +207,7 @@ export default function CreateInvoicePage() {
   useEffect(() => {
     loadCustomers()
     loadProducts()
+    loadStaffMembers()
   }, [])
 
   // Load existing order if editing
@@ -209,6 +236,15 @@ export default function CreateInvoicePage() {
     if (data) setProducts(data)
   }
 
+  const loadStaffMembers = async () => {
+    const { data } = await supabase
+      .from("users")
+      .select("id, name, email, role")
+      .in("role", ["admin", "staff", "manager"])
+      .order("name")
+    if (data) setStaffMembers(data)
+  }
+
   const loadExistingOrder = async (id: string) => {
     setLoading(true)
     try {
@@ -231,18 +267,31 @@ export default function CreateInvoicePage() {
         setInvoiceData({
           invoice_number: order.order_number || "",
           invoice_type: order.booking_subtype || "rental",
+          event_type: order.event_type || "wedding",
+          event_participant: order.event_participant || "both",
           event_date: order.event_date || "",
+          event_time: order.event_time || "",
           delivery_date: order.delivery_date || "",
+          delivery_time: order.delivery_time || "",
           return_date: order.return_date || "",
+          return_time: order.return_time || "",
           venue_address: order.venue_address || "",
+          delivery_address: order.delivery_address || "",
           groom_name: order.groom_name || "",
+          groom_whatsapp: order.groom_whatsapp || "",
+          groom_address: order.groom_address || "",
           bride_name: order.bride_name || "",
+          bride_whatsapp: order.bride_whatsapp || "",
+          bride_address: order.bride_address || "",
           payment_method: order.payment_method || "full",
           amount_paid: order.amount_paid || 0,
           security_deposit: order.security_deposit || 0,
           gst_percentage: order.gst_percentage || 5,
           discount_amount: order.discount_amount || 0,
           discount_type: "fixed",
+          coupon_code: order.coupon_code || "",
+          coupon_discount: order.coupon_discount || 0,
+          sales_closed_by_id: order.sales_closed_by_id || "",
           notes: order.notes || "",
         })
         
@@ -343,16 +392,35 @@ export default function CreateInvoicePage() {
   }
 
   // Add lost/damaged item
-  const addLostDamagedItem = () => {
+  const addLostDamagedItem = (product?: Product) => {
     const newItem: LostDamagedItem = {
       id: `ld-${Date.now()}`,
-      product_name: "",
+      product_id: product?.id || "",
+      product_name: product?.name || "",
+      barcode: product?.barcode || "",
       type: "damaged",
       quantity: 1,
-      charge_per_item: 0,
-      total_charge: 0,
+      charge_per_item: product?.rental_price || 0,
+      total_charge: product?.rental_price || 0,
     }
     setLostDamagedItems([...lostDamagedItems, newItem])
+  }
+
+  // Update lost/damaged item product selection
+  const updateLostDamagedItemProduct = (id: string, product: Product) => {
+    setLostDamagedItems(items =>
+      items.map(item => {
+        if (item.id !== id) return item
+        return {
+          ...item,
+          product_id: product.id,
+          product_name: product.name,
+          barcode: product.barcode,
+          charge_per_item: product.rental_price || 0,
+          total_charge: (product.rental_price || 0) * item.quantity,
+        }
+      })
+    )
   }
 
   // Update lost/damaged item
@@ -416,12 +484,22 @@ export default function CreateInvoicePage() {
         order_number: invoiceData.invoice_number.replace("ORD", "QTE").replace("SAL", "QTE"),
         customer_id: selectedCustomer.id,
         booking_subtype: invoiceData.invoice_type,
+        event_type: invoiceData.event_type,
+        event_participant: invoiceData.event_participant,
         event_date: invoiceData.event_date || null,
+        event_time: invoiceData.event_time || null,
         delivery_date: invoiceData.delivery_date || null,
+        delivery_time: invoiceData.delivery_time || null,
         return_date: invoiceData.return_date || null,
+        return_time: invoiceData.return_time || null,
         venue_address: invoiceData.venue_address,
+        delivery_address: invoiceData.delivery_address || null,
         groom_name: invoiceData.groom_name,
+        groom_whatsapp: invoiceData.groom_whatsapp || null,
+        groom_address: invoiceData.groom_address || null,
         bride_name: invoiceData.bride_name,
+        bride_whatsapp: invoiceData.bride_whatsapp || null,
+        bride_address: invoiceData.bride_address || null,
         payment_method: invoiceData.payment_method,
         amount_paid: 0,
         total_amount: grandTotal,
@@ -430,6 +508,9 @@ export default function CreateInvoicePage() {
         gst_percentage: invoiceData.gst_percentage,
         discount_amount: discountAmount,
         security_deposit: securityDeposit,
+        coupon_code: invoiceData.coupon_code || null,
+        coupon_discount: invoiceData.coupon_discount || 0,
+        sales_closed_by_id: invoiceData.sales_closed_by_id || null,
         notes: invoiceData.notes,
         is_quote: true,
         order_status: "quote",
@@ -479,12 +560,22 @@ export default function CreateInvoicePage() {
         order_number: invoiceData.invoice_number,
         customer_id: selectedCustomer.id,
         booking_subtype: invoiceData.invoice_type,
+        event_type: invoiceData.event_type,
+        event_participant: invoiceData.event_participant,
         event_date: invoiceData.event_date || null,
+        event_time: invoiceData.event_time || null,
         delivery_date: invoiceData.delivery_date || null,
+        delivery_time: invoiceData.delivery_time || null,
         return_date: invoiceData.return_date || null,
+        return_time: invoiceData.return_time || null,
         venue_address: invoiceData.venue_address,
+        delivery_address: invoiceData.delivery_address || null,
         groom_name: invoiceData.groom_name,
+        groom_whatsapp: invoiceData.groom_whatsapp || null,
+        groom_address: invoiceData.groom_address || null,
         bride_name: invoiceData.bride_name,
+        bride_whatsapp: invoiceData.bride_whatsapp || null,
+        bride_address: invoiceData.bride_address || null,
         payment_method: invoiceData.payment_method,
         amount_paid: invoiceData.amount_paid,
         total_amount: grandTotal,
@@ -493,6 +584,9 @@ export default function CreateInvoicePage() {
         gst_percentage: invoiceData.gst_percentage,
         discount_amount: discountAmount,
         security_deposit: securityDeposit,
+        coupon_code: invoiceData.coupon_code || null,
+        coupon_discount: invoiceData.coupon_discount || 0,
+        sales_closed_by_id: invoiceData.sales_closed_by_id || null,
         notes: invoiceData.notes,
         is_quote: false,
         order_status: "confirmed",
@@ -517,6 +611,48 @@ export default function CreateInvoicePage() {
       }))
 
       await supabase.from("product_order_items").insert(itemsData)
+
+      // Handle lost/damaged items - archive products from inventory
+      if (lostDamagedItems.length > 0) {
+        for (const ldItem of lostDamagedItems) {
+          if (ldItem.product_id) {
+            // Get current product stock
+            const { data: product } = await supabase
+              .from("products")
+              .select("stock_available, stock_total")
+              .eq("id", ldItem.product_id)
+              .single()
+
+            if (product) {
+              const newStockAvailable = Math.max(0, (product.stock_available || 0) - ldItem.quantity)
+              const newStockTotal = Math.max(0, (product.stock_total || 0) - ldItem.quantity)
+              
+              // Update product stock
+              await supabase
+                .from("products")
+                .update({
+                  stock_available: newStockAvailable,
+                  stock_total: newStockTotal,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", ldItem.product_id)
+
+              // Log to archive/activity (if table exists) - ignore errors
+              try {
+                await supabase.from("product_archive_log").insert({
+                  product_id: ldItem.product_id,
+                  order_id: order.id,
+                  type: ldItem.type, // lost or damaged
+                  quantity: ldItem.quantity,
+                  charge_amount: ldItem.total_charge,
+                  notes: `${ldItem.type === "lost" ? "Lost" : "Damaged"} - ${ldItem.product_name}`,
+                  created_at: new Date().toISOString(),
+                })
+              } catch {} // Ignore if table doesn't exist
+            }
+          }
+        }
+      }
 
       toast({ title: "Order Created", description: `Order ${order.order_number} created successfully` })
       router.push("/bookings")
@@ -730,11 +866,53 @@ export default function CreateInvoicePage() {
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
+                  <Label className="text-xs text-gray-500">Event Type</Label>
+                  <Select
+                    value={invoiceData.event_type}
+                    onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
+                  >
+                    <SelectTrigger className="print:border-0 print:p-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="wedding">Wedding</SelectItem>
+                      <SelectItem value="engagement">Engagement</SelectItem>
+                      <SelectItem value="reception">Reception</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">For</Label>
+                  <Select
+                    value={invoiceData.event_participant}
+                    onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
+                  >
+                    <SelectTrigger className="print:border-0 print:p-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="both">Both</SelectItem>
+                      <SelectItem value="groom">Groom Only</SelectItem>
+                      <SelectItem value="bride">Bride Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label className="text-xs text-gray-500">Event Date</Label>
                   <Input
                     type="date"
                     value={invoiceData.event_date}
                     onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
+                    className="print:border-0 print:p-0"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">Event Time</Label>
+                  <Input
+                    type="time"
+                    value={invoiceData.event_time}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
                     className="print:border-0 print:p-0"
                   />
                 </div>
@@ -747,32 +925,111 @@ export default function CreateInvoicePage() {
                     className="print:border-0 print:p-0"
                   />
                 </div>
-                {invoiceData.invoice_type === "rental" && (
-                  <div className="col-span-2">
-                    <Label className="text-xs text-gray-500">Return Date</Label>
-                    <Input
-                      type="date"
-                      value={invoiceData.return_date}
-                      onChange={(e) => setInvoiceData({ ...invoiceData, return_date: e.target.value })}
-                      className="print:border-0 print:p-0"
-                    />
-                  </div>
-                )}
                 <div>
-                  <Label className="text-xs text-gray-500">Groom Name</Label>
+                  <Label className="text-xs text-gray-500">Delivery Time</Label>
+                  <Input
+                    type="time"
+                    value={invoiceData.delivery_time}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
+                    className="print:border-0 print:p-0"
+                  />
+                </div>
+                {invoiceData.invoice_type === "rental" && (
+                  <>
+                    <div>
+                      <Label className="text-xs text-gray-500">Return Date</Label>
+                      <Input
+                        type="date"
+                        value={invoiceData.return_date}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, return_date: e.target.value })}
+                        className="print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Return Time</Label>
+                      <Input
+                        type="time"
+                        value={invoiceData.return_time}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, return_time: e.target.value })}
+                        className="print:border-0 print:p-0"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Groom & Bride Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="h-4 w-4 text-blue-500" />
+                <span className="font-semibold">Groom Details</span>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <Label className="text-xs text-gray-500">Name</Label>
                   <Input
                     value={invoiceData.groom_name}
                     onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
-                    placeholder="Groom"
+                    placeholder="Groom's name"
                     className="print:border-0 print:p-0"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">Bride Name</Label>
+                  <Label className="text-xs text-gray-500">WhatsApp</Label>
+                  <Input
+                    value={invoiceData.groom_whatsapp}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
+                    placeholder="WhatsApp number"
+                    className="print:border-0 print:p-0"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">Address</Label>
+                  <Textarea
+                    value={invoiceData.groom_address}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
+                    placeholder="Address"
+                    rows={2}
+                    className="print:border-0 print:p-0"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="h-4 w-4 text-pink-500" />
+                <span className="font-semibold">Bride Details</span>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <Label className="text-xs text-gray-500">Name</Label>
                   <Input
                     value={invoiceData.bride_name}
                     onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
-                    placeholder="Bride"
+                    placeholder="Bride's name"
+                    className="print:border-0 print:p-0"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">WhatsApp</Label>
+                  <Input
+                    value={invoiceData.bride_whatsapp}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
+                    placeholder="WhatsApp number"
+                    className="print:border-0 print:p-0"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-500">Address</Label>
+                  <Textarea
+                    value={invoiceData.bride_address}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
+                    placeholder="Address"
+                    rows={2}
                     className="print:border-0 print:p-0"
                   />
                 </div>
@@ -780,20 +1037,85 @@ export default function CreateInvoicePage() {
             </Card>
           </div>
 
+          {/* Sales Staff Selection */}
+          <Card className="p-4 print:hidden">
+            <div className="flex items-center gap-2 mb-3">
+              <User className="h-4 w-4 text-green-500" />
+              <span className="font-semibold">Sales Staff</span>
+            </div>
+            <Select
+              value={invoiceData.sales_closed_by_id}
+              onValueChange={(v) => setInvoiceData({ ...invoiceData, sales_closed_by_id: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select staff member" />
+              </SelectTrigger>
+              <SelectContent>
+                {staffMembers.map((staff) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.name} ({staff.role})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Card>
+
           {/* Venue Address */}
-          <div>
-            <Label className="text-xs text-gray-500 flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              Venue Address
-            </Label>
-            <Textarea
-              value={invoiceData.venue_address}
-              onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
-              placeholder="Enter venue address..."
-              rows={2}
-              className="mt-1 print:border-0 print:p-0"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs text-gray-500 flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                Venue Address
+              </Label>
+              <Textarea
+                value={invoiceData.venue_address}
+                onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
+                placeholder="Enter venue address..."
+                rows={2}
+                className="mt-1 print:border-0 print:p-0"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500 flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                Delivery Address (if different)
+              </Label>
+              <Textarea
+                value={invoiceData.delivery_address}
+                onChange={(e) => setInvoiceData({ ...invoiceData, delivery_address: e.target.value })}
+                placeholder="Leave empty if same as venue..."
+                rows={2}
+                className="mt-1 print:border-0 print:p-0"
+              />
+            </div>
           </div>
+
+          {/* Coupon Code */}
+          <Card className="p-4 print:hidden">
+            <div className="flex items-center gap-2 mb-3">
+              <Tag className="h-4 w-4 text-purple-500" />
+              <span className="font-semibold">Coupon</span>
+            </div>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <Label className="text-xs text-gray-500">Coupon Code</Label>
+                <Input
+                  value={invoiceData.coupon_code}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, coupon_code: e.target.value.toUpperCase() })}
+                  placeholder="Enter coupon code"
+                />
+              </div>
+              <div className="w-32">
+                <Label className="text-xs text-gray-500">Discount</Label>
+                <Input
+                  type="number"
+                  value={invoiceData.coupon_discount}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, coupon_discount: parseFloat(e.target.value) || 0 })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          </Card>
 
           {/* Items Section */}
           <div>
@@ -960,11 +1282,12 @@ export default function CreateInvoicePage() {
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-red-500" />
                   <span className="font-semibold text-red-700">Lost / Damaged Items</span>
+                  <Badge variant="destructive" className="text-xs">Stock will be reduced</Badge>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={addLostDamagedItem}
+                  onClick={() => addLostDamagedItem()}
                   className="print:hidden"
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -981,7 +1304,7 @@ export default function CreateInvoicePage() {
                   <table className="w-full text-sm">
                     <thead className="bg-red-50">
                       <tr>
-                        <th className="text-left p-3 font-medium">Item Description</th>
+                        <th className="text-left p-3 font-medium">Select Product</th>
                         <th className="text-center p-3 font-medium w-28">Type</th>
                         <th className="text-center p-3 font-medium w-20">Qty</th>
                         <th className="text-right p-3 font-medium w-28">Charge/Item</th>
@@ -992,13 +1315,69 @@ export default function CreateInvoicePage() {
                     <tbody>
                       {lostDamagedItems.map((item) => (
                         <tr key={item.id} className="border-t">
-                          <td className="p-3">
-                            <Input
-                              value={item.product_name}
-                              onChange={(e) => updateLostDamagedItem(item.id, "product_name", e.target.value)}
-                              placeholder="Item name"
-                              className="print:border-0"
-                            />
+                          <td className="p-3 relative">
+                            {item.product_name ? (
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{item.product_name}</span>
+                                {item.barcode && (
+                                  <span className="text-xs text-gray-400">{item.barcode}</span>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 print:hidden"
+                                  onClick={() => {
+                                    updateLostDamagedItem(item.id, "product_id", "")
+                                    updateLostDamagedItem(item.id, "product_name", "")
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="print:hidden">
+                                <Input
+                                  placeholder="Search product..."
+                                  onFocus={() => setLostDamagedProductSearch(item.id)}
+                                  onChange={(e) => setProductSearch(e.target.value)}
+                                  className="text-sm"
+                                />
+                                {lostDamagedProductSearch === item.id && productSearch && (
+                                  <div className="absolute z-20 left-3 right-3 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    {products
+                                      .filter(p => 
+                                        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                        p.barcode?.includes(productSearch)
+                                      )
+                                      .slice(0, 8)
+                                      .map((product) => (
+                                        <div
+                                          key={product.id}
+                                          className="p-2 hover:bg-gray-50 cursor-pointer border-b last:border-0"
+                                          onClick={() => {
+                                            updateLostDamagedItemProduct(item.id, product)
+                                            setLostDamagedProductSearch(null)
+                                            setProductSearch("")
+                                          }}
+                                        >
+                                          <div className="font-medium text-sm">{product.name}</div>
+                                          <div className="text-xs text-gray-500 flex gap-2">
+                                            {product.barcode && <span>{product.barcode}</span>}
+                                            <span>Stock: {product.stock_available}</span>
+                                            <span className="text-green-600">₹{product.rental_price}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    {products.filter(p => 
+                                      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                      p.barcode?.includes(productSearch)
+                                    ).length === 0 && (
+                                      <div className="p-2 text-sm text-gray-400">No products found</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td className="p-3">
                             <Select
@@ -1059,7 +1438,7 @@ export default function CreateInvoicePage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={addLostDamagedItem}
+              onClick={() => addLostDamagedItem()}
               className="print:hidden text-red-600 border-red-200 hover:bg-red-50"
             >
               <AlertTriangle className="h-4 w-4 mr-2" />
@@ -1198,6 +1577,54 @@ export default function CreateInvoicePage() {
               className="mt-1 print:border-0"
             />
           </div>
+
+          {/* Terms & Conditions */}
+          <Card className="p-4 bg-gray-50 print:bg-white">
+            <div className="flex items-center gap-2 mb-3">
+              <FileCheck className="h-4 w-4 text-orange-500" />
+              <span className="font-semibold text-sm">Terms & Conditions</span>
+            </div>
+            <div className="text-xs text-gray-600 space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-1">Rental Terms</h4>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>All items must be returned by the agreed return date</li>
+                    <li>Late returns will incur additional charges</li>
+                    <li>Items must be returned in original condition</li>
+                    <li>Customer is responsible for items during rental period</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-1">Damage & Loss</h4>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Minor damage: Repair charges apply</li>
+                    <li>Major damage: Replacement cost charged</li>
+                    <li>Lost items: Full replacement cost charged</li>
+                    <li>Security deposit used to cover damages</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-1">Payment</h4>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Advance payment required for booking confirmation</li>
+                    <li>Balance due before delivery/pickup</li>
+                    <li>Security deposit refunded after return inspection</li>
+                    <li>No refunds for cancellations within 24 hours</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-1">General</h4>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>ID proof required at time of delivery</li>
+                    <li>Alterations not allowed on rental items</li>
+                    <li>Prices subject to change without notice</li>
+                    <li>Management decision final in disputes</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </Card>
 
           {/* Footer */}
           <div className="border-t pt-4 text-center text-xs text-gray-500">
