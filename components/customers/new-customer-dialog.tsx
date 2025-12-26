@@ -25,7 +25,6 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
     phone: "",
     whatsapp: "",
     address: "",
@@ -99,12 +98,6 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
       return
     }
 
-    // Validate email if provided
-    if (formData.email && !formData.email.includes('@')) {
-      ToastService.error("Please enter a valid email address")
-      return
-    }
-
     try {
       setLoading(true)
       const customerCode = `CUST${Date.now().toString().slice(-6)}`
@@ -116,7 +109,6 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
             ...formData,
             customer_code: customerCode,
             phone: formData.phone.replace(/\s+/g, ''), // Clean phone number
-            email: formData.email.toLowerCase().trim() || null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -141,7 +133,6 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
       // Reset form
       setFormData({
         name: "",
-        email: "",
         phone: "",
         whatsapp: "",
         address: "",
@@ -195,16 +186,6 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="Email address"
-              />
-            </div>
             <div>
               <Label htmlFor="whatsapp">WhatsApp</Label>
               <Input

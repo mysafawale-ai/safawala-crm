@@ -21,7 +21,6 @@ interface CustomerFormDialogProps {
 
 interface CustomerFormData {
   name: string
-  email: string
   phone: string
   whatsapp: string
   address: string
@@ -37,7 +36,6 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
   
   const [formData, setFormData] = useState<CustomerFormData>({
     name: "",
-    email: "",
     phone: "",
     whatsapp: "",
     address: "",
@@ -51,14 +49,12 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
     if (mode === "edit" && customer && open) {
       setFormData({
         name: customer.name || "",
-        email: customer.email || "",
         phone: customer.phone || "",
         whatsapp: customer.whatsapp || customer.phone || "",
         address: customer.address || "",
         city: customer.city || "",
         state: customer.state || "",
         pincode: customer.pincode || "",
-
       })
       // Set pincode status if valid
       if (customer.pincode && /^\d{6}$/.test(customer.pincode) && customer.city && customer.state) {
@@ -68,7 +64,6 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
       // Reset form when dialog closes in create mode
       setFormData({
         name: "",
-        email: "",
         phone: "",
         whatsapp: "",
         address: "",
@@ -150,9 +145,7 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         throw new Error("Valid 6-digit pincode is required")
       }
 
-      if (formData.email && !formData.email.includes("@")) {
-        throw new Error("Please enter a valid email address")
-      }
+
 
       if (mode === "edit" && customer) {
         // Update existing customer via API
@@ -160,12 +153,10 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           name: formData.name,
           phone: formData.phone,
           whatsapp: formData.whatsapp || null,
-          email: formData.email || null,
           address: formData.address || null,
           city: formData.city || null,
           state: formData.state || null,
           pincode: formData.pincode || null,
-
         }
 
         console.log("[CustomerFormDialog] Updating customer via API:", { customerId: customer.id, payload: updatePayload })
@@ -210,7 +201,6 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
           name: formData.name,
           phone: formData.phone,
           whatsapp: formData.whatsapp || null,
-          email: formData.email || null,
           address: formData.address || null,
           city: formData.city || null,
           state: formData.state || null,
@@ -333,17 +323,6 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
                 value={formData.whatsapp}
                 onChange={(e) => handleInputChange("whatsapp", e.target.value)}
                 placeholder="+91 9876543210"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-                placeholder="customer@example.com"
               />
             </div>
           </div>

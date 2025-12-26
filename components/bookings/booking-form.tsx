@@ -34,7 +34,6 @@ export function BookingForm({ customers, products, onSubmit, initialBooking }: B
     name: "",
     phone: "",
     whatsapp: "",
-    email: "",
     address: "",
     city: "",
     state: "",
@@ -69,13 +68,6 @@ export function BookingForm({ customers, products, onSubmit, initialBooking }: B
 
   const initialCustomerSetRef = useRef(false)
   const isEditModeRef = useRef(false)
-
-  const validateEmail = (email: string): boolean => {
-    if (!email) return true // Email is optional
-    const emailRegex =
-      /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
-    return emailRegex.test(email.trim()) && !email.includes("..") && email.split("@").length === 2
-  }
 
   const validatePhone = (phone: string): boolean => {
     if (!phone) return false
@@ -174,10 +166,6 @@ export function BookingForm({ customers, products, onSubmit, initialBooking }: B
         errors.customerPhone = "Customer phone is required"
       } else if (!validatePhone(newCustomer.phone)) {
         errors.customerPhone = "Please enter a valid phone number (10-15 digits)"
-      }
-
-      if (newCustomer.email && !validateEmail(newCustomer.email)) {
-        errors.customerEmail = "Please enter a valid email address"
       }
 
       if (newCustomer.pincode && !validatePincode(newCustomer.pincode)) {
@@ -693,22 +681,6 @@ export function BookingForm({ customers, products, onSubmit, initialBooking }: B
                       value={newCustomer.whatsapp}
                       onChange={(e) => setNewCustomer((prev) => ({ ...prev, whatsapp: e.target.value }))}
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newCustomer.email}
-                      onChange={(e) => {
-                        setNewCustomer((prev) => ({ ...prev, email: e.target.value }))
-                        clearValidationError("customerEmail")
-                      }}
-                      className={validationErrors.customerEmail ? "border-red-500" : ""}
-                    />
-                    {validationErrors.customerEmail && (
-                      <p className="text-red-600 text-sm mt-1">{validationErrors.customerEmail}</p>
-                    )}
                   </div>
                   <div>
                     <Label htmlFor="pincode">Pincode</Label>

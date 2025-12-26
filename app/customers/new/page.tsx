@@ -20,14 +20,12 @@ import type { User } from "@/lib/types"
 
 interface CustomerFormData {
   name: string
-  email: string
   phone: string
   whatsapp: string
   address: string
   city: string
   state: string
   pincode: string
-  notes: string
   franchise_id: string
 }
 
@@ -45,14 +43,12 @@ export default function NewCustomerPage() {
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "valid" | "invalid">("idle")
   const [formData, setFormData] = useState<CustomerFormData>({
     name: "",
-    email: "",
     phone: "",
     whatsapp: "",
     address: "",
     city: "",
     state: "",
     pincode: "",
-    notes: "",
     franchise_id: "",
   })
 
@@ -147,16 +143,12 @@ export default function NewCustomerPage() {
         throw new Error("Phone number is required")
       }
 
-      if (formData.phone.length < 10) {
+      if (formData.pincode.length < 10) {
         throw new Error("Phone number must be at least 10 digits")
       }
 
       if (!formData.pincode.trim() || !/^\d{6}$/.test(formData.pincode)) {
         throw new Error("Valid 6-digit pincode is required")
-      }
-
-      if (formData.email && !formData.email.includes("@")) {
-        throw new Error("Please enter a valid email address")
       }
 
       const franchiseId = formData.franchise_id || user?.franchise_id
@@ -274,28 +266,15 @@ export default function NewCustomerPage() {
                 </div>
               </div>
 
-              {/* WhatsApp and Email */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp" className="text-sm font-medium">WhatsApp</Label>
-                  <Input
-                    id="whatsapp"
-                    value={formData.whatsapp}
-                    onChange={(e) => handleInputChange("whatsapp", e.target.value)}
-                    placeholder="+91 9876543210"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    placeholder="customer@example.com"
-                  />
-                </div>
+              {/* WhatsApp */}
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp" className="text-sm font-medium">WhatsApp</Label>
+                <Input
+                  id="whatsapp"
+                  value={formData.whatsapp}
+                  onChange={(e) => handleInputChange("whatsapp", e.target.value)}
+                  placeholder="+91 9876543210"
+                />
               </div>
 
               <div className="space-y-2">
@@ -351,17 +330,6 @@ export default function NewCustomerPage() {
                     className={pincodeStatus === "valid" ? "bg-muted" : ""}
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => handleInputChange("notes", e.target.value)}
-                  placeholder="Additional notes about the customer"
-                  rows={2}
-                />
               </div>
 
               <div className="flex justify-end space-x-4 pt-6 border-t">

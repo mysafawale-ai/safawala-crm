@@ -29,7 +29,6 @@ export default function EditCustomerPage() {
     name: "",
     phone: "",
     whatsapp: "",
-    email: "",
     address: "",
     city: "",
     state: "",
@@ -71,7 +70,6 @@ export default function EditCustomerPage() {
             name: data.name || "",
             phone: data.phone || "",
             whatsapp: computedWhatsApp,  // Fix: Auto-fill WhatsApp from data or use phone
-            email: data.email || "",
             address: data.address || "",
             city: data.city || "",
             state: data.state || "",
@@ -215,19 +213,6 @@ export default function EditCustomerPage() {
                     value={formData.whatsapp}
                     onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                     placeholder="WhatsApp number"
-                  />
-                  {/* Debug display */}
-                  <p className="text-xs text-gray-500">Debug: {formData.whatsapp || '(empty)'}</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="Email address"
                   />
                 </div>
               </div>

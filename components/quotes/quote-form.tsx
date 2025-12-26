@@ -75,7 +75,6 @@ export function QuoteForm({ customers, products, categories }: QuoteFormProps) {
     name: "",
     phone: "",
     whatsapp: "",
-    email: "",
     address: "",
     city: "",
     pincode: "",
@@ -300,7 +299,6 @@ export function QuoteForm({ customers, products, categories }: QuoteFormProps) {
         customer_name: formData.customer_id ? undefined : newCustomerData.name,
         customer_phone: formData.customer_id ? undefined : newCustomerData.phone,
         customer_whatsapp: formData.customer_id ? undefined : newCustomerData.whatsapp,
-        customer_email: formData.customer_id ? undefined : newCustomerData.email,
         customer_address: formData.customer_id ? undefined : newCustomerData.address,
         customer_city: formData.customer_id ? undefined : newCustomerData.city,
         customer_pincode: formData.customer_id ? undefined : newCustomerData.pincode,
@@ -456,15 +454,6 @@ export function QuoteForm({ customers, products, categories }: QuoteFormProps) {
                               id="new-whatsapp"
                               value={newCustomerData.whatsapp}
                               onChange={(e) => setNewCustomerData((prev) => ({ ...prev, whatsapp: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="new-email">Email</Label>
-                            <Input
-                              id="new-email"
-                              type="email"
-                              value={newCustomerData.email}
-                              onChange={(e) => setNewCustomerData((prev) => ({ ...prev, email: e.target.value }))}
                             />
                           </div>
                         </div>
