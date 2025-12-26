@@ -112,6 +112,13 @@ const navigationItems = {
   ],
   business: [
     {
+      title: "New Invoice",
+      url: "/create-invoice",
+      icon: FileText,
+      permission: "bookings",
+      description: "Create invoice-style order with editable fields, print, download quote",
+    },
+    {
       title: "Quotes",
       url: "/quotes",
       icon: FileText,
