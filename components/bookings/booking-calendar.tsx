@@ -767,10 +767,10 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                   product_id: item.product_id || item.id,
                   product: {
                     id: item.product_id || item.id,
-                    name: item.product_name || 'Item',
+                    name: item.product?.name || item.product_name || 'Item',
                     barcode: item.product?.barcode || item.barcode || item.product_code,
-                    product_code: item.product_code,
-                    category: item.category_name,
+                    product_code: item.product?.product_code || item.product_code,
+                    category: item.product?.category || item.category_name,
                     image_url: item.product?.image_url,
                   },
                   quantity: item.quantity || 1,
@@ -809,7 +809,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                   product_id: item.product_id || item.id,
                   product: {
                     id: item.product_id || item.id,
-                    name: item.product_name || 'Item',
+                    name: item.product?.name || item.product_name || 'Item',
                   },
                   quantity: item.quantity || 1,
                 } as any
