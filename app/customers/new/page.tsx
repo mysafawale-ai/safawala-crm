@@ -143,7 +143,7 @@ export default function NewCustomerPage() {
         throw new Error("Phone number is required")
       }
 
-      if (formData.pincode.length < 10) {
+      if (formData.phone.length < 10) {
         throw new Error("Phone number must be at least 10 digits")
       }
 
