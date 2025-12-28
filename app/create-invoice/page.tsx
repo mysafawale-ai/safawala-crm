@@ -921,6 +921,7 @@ export default function CreateInvoicePage() {
         bride_whatsapp: invoiceData.bride_whatsapp || null,
         bride_address: invoiceData.bride_address || null,
         payment_method: invoiceData.payment_method,
+        payment_type: 'full', // Required field: full, advance, partial
         amount_paid: 0,
         total_amount: grandTotal,
         subtotal: subtotal,
@@ -931,6 +932,7 @@ export default function CreateInvoicePage() {
         coupon_code: invoiceData.coupon_code || null,
         coupon_discount: invoiceData.coupon_discount || 0,
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
+        status: 'quote', // Quote status
         // Include package info in notes if selected
         notes: selectedPackage 
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
@@ -1014,6 +1016,7 @@ export default function CreateInvoicePage() {
         bride_whatsapp: invoiceData.bride_whatsapp || null,
         bride_address: invoiceData.bride_address || null,
         payment_method: invoiceData.payment_method,
+        payment_type: 'full', // Required field: full, advance, partial
         amount_paid: invoiceData.amount_paid,
         total_amount: grandTotal,
         subtotal: subtotal,
@@ -1024,6 +1027,7 @@ export default function CreateInvoicePage() {
         coupon_code: invoiceData.coupon_code || null,
         coupon_discount: invoiceData.coupon_discount || 0,
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
+        status: 'confirmed', // New booking status
         // Include package info in notes if selected
         notes: selectedPackage 
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
