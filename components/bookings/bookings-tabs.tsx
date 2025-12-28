@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, Edit, Archive, Plus, Package } from "lucide-react"
+import { Eye, Edit, Archive, Plus, Package, RotateCcw, ChevronDown, ChevronUp } from "lucide-react"
 import Link from "next/link"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton } from "@/components/ui/skeleton-loader"
@@ -64,9 +64,12 @@ export function BookingsTabs({
   setCurrentBookingForItems,
   setSelectedItems,
   setShowItemsSelection,
+  archivedBookings = [],
+  handleRestoreBooking,
   onTabChange 
 }: BookingsTabsProps) {
   const [activeTab, setActiveTab] = useState("all")
+  const [showArchived, setShowArchived] = useState(false)
 
   // Filter bookings by type
   const allBookings = bookings
@@ -245,6 +248,7 @@ export function BookingsTabs({
   )
 
   return (
+    <>
     <Tabs value={activeTab} onValueChange={(val) => {
       setActiveTab(val)
       onTabChange?.(val)
@@ -299,5 +303,86 @@ export function BookingsTabs({
         </Card>
       </TabsContent>
     </Tabs>
+
+    {/* Archived Bookings Section */}
+    <div className="mt-6">
+      <Button
+        variant="ghost"
+        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border"
+        onClick={() => setShowArchived(!showArchived)}
+      >
+        <div className="flex items-center gap-2">
+          <Archive className="h-4 w-4 text-amber-600" />
+          <span className="font-medium">Archived Bookings ({archivedBookings.length})</span>
+        </div>
+        {showArchived ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </Button>
+
+      {showArchived && archivedBookings.length > 0 && (
+        <Card className="mt-2 border-amber-200 bg-amber-50/30">
+          <CardContent className="pt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Booking #</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Event Date</TableHead>
+                  <TableHead>Archived At</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {archivedBookings.map((booking: any) => (
+                  <TableRow key={booking.id} className="bg-amber-50/50">
+                    <TableCell className="font-mono text-sm">
+                      {booking.booking_number || booking.order_number || booking.package_number || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{booking.customer?.name || 'N/A'}</p>
+                        <p className="text-xs text-muted-foreground">{booking.customer?.phone || ''}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>₹{(booking.total_amount || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {booking.event_date 
+                        ? new Date(booking.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {booking.created_at 
+                        ? new Date(booking.created_at).toLocaleDateString('en-IN')
+                        : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                        onClick={() => handleRestoreBooking?.(booking.id, booking.source)}
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Restore
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {showArchived && archivedBookings.length === 0 && (
+        <Card className="mt-2 border-gray-200">
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <Archive className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>No archived bookings</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+    </>
   )
 }

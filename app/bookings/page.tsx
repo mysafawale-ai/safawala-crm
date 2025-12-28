@@ -789,35 +789,49 @@ export default function BookingsPage() {
   }
 
   const handleArchiveBooking = async (bookingId: string, source?: string) => {
-    if (!confirm("Archive this booking?")) return
-    
-    console.log('[Archive] Starting archive for:', bookingId, 'source:', source)
-    
-    try {
-      // Try product_orders first (most common)
-      const response = await fetch('/api/bookings/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          id: bookingId, 
-          type: source === 'package_bookings' ? 'package_booking' : 'product_order'
-        })
-      })
-      
-      const result = await response.json()
-      console.log('[Archive] Response:', result)
-      
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to archive')
+    showConfirmation({
+      title: "Archive Booking",
+      description: "This booking will be moved to the archived section. You can restore it anytime.",
+      confirmText: "Archive",
+      variant: "default",
+      onConfirm: async () => {
+        console.log('[Archive] Starting archive for:', bookingId, 'source:', source)
+        
+        try {
+          const response = await fetch('/api/bookings/archive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              id: bookingId, 
+              type: source === 'package_bookings' ? 'package_booking' : 'product_order'
+            })
+          })
+          
+          const result = await response.json()
+          console.log('[Archive] Response:', result)
+          
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to archive')
+          }
+          
+          toast({ title: 'Archived', description: 'Booking archived successfully' })
+          
+          // Refresh both active and archived lists
+          await refresh()
+          
+          // Also refresh archived bookings
+          const archivedRes = await fetch('/api/bookings/archived', { cache: 'no-store' })
+          if (archivedRes.ok) {
+            const archivedJson = await archivedRes.json()
+            setArchivedBookings(archivedJson.data || [])
+          }
+          
+        } catch (error: any) {
+          console.error('[Archive] Error:', error)
+          toast({ title: 'Error', description: error.message, variant: 'destructive' })
+        }
       }
-      
-      toast({ title: 'Archived', description: 'Booking archived successfully' })
-      await refresh()
-      
-    } catch (error: any) {
-      console.error('[Archive] Error:', error)
-      toast({ title: 'Error', description: error.message, variant: 'destructive' })
-    }
+    })
   }
 
   const handleRestoreBooking = async (bookingId: string, source?: string) => {
