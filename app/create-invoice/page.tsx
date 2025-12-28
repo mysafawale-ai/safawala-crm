@@ -178,6 +178,20 @@ export default function CreateInvoicePage() {
   const [selectedPackageVariant, setSelectedPackageVariant] = useState<any | null>(null)
   const [packagesLoading, setPackagesLoading] = useState(false)
 
+  // Company Settings for PDF header
+  const [companySettings, setCompanySettings] = useState<{
+    company_name?: string
+    logo_url?: string
+    phone?: string
+    email?: string
+    website?: string
+    address?: string
+    city?: string
+    state?: string
+    pincode?: string
+    gst_number?: string
+  } | null>(null)
+
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
@@ -240,7 +254,21 @@ export default function CreateInvoicePage() {
     loadCustomers()
     loadProductsAndCategories()
     loadStaffMembers()
+    loadCompanySettings()
   }, [])
+
+  // Load company settings for PDF
+  const loadCompanySettings = async () => {
+    try {
+      const response = await fetch('/api/company-settings', { cache: 'no-store' })
+      if (response.ok) {
+        const data = await response.json()
+        setCompanySettings(data)
+      }
+    } catch (error) {
+      console.error('[CreateInvoice] Error loading company settings:', error)
+    }
+  }
 
   // Load existing order if editing
   useEffect(() => {
@@ -1085,8 +1113,266 @@ export default function CreateInvoicePage() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
+      {/* ========== PRINT-ONLY PDF VIEW ========== */}
+      <div className="hidden print:block">
+        <style>{`
+          @media print {
+            @page { margin: 0.5cm; size: A4; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .print-invoice { font-size: 11px; }
+            .print-header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; -webkit-print-color-adjust: exact !important; }
+          }
+        `}</style>
+        <div className="print-invoice max-w-full p-4">
+          {/* Yellow Header with Logo & Contact */}
+          <div className="print-header bg-gradient-to-r from-yellow-500 to-amber-600 text-white p-4 rounded-t-lg">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                {companySettings?.logo_url && (
+                  <img src={companySettings.logo_url} alt="Logo" className="h-12 w-12 object-contain bg-white rounded p-1" />
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold">SAFAWALA</h1>
+                  <p className="text-yellow-100 text-xs">Premium Wedding Turban & Accessories</p>
+                </div>
+              </div>
+              <div className="text-right text-xs">
+                {companySettings?.phone && <p>📞 {companySettings.phone}</p>}
+                {companySettings?.email && <p>✉️ {companySettings.email}</p>}
+                {companySettings?.website && <p>🌐 {companySettings.website}</p>}
+                {companySettings?.address && (
+                  <p className="mt-1">{companySettings.address}{companySettings.city ? `, ${companySettings.city}` : ''}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Invoice Title & Number */}
+          <div className="border-b-2 border-yellow-500 py-3 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">
+                {mode === "final-bill" ? "FINAL BILL" : invoiceData.invoice_type === "rental" ? "RENTAL INVOICE" : "SALE INVOICE"}
+              </h2>
+              <p className="text-xs text-gray-500">Invoice #{invoiceData.invoice_number}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold">{format(new Date(), "dd MMM yyyy")}</p>
+            </div>
+          </div>
+
+          {/* Customer & Event Details - Simple Text */}
+          <div className="grid grid-cols-2 gap-4 py-3 border-b text-xs">
+            <div>
+              <h3 className="font-bold text-gray-700 mb-1">Customer Details</h3>
+              {selectedCustomer && (
+                <div className="text-gray-600">
+                  <p><strong>{selectedCustomer.name}</strong></p>
+                  <p>Phone: {selectedCustomer.phone}</p>
+                  {selectedCustomer.address && <p>Address: {selectedCustomer.address}</p>}
+                </div>
+              )}
+            </div>
+            {invoiceData.invoice_type === "rental" && (
+              <div>
+                <h3 className="font-bold text-gray-700 mb-1">Event Details</h3>
+                <div className="text-gray-600">
+                  <p>Event Type: {invoiceData.event_type}</p>
+                  {invoiceData.event_date && <p>Event Date: {format(new Date(invoiceData.event_date), "dd MMM yyyy")}</p>}
+                  {invoiceData.event_time && <p>Event Time: {invoiceData.event_time}</p>}
+                  {invoiceData.delivery_date && <p>Delivery: {format(new Date(invoiceData.delivery_date), "dd MMM yyyy")}</p>}
+                  {invoiceData.return_date && <p>Return: {format(new Date(invoiceData.return_date), "dd MMM yyyy")}</p>}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Groom & Bride Details - Simple Text */}
+          {invoiceData.invoice_type === "rental" && (invoiceData.groom_name || invoiceData.bride_name) && (
+            <div className="grid grid-cols-2 gap-4 py-3 border-b text-xs">
+              {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && invoiceData.groom_name && (
+                <div>
+                  <h3 className="font-bold text-gray-700 mb-1">Groom Details</h3>
+                  <div className="text-gray-600">
+                    <p>Name: {invoiceData.groom_name}</p>
+                    {invoiceData.groom_whatsapp && <p>WhatsApp: {invoiceData.groom_whatsapp}</p>}
+                    {invoiceData.groom_address && <p>Address: {invoiceData.groom_address}</p>}
+                  </div>
+                </div>
+              )}
+              {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && invoiceData.bride_name && (
+                <div>
+                  <h3 className="font-bold text-gray-700 mb-1">Bride Details</h3>
+                  <div className="text-gray-600">
+                    <p>Name: {invoiceData.bride_name}</p>
+                    {invoiceData.bride_whatsapp && <p>WhatsApp: {invoiceData.bride_whatsapp}</p>}
+                    {invoiceData.bride_address && <p>Address: {invoiceData.bride_address}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Venue Address */}
+          {invoiceData.venue_address && (
+            <div className="py-2 border-b text-xs">
+              <span className="font-bold text-gray-700">Venue: </span>
+              <span className="text-gray-600">{invoiceData.venue_address}</span>
+            </div>
+          )}
+
+          {/* Package Details */}
+          {selectionMode === "package" && selectedPackage && (
+            <div className="py-3 border-b bg-yellow-50">
+              <h3 className="font-bold text-gray-700 mb-2">Package Details</h3>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{selectedPackage.name || selectedPackage.variant_name}</p>
+                  {selectedPackage.inclusions && (
+                    <p className="text-xs text-gray-500">
+                      Includes: {Array.isArray(selectedPackage.inclusions) 
+                        ? selectedPackage.inclusions.join(', ') 
+                        : selectedPackage.inclusions}
+                    </p>
+                  )}
+                </div>
+                <p className="font-bold text-lg">{formatCurrency(packagePrice)}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Items Table - Simplified */}
+          {invoiceItems.length > 0 && (
+            <div className="py-3">
+              <h3 className="font-bold text-gray-700 mb-2">Items</h3>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="bg-yellow-100">
+                    <th className="text-left p-2 border">Item</th>
+                    <th className="text-center p-2 border w-20">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoiceItems.map((item) => (
+                    <tr key={item.id} className="border-b">
+                      <td className="p-2 border">{item.product_name}</td>
+                      <td className="p-2 border text-center">{item.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Payment Info - Simplified */}
+          <div className="py-3 border-b text-xs">
+            <h3 className="font-bold text-gray-700 mb-2">Payment Information</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <p><strong>Payment Type:</strong> {invoiceData.payment_method === 'cash' ? 'Cash' : invoiceData.payment_method === 'upi' ? 'UPI' : invoiceData.payment_method === 'bank' ? 'Bank Transfer' : invoiceData.payment_method === 'card' ? 'Card' : 'International'}</p>
+              {appliedCoupon && <p><strong>Coupon:</strong> {appliedCoupon}</p>}
+              {staffMembers.find(s => s.id === invoiceData.sales_closed_by_id)?.name && (
+                <p><strong>Sales Staff:</strong> {staffMembers.find(s => s.id === invoiceData.sales_closed_by_id)?.name}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Financial Summary */}
+          <div className="py-3 bg-gray-50 rounded">
+            <div className="max-w-xs ml-auto text-sm">
+              {selectionMode === "package" && selectedPackage && (
+                <div className="flex justify-between py-1">
+                  <span>Package:</span>
+                  <span>{formatCurrency(packagePrice)}</span>
+                </div>
+              )}
+              {itemsSubtotal > 0 && (
+                <div className="flex justify-between py-1">
+                  <span>Items:</span>
+                  <span>{formatCurrency(itemsSubtotal)}</span>
+                </div>
+              )}
+              <div className="flex justify-between py-1">
+                <span>Subtotal:</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between py-1 text-green-600">
+                  <span>Discount:</span>
+                  <span>-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              {invoiceData.coupon_discount > 0 && (
+                <div className="flex justify-between py-1 text-green-600">
+                  <span>Coupon Discount:</span>
+                  <span>-{formatCurrency(invoiceData.coupon_discount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between py-1">
+                <span>GST ({invoiceData.gst_percentage}%):</span>
+                <span>{formatCurrency(gstAmount)}</span>
+              </div>
+              {securityDeposit > 0 && (
+                <div className="flex justify-between py-1">
+                  <span>Security Deposit:</span>
+                  <span>{formatCurrency(securityDeposit)}</span>
+                </div>
+              )}
+              <div className="flex justify-between py-2 border-t border-b font-bold text-base text-yellow-700">
+                <span>Total Amount:</span>
+                <span>{formatCurrency(grandTotal)}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span>Amount Paid:</span>
+                <span>{formatCurrency(invoiceData.amount_paid)}</span>
+              </div>
+              <div className="flex justify-between py-1 font-bold text-red-600">
+                <span>Balance Due:</span>
+                <span>{formatCurrency(pendingAmount)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          {invoiceData.notes && (
+            <div className="py-2 text-xs">
+              <strong>Notes:</strong> {invoiceData.notes}
+            </div>
+          )}
+
+          {/* Terms & Conditions */}
+          <div className="py-3 mt-2 border-t text-xs text-gray-500">
+            <h4 className="font-semibold text-gray-700 mb-1">Terms & Conditions</h4>
+            <div className="columns-2 gap-4 text-[10px]">
+              {invoiceData.invoice_type === "rental" ? (
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>Items must be returned by agreed date</li>
+                  <li>Late returns incur additional charges</li>
+                  <li>Return items in original condition</li>
+                  <li>Damage/loss: Repair or replacement cost charged</li>
+                  <li>Security deposit covers damages</li>
+                  <li>ID proof required at delivery</li>
+                </ul>
+              ) : (
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>All sales are final</li>
+                  <li>Check items before leaving</li>
+                  <li>Receipt required for claims</li>
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="text-center py-2 text-xs text-gray-500 border-t">
+            <p>Thank you for choosing Safawala! 🙏</p>
+          </div>
+        </div>
+      </div>
+      {/* ========== END PRINT-ONLY VIEW ========== */}
+
+      {/* ========== SCREEN-ONLY FORM (Hidden on Print) ========== */}
+      <div className="print:hidden">
       {/* Header - Hidden on print */}
-      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print:hidden">
+      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/bookings">
             <Button variant="outline" size="sm">
@@ -2649,6 +2935,8 @@ export default function CreateInvoicePage() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
+      {/* End of print:hidden wrapper */}
     </div>
   )
 }
