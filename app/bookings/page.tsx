@@ -789,64 +789,46 @@ export default function BookingsPage() {
   }
 
   const handleArchiveBooking = async (bookingId: string, source?: string) => {
-    showConfirmation({
-      title: "Archive booking?",
-      description: "This booking will be moved to archived section. You can restore it anytime.",
-      confirmText: "Archive",
-      variant: "default",
-      onConfirm: async () => {
-        try {
-          // Normalize source to singular form for API
-          const normalized = source === 'package_bookings' ? 'package_booking'
-            : source === 'product_orders' ? 'product_order'
-            : source === 'direct_sales' ? 'direct_sales'
-            : 'unified'
-          const endpoint = `/api/bookings/${bookingId}/archive`
-          console.log('[Bookings] Archiving', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)
-
-          // Use helper with PATCH→POST fallback
-          const response = await archiveBooking(bookingId, normalized as any)
-          
-          if (!response.success) {
-            throw new Error(response.error || 'Failed to archive booking')
-          }
-          
-          toast({ title: 'Archived', description: 'Booking archived successfully' })
-          
-          // Refresh both active and archived bookings
-          await refresh()
-          
-          // Add to archived bookings list (refetch to get full data)
-          try {
-            const supabase = createClient()
-            const { data, error } = await supabase
-              .from('package_bookings')
-              .select('*')
-              .eq('id', bookingId)
-              .maybeSingle()
-            
-            if (!error && data) {
-              setArchivedBookings(prev => [data as any, ...prev].slice(0, 5))
-            }
-          } catch (e) {
-            console.warn('[Bookings] Could not refetch archived booking:', e)
-          }
-        } catch (error: any) {
-          console.error('[Bookings] Archive error:', error)
-          
-          // Check if it's a database schema error
-          if (error.message && error.message.includes('Archive functionality not available')) {
-            toast({ 
-              title: 'Database Update Required', 
-              description: 'Archive functionality needs database setup. Please contact admin.',
-              variant: 'destructive' 
-            })
-          } else {
-            toast({ title: 'Error', description: error.message || 'Failed to archive booking', variant: 'destructive' })
-          }
-        }
+    if (!confirm("Archive this booking? It will be moved to the archived section.")) {
+      return
+    }
+    
+    try {
+      console.log('[Bookings] Archiving booking:', bookingId, 'source:', source)
+      
+      // Determine the correct table based on source
+      let tableName = 'product_orders' // default
+      if (source === 'package_bookings' || source === 'package_booking') {
+        tableName = 'package_bookings'
+      } else if (source === 'direct_sales' || source === 'direct_sales_orders') {
+        tableName = 'direct_sales_orders'
       }
-    })
+      
+      // Direct Supabase update - simpler and more reliable
+      const supabase = createClient()
+      const { error } = await supabase
+        .from(tableName)
+        .update({ is_archived: true })
+        .eq('id', bookingId)
+      
+      if (error) {
+        console.error('[Bookings] Archive error:', error)
+        throw new Error(error.message || 'Failed to archive booking')
+      }
+      
+      toast({ title: 'Archived', description: 'Booking archived successfully' })
+      
+      // Refresh the list
+      await refresh()
+      
+    } catch (error: any) {
+      console.error('[Bookings] Archive error:', error)
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to archive booking', 
+        variant: 'destructive' 
+      })
+    }
   }
 
   const handleRestoreBooking = async (bookingId: string, source?: string) => {
