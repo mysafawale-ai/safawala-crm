@@ -1323,16 +1323,41 @@ export default function CreateInvoicePage() {
         {/* ================= END PRINT-ONLY SECTION ================= */}
 
         {/* ================= WEB-ONLY CONTENT START ================= */}
-        <div className="p-6 space-y-6 print:hidden">
-          {/* Invoice Number & Date */}
-          <div className="flex justify-between items-center border-b pb-4">
-            <div>
-              <Label className="text-xs text-gray-500">Invoice Number</Label>
-              <div className="font-mono font-bold text-lg">{invoiceData.invoice_number}</div>
+        <div className="p-4 md:p-6 space-y-4 md:space-y-6 print:hidden">
+          {/* Company Logo & Invoice Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
+            {/* Logo & Company Name */}
+            <div className="flex items-center gap-3">
+              {companySettings?.logo_url ? (
+                <img 
+                  src={companySettings.logo_url} 
+                  alt="Logo" 
+                  className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" 
+                />
+              ) : (
+                <div className="h-10 w-10 md:h-12 md:w-12 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+                  <span className="text-lg md:text-xl font-bold text-white">S</span>
+                </div>
+              )}
+              <div>
+                <div className="font-bold text-base md:text-lg text-gray-800">
+                  {companySettings?.company_name || "SAFAWALA"}
+                </div>
+                <div className="text-[10px] md:text-xs text-gray-500">
+                  {companySettings?.phone && <span>📞 {companySettings.phone}</span>}
+                </div>
+              </div>
             </div>
-            <div className="text-right">
-              <Label className="text-xs text-gray-500">Date</Label>
-              <div className="font-medium">{format(new Date(), "dd MMM yyyy")}</div>
+            {/* Invoice Info */}
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div>
+                <Label className="text-[10px] md:text-xs text-gray-500">Invoice #</Label>
+                <div className="font-mono font-bold text-sm md:text-base">{invoiceData.invoice_number}</div>
+              </div>
+              <div className="text-right">
+                <Label className="text-[10px] md:text-xs text-gray-500">Date</Label>
+                <div className="font-medium text-sm md:text-base">{format(new Date(), "dd MMM yyyy")}</div>
+              </div>
             </div>
           </div>
 
@@ -1455,14 +1480,14 @@ export default function CreateInvoicePage() {
                     <span className="font-semibold text-gray-800">Event Details</span>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 text-xs md:text-sm">
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Event Type</Label>
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Type</Label>
                       <Select
                         value={invoiceData.event_type}
                         onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
                       >
-                        <SelectTrigger className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0">
+                        <SelectTrigger className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1474,12 +1499,12 @@ export default function CreateInvoicePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">For</Label>
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">For</Label>
                       <Select
                         value={invoiceData.event_participant}
                         onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
                       >
-                        <SelectTrigger className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0">
+                        <SelectTrigger className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1490,58 +1515,73 @@ export default function CreateInvoicePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Event Date</Label>
-                      <Input
-                        type="date"
-                        value={invoiceData.event_date}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Date</Label>
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={invoiceData.event_date}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
+                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 pr-8 print:border-0 print:p-0 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        />
+                        <CalendarIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Event Time</Label>
-                      <Input
-                        type="time"
-                        value={invoiceData.event_time}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Time</Label>
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          value={invoiceData.event_time}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
+                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Date</Label>
-                      <Input
-                        type="date"
-                        value={invoiceData.delivery_date}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Delivery Date</Label>
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={invoiceData.delivery_date}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
+                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 pr-8 print:border-0 print:p-0 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        />
+                        <CalendarIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Time</Label>
-                      <Input
-                        type="time"
-                        value={invoiceData.delivery_time}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Delivery Time</Label>
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          value={invoiceData.delivery_time}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
+                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Return Date</Label>
-                      <Input
-                        type="date"
-                        value={invoiceData.return_date}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, return_date: e.target.value })}
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Return Date</Label>
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={invoiceData.return_date}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, return_date: e.target.value })}
+                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 pr-8 print:border-0 print:p-0 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                        />
+                        <CalendarIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Return Time</Label>
-                      <Input
-                        type="time"
-                        value={invoiceData.return_time}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, return_time: e.target.value })}
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Return Time</Label>
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          value={invoiceData.return_time}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, return_time: e.target.value })}
+                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                        />
+                      </div>
                     </div>
                     {/* Venue Address - full width at bottom */}
                     <div className="col-span-2 md:col-span-4 pt-2 border-t border-gray-100 mt-1">
