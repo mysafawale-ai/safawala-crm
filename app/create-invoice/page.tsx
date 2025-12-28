@@ -326,29 +326,38 @@ export default function CreateInvoicePage() {
   const loadPackages = async () => {
     setPackagesLoading(true)
     try {
+      // Get current user to get franchise_id
+      const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+      const user = userRes.ok ? await userRes.json() : null
+      const franchiseId = user?.franchise_id
+      
+      console.log("[CreateInvoice] Loading packages for franchise:", franchiseId)
+
       // Fetch categories and variants using the same APIs as book-package
       const [catResponse, variantResponse] = await Promise.all([
         fetch('/api/packages/categories', { cache: 'no-store' }),
         fetch('/api/packages/variants', { cache: 'no-store' }),
       ])
 
-      // Process categories
-      if (catResponse.ok) {
-        const catJson = await catResponse.json()
-        setPackagesCategories(catJson?.data || [])
-        console.log("[CreateInvoice] Loaded package categories:", catJson?.data?.length || 0)
-      } else {
-        console.error("[CreateInvoice] Error loading package categories:", catResponse.status)
-      }
-
-      // Process variants
+      // Process variants first to know which categories have packages for this franchise
+      let filteredVariants: any[] = []
+      const categoryIdsWithPackages = new Set<string>()
+      
       if (variantResponse.ok) {
         const variantJson = await variantResponse.json()
-        const loadedPackages = variantJson?.data || []
-        setPackages(loadedPackages)
-        console.log("[CreateInvoice] Loaded package variants:", loadedPackages.length)
+        filteredVariants = variantJson?.data || []
         
-        if (loadedPackages.length === 0) {
+        // Collect category IDs that have variants for this franchise
+        filteredVariants.forEach((variant: any) => {
+          if (variant.category_id) {
+            categoryIdsWithPackages.add(variant.category_id)
+          }
+        })
+        
+        console.log("[CreateInvoice] Loaded package variants:", filteredVariants.length)
+        console.log("[CreateInvoice] Categories with packages:", Array.from(categoryIdsWithPackages))
+        
+        if (filteredVariants.length === 0) {
           console.warn("[CreateInvoice] ⚠️ No packages returned from API. This could mean:")
           console.warn("  1. No package variants exist for your franchise")
           console.warn("  2. All variants have a different franchise_id")
@@ -356,15 +365,40 @@ export default function CreateInvoicePage() {
         }
         
         // Debug log
-        if (loadedPackages.length > 0) {
-          console.log("[CreateInvoice] Sample variant:", loadedPackages[0])
-          console.log("[CreateInvoice] Variant columns:", Object.keys(loadedPackages[0]).join(", "))
+        if (filteredVariants.length > 0) {
+          console.log("[CreateInvoice] Sample variant:", filteredVariants[0])
+          console.log("[CreateInvoice] Variant columns:", Object.keys(filteredVariants[0]).join(", "))
         }
       } else {
         console.error("[CreateInvoice] Error loading package variants:", variantResponse.status)
         const errText = await variantResponse.text().catch(() => "")
         console.error("[CreateInvoice] Response:", errText)
       }
+
+      // Process categories - filter to only show categories that have packages for this franchise
+      if (catResponse.ok) {
+        const catJson = await catResponse.json()
+        const allCategories = catJson?.data || []
+        
+        // Only keep categories that have packages/variants for this franchise
+        const filteredCategories = allCategories.filter((cat: any) => 
+          categoryIdsWithPackages.has(cat.id)
+        )
+        
+        setPackagesCategories(filteredCategories)
+        console.log(
+          "[CreateInvoice] Loaded package categories:", 
+          filteredCategories.length, 
+          "out of", 
+          allCategories.length, 
+          "total"
+        )
+      } else {
+        console.error("[CreateInvoice] Error loading package categories:", catResponse.status)
+      }
+      
+      // Set the packages/variants
+      setPackages(filteredVariants)
     } catch (error) {
       console.error("[CreateInvoice] Error loading packages:", error)
     } finally {
@@ -1818,6 +1852,58 @@ export default function CreateInvoicePage() {
               </table>
             </div>
           </div>
+
+          {/* Package Details Section - Show when package is selected in rental mode */}
+          {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
+            <div className="border-t pt-6 mt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Tag className="h-4 w-4 text-blue-500" />
+                <span className="font-semibold text-blue-900">Package Details</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                {/* Package Name & Price */}
+                <div>
+                  <h4 className="font-semibold text-sm text-gray-700 mb-2">Package</h4>
+                  <p className="text-lg font-bold text-blue-700">{selectedPackage.name || selectedPackage.variant_name}</p>
+                </div>
+                
+                {/* Base Price */}
+                <div>
+                  <h4 className="font-semibold text-sm text-gray-700 mb-2">Package Price</h4>
+                  <p className="text-lg font-bold">₹{packagePrice.toLocaleString()}</p>
+                  {useCustomPackagePrice && customPackagePrice > 0 && (
+                    <p className="text-xs text-amber-600 mt-1">⚠️ Custom override price applied</p>
+                  )}
+                </div>
+
+                {/* Security Deposit */}
+                {selectedPackage.security_deposit > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Security Deposit</h4>
+                    <p className="text-lg font-bold text-red-600">₹{selectedPackage.security_deposit.toLocaleString()}</p>
+                  </div>
+                )}
+
+                {/* Inclusions */}
+                {selectedPackage.inclusions && (
+                  <div className={selectedPackage.security_deposit > 0 ? "" : "md:col-span-1"}>
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Includes</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {(Array.isArray(selectedPackage.inclusions) 
+                        ? selectedPackage.inclusions 
+                        : typeof selectedPackage.inclusions === 'string' 
+                          ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
+                          : []
+                      ).map((inc: string, i: number) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Lost/Damaged Items Section - only for rentals */}
           {invoiceData.invoice_type === "rental" && (mode === "final-bill" || lostDamagedItems.length > 0) && (
