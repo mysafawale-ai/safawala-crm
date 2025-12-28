@@ -88,6 +88,17 @@ export function ProductSelector({
   const gridRef = useRef<HTMLDivElement>(null)
   const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
+  // Log on mount and when props change
+  useEffect(() => {
+    console.log("[ProductSelector] Rendered with:", {
+      productCount: products.length,
+      categoryCount: categories.length,
+      subcategoryCount: subcategories.length,
+      firstProduct: products[0],
+      firstCategory: categories[0]
+    })
+  }, [products, categories, subcategories])
+
   // Filter products based on search and categories
   const filteredProducts = useMemo(() => {
     let result = products

@@ -119,6 +119,13 @@ const navigationItems = {
       description: "Create invoice-style order with editable fields, print, download quote",
     },
     {
+      title: "All Invoices",
+      url: "/invoices",
+      icon: FileCheck,
+      permission: "invoices",
+      description: "View, edit, and manage all saved invoices with search and filtering",
+    },
+    {
       title: "Quotes",
       url: "/quotes",
       icon: FileText,
@@ -132,14 +139,6 @@ const navigationItems = {
       permission: "invoices",
       description: "Manage product rental invoices, payment tracking, and rental periods",
     },
-    // TODO: Temporarily hidden - Invoices feature
-    // {
-    //   title: "Invoices",
-    //   url: "/invoices",
-    //   icon: FileCheck,
-    //   permission: "invoices",
-    //   description: "View and manage invoices for confirmed bookings and orders",
-    // },
     {
       title: "Laundry",
       url: "/laundry",

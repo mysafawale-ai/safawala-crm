@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,10 +33,16 @@ import {
   Package,
   Shield,
   Share2,
+  Pencil,
+  Trash2,
+  Archive,
+  RotateCcw,
 } from "lucide-react"
 import { InvoiceService } from "@/lib/services/invoice-service"
 import { useToast } from "@/hooks/use-toast"
 import type { Invoice } from "@/lib/types"
+import { createClient } from "@/lib/supabase/client"
+import { archiveInvoice, restoreInvoice } from "@/lib/invoices"
 
 interface InvoiceStats {
   total: number
@@ -47,11 +54,13 @@ interface InvoiceStats {
 
 export default function InvoicesPage() {
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        <InvoicesPageContent />
+    <DashboardLayout>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto">
+          <InvoicesPageContent />
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }
 
@@ -76,10 +85,16 @@ function InvoicesPageContent() {
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [archivedInvoices, setArchivedInvoices] = useState<Invoice[]>([])
+  const [showArchivedSection, setShowArchivedSection] = useState(false)
 
   useEffect(() => {
     loadInvoices()
     loadStats()
+    fetchArchivedInvoices()
 
     const interval = setInterval(() => {
       loadInvoices()
@@ -121,6 +136,25 @@ function InvoicesPageContent() {
       setStats(statsData)
     } catch (error) {
       console.error("Error loading stats:", error)
+    }
+  }
+
+  const fetchArchivedInvoices = async () => {
+    try {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("product_orders")
+        .select("*")
+        .eq("is_archived", true)
+        .order("created_at", { ascending: false })
+        .limit(10)
+
+      if (data) {
+        setArchivedInvoices(data as Invoice[])
+        console.log(`[Invoices] Loaded ${data.length} archived invoices`)
+      }
+    } catch (error) {
+      console.error("[Invoices] Error fetching archived invoices:", error)
     }
   }
 
@@ -180,6 +214,87 @@ function InvoicesPageContent() {
   }, [filteredInvoices, currentPage, itemsPerPage])
 
   const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage)
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete invoice")
+      }
+
+      toast({
+        title: "Success",
+        description: "Invoice deleted successfully",
+      })
+
+      setShowDeleteConfirm(false)
+      setDeletingInvoiceId(null)
+      loadInvoices()
+    } catch (error) {
+      console.error("Error deleting invoice:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleArchiveInvoice = async (invoiceId: string) => {
+    try {
+      const response = await archiveInvoice(invoiceId)
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to archive invoice')
+      }
+
+      toast({
+        title: "Archived",
+        description: "Invoice archived successfully",
+      })
+
+      loadInvoices()
+      fetchArchivedInvoices()
+    } catch (error) {
+      console.error("Error archiving invoice:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to archive invoice",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRestoreInvoice = async (invoiceId: string) => {
+    try {
+      const response = await restoreInvoice(invoiceId)
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to restore invoice')
+      }
+
+      toast({
+        title: "Restored",
+        description: "Invoice restored successfully",
+      })
+
+      loadInvoices()
+      fetchArchivedInvoices()
+    } catch (error) {
+      console.error("Error restoring invoice:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to restore invoice",
+        variant: "destructive",
+      })
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -441,7 +556,7 @@ function InvoicesPageContent() {
                       <TableCell className="text-orange-600">{formatCurrency(invoice.pending_amount || 0)}</TableCell>
                       <TableCell>{getStatusBadge(invoice.payment_status || "pending")}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -449,11 +564,25 @@ function InvoicesPageContent() {
                               setSelectedInvoice(invoice)
                               setShowViewDialog(true)
                             }}
+                            title="View"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => {}}>
-                            <Download className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/create-invoice?mode=edit&id=${invoice.id}`)}
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleArchiveInvoice(invoice.id)}
+                            title="Archive"
+                          >
+                            <Archive className="h-4 w-4 text-gray-500" />
                           </Button>
                         </div>
                       </TableCell>
@@ -521,6 +650,95 @@ function InvoicesPageContent() {
               </div>
             </div>
           </CardContent>
+        </Card>
+      )}
+      
+      {/* Archived Invoices Section */}
+      {archivedInvoices.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Archive className="h-5 w-5" />
+                <div>
+                  <CardTitle>Archived Invoices</CardTitle>
+                  <CardDescription>{archivedInvoices.length} archived invoice(s)</CardDescription>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArchivedSection(!showArchivedSection)}
+              >
+                {showArchivedSection ? "Hide" : "Show"} Archived
+              </Button>
+            </div>
+          </CardHeader>
+          {showArchivedSection && (
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {archivedInvoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                        <TableCell>{invoice.customer_name}</TableCell>
+                        <TableCell>{formatCurrency(invoice.total_amount || 0)}</TableCell>
+                        <TableCell>{getStatusBadge(invoice.payment_status || "pending")}</TableCell>
+                        <TableCell>
+                          {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedInvoice(invoice)
+                                setShowViewDialog(true)
+                              }}
+                              title="View"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestoreInvoice(invoice.id)}
+                              title="Restore"
+                            >
+                              <RotateCcw className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setDeletingInvoiceId(invoice.id)
+                                setShowDeleteConfirm(true)
+                              }}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
       
@@ -948,6 +1166,34 @@ function InvoicesPageContent() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Invoice</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this invoice? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deletingInvoiceId) {
+                  handleDeleteInvoice(deletingInvoiceId)
+                }
+              }}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

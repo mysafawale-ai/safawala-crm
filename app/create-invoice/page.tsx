@@ -57,11 +57,17 @@ import {
   Minus,
   Tag,
   FileCheck,
+  Camera,
+  ImageIcon,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import { format } from "date-fns"
 import Link from "next/link"
+import { ProductSelector } from "@/components/products/product-selector"
+import { Checkbox } from "@/components/ui/checkbox"
+import { supabase as supabaseClient } from "@/lib/supabase"
+import { fetchProductsWithBarcodes } from "@/lib/product-barcode-service"
 
 interface Customer {
   id: string
@@ -80,10 +86,14 @@ interface Product {
   barcode?: string
   product_code?: string
   category?: string
+  category_id?: string
+  subcategory_id?: string
   image_url?: string
   rental_price: number
   sale_price?: number
+  security_deposit: number
   stock_available: number
+  all_barcode_numbers?: string[]
 }
 
 interface StaffMember {
@@ -136,14 +146,22 @@ export default function CreateInvoicePage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [customersLoading, setCustomersLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [customerSearch, setCustomerSearch] = useState("")
   const [productSearch, setProductSearch] = useState("")
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [showProductDropdown, setShowProductDropdown] = useState(false)
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false)
   const [lostDamagedProductSearch, setLostDamagedProductSearch] = useState<string | null>(null) // ID of item being searched
+  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
+  const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
+  const [showCustomProductDialog, setShowCustomProductDialog] = useState(false)
+  const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '', price: '' })
+  const [creatingProduct, setCreatingProduct] = useState(false)
+  const [skipProductSelection, setSkipProductSelection] = useState(false)
+  const [useCustomAmount, setUseCustomAmount] = useState(false)
+  const [customAmount, setCustomAmount] = useState(0)
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -169,7 +187,7 @@ export default function CreateInvoicePage() {
     bride_name: "",
     bride_whatsapp: "",
     bride_address: "",
-    payment_method: "full" as "full" | "advance" | "partial",
+    payment_method: "cash" as "upi" | "bank" | "card" | "cash" | "international",
     amount_paid: 0,
     security_deposit: 0,
     gst_percentage: 5,
@@ -206,7 +224,7 @@ export default function CreateInvoicePage() {
   // Load customers and products
   useEffect(() => {
     loadCustomers()
-    loadProducts()
+    loadProductsAndCategories()
     loadStaffMembers()
   }, [])
 
@@ -218,22 +236,186 @@ export default function CreateInvoicePage() {
   }, [orderId, mode])
 
   const loadCustomers = async () => {
-    const { data } = await supabase
-      .from("customers")
-      .select("id, name, phone, email, address, city, state, pincode")
-      .eq("is_deleted", false)
-      .order("name")
-      .limit(100)
-    if (data) setCustomers(data)
+    setCustomersLoading(true)
+    try {
+      const response = await fetch("/api/customers?basic=1", {
+        method: "GET",
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        console.error("[CreateInvoice] Failed to fetch customers:", response.status, response.statusText)
+        setCustomers([])
+        return
+      }
+
+      const result = await response.json()
+      const data = result?.data || []
+      console.log("[CreateInvoice] Loaded customers:", Array.isArray(data) ? data.length : 0)
+      setCustomers(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error("[CreateInvoice] Error loading customers:", error)
+      setCustomers([])
+    } finally {
+      setCustomersLoading(false)
+    }
   }
 
-  const loadProducts = async () => {
-    const { data } = await supabase
-      .from("products")
-      .select("id, name, barcode, product_code, category, image_url, rental_price, sale_price, stock_available")
-      .eq("is_active", true)
-      .order("name")
-    if (data) setProducts(data)
+  const loadProductsAndCategories = async () => {
+    try {
+      // Get current user to get franchise_id
+      const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+      const user = userRes.ok ? await userRes.json() : null
+      const franchiseId = user?.franchise_id
+
+      console.log("[CreateInvoice] Loading products for franchise:", franchiseId)
+
+      // Fetch products with barcodes (same as create-product-order)
+      const productsWithBarcodes = await fetchProductsWithBarcodes(franchiseId)
+      
+      // Map to Product interface
+      const mappedProducts = productsWithBarcodes.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: '', // Will fill from category_id lookup
+        category_id: p.category_id,
+        subcategory_id: undefined,
+        rental_price: p.rental_price || 0,
+        sale_price: p.sale_price || 0,
+        security_deposit: p.security_deposit || 0,
+        stock_available: p.stock_available || 0,
+        image_url: (p as any).image_url || undefined,
+        barcode: (p as any).barcode || (p as any).barcode_number || null || undefined,
+        product_code: p.product_code || undefined,
+        all_barcode_numbers: p.all_barcode_numbers || []
+      }))
+
+      setProducts(mappedProducts)
+      console.log("[CreateInvoice] Loaded products:", mappedProducts.length)
+
+      // Fetch categories
+      const { data: categoriesData } = await supabaseClient
+        .from('product_categories')
+        .select('*')
+        .order('name')
+
+      if (categoriesData) {
+        const mainCats = categoriesData.filter((c: any) => !c.parent_id) || []
+        const subCats = categoriesData.filter((c: any) => c.parent_id) || []
+        setCategories(mainCats.map((c: any) => ({ id: c.id, name: c.name })))
+        setSubcategories(subCats.map((c: any) => ({ id: c.id, name: c.name, parent_id: c.parent_id })))
+        console.log("[CreateInvoice] Loaded categories:", mainCats.length, "subcategories:", subCats.length)
+      }
+    } catch (error) {
+      console.error("[CreateInvoice] Error loading products and categories:", error)
+    }
+  }
+
+  // Create custom product
+  const handleCreateCustomProduct = async () => {
+    if (!customProductData.name.trim()) {
+      toast({ title: "Error", description: "Product name is required", variant: "destructive" })
+      return
+    }
+    if (!customProductData.category_id) {
+      toast({ title: "Error", description: "Please select a category", variant: "destructive" })
+      return
+    }
+    if (!customProductData.price || parseFloat(customProductData.price) <= 0) {
+      toast({ title: "Error", description: "Please enter a valid price", variant: "destructive" })
+      return
+    }
+    
+    setCreatingProduct(true)
+    try {
+      let imageUrl: string | null = customProductData.image_url
+
+      // Upload image to storage if it's a base64 string
+      if (imageUrl && imageUrl.startsWith('data:image')) {
+        try {
+          const response = await fetch(imageUrl)
+          const blob = await response.blob()
+          const timestamp = Date.now()
+          const randomStr = Math.random().toString(36).substring(7)
+          const fileExt = blob.type.split('/')[1] || 'jpg'
+          const fileName = `product-${timestamp}-${randomStr}.${fileExt}`
+          
+          const { data: uploadData, error: uploadError } = await supabaseClient.storage
+            .from('product-images')
+            .upload(fileName, blob, {
+              contentType: blob.type,
+              cacheControl: '3600',
+              upsert: true
+            })
+          
+          if (uploadError) throw uploadError
+          
+          const { data: { publicUrl } } = supabaseClient.storage
+            .from('product-images')
+            .getPublicUrl(fileName)
+          
+          imageUrl = publicUrl
+        } catch (uploadError: any) {
+          console.error('Image upload failed:', uploadError)
+          imageUrl = null
+        }
+      }
+
+      const productCode = `PRD-${Date.now().toString(36).toUpperCase()}-${Math.random()
+        .toString(36)
+        .slice(2, 6)
+        .toUpperCase()}`
+
+      let createdByFranchiseId: string | null = null
+      try {
+        const ures = await fetch('/api/auth/user', { cache: 'no-store' })
+        if (ures.ok) {
+          const ujson = await ures.json()
+          createdByFranchiseId = ujson?.franchise_id || null
+        }
+      } catch (e) {
+        console.error('Failed to get user franchise:', e)
+      }
+
+      const priceValue = parseFloat(customProductData.price) || 0
+
+      const basePayload: any = {
+        name: customProductData.name.trim(),
+        category_id: customProductData.category_id,
+        image_url: imageUrl || null,
+        rental_price: priceValue,
+        sale_price: priceValue,
+        price: priceValue,
+        security_deposit: 0,
+        stock_available: 100,
+        is_active: true,
+        product_code: productCode,
+        description: 'Custom product',
+        franchise_id: createdByFranchiseId
+      }
+
+      const { data: product, error } = await supabaseClient
+        .from('products')
+        .insert(basePayload)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      // Add to products list and immediately add to invoice
+      setProducts(prev => [...prev, product as any])
+      addProduct(product as Product)
+      
+      toast({ title: "Success", description: `Product "${product.name}" created and added!` })
+      
+      setCustomProductData({ name: '', category_id: '', image_url: '', price: '' })
+      setShowCustomProductDialog(false)
+    } catch (e: any) {
+      console.error('Failed to create product:', e)
+      toast({ title: "Error", description: e.message || "Failed to create product", variant: "destructive" })
+    } finally {
+      setCreatingProduct(false)
+    }
   }
 
   const loadStaffMembers = async () => {
@@ -283,7 +465,7 @@ export default function CreateInvoicePage() {
           bride_name: order.bride_name || "",
           bride_whatsapp: order.bride_whatsapp || "",
           bride_address: order.bride_address || "",
-          payment_method: order.payment_method || "full",
+          payment_method: order.payment_method || "cash",
           amount_paid: order.amount_paid || 0,
           security_deposit: order.security_deposit || 0,
           gst_percentage: order.gst_percentage || 5,
@@ -315,7 +497,8 @@ export default function CreateInvoicePage() {
   }
 
   // Calculations
-  const subtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0)
+  const itemsSubtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0)
+  const subtotal = useCustomAmount && customAmount > 0 ? customAmount : itemsSubtotal
   const discountAmount = invoiceData.discount_type === "percentage" 
     ? (subtotal * invoiceData.discount_amount / 100)
     : invoiceData.discount_amount
@@ -326,11 +509,13 @@ export default function CreateInvoicePage() {
   const grandTotal = afterDiscount + gstAmount + securityDeposit + lostDamagedTotal
   const pendingAmount = grandTotal - invoiceData.amount_paid
 
-  // Filter customers
-  const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.phone.includes(customerSearch)
-  )
+  // Filter customers - show all if no search term, otherwise filter
+  const filteredCustomers = customerSearch.trim() === "" 
+    ? customers 
+    : customers.filter(c =>
+        c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+        c.phone.includes(customerSearch)
+      )
 
   // Filter products
   const filteredProducts = products.filter(p =>
@@ -442,29 +627,54 @@ export default function CreateInvoicePage() {
     setLostDamagedItems(items => items.filter(item => item.id !== id))
   }
 
-  // Create new customer
+  // Create new customer via API (respects franchise + validation)
   const handleCreateCustomer = async () => {
     if (!newCustomer.name || !newCustomer.phone) {
       toast({ title: "Error", description: "Name and phone are required", variant: "destructive" })
       return
     }
 
-    const { data, error } = await supabase
-      .from("customers")
-      .insert([newCustomer])
-      .select()
-      .single()
+    try {
+      const response = await fetch("/api/customers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newCustomer.name,
+          phone: newCustomer.phone,
+          address: newCustomer.address || undefined,
+          city: newCustomer.city || undefined,
+          state: newCustomer.state || undefined,
+          pincode: newCustomer.pincode || undefined,
+        }),
+      })
 
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" })
-      return
+      const result = await response.json()
+
+      if (!response.ok) {
+        const friendly =
+          result?.error?.message || result?.error || result?.message || "Failed to create customer"
+        throw new Error(friendly)
+      }
+
+      const created = result.data
+      if (created) {
+        setSelectedCustomer(created)
+        setCustomers((prev) => [created, ...prev])
+      }
+
+      setShowNewCustomerDialog(false)
+      setNewCustomer({ name: "", phone: "", address: "", city: "", state: "", pincode: "" })
+      toast({ title: "Success", description: result.message || "Customer created" })
+    } catch (error) {
+      console.error("[CreateInvoice] Error creating customer:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create customer",
+        variant: "destructive",
+      })
     }
-
-    setSelectedCustomer(data)
-    setCustomers([...customers, data])
-    setShowNewCustomerDialog(false)
-    setNewCustomer({ name: "", phone: "", address: "", city: "", state: "", pincode: "" })
-    toast({ title: "Success", description: "Customer created" })
   }
 
   // Save as Quote
@@ -543,7 +753,7 @@ export default function CreateInvoicePage() {
     setSaving(false)
   }
 
-  // Create Order
+  // Create or Update Order
   const handleCreateOrder = async () => {
     if (!selectedCustomer) {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
@@ -593,15 +803,39 @@ export default function CreateInvoicePage() {
         has_items: true,
       }
 
-      const { data: order, error } = await supabase
-        .from("product_orders")
-        .insert([orderData])
-        .select()
-        .single()
+      let order: any
+      let isUpdate = false
 
-      if (error) throw error
+      if (orderId && mode === "edit") {
+        // Update existing order
+        const { error: updateError } = await supabase
+          .from("product_orders")
+          .update(orderData)
+          .eq("id", orderId)
 
-      // Insert items
+        if (updateError) throw updateError
+
+        // Delete existing items
+        await supabase
+          .from("product_order_items")
+          .delete()
+          .eq("product_order_id", orderId)
+
+        order = { id: orderId, order_number: invoiceData.invoice_number }
+        isUpdate = true
+      } else {
+        // Create new order
+        const { data: newOrder, error } = await supabase
+          .from("product_orders")
+          .insert([orderData])
+          .select()
+          .single()
+
+        if (error) throw error
+        order = newOrder
+      }
+
+      // Insert/re-insert items
       const itemsData = invoiceItems.map(item => ({
         order_id: order.id,
         product_id: item.product_id,
@@ -654,8 +888,12 @@ export default function CreateInvoicePage() {
         }
       }
 
-      toast({ title: "Order Created", description: `Order ${order.order_number} created successfully` })
-      router.push("/bookings")
+      const message = isUpdate 
+        ? `Invoice ${order.order_number} updated successfully`
+        : `Invoice ${order.order_number} created successfully`
+      
+      toast({ title: isUpdate ? "Invoice Updated" : "Invoice Created", description: message })
+      router.push("/invoices")
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
     }
@@ -707,6 +945,12 @@ export default function CreateInvoicePage() {
         
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          <Link href="/invoices">
+            <Button variant="outline" size="sm">
+              <FileText className="h-4 w-4 mr-2" />
+              All Invoices
+            </Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             Print
@@ -785,157 +1029,170 @@ export default function CreateInvoicePage() {
                 </Button>
               </div>
 
-              {/* Customer Search - Hidden on print */}
+              {/* Customer Search */}
               <div className="print:hidden mb-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Search customer by name or phone..."
+                    placeholder="Search customers..."
                     value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value)
-                      setShowCustomerDropdown(true)
-                    }}
-                    onFocus={() => setShowCustomerDropdown(true)}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
                     className="pl-10"
                   />
                 </div>
-                
-                {showCustomerDropdown && customerSearch && (
-                  <div className="absolute z-10 mt-1 w-full max-w-sm bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {filteredCustomers.length === 0 ? (
-                      <div className="p-3 text-sm text-gray-500">No customers found</div>
-                    ) : (
-                      filteredCustomers.slice(0, 10).map((customer) => (
-                        <div
-                          key={customer.id}
-                          className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-0"
-                          onClick={() => {
-                            setSelectedCustomer(customer)
-                            setCustomerSearch("")
-                            setShowCustomerDropdown(false)
-                          }}
-                        >
-                          <div className="font-medium">{customer.name}</div>
-                          <div className="text-xs text-gray-500">{customer.phone}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
               </div>
 
-              {/* Selected Customer Display */}
+              {/* Customer List or Selected Customer */}
               {selectedCustomer ? (
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-lg">{selectedCustomer.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="print:hidden h-6 w-6 p-0"
-                      onClick={() => setSelectedCustomer(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Phone className="h-3 w-3" />
-                    {selectedCustomer.phone}
-                  </div>
-                  {selectedCustomer.address && (
-                    <div className="flex items-start gap-2 text-gray-600">
-                      <MapPin className="h-3 w-3 mt-1" />
-                      <span>{selectedCustomer.address}</span>
+                <div className="p-3 rounded-md bg-orange-50 border border-orange-200 flex items-start justify-between">
+                  <div>
+                    <div className="font-medium text-orange-900">
+                      {selectedCustomer.name}
                     </div>
-                  )}
+                    <div className="text-xs text-orange-700">
+                      {selectedCustomer.phone}
+                    </div>
+                    {selectedCustomer.email && (
+                      <div className="text-xs text-orange-600">
+                        {selectedCustomer.email}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="print:hidden"
+                    onClick={() => setSelectedCustomer(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               ) : (
-                <div className="text-center py-4 text-gray-400 text-sm">
-                  Search and select a customer
+                <div className="border rounded-md max-h-56 overflow-y-auto text-sm print:hidden">
+                  {customersLoading ? (
+                    <div className="space-y-0">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="p-3 border-b last:border-b-0">
+                          <div className="h-5 w-32 mb-2 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => setSelectedCustomer(c)}
+                          className="w-full text-left p-3 border-b last:border-b-0 hover:bg-orange-50 transition-colors"
+                        >
+                          <div className="font-medium">{c.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {c.phone}
+                          </div>
+                        </button>
+                      ))}
+                      {customerSearch && filteredCustomers.length === 0 && (
+                        <div className="p-3 text-xs text-muted-foreground">
+                          No matches
+                        </div>
+                      )}
+                      {!customerSearch && customers.length > 5 && (
+                        <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
+                          Showing first 5 of {customers.length} customers. Type to search more...
+                        </div>
+                      )}
+                      {!customerSearch && customers.length === 0 && !customersLoading && (
+                        <div className="p-3 text-xs text-muted-foreground">
+                          No customers found
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </Card>
 
-            {/* Event Details */}
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <CalendarIcon className="h-4 w-4 text-orange-500" />
-                <span className="font-semibold">Event Details</span>
-              </div>
+            {/* Event / Delivery Details */}
+            {invoiceData.invoice_type === "rental" ? (
+              <>
+                {/* Full event details for rentals */}
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CalendarIcon className="h-4 w-4 text-orange-500" />
+                    <span className="font-semibold">Event Details</span>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <Label className="text-xs text-gray-500">Event Type</Label>
-                  <Select
-                    value={invoiceData.event_type}
-                    onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
-                  >
-                    <SelectTrigger className="print:border-0 print:p-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="wedding">Wedding</SelectItem>
-                      <SelectItem value="engagement">Engagement</SelectItem>
-                      <SelectItem value="reception">Reception</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">For</Label>
-                  <Select
-                    value={invoiceData.event_participant}
-                    onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
-                  >
-                    <SelectTrigger className="print:border-0 print:p-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="both">Both</SelectItem>
-                      <SelectItem value="groom">Groom Only</SelectItem>
-                      <SelectItem value="bride">Bride Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Event Date</Label>
-                  <Input
-                    type="date"
-                    value={invoiceData.event_date}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
-                    className="print:border-0 print:p-0"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Event Time</Label>
-                  <Input
-                    type="time"
-                    value={invoiceData.event_time}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
-                    className="print:border-0 print:p-0"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Delivery Date</Label>
-                  <Input
-                    type="date"
-                    value={invoiceData.delivery_date}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
-                    className="print:border-0 print:p-0"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Delivery Time</Label>
-                  <Input
-                    type="time"
-                    value={invoiceData.delivery_time}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
-                    className="print:border-0 print:p-0"
-                  />
-                </div>
-                {invoiceData.invoice_type === "rental" && (
-                  <>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <Label className="text-xs text-gray-500">Event Type</Label>
+                      <Select
+                        value={invoiceData.event_type}
+                        onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
+                      >
+                        <SelectTrigger className="print:border-0 print:p-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="wedding">Wedding</SelectItem>
+                          <SelectItem value="engagement">Engagement</SelectItem>
+                          <SelectItem value="reception">Reception</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">For</Label>
+                      <Select
+                        value={invoiceData.event_participant}
+                        onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
+                      >
+                        <SelectTrigger className="print:border-0 print:p-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="both">Both</SelectItem>
+                          <SelectItem value="groom">Groom Only</SelectItem>
+                          <SelectItem value="bride">Bride Only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Event Date</Label>
+                      <Input
+                        type="date"
+                        value={invoiceData.event_date}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
+                        className="print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Event Time</Label>
+                      <Input
+                        type="time"
+                        value={invoiceData.event_time}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
+                        className="print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Delivery Date</Label>
+                      <Input
+                        type="date"
+                        value={invoiceData.delivery_date}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
+                        className="print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Delivery Time</Label>
+                      <Input
+                        type="time"
+                        value={invoiceData.delivery_time}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
+                        className="print:border-0 print:p-0"
+                      />
+                    </div>
                     <div>
                       <Label className="text-xs text-gray-500">Return Date</Label>
                       <Input
@@ -954,168 +1211,163 @@ export default function CreateInvoicePage() {
                         className="print:border-0 print:p-0"
                       />
                     </div>
-                  </>
-                )}
-              </div>
-            </Card>
-          </div>
+                  </div>
+                </Card>
 
-          {/* Groom & Bride Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <User className="h-4 w-4 text-blue-500" />
-                <span className="font-semibold">Groom Details</span>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <Label className="text-xs text-gray-500">Name</Label>
-                  <Input
-                    value={invoiceData.groom_name}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
-                    placeholder="Groom's name"
-                    className="print:border-0 print:p-0"
-                  />
+                {/* Groom & Bride Details - rentals only */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <User className="h-4 w-4 text-blue-500" />
+                      <span className="font-semibold">Groom Details</span>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <Label className="text-xs text-gray-500">Name</Label>
+                        <Input
+                          value={invoiceData.groom_name}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
+                          placeholder="Groom's name"
+                          className="print:border-0 print:p-0"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">WhatsApp</Label>
+                        <Input
+                          value={invoiceData.groom_whatsapp}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
+                          placeholder="WhatsApp number"
+                          className="print:border-0 print:p-0"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">Address</Label>
+                        <Textarea
+                          value={invoiceData.groom_address}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
+                          placeholder="Address"
+                          rows={2}
+                          className="print:border-0 print:p-0"
+                        />
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <User className="h-4 w-4 text-pink-500" />
+                      <span className="font-semibold">Bride Details</span>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <Label className="text-xs text-gray-500">Name</Label>
+                        <Input
+                          value={invoiceData.bride_name}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
+                          placeholder="Bride's name"
+                          className="print:border-0 print:p-0"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">WhatsApp</Label>
+                        <Input
+                          value={invoiceData.bride_whatsapp}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
+                          placeholder="WhatsApp number"
+                          className="print:border-0 print:p-0"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-500">Address</Label>
+                        <Textarea
+                          value={invoiceData.bride_address}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
+                          placeholder="Address"
+                          rows={2}
+                          className="print:border-0 print:p-0"
+                        />
+                      </div>
+                    </div>
+                  </Card>
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500">WhatsApp</Label>
-                  <Input
-                    value={invoiceData.groom_whatsapp}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
-                    placeholder="WhatsApp number"
-                    className="print:border-0 print:p-0"
-                  />
+              </>
+            ) : (
+              /* Direct sale layout: only delivery details + address */
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CalendarIcon className="h-4 w-4 text-orange-500" />
+                  <span className="font-semibold">Direct Sale Details</span>
                 </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Address</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <Label className="text-xs text-gray-500">Delivery Date</Label>
+                    <Input
+                      type="date"
+                      value={invoiceData.delivery_date}
+                      onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
+                      className="print:border-0 print:p-0"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Delivery Time</Label>
+                    <Input
+                      type="time"
+                      value={invoiceData.delivery_time}
+                      onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
+                      className="print:border-0 print:p-0"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Label className="text-xs text-gray-500 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    Delivery Address
+                  </Label>
                   <Textarea
-                    value={invoiceData.groom_address}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
-                    placeholder="Address"
-                    rows={2}
-                    className="print:border-0 print:p-0"
+                    value={invoiceData.delivery_address}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, delivery_address: e.target.value })}
+                    placeholder="Enter delivery address with complete details"
+                    rows={3}
+                    className="mt-1 print:border-0 print:p-0"
                   />
                 </div>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <User className="h-4 w-4 text-pink-500" />
-                <span className="font-semibold">Bride Details</span>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <Label className="text-xs text-gray-500">Name</Label>
-                  <Input
-                    value={invoiceData.bride_name}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
-                    placeholder="Bride's name"
-                    className="print:border-0 print:p-0"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">WhatsApp</Label>
-                  <Input
-                    value={invoiceData.bride_whatsapp}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
-                    placeholder="WhatsApp number"
-                    className="print:border-0 print:p-0"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-500">Address</Label>
-                  <Textarea
-                    value={invoiceData.bride_address}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
-                    placeholder="Address"
-                    rows={2}
-                    className="print:border-0 print:p-0"
-                  />
-                </div>
-              </div>
-            </Card>
+              </Card>
+            )}
           </div>
 
-          {/* Sales Staff Selection */}
-          <Card className="p-4 print:hidden">
-            <div className="flex items-center gap-2 mb-3">
-              <User className="h-4 w-4 text-green-500" />
-              <span className="font-semibold">Sales Staff</span>
-            </div>
-            <Select
-              value={invoiceData.sales_closed_by_id}
-              onValueChange={(v) => setInvoiceData({ ...invoiceData, sales_closed_by_id: v })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select staff member" />
-              </SelectTrigger>
-              <SelectContent>
-                {staffMembers.map((staff) => (
-                  <SelectItem key={staff.id} value={staff.id}>
-                    {staff.name} ({staff.role})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Card>
-
-          {/* Venue Address */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs text-gray-500 flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                Venue Address
-              </Label>
-              <Textarea
-                value={invoiceData.venue_address}
-                onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
-                placeholder="Enter venue address..."
-                rows={2}
-                className="mt-1 print:border-0 print:p-0"
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500 flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                Delivery Address (if different)
-              </Label>
-              <Textarea
-                value={invoiceData.delivery_address}
-                onChange={(e) => setInvoiceData({ ...invoiceData, delivery_address: e.target.value })}
-                placeholder="Leave empty if same as venue..."
-                rows={2}
-                className="mt-1 print:border-0 print:p-0"
-              />
-            </div>
-          </div>
-
-          {/* Coupon Code */}
-          <Card className="p-4 print:hidden">
-            <div className="flex items-center gap-2 mb-3">
-              <Tag className="h-4 w-4 text-purple-500" />
-              <span className="font-semibold">Coupon</span>
-            </div>
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <Label className="text-xs text-gray-500">Coupon Code</Label>
-                <Input
-                  value={invoiceData.coupon_code}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, coupon_code: e.target.value.toUpperCase() })}
-                  placeholder="Enter coupon code"
+          {/* Address section for rentals only (venue + delivery) */}
+          {invoiceData.invoice_type === "rental" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  Venue Address
+                </Label>
+                <Textarea
+                  value={invoiceData.venue_address}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
+                  placeholder="Enter venue address..."
+                  rows={2}
+                  className="mt-1 print:border-0 print:p-0"
                 />
               </div>
-              <div className="w-32">
-                <Label className="text-xs text-gray-500">Discount</Label>
-                <Input
-                  type="number"
-                  value={invoiceData.coupon_discount}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, coupon_discount: parseFloat(e.target.value) || 0 })}
-                  placeholder="0"
+              <div>
+                <Label className="text-xs text-gray-500 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  Delivery Address (if different)
+                </Label>
+                <Textarea
+                  value={invoiceData.delivery_address}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, delivery_address: e.target.value })}
+                  placeholder="Leave empty if same as venue..."
+                  rows={2}
+                  className="mt-1 print:border-0 print:p-0"
                 />
               </div>
             </div>
-          </Card>
+          )}
+
+
 
           {/* Items Section */}
           <div>
@@ -1127,67 +1379,54 @@ export default function CreateInvoicePage() {
               </div>
             </div>
 
-            {/* Product Search - Hidden on print */}
-            <div className="print:hidden mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  ref={barcodeInputRef}
-                  placeholder="Search product by name or scan barcode..."
-                  value={productSearch}
-                  onChange={(e) => {
-                    setProductSearch(e.target.value)
-                    setShowProductDropdown(true)
-                  }}
-                  onFocus={() => setShowProductDropdown(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && filteredProducts.length > 0) {
-                      addProduct(filteredProducts[0])
-                    }
-                  }}
-                  className="pl-10"
+            {/* Skip Product Selection & Custom Amount Options */}
+            <Card className="p-4 mb-4 print:hidden bg-gray-50">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="skipProductSelection"
+                  checked={skipProductSelection}
+                  onCheckedChange={(checked) => setSkipProductSelection(checked as boolean)}
                 />
+                <label
+                  htmlFor="skipProductSelection"
+                  className="text-sm font-medium leading-none cursor-pointer"
+                >
+                  Skip Product Selection (will do later)
+                </label>
               </div>
 
-              {showProductDropdown && productSearch && (
-                <div className="absolute z-10 mt-1 w-full max-w-2xl bg-white border rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                  {filteredProducts.length === 0 ? (
-                    <div className="p-3 text-sm text-gray-500">No products found</div>
-                  ) : (
-                    filteredProducts.slice(0, 10).map((product) => (
-                      <div
-                        key={product.id}
-                        className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-0 flex items-center justify-between"
-                        onClick={() => addProduct(product)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {product.image_url ? (
-                            <img src={product.image_url} alt="" className="h-10 w-10 object-cover rounded" />
-                          ) : (
-                            <div className="h-10 w-10 bg-gray-100 rounded flex items-center justify-center">
-                              <Package className="h-5 w-5 text-gray-400" />
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-medium">{product.name}</div>
-                            <div className="text-xs text-gray-500">
-                              {product.barcode && <span className="mr-2">#{product.barcode}</span>}
-                              {product.category}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-orange-600">
-                            {formatCurrency(invoiceData.invoice_type === "rental" ? product.rental_price : (product.sale_price || product.rental_price))}
-                          </div>
-                          <div className="text-xs text-gray-500">Stock: {product.stock_available}</div>
-                        </div>
-                      </div>
-                    ))
-                  )}
+              {skipProductSelection && (
+                <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    ⏳ Product selection will be done later. Status will be "Selection Pending" until products are chosen.
+                  </p>
                 </div>
               )}
-            </div>
+            </Card>
+
+            {/* Product Selector - Show all categories and products */}
+            {!skipProductSelection && (
+              <div className="print:hidden mb-4">
+                <ProductSelector
+                  products={products.map(p => ({
+                    ...p,
+                    category: p.category || '',
+                    security_deposit: p.security_deposit || 0,
+                    sale_price: p.sale_price || p.rental_price,
+                  }))}
+                  categories={categories}
+                  subcategories={subcategories}
+                  selectedItems={invoiceItems.map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity
+                  }))}
+                  bookingType={invoiceData.invoice_type}
+                  eventDate={invoiceData.event_date}
+                  onProductSelect={(product) => addProduct(product as Product)}
+                  onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
+                />
+              </div>
+            )}
 
             {/* Items Table */}
             <div className="border rounded-lg overflow-hidden">
@@ -1207,7 +1446,7 @@ export default function CreateInvoicePage() {
                       <td colSpan={5} className="text-center py-8 text-gray-400">
                         <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>No items added yet</p>
-                        <p className="text-xs">Search products above to add items</p>
+                        <p className="text-xs">{skipProductSelection ? "Product selection skipped" : "Select products from categories above"}</p>
                       </td>
                     </tr>
                   ) : (
@@ -1275,8 +1514,8 @@ export default function CreateInvoicePage() {
             </div>
           </div>
 
-          {/* Lost/Damaged Items Section */}
-          {(mode === "final-bill" || lostDamagedItems.length > 0) && (
+          {/* Lost/Damaged Items Section - only for rentals */}
+          {invoiceData.invoice_type === "rental" && (mode === "final-bill" || lostDamagedItems.length > 0) && (
             <div className="border-t pt-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -1433,8 +1672,8 @@ export default function CreateInvoicePage() {
             </div>
           )}
 
-          {/* Button to show Lost/Damaged section */}
-          {mode !== "final-bill" && lostDamagedItems.length === 0 && (
+          {/* Button to show Lost/Damaged section - only for rentals */}
+          {invoiceData.invoice_type === "rental" && mode !== "final-bill" && lostDamagedItems.length === 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -1448,12 +1687,13 @@ export default function CreateInvoicePage() {
 
           {/* Totals Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Payment & Discount */}
+            {/* Payment Method & Discounts - Combined */}
             <Card className="p-4">
-              <div className="font-semibold mb-3">Payment Details</div>
+              <div className="font-semibold mb-3 underline">Payment Method & Discounts</div>
               <div className="space-y-3 text-sm">
+                {/* Payment Method */}
                 <div>
-                  <Label className="text-xs text-gray-500">Payment Method</Label>
+                  <Label className="text-xs text-gray-500">Payment Type</Label>
                   <Select
                     value={invoiceData.payment_method}
                     onValueChange={(v) => setInvoiceData({ ...invoiceData, payment_method: v as any })}
@@ -1462,60 +1702,91 @@ export default function CreateInvoicePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="full">Full Payment</SelectItem>
-                      <SelectItem value="advance">50% Advance</SelectItem>
-                      <SelectItem value="partial">Partial Payment</SelectItem>
+                      <SelectItem value="upi">UPI / QR Payment</SelectItem>
+                      <SelectItem value="bank">Bank Transfer</SelectItem>
+                      <SelectItem value="card">Debit / Credit Card</SelectItem>
+                      <SelectItem value="cash">Cash / Offline Payment</SelectItem>
+                      <SelectItem value="international">International Payment</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Custom Amount */}
                 <div>
-                  <Label className="text-xs text-gray-500">Amount Paid</Label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Checkbox
+                      id="useCustomAmount"
+                      checked={useCustomAmount}
+                      onCheckedChange={(checked) => setUseCustomAmount(checked as boolean)}
+                    />
+                    <Label htmlFor="useCustomAmount" className="text-xs text-gray-500 cursor-pointer">Custom Amount (₹)</Label>
+                  </div>
                   <Input
                     type="number"
-                    value={invoiceData.amount_paid}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, amount_paid: parseFloat(e.target.value) || 0 })}
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(parseFloat(e.target.value) || 0)}
                     className="print:border-0"
-                    placeholder="₹0"
+                    placeholder="Enter custom amount"
+                    disabled={!useCustomAmount}
                   />
+                  {useCustomAmount && <p className="text-xs text-orange-500 mt-1">Overrides calculated total</p>}
                 </div>
+
+                {/* Security Deposit - rental only */}
                 {invoiceData.invoice_type === "rental" && (
                   <div>
-                    <Label className="text-xs text-gray-500">Security Deposit</Label>
+                    <Label className="text-xs text-gray-500">Security Deposit (₹)</Label>
                     <Input
                       type="number"
                       value={invoiceData.security_deposit}
                       onChange={(e) => setInvoiceData({ ...invoiceData, security_deposit: parseFloat(e.target.value) || 0 })}
                       className="print:border-0"
-                      placeholder="₹0"
+                      placeholder="Enter security deposit"
                     />
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs text-gray-500">Discount</Label>
-                    <Input
-                      type="number"
-                      value={invoiceData.discount_amount}
-                      onChange={(e) => setInvoiceData({ ...invoiceData, discount_amount: parseFloat(e.target.value) || 0 })}
-                      className="print:border-0"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-500">Type</Label>
-                    <Select
-                      value={invoiceData.discount_type}
-                      onValueChange={(v) => setInvoiceData({ ...invoiceData, discount_type: v as any })}
-                    >
-                      <SelectTrigger className="print:border-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fixed">₹ Fixed</SelectItem>
-                        <SelectItem value="percentage">% Percent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+
+                {/* Discount Amount */}
+                <div>
+                  <Label className="text-xs text-gray-500">Discount Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    value={invoiceData.discount_amount}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, discount_amount: parseFloat(e.target.value) || 0 })}
+                    className="print:border-0"
+                    placeholder="Enter discount amount"
+                  />
+                </div>
+
+                {/* Coupon Code - simple input */}
+                <div className="print:hidden">
+                  <Label className="text-xs text-gray-500">Coupon Code (Optional)</Label>
+                  <Input
+                    value={invoiceData.coupon_code}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, coupon_code: e.target.value.toUpperCase() })}
+                    placeholder="Enter coupon code"
+                    className="print:border-0"
+                  />
+                </div>
+
+                {/* Sales Staff */}
+                <div>
+                  <Label className="text-xs text-gray-500">Sales Staff</Label>
+                  <Select
+                    value={invoiceData.sales_closed_by_id}
+                    onValueChange={(v) => setInvoiceData({ ...invoiceData, sales_closed_by_id: v })}
+                  >
+                    <SelectTrigger className="print:border-0">
+                      <SelectValue placeholder="Select staff member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffMembers.map((staff) => (
+                        <SelectItem key={staff.id} value={staff.id}>
+                          {staff.name} ({staff.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </Card>
@@ -1578,58 +1849,40 @@ export default function CreateInvoicePage() {
             />
           </div>
 
-          {/* Terms & Conditions */}
-          <Card className="p-4 bg-gray-50 print:bg-white">
-            <div className="flex items-center gap-2 mb-3">
-              <FileCheck className="h-4 w-4 text-orange-500" />
-              <span className="font-semibold text-sm">Terms & Conditions</span>
+          {/* Terms & Conditions - Compact for print */}
+          <Card className="p-3 bg-gray-50 print:bg-white print:p-2">
+            <div className="flex items-center gap-2 mb-2">
+              <FileCheck className="h-4 w-4 text-orange-500 print:hidden" />
+              <span className="font-semibold text-xs">Terms & Conditions</span>
             </div>
-            <div className="text-xs text-gray-600 space-y-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-gray-800 mb-1">Rental Terms</h4>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    <li>All items must be returned by the agreed return date</li>
-                    <li>Late returns will incur additional charges</li>
-                    <li>Items must be returned in original condition</li>
-                    <li>Customer is responsible for items during rental period</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-800 mb-1">Damage & Loss</h4>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    <li>Minor damage: Repair charges apply</li>
-                    <li>Major damage: Replacement cost charged</li>
-                    <li>Lost items: Full replacement cost charged</li>
-                    <li>Security deposit used to cover damages</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-800 mb-1">Payment</h4>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    <li>Advance payment required for booking confirmation</li>
-                    <li>Balance due before delivery/pickup</li>
-                    <li>Security deposit refunded after return inspection</li>
-                    <li>No refunds for cancellations within 24 hours</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-800 mb-1">General</h4>
-                  <ul className="list-disc list-inside space-y-0.5">
-                    <li>ID proof required at time of delivery</li>
-                    <li>Alterations not allowed on rental items</li>
-                    <li>Prices subject to change without notice</li>
-                    <li>Management decision final in disputes</li>
-                  </ul>
-                </div>
-              </div>
+            <div className="text-[10px] text-gray-600 print:text-[9px]">
+              {invoiceData.invoice_type === "rental" ? (
+                <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
+                  <li>Items must be returned by agreed return date</li>
+                  <li>Late returns incur additional charges</li>
+                  <li>Return items in original condition</li>
+                  <li>Customer responsible during rental period</li>
+                  <li>Damage/loss: Repair or replacement cost charged</li>
+                  <li>Security deposit covers damages</li>
+                  <li>Advance payment required for confirmation</li>
+                  <li>ID proof required at delivery</li>
+                </ul>
+              ) : (
+                <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
+                  <li>All sales are final, no returns</li>
+                  <li>Check items before leaving</li>
+                  <li>Warranty as per product terms</li>
+                  <li>Receipt required for any claims</li>
+                  <li>Prices inclusive of applicable taxes</li>
+                  <li>Management decision final in disputes</li>
+                </ul>
+              )}
             </div>
           </Card>
 
           {/* Footer */}
-          <div className="border-t pt-4 text-center text-xs text-gray-500">
-            <p>Thank you for choosing Safawala!</p>
-            <p>Terms & Conditions apply. Please return items in original condition.</p>
+          <div className="border-t pt-2 text-center text-[10px] text-gray-500 print:pt-1">
+            <p>Thank you for choosing Safawala! | Terms & Conditions apply</p>
           </div>
         </div>
       </div>
@@ -1721,6 +1974,148 @@ export default function CreateInvoicePage() {
               </Button>
               <Button onClick={handleCreateCustomer}>
                 Create Customer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Product Dialog */}
+      <Dialog open={showCustomProductDialog} onOpenChange={setShowCustomProductDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom Product</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium">Product Name *</Label>
+              <Input
+                placeholder="Enter product name"
+                value={customProductData.name}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, name: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            
+            <div>
+              <Label className="text-sm font-medium">Category *</Label>
+              <select
+                value={customProductData.category_id}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, category_id: e.target.value }))}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a category</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Price * (₹)</Label>
+              <Input
+                type="number"
+                placeholder="Enter price"
+                value={customProductData.price}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, price: e.target.value }))}
+                className="mt-1"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Product Image (optional)</Label>
+              
+              <div className="mt-2 flex gap-2">
+                <label className="flex-1 cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onloadend = () => {
+                          setCustomProductData(prev => ({ ...prev, image_url: reader.result as string }))
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    <ImageIcon className="w-4 h-4" />
+                    <span className="text-sm">Choose Image</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 my-3">
+                <div className="flex-1 border-t border-gray-300"></div>
+                <span className="text-xs text-gray-500">or paste URL</span>
+                <div className="flex-1 border-t border-gray-300"></div>
+              </div>
+
+              <Input
+                placeholder="https://example.com/image.jpg"
+                value={customProductData.image_url}
+                onChange={(e) => setCustomProductData(prev => ({ ...prev, image_url: e.target.value }))}
+              />
+              
+              {customProductData.image_url && (
+                <div className="mt-2 border rounded-md overflow-hidden relative">
+                  <img 
+                    src={customProductData.image_url} 
+                    alt="Preview" 
+                    className="w-full h-32 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = '/placeholder-product.png'
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-500 hover:bg-red-600 text-white rounded-full"
+                    onClick={() => setCustomProductData(prev => ({ ...prev, image_url: '' }))}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowCustomProductDialog(false)
+                  setCustomProductData({ name: '', category_id: '', image_url: '', price: '' })
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleCreateCustomProduct}
+                disabled={creatingProduct}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                {creatingProduct ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create & Add
+                  </>
+                )}
               </Button>
             </div>
           </div>
