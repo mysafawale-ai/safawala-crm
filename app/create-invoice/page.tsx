@@ -2800,7 +2800,7 @@ export default function CreateInvoicePage() {
               </Button>
               <Button variant="outline" onClick={handleSaveAsQuote} disabled={saving}>
                 <FileText className="h-4 w-4 mr-2" />
-                Quote
+                Save as Quote
               </Button>
               <Button onClick={handleCreateOrder} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
