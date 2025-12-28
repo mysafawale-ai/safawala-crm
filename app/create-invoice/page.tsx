@@ -1882,30 +1882,6 @@ export default function CreateInvoicePage() {
                 </div>
               )}
 
-              {/* Skip Product Selection - for products mode only */}
-              {selectionMode === "products" && (
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="skipProductSelection"
-                    checked={skipProductSelection}
-                    onCheckedChange={(checked) => setSkipProductSelection(checked as boolean)}
-                  />
-                  <label
-                    htmlFor="skipProductSelection"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    Save Details First (Add Products Later)
-                  </label>
-                </div>
-              )}
-
-              {skipProductSelection && selectionMode === "products" && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-800">
-                    ✅ You can save now and add products later during editing. Useful for quick bookings!
-                  </p>
-                </div>
-              )}
             </Card>
 
             {/* Package Selector - Show when package mode is selected (rental only) */}
@@ -2196,11 +2172,7 @@ export default function CreateInvoicePage() {
                       <td colSpan={5} className="text-center py-8 text-gray-400">
                         <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p className="font-medium">No items added yet</p>
-                        {skipProductSelection ? (
-                          <p className="text-xs text-blue-500 mt-1">✅ Products will be added later. You can edit this booking to add them.</p>
-                        ) : (
-                          <p className="text-xs">Select products from categories above or check "Save Details First" to add them later</p>
-                        )}
+                        <p className="text-xs mt-1">Products are optional - you can add them now or later during editing</p>
                       </td>
                     </tr>
                   ) : (
