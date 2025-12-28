@@ -68,17 +68,19 @@ export async function GET(request: NextRequest) {
           : `*,franchise:franchises(id, name, code)`
       )
       .order("created_at", { ascending: false })
-      // avoid filtering on removed columns; rely on franchise isolation
 
     // CRITICAL: Apply franchise filter for non-super-admins
+    // Also include customers with null franchise_id for backward compatibility
     if (!isSuperAdmin && franchiseId) {
-      query = query.eq("franchise_id", franchiseId)
-      console.log(`[Customers API] ✅ Applied franchise filter: ${franchiseId}`)
+      // Use .or() to get customers matching franchise OR with null franchise_id
+      query = query.or(`franchise_id.eq.${franchiseId},franchise_id.is.null`)
+      console.log(`[Customers API] ✅ Applied franchise filter: ${franchiseId} (including null franchise_id)`)
     } else if (isSuperAdmin) {
       console.log(`[Customers API] ⚠️  Super admin mode - no franchise filter`)
     } else {
-      // For users without franchise_id, also try to fetch customers with null franchise_id
-      console.log(`[Customers API] ❌ WARNING: No franchise_id for non-super-admin user! Fetching all accessible customers.`)
+      // For users without franchise_id, fetch customers with null franchise_id
+      query = query.is("franchise_id", null)
+      console.log(`[Customers API] ⚠️  No franchise_id - fetching customers with null franchise_id only`)
     }
 
     // Apply search filter if provided
