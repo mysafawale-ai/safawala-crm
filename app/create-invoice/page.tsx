@@ -322,52 +322,48 @@ export default function CreateInvoicePage() {
     }
   }
 
-  // Load packages for package selection mode
+  // Load packages for package selection mode (using same APIs as book-package)
   const loadPackages = async () => {
     setPackagesLoading(true)
     try {
-      // Get current user to get franchise_id
-      const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
-      const user = userRes.ok ? await userRes.json() : null
-      const franchiseId = user?.franchise_id
+      // Fetch categories and variants using the same APIs as book-package
+      const [catResponse, variantResponse] = await Promise.all([
+        fetch('/api/packages/categories', { cache: 'no-store' }),
+        fetch('/api/packages/variants', { cache: 'no-store' }),
+      ])
 
-      // Fetch package_variants directly (like book-package does)
-      // Each variant belongs to a category and has pricing info
-      let variantsQuery = supabaseClient
-        .from('package_variants')
-        .select('*')
-        .eq('is_active', true)
-
-      if (user?.role !== 'super_admin' && franchiseId) {
-        variantsQuery = variantsQuery.eq('franchise_id', franchiseId)
-      }
-
-      const { data: variantsData, error: variantsError } = await variantsQuery.order('display_order')
-      
-      if (variantsError) {
-        console.error("[CreateInvoice] Error loading package variants:", variantsError)
+      // Process categories
+      if (catResponse.ok) {
+        const catJson = await catResponse.json()
+        setPackagesCategories(catJson?.data || [])
+        console.log("[CreateInvoice] Loaded package categories:", catJson?.data?.length || 0)
       } else {
-        setPackages(variantsData || [])
-        console.log("[CreateInvoice] Loaded package variants:", variantsData?.length || 0)
+        console.error("[CreateInvoice] Error loading package categories:", catResponse.status)
       }
 
-      // Fetch packages_categories
-      let categoriesQuery = supabaseClient
-        .from('packages_categories')
-        .select('*')
-        .eq('is_active', true)
-
-      if (user?.role !== 'super_admin' && franchiseId) {
-        categoriesQuery = categoriesQuery.eq('franchise_id', franchiseId)
-      }
-
-      const { data: categoriesData, error: categoriesError } = await categoriesQuery.order('display_order')
-      
-      if (categoriesError) {
-        console.error("[CreateInvoice] Error loading package categories:", categoriesError)
+      // Process variants
+      if (variantResponse.ok) {
+        const variantJson = await variantResponse.json()
+        const loadedPackages = variantJson?.data || []
+        setPackages(loadedPackages)
+        console.log("[CreateInvoice] Loaded package variants:", loadedPackages.length)
+        
+        if (loadedPackages.length === 0) {
+          console.warn("[CreateInvoice] ⚠️ No packages returned from API. This could mean:")
+          console.warn("  1. No package variants exist for your franchise")
+          console.warn("  2. All variants have a different franchise_id")
+          console.warn("  3. Variants API returned an error")
+        }
+        
+        // Debug log
+        if (loadedPackages.length > 0) {
+          console.log("[CreateInvoice] Sample variant:", loadedPackages[0])
+          console.log("[CreateInvoice] Variant columns:", Object.keys(loadedPackages[0]).join(", "))
+        }
       } else {
-        setPackagesCategories(categoriesData || [])
-        console.log("[CreateInvoice] Loaded package categories:", categoriesData?.length || 0)
+        console.error("[CreateInvoice] Error loading package variants:", variantResponse.status)
+        const errText = await variantResponse.text().catch(() => "")
+        console.error("[CreateInvoice] Response:", errText)
       }
     } catch (error) {
       console.error("[CreateInvoice] Error loading packages:", error)
@@ -1543,6 +1539,18 @@ export default function CreateInvoicePage() {
             {/* Package Selector - Show when package mode is selected (rental only) */}
             {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
               <Card className="p-4 mb-4 print:hidden">
+                {/* Debug info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="text-xs bg-gray-100 p-2 rounded mb-3 font-mono">
+                    📦 Categories: {packagesCategories.length} | Packages: {packages.length}
+                    {packages.length > 0 && packages[0].category_id && (
+                      <span> | Sample category_id: {packages[0].category_id}</span>
+                    )}
+                    {selectedPackageCategory && (
+                      <span> | Selected: {selectedPackageCategory}</span>
+                    )}
+                  </div>
+                )}
                 {packagesLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -1561,6 +1569,15 @@ export default function CreateInvoicePage() {
                             variant={selectedPackageCategory === cat.id ? "default" : "outline"}
                             size="sm"
                             onClick={() => {
+                              console.log("[CreateInvoice] Category clicked:", cat.name, cat.id)
+                              console.log("[CreateInvoice] Total packages in state:", packages.length)
+                              const filtered = packages.filter(pkg => pkg.category_id === cat.id || (pkg as any).package_id === cat.id)
+                              console.log("[CreateInvoice] Filtered packages for category:", filtered.length)
+                              if (packages.length > 0 && filtered.length === 0) {
+                                console.log("[CreateInvoice] No match! Sample package:", packages[0])
+                                console.log("[CreateInvoice]   category_id:", packages[0].category_id)
+                                console.log("[CreateInvoice]   package_id:", (packages[0] as any).package_id)
+                              }
                               setSelectedPackageCategory(cat.id)
                               setSelectedPackage(null)
                               setSelectedPackageVariant(null)
@@ -1626,7 +1643,17 @@ export default function CreateInvoicePage() {
                             ))}
                         </div>
                         {packages.filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory).length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-4">No packages in this category</p>
+                          <div className="text-center py-4">
+                            <p className="text-sm text-gray-500">No packages in this category</p>
+                            <p className="text-xs mt-1 text-gray-400">
+                              Total packages loaded: {packages.length} | Category: {packagesCategories.find(c => c.id === selectedPackageCategory)?.name || selectedPackageCategory}
+                            </p>
+                            {packages.length === 0 && (
+                              <p className="text-xs mt-2 text-amber-500">
+                                ⚠️ No packages loaded. Check if package variants exist for your franchise.
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
