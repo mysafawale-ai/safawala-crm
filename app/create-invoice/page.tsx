@@ -1980,6 +1980,58 @@ export default function CreateInvoicePage() {
               </div>
             )}
 
+            {/* Package Details Section - Show when package is selected in rental mode (ABOVE items table) */}
+            {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Tag className="h-4 w-4 text-blue-500" />
+                  <span className="font-semibold text-blue-900">Package Details</span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  {/* Package Name & Price */}
+                  <div>
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Package</h4>
+                    <p className="text-lg font-bold text-blue-700">{selectedPackage.name || selectedPackage.variant_name}</p>
+                  </div>
+                  
+                  {/* Base Price */}
+                  <div>
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Package Price</h4>
+                    <p className="text-lg font-bold">₹{packagePrice.toLocaleString()}</p>
+                    {useCustomPackagePrice && customPackagePrice > 0 && (
+                      <p className="text-xs text-amber-600 mt-1">⚠️ Custom override price applied</p>
+                    )}
+                  </div>
+
+                  {/* Security Deposit */}
+                  {selectedPackage.security_deposit > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-sm text-gray-700 mb-2">Security Deposit</h4>
+                      <p className="text-lg font-bold text-red-600">₹{selectedPackage.security_deposit.toLocaleString()}</p>
+                    </div>
+                  )}
+
+                  {/* Inclusions */}
+                  {selectedPackage.inclusions && (
+                    <div className={selectedPackage.security_deposit > 0 ? "" : "md:col-span-1"}>
+                      <h4 className="font-semibold text-sm text-gray-700 mb-2">Includes</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(selectedPackage.inclusions) 
+                          ? selectedPackage.inclusions 
+                          : typeof selectedPackage.inclusions === 'string' 
+                            ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
+                            : []
+                        ).map((inc: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Items Table */}
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
@@ -2069,58 +2121,6 @@ export default function CreateInvoicePage() {
               </table>
             </div>
           </div>
-
-          {/* Package Details Section - Show when package is selected in rental mode */}
-          {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
-            <div className="border-t pt-6 mt-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Tag className="h-4 w-4 text-blue-500" />
-                <span className="font-semibold text-blue-900">Package Details</span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                {/* Package Name & Price */}
-                <div>
-                  <h4 className="font-semibold text-sm text-gray-700 mb-2">Package</h4>
-                  <p className="text-lg font-bold text-blue-700">{selectedPackage.name || selectedPackage.variant_name}</p>
-                </div>
-                
-                {/* Base Price */}
-                <div>
-                  <h4 className="font-semibold text-sm text-gray-700 mb-2">Package Price</h4>
-                  <p className="text-lg font-bold">₹{packagePrice.toLocaleString()}</p>
-                  {useCustomPackagePrice && customPackagePrice > 0 && (
-                    <p className="text-xs text-amber-600 mt-1">⚠️ Custom override price applied</p>
-                  )}
-                </div>
-
-                {/* Security Deposit */}
-                {selectedPackage.security_deposit > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Security Deposit</h4>
-                    <p className="text-lg font-bold text-red-600">₹{selectedPackage.security_deposit.toLocaleString()}</p>
-                  </div>
-                )}
-
-                {/* Inclusions */}
-                {selectedPackage.inclusions && (
-                  <div className={selectedPackage.security_deposit > 0 ? "" : "md:col-span-1"}>
-                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Includes</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(selectedPackage.inclusions) 
-                        ? selectedPackage.inclusions 
-                        : typeof selectedPackage.inclusions === 'string' 
-                          ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
-                          : []
-                      ).map((inc: string, i: number) => (
-                        <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Lost/Damaged Items Section - only for rentals */}
           {invoiceData.invoice_type === "rental" && (mode === "final-bill" || lostDamagedItems.length > 0) && (
