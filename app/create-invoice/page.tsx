@@ -1669,36 +1669,6 @@ export default function CreateInvoicePage() {
                           </div>
                         </div>
 
-                        {/* Custom Package Price */}
-                        <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Checkbox
-                              id="useCustomPackagePrice"
-                              checked={useCustomPackagePrice}
-                              onCheckedChange={(checked) => setUseCustomPackagePrice(checked as boolean)}
-                            />
-                            <label
-                              htmlFor="useCustomPackagePrice"
-                              className="text-xs font-medium text-orange-700 cursor-pointer"
-                            >
-                              Override Package Price
-                            </label>
-                          </div>
-                          {useCustomPackagePrice && (
-                            <Input
-                              type="number"
-                              value={customPackagePrice}
-                              onChange={(e) => setCustomPackagePrice(parseFloat(e.target.value) || 0)}
-                              placeholder="Enter custom price"
-                              className="text-sm"
-                            />
-                          )}
-                          {useCustomPackagePrice && customPackagePrice > 0 && (
-                            <p className="text-xs text-orange-600 mt-1">
-                              Final price: ₹{customPackagePrice.toLocaleString()} (overrides base price)
-                            </p>
-                          )}
-                        </div>
                       </div>
                     )}
 
@@ -2067,6 +2037,29 @@ export default function CreateInvoicePage() {
                   />
                   {useCustomAmount && <p className="text-xs text-orange-500 mt-1">Overrides calculated total</p>}
                 </div>
+
+                {/* Override Package Price - only for package mode */}
+                {selectionMode === "package" && selectedPackage && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Checkbox
+                        id="useCustomPackagePrice"
+                        checked={useCustomPackagePrice}
+                        onCheckedChange={(checked) => setUseCustomPackagePrice(checked as boolean)}
+                      />
+                      <Label htmlFor="useCustomPackagePrice" className="text-xs text-gray-500 cursor-pointer">Override Package Price (₹)</Label>
+                    </div>
+                    <Input
+                      type="number"
+                      value={customPackagePrice}
+                      onChange={(e) => setCustomPackagePrice(parseFloat(e.target.value) || 0)}
+                      className="print:border-0"
+                      placeholder="Enter custom package price"
+                      disabled={!useCustomPackagePrice}
+                    />
+                    {useCustomPackagePrice && customPackagePrice > 0 && <p className="text-xs text-orange-500 mt-1">Overrides base package price</p>}
+                  </div>
+                )}
 
                 {/* Security Deposit - rental only */}
                 {invoiceData.invoice_type === "rental" && (
