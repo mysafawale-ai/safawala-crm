@@ -762,10 +762,7 @@ export default function CreateInvoicePage() {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
       return
     }
-    if (invoiceItems.length === 0) {
-      toast({ title: "Error", description: "Please add at least one item", variant: "destructive" })
-      return
-    }
+    // Items are optional - save skeleton quote first, add items later
 
     setSaving(true)
     try {
@@ -816,16 +813,18 @@ export default function CreateInvoicePage() {
 
       if (error) throw error
 
-      // Insert items
-      const itemsData = invoiceItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-      }))
+      // Insert items (only if there are items)
+      if (invoiceItems.length > 0) {
+        const itemsData = invoiceItems.map(item => ({
+          order_id: order.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+        }))
 
-      await supabase.from("product_order_items").insert(itemsData)
+        await supabase.from("product_order_items").insert(itemsData)
+      }
 
       toast({ title: "Quote Saved", description: `Quote ${order.order_number} created` })
       router.push("/bookings")
@@ -841,12 +840,8 @@ export default function CreateInvoicePage() {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
       return
     }
-    // Allow package-only orders (no items required if package selected)
-    const hasPackage = selectionMode === "package" && selectedPackage
-    if (invoiceItems.length === 0 && !hasPackage && !skipProductSelection) {
-      toast({ title: "Error", description: "Please add at least one item or select a package", variant: "destructive" })
-      return
-    }
+    // Products/packages are now optional - allow saving skeleton/header first
+    // Users can add items later during editing
 
     setSaving(true)
     try {
@@ -922,16 +917,18 @@ export default function CreateInvoicePage() {
         order = newOrder
       }
 
-      // Insert/re-insert items
-      const itemsData = invoiceItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-      }))
+      // Insert/re-insert items (only if there are items)
+      if (invoiceItems.length > 0) {
+        const itemsData = invoiceItems.map(item => ({
+          order_id: order.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+        }))
 
-      await supabase.from("product_order_items").insert(itemsData)
+        await supabase.from("product_order_items").insert(itemsData)
+      }
 
       // Handle lost/damaged items - archive products from inventory
       if (lostDamagedItems.length > 0) {
@@ -1523,14 +1520,14 @@ export default function CreateInvoicePage() {
                   htmlFor="skipProductSelection"
                   className="text-sm font-medium leading-none cursor-pointer"
                 >
-                  Skip Product Selection (will do later)
+                  Save Details First (Add Products/Packages Later)
                 </label>
               </div>
 
               {skipProductSelection && (
-                <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    ⏳ Product selection will be done later. Status will be "Selection Pending" until products are chosen.
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    ✅ You can save now and add products/packages later during editing. Useful for quick bookings!
                   </p>
                 </div>
               )}
@@ -1764,8 +1761,12 @@ export default function CreateInvoicePage() {
                     <tr>
                       <td colSpan={5} className="text-center py-8 text-gray-400">
                         <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No items added yet</p>
-                        <p className="text-xs">{skipProductSelection ? "Product selection skipped" : "Select products from categories above"}</p>
+                        <p className="font-medium">No items added yet</p>
+                        {skipProductSelection ? (
+                          <p className="text-xs text-blue-500 mt-1">✅ Products will be added later. You can edit this booking to add them.</p>
+                        ) : (
+                          <p className="text-xs">Select products from categories above or check "Save Details First" to add them later</p>
+                        )}
                       </td>
                     </tr>
                   ) : (
