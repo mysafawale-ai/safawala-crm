@@ -163,6 +163,9 @@ export default function CreateInvoicePage() {
   const [useCustomPackagePrice, setUseCustomPackagePrice] = useState(false)
   const [customPackagePrice, setCustomPackagePrice] = useState(0)
   const [isDepositRefunded, setIsDepositRefunded] = useState(false)
+  const [validatingCoupon, setValidatingCoupon] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
   
   // Selection Mode: "products" = individual products, "package" = package with products inside
   const [selectionMode, setSelectionMode] = useState<"products" | "package">("products")
@@ -836,7 +839,6 @@ export default function CreateInvoicePage() {
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : invoiceData.notes,
         is_quote: true,
-        order_status: "quote",
       }
 
       const { data: order, error } = await supabase
@@ -914,8 +916,6 @@ export default function CreateInvoicePage() {
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : invoiceData.notes,
         is_quote: false,
-        order_status: "confirmed",
-        has_items: invoiceItems.length > 0 || !!selectedPackage,
       }
 
       let order: any
@@ -1015,6 +1015,50 @@ export default function CreateInvoicePage() {
       toast({ title: "Error", description: error.message, variant: "destructive" })
     }
     setSaving(false)
+  }
+
+  // Apply Coupon
+  const handleApplyCoupon = async () => {
+    if (!invoiceData.coupon_code.trim()) {
+      setCouponError("Please enter a coupon code")
+      return
+    }
+
+    setValidatingCoupon(true)
+    setCouponError(null)
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: invoiceData.coupon_code,
+          invoice_type: invoiceData.invoice_type,
+          subtotal: baseSubtotal
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        setCouponError(error.message || "Invalid or expired coupon")
+        setInvoiceData(prev => ({ ...prev, coupon_discount: 0 }))
+        setAppliedCoupon(null)
+        return
+      }
+
+      const data = await response.json()
+      setInvoiceData(prev => ({
+        ...prev,
+        coupon_discount: data.discount || 0
+      }))
+      setAppliedCoupon(invoiceData.coupon_code)
+      toast({ title: "Coupon Applied", description: `Discount: ₹${data.discount?.toLocaleString() || 0}` })
+    } catch (error: any) {
+      setCouponError("Failed to validate coupon")
+      console.error("Coupon validation error:", error)
+    } finally {
+      setValidatingCoupon(false)
+    }
   }
 
   // Print/Download
@@ -2169,15 +2213,51 @@ export default function CreateInvoicePage() {
                   )}
                 </div>
 
-                {/* Coupon Code - simple input */}
+                {/* Coupon Code - with Apply button */}
                 <div className="print:hidden">
                   <Label className="text-xs text-gray-500">Coupon Code (Optional)</Label>
-                  <Input
-                    value={invoiceData.coupon_code}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, coupon_code: e.target.value.toUpperCase() })}
-                    placeholder="Enter coupon code"
-                    className="print:border-0"
-                  />
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={invoiceData.coupon_code}
+                      onChange={(e) => {
+                        setInvoiceData({ ...invoiceData, coupon_code: e.target.value.toUpperCase() })
+                        setCouponError(null)
+                        if (appliedCoupon !== invoiceData.coupon_code) {
+                          setAppliedCoupon(null)
+                        }
+                      }}
+                      placeholder="Enter coupon code"
+                      className="print:border-0"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={appliedCoupon ? "default" : "outline"}
+                      onClick={handleApplyCoupon}
+                      disabled={validatingCoupon || !invoiceData.coupon_code.trim()}
+                      className="whitespace-nowrap"
+                    >
+                      {validatingCoupon ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          Validating...
+                        </>
+                      ) : appliedCoupon ? (
+                        <>
+                          <Check className="h-4 w-4 mr-1" />
+                          Applied
+                        </>
+                      ) : (
+                        "Apply"
+                      )}
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="text-xs text-red-500 mt-1">{couponError}</p>
+                  )}
+                  {appliedCoupon && invoiceData.coupon_discount > 0 && (
+                    <p className="text-xs text-green-600 mt-1">✅ Coupon applied - Discount: ₹{invoiceData.coupon_discount.toLocaleString()}</p>
+                  )}
                 </div>
 
                 {/* Sales Staff */}
