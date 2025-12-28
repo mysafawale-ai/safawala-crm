@@ -534,14 +534,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                 <div className="text-center py-8 space-y-4">
                   <div className="text-muted-foreground">No bookings for this date</div>
                   <div className="flex items-center justify-center gap-3">
-                    <a href="/create-product-order" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
-                      + Book Product Order
+                    <a href="/create-invoice" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
+                      + Create Booking
                     </a>
-                    <a href="/book-package" className="inline-flex items-center px-3 py-2 rounded-md border bg-background hover:bg-muted text-sm font-medium">
-                    + Book a Package
-                  </a>
+                  </div>
                 </div>
-              </div>
             ) : filteredDateBookings.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">No bookings match your search</div>
             ) : (

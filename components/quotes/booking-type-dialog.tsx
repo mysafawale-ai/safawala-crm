@@ -36,12 +36,8 @@ export function BookingTypeDialog({
     if (mode === "quote") {
       router.push(`/quotes/new?type=${type}`)
     } else {
-      // For orders, navigate to new step-by-step booking page for packages
-      if (type === "package") {
-        router.push(`/book-package`)
-      } else {
-        router.push(`/create-product-order`)
-      }
+      // All bookings now use the unified create-invoice page
+      router.push(`/create-invoice`)
     }
   }
 

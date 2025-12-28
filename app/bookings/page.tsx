@@ -798,13 +798,15 @@ export default function BookingsPage() {
         console.log('[Archive] Starting archive for:', bookingId, 'source:', source)
         
         try {
+          // Map source to correct API type
+          const type = source === 'package_bookings' ? 'package_booking' 
+            : source === 'direct_sales_orders' || source === 'direct_sales' ? 'direct_sales'
+            : 'product_order'
+          
           const response = await fetch('/api/bookings/archive', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              id: bookingId, 
-              type: source === 'package_bookings' ? 'package_booking' : 'product_order'
-            })
+            body: JSON.stringify({ id: bookingId, type })
           })
           
           const result = await response.json()

@@ -951,11 +951,8 @@ function QuotesPageContent() {
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              // Redirect to edit page based on booking_type
-                              const editPath = quote.booking_type === 'package' 
-                                ? `/book-package?edit=${quote.id}` 
-                                : `/create-product-order?edit=${quote.id}`
-                              router.push(editPath)
+                              // All quote editing now uses unified create-invoice page
+                              router.push(`/create-invoice?edit=${quote.id}`)
                             }}
                             title="Edit Quote"
                           >
@@ -1923,20 +1920,8 @@ export default function QuotesPage() {
 
   // Redirect to appropriate create page with edit parameter
   const handleEditQuote = (quote: Quote) => {
-    const source = (quote as any).source
-    // Route to the appropriate create page with edit parameter
-    if (quote.booking_type === 'package' || source === 'package_bookings') {
-      router.push(`/book-package?edit=${quote.id}`)
-    } else if (quote.booking_type === 'product' || source === 'product_orders') {
-      router.push(`/create-product-order?edit=${quote.id}`)
-    } else {
-      // Fallback - try to detect from booking type
-      toast({ 
-        title: "Cannot edit", 
-        description: "Unable to determine quote type. Please try again.",
-        variant: "destructive"
-      })
-    }
+    // All quote editing now uses the unified create-invoice page
+    router.push(`/create-invoice?edit=${quote.id}`)
   }
 
   // Save edited quote
@@ -2150,13 +2135,9 @@ const getStatusBadge = (status: string) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push('/create-product-order')}>
+              <DropdownMenuItem onClick={() => router.push('/create-invoice')}>
                 <Package className="h-4 w-4 mr-2" />
-                Product Booking
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/book-package')}>
-                <FileText className="h-4 w-4 mr-2" />
-                Package Booking
+                Create Booking
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

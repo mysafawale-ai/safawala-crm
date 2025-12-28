@@ -324,20 +324,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {user?.permissions?.bookings && (
-                <>
-                  <Link href="/create-product-order">
-                    <Button className="w-full justify-start">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Product Order
-                    </Button>
-                  </Link>
-                  <Link href="/book-package">
-                    <Button variant="outline" className="w-full justify-start bg-transparent">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Book Package
-                    </Button>
-                  </Link>
-                </>
+                <Link href="/create-invoice">
+                  <Button className="w-full justify-start">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Booking
+                  </Button>
+                </Link>
               )}
               {user?.permissions?.customers && (
                 <Link href="/customers/new">

@@ -173,13 +173,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                 <DropdownMenuLabel>Create New</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/create-product-order" className="cursor-pointer">
-                    Product Order
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/book-package" className="cursor-pointer">
-                    Package Booking
+                  <Link href="/create-invoice" className="cursor-pointer">
+                    New Booking
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

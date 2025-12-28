@@ -107,7 +107,7 @@ export function BookingsTabs({
           <Package className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No bookings found</h3>
           <p className="text-muted-foreground mb-6">Create your first booking to get started</p>
-          <Link href="/book-package">
+          <Link href="/create-invoice">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Create Booking

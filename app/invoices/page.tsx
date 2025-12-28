@@ -373,13 +373,9 @@ function InvoicesPageContent() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => router.push('/create-product-order')}>
+            <DropdownMenuItem onClick={() => router.push('/create-invoice')}>
               <Package className="h-4 w-4 mr-2" />
-              Create Order
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/book-package')}>
-              <FileText className="h-4 w-4 mr-2" />
-              Book a Package
+              Create Booking
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -173,6 +173,7 @@ export default function CreateInvoicePage() {
   const [couponError, setCouponError] = useState<string | null>(null)
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
+  const [modificationDateOpen, setModificationDateOpen] = useState(false)
   
   // Selection Mode: "products" = individual products, "package" = package with products inside
   const [selectionMode, setSelectionMode] = useState<"products" | "package">("products")
@@ -218,6 +219,11 @@ export default function CreateInvoicePage() {
     coupon_discount: 0,
     sales_closed_by_id: "",
     notes: "",
+    // Modification fields (for direct sales)
+    has_modifications: false,
+    modifications_details: "",
+    modification_date: "",
+    modification_time: "10:00",
   })
 
   // New Customer Form
@@ -706,6 +712,11 @@ export default function CreateInvoicePage() {
         coupon_discount: order.coupon_discount || 0,
         sales_closed_by_id: order.sales_closed_by_id || "",
         notes: order.notes || "",
+        // Modification fields
+        has_modifications: order.has_modifications || false,
+        modifications_details: order.modifications_details || "",
+        modification_date: order.modification_date ? new Date(order.modification_date).toISOString() : "",
+        modification_time: order.modification_date ? format(new Date(order.modification_date), "HH:mm") : "10:00",
       })
       
       // Map order items to invoice items
@@ -1039,6 +1050,12 @@ export default function CreateInvoicePage() {
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : (invoiceData.notes || ''),
         is_quote: true,
+        // Modification fields (for direct sales)
+        has_modifications: invoiceData.has_modifications || false,
+        modifications_details: invoiceData.has_modifications ? invoiceData.modifications_details : null,
+        modification_date: invoiceData.has_modifications && invoiceData.modification_date 
+          ? new Date(`${invoiceData.modification_date.split('T')[0]}T${invoiceData.modification_time || '10:00'}:00`).toISOString()
+          : null,
       }
 
       const { data: order, error } = await supabase
@@ -1135,6 +1152,12 @@ export default function CreateInvoicePage() {
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : (invoiceData.notes || ''),
         is_quote: false,
+        // Modification fields (for direct sales)
+        has_modifications: invoiceData.has_modifications || false,
+        modifications_details: invoiceData.has_modifications ? invoiceData.modifications_details : null,
+        modification_date: invoiceData.has_modifications && invoiceData.modification_date 
+          ? new Date(`${invoiceData.modification_date.split('T')[0]}T${invoiceData.modification_time || '10:00'}:00`).toISOString()
+          : null,
       }
 
       let order: any
@@ -1845,6 +1868,93 @@ export default function CreateInvoicePage() {
                       className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                     />
                   </div>
+                </div>
+
+                {/* 🔧 Modifications Section for Direct Sales */}
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Checkbox
+                      id="hasModifications"
+                      checked={invoiceData.has_modifications}
+                      onCheckedChange={(checked) =>
+                        setInvoiceData({
+                          ...invoiceData,
+                          has_modifications: checked === true,
+                        })
+                      }
+                    />
+                    <Label htmlFor="hasModifications" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      🔧 Modifications Required
+                    </Label>
+                  </div>
+
+                  {invoiceData.has_modifications && (
+                    <div className="space-y-4 bg-amber-50/50 p-3 rounded-lg border border-amber-200">
+                      <div>
+                        <Label className="text-xs font-medium text-amber-800">Modification Details *</Label>
+                        <Textarea
+                          rows={2}
+                          value={invoiceData.modifications_details}
+                          onChange={(e) =>
+                            setInvoiceData({
+                              ...invoiceData,
+                              modifications_details: e.target.value,
+                            })
+                          }
+                          className="mt-1 bg-white"
+                          placeholder="Describe modifications needed (e.g., color change, size adjustment, embroidery, etc.)"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs font-medium text-amber-800">Modification Date *</Label>
+                          <Popover open={modificationDateOpen} onOpenChange={setModificationDateOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left h-9 bg-white"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {invoiceData.modification_date
+                                  ? format(new Date(invoiceData.modification_date), "dd/MM/yyyy")
+                                  : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  invoiceData.modification_date
+                                    ? new Date(invoiceData.modification_date)
+                                    : undefined
+                                }
+                                onSelect={(d) => {
+                                  setInvoiceData({
+                                    ...invoiceData,
+                                    modification_date: d?.toISOString() || "",
+                                  })
+                                  setModificationDateOpen(false)
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div>
+                          <Label className="text-xs font-medium text-amber-800">Modification Time *</Label>
+                          <Input
+                            type="time"
+                            value={invoiceData.modification_time}
+                            onChange={(e) =>
+                              setInvoiceData({ ...invoiceData, modification_time: e.target.value })
+                            }
+                            className="h-9 bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             )}
