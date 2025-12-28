@@ -2453,8 +2453,8 @@ export default function CreateInvoicePage() {
                     </div>
                     <Input
                       type="number"
-                      value={customPackagePrice}
-                      onChange={(e) => setCustomPackagePrice(parseFloat(e.target.value) || 0)}
+                      value={customPackagePrice || ''}
+                      onChange={(e) => setCustomPackagePrice(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                       className="print:border-0"
                       placeholder="Enter custom price"
                       disabled={!useCustomPackagePrice}
@@ -2469,8 +2469,8 @@ export default function CreateInvoicePage() {
                     <Label className="text-xs text-gray-500">Security Deposit (₹)</Label>
                     <Input
                       type="number"
-                      value={invoiceData.security_deposit}
-                      onChange={(e) => setInvoiceData({ ...invoiceData, security_deposit: parseFloat(e.target.value) || 0 })}
+                      value={invoiceData.security_deposit || ''}
+                      onChange={(e) => setInvoiceData({ ...invoiceData, security_deposit: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                       className="print:border-0"
                       placeholder="Enter security deposit"
                     />
@@ -2482,8 +2482,8 @@ export default function CreateInvoicePage() {
                   <Label className="text-xs text-gray-500">Discount Amount (₹)</Label>
                   <Input
                     type="number"
-                    value={invoiceData.discount_amount}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, discount_amount: parseFloat(e.target.value) || 0 })}
+                    value={invoiceData.discount_amount || ''}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, discount_amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                     className="print:border-0"
                     placeholder="Enter discount amount"
                   />
@@ -2494,8 +2494,8 @@ export default function CreateInvoicePage() {
                   <Label className="text-xs text-gray-500">Amount Paid (₹)</Label>
                   <Input
                     type="number"
-                    value={invoiceData.amount_paid}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, amount_paid: parseFloat(e.target.value) || 0 })}
+                    value={invoiceData.amount_paid || ''}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, amount_paid: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                     className="print:border-0"
                     placeholder="Enter amount paid"
                   />
