@@ -220,18 +220,6 @@ export function BookingsTabs({
                       variant="ghost" 
                       size="icon" 
                       className="h-8 w-8"
-                      onClick={() => {
-                        setSelectedBooking?.(booking)
-                        setShowViewDialog?.(true)
-                      }}
-                      title="View Booking"
-                    >
-                      <Eye className="h-4 w-4"/>
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8"
                       onClick={() => handleEditBooking?.(booking.id, (booking as any).source)}
                       title="Edit Booking"
                     >
