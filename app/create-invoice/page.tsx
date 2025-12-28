@@ -160,8 +160,6 @@ export default function CreateInvoicePage() {
   const [customProductData, setCustomProductData] = useState({ name: '', category_id: '', image_url: '', price: '' })
   const [creatingProduct, setCreatingProduct] = useState(false)
   const [skipProductSelection, setSkipProductSelection] = useState(false)
-  const [useCustomAmount, setUseCustomAmount] = useState(false)
-  const [customAmount, setCustomAmount] = useState(0)
   const [useCustomPackagePrice, setUseCustomPackagePrice] = useState(false)
   const [customPackagePrice, setCustomPackagePrice] = useState(0)
   const [isDepositRefunded, setIsDepositRefunded] = useState(false)
@@ -572,7 +570,7 @@ export default function CreateInvoicePage() {
     ? (useCustomPackagePrice && customPackagePrice > 0 ? customPackagePrice : (selectedPackage.base_price || 0))
     : 0
   const baseSubtotal = itemsSubtotal + packagePrice
-  const subtotal = useCustomAmount && customAmount > 0 ? customAmount : baseSubtotal
+  const subtotal = baseSubtotal
   const discountAmount = invoiceData.discount_type === "percentage" 
     ? (subtotal * invoiceData.discount_amount / 100)
     : invoiceData.discount_amount
@@ -2018,25 +2016,7 @@ export default function CreateInvoicePage() {
                 </div>
 
                 {/* Custom Amount */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Checkbox
-                      id="useCustomAmount"
-                      checked={useCustomAmount}
-                      onCheckedChange={(checked) => setUseCustomAmount(checked as boolean)}
-                    />
-                    <Label htmlFor="useCustomAmount" className="text-xs text-gray-500 cursor-pointer">Custom Amount (₹)</Label>
-                  </div>
-                  <Input
-                    type="number"
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(parseFloat(e.target.value) || 0)}
-                    className="print:border-0"
-                    placeholder="Enter custom amount"
-                    disabled={!useCustomAmount}
-                  />
-                  {useCustomAmount && <p className="text-xs text-orange-500 mt-1">Overrides calculated total</p>}
-                </div>
+                {/* Removed - use Override Package Price instead for package mode */}
 
                 {/* Override Package Price - only for package mode */}
                 {selectionMode === "package" && selectedPackage && (
