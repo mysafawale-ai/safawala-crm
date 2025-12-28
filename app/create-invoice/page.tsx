@@ -2419,7 +2419,7 @@ export default function CreateInvoicePage() {
               <div className="space-y-3 text-sm">
                 {/* Payment Method */}
                 <div>
-                  <Label className="text-xs text-gray-500">Payment Type</Label>
+                  <Label className="text-xs text-gray-500">Payment Method</Label>
                   <Select
                     value={invoiceData.payment_method}
                     onValueChange={(v) => setInvoiceData({ ...invoiceData, payment_method: v as any })}
@@ -2802,7 +2802,7 @@ export default function CreateInvoicePage() {
               <div className="text-xs text-amber-700 font-semibold mb-3 uppercase tracking-wide">Payment Information</div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Payment Type:</span>
+                  <span className="text-gray-600">Payment Method:</span>
                   <span className="font-medium capitalize">{invoiceData.payment_method === 'upi' ? 'UPI / QR' : invoiceData.payment_method === 'bank' ? 'Bank Transfer' : invoiceData.payment_method === 'card' ? 'Card' : invoiceData.payment_method === 'international' ? 'International' : 'Cash'}</span>
                 </div>
                 {invoiceData.coupon_code && invoiceData.coupon_discount > 0 && (
