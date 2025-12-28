@@ -2144,7 +2144,7 @@ export default function CreateInvoicePage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left p-3 font-medium">Item</th>
-                    <th className="text-center p-3 font-medium w-28">Qty</th>
+                    <th className="text-center p-3 font-medium w-36">Qty</th>
                     <th className="text-right p-3 font-medium w-24">Rate</th>
                     <th className="text-right p-3 font-medium w-28">Total</th>
                     <th className="w-12 print:hidden"></th>
@@ -2195,7 +2195,7 @@ export default function CreateInvoicePage() {
                               type="number"
                               value={item.quantity}
                               onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                              className="w-12 text-center h-7 print:border-0"
+                              className="w-16 text-center h-7 print:border-0"
                               min={1}
                             />
                             <Button
@@ -2259,7 +2259,7 @@ export default function CreateInvoicePage() {
                       <tr>
                         <th className="text-left p-3 font-medium">Select Product</th>
                         <th className="text-center p-3 font-medium w-28">Type</th>
-                        <th className="text-center p-3 font-medium w-20">Qty</th>
+                        <th className="text-center p-3 font-medium w-28">Qty</th>
                         <th className="text-right p-3 font-medium w-28">Charge/Item</th>
                         <th className="text-right p-3 font-medium w-28">Total</th>
                         <th className="w-12 print:hidden"></th>
