@@ -269,12 +269,22 @@ export default function CreateInvoicePage() {
   const loadCustomers = async () => {
     setCustomersLoading(true)
     try {
-      // Use same endpoint as booking edit page (without ?basic=1)
-      const response = await fetch("/api/customers", {
+      // Try without basic=1 first (respects permissions)
+      let response = await fetch("/api/customers", {
         method: "GET",
         cache: "no-store",
         credentials: "include",
       })
+
+      // If 403 (permission denied), try with basic=1
+      if (response.status === 403) {
+        console.log("[CreateInvoice] Permission denied, trying with ?basic=1")
+        response = await fetch("/api/customers?basic=1", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        })
+      }
 
       if (!response.ok) {
         console.error("[CreateInvoice] Failed to fetch customers:", response.status, response.statusText)
@@ -286,8 +296,14 @@ export default function CreateInvoicePage() {
 
       const result = await response.json()
       console.log("[CreateInvoice] Raw API response:", result)
-      const data = result?.data || result || []
-      console.log("[CreateInvoice] Loaded customers:", Array.isArray(data) ? data.length : 0, data)
+      // Handle multiple response formats
+      let data = []
+      if (result?.data && Array.isArray(result.data)) {
+        data = result.data
+      } else if (Array.isArray(result)) {
+        data = result
+      }
+      console.log("[CreateInvoice] Loaded customers:", Array.isArray(data) ? data.length : 0)
       setCustomers(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error("[CreateInvoice] Error loading customers:", error)
@@ -1433,7 +1449,7 @@ export default function CreateInvoicePage() {
                     <span className="font-semibold">Event Details</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
                     <div>
                       <Label className="text-xs text-gray-500">Event Type</Label>
                       <Select
@@ -1485,7 +1501,7 @@ export default function CreateInvoicePage() {
                         className="print:border-0 print:p-0"
                       />
                     </div>
-                    <div>
+                    <div className="md:col-start-1">
                       <Label className="text-xs text-gray-500">Delivery Date</Label>
                       <Input
                         type="date"
