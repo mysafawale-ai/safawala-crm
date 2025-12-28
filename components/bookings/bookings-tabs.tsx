@@ -249,7 +249,7 @@ export function BookingsTabs({
       setActiveTab(val)
       onTabChange?.(val)
     }} className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="all">
           All ({allBookings.length})
         </TabsTrigger>
@@ -258,9 +258,6 @@ export function BookingsTabs({
         </TabsTrigger>
         <TabsTrigger value="direct-sale">
           Direct Sales ({directSales.length})
-        </TabsTrigger>
-        <TabsTrigger value="package">
-          Packages ({packageBookings.length})
         </TabsTrigger>
       </TabsList>
 
@@ -298,19 +295,6 @@ export function BookingsTabs({
           </CardHeader>
           <CardContent>
             <BookingsTableContent bookingsList={directSales} />
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      {/* Package Bookings Tab */}
-      <TabsContent value="package">
-        <Card>
-          <CardHeader>
-            <CardTitle>Package Bookings ({packageBookings.length})</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Shows Quote Status & Invoice</p>
-          </CardHeader>
-          <CardContent>
-            <BookingsTableContent bookingsList={packageBookings} />
           </CardContent>
         </Card>
       </TabsContent>
