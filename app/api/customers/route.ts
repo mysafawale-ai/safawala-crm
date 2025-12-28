@@ -77,7 +77,8 @@ export async function GET(request: NextRequest) {
     } else if (isSuperAdmin) {
       console.log(`[Customers API] ⚠️  Super admin mode - no franchise filter`)
     } else {
-      console.log(`[Customers API] ❌ WARNING: No franchise_id for non-super-admin user!`)
+      // For users without franchise_id, also try to fetch customers with null franchise_id
+      console.log(`[Customers API] ❌ WARNING: No franchise_id for non-super-admin user! Fetching all accessible customers.`)
     }
 
     // Apply search filter if provided
@@ -88,8 +89,18 @@ export async function GET(request: NextRequest) {
     let { data, error } = await query
 
     if (error) {
-      console.error("[Customers API] Error:", error)
+      console.error("[Customers API] Query Error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    console.log(`[Customers API] Query returned ${data?.length || 0} customers for franchise ${franchiseId || 'none'}`)
+
+    // If no data and we have a franchise filter, try to check if there are any customers at all
+    if ((!data || data.length === 0) && !isSuperAdmin) {
+      const { count } = await supabase
+        .from("customers")
+        .select("*", { count: "exact", head: true })
+      console.log(`[Customers API] Total customers in DB (all franchises): ${count}`)
     }
 
     // Build a simple ETag for the list response based on the latest updated_at, count, franchise and search
