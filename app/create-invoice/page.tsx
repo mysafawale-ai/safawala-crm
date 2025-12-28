@@ -331,23 +331,24 @@ export default function CreateInvoicePage() {
       const user = userRes.ok ? await userRes.json() : null
       const franchiseId = user?.franchise_id
 
-      // Fetch package_sets with variants
-      let packagesQuery = supabaseClient
-        .from('package_sets')
-        .select('*, package_variants(*)')
+      // Fetch package_variants directly (like book-package does)
+      // Each variant belongs to a category and has pricing info
+      let variantsQuery = supabaseClient
+        .from('package_variants')
+        .select('*')
         .eq('is_active', true)
 
       if (user?.role !== 'super_admin' && franchiseId) {
-        packagesQuery = packagesQuery.eq('franchise_id', franchiseId)
+        variantsQuery = variantsQuery.eq('franchise_id', franchiseId)
       }
 
-      const { data: packagesData, error: packagesError } = await packagesQuery.order('display_order')
+      const { data: variantsData, error: variantsError } = await variantsQuery.order('display_order')
       
-      if (packagesError) {
-        console.error("[CreateInvoice] Error loading packages:", packagesError)
+      if (variantsError) {
+        console.error("[CreateInvoice] Error loading package variants:", variantsError)
       } else {
-        setPackages(packagesData || [])
-        console.log("[CreateInvoice] Loaded packages:", packagesData?.length || 0)
+        setPackages(variantsData || [])
+        console.log("[CreateInvoice] Loaded package variants:", variantsData?.length || 0)
       }
 
       // Fetch packages_categories
@@ -519,7 +520,7 @@ export default function CreateInvoicePage() {
         setSelectedCustomer(order.customers)
         setInvoiceData({
           invoice_number: order.order_number || "",
-          invoice_type: order.booking_subtype || "rental",
+          invoice_type: order.booking_type || "rental",
           event_type: order.event_type || "wedding",
           event_participant: order.event_participant || "both",
           event_date: order.event_date || "",
@@ -569,9 +570,9 @@ export default function CreateInvoicePage() {
 
   // Calculations
   const itemsSubtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0)
-  // Include package price if a package is selected
+  // Include package price if a package is selected (package is now a variant directly)
   const packagePrice = selectionMode === "package" && selectedPackage 
-    ? (selectedPackageVariant?.base_price || selectedPackage.base_price || 0) 
+    ? (selectedPackage.base_price || 0) 
     : 0
   const baseSubtotal = itemsSubtotal + packagePrice
   const subtotal = useCustomAmount && customAmount > 0 ? customAmount : baseSubtotal
@@ -581,9 +582,9 @@ export default function CreateInvoicePage() {
   const afterDiscount = subtotal - discountAmount
   const gstAmount = (afterDiscount * invoiceData.gst_percentage) / 100
   const lostDamagedTotal = lostDamagedItems.reduce((sum, item) => sum + item.total_charge, 0)
-  // Include package security deposit if selected
+  // Include package security deposit if selected (package is now a variant directly)
   const packageSecurityDeposit = selectionMode === "package" && selectedPackage
-    ? (selectedPackageVariant?.security_deposit || selectedPackage.security_deposit || 0)
+    ? (selectedPackage.security_deposit || 0)
     : 0
   const securityDeposit = invoiceData.invoice_type === "rental" 
     ? (invoiceData.security_deposit + packageSecurityDeposit) 
@@ -775,7 +776,7 @@ export default function CreateInvoicePage() {
       const orderData = {
         order_number: invoiceData.invoice_number.replace("ORD", "QTE").replace("SAL", "QTE"),
         customer_id: selectedCustomer.id,
-        booking_subtype: invoiceData.invoice_type,
+        booking_type: invoiceData.invoice_type,
         event_type: invoiceData.event_type,
         event_participant: invoiceData.event_participant,
         event_date: invoiceData.event_date || null,
@@ -805,7 +806,7 @@ export default function CreateInvoicePage() {
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
         // Include package info in notes if selected
         notes: selectedPackage 
-          ? `[PACKAGE: ${selectedPackage.name}${selectedPackageVariant ? ` - ${selectedPackageVariant.variant_name || selectedPackageVariant.name}` : ''} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
+          ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : invoiceData.notes,
         is_quote: true,
         order_status: "quote",
@@ -856,7 +857,7 @@ export default function CreateInvoicePage() {
       const orderData = {
         order_number: invoiceData.invoice_number,
         customer_id: selectedCustomer.id,
-        booking_subtype: invoiceData.invoice_type,
+        booking_type: invoiceData.invoice_type,
         event_type: invoiceData.event_type,
         event_participant: invoiceData.event_participant,
         event_date: invoiceData.event_date || null,
@@ -886,7 +887,7 @@ export default function CreateInvoicePage() {
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
         // Include package info in notes if selected
         notes: selectedPackage 
-          ? `[PACKAGE: ${selectedPackage.name}${selectedPackageVariant ? ` - ${selectedPackageVariant.variant_name || selectedPackageVariant.name}` : ''} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
+          ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : invoiceData.notes,
         is_quote: false,
         order_status: "confirmed",
@@ -1575,13 +1576,13 @@ export default function CreateInvoicePage() {
                       )}
                     </div>
 
-                    {/* Package Selection */}
+                    {/* Package/Variant Selection - Direct from category */}
                     {selectedPackageCategory && (
                       <div>
                         <Label className="text-sm font-medium mb-2 block">Step 2: Select Package</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {packages
-                            .filter(pkg => pkg.category_id === selectedPackageCategory)
+                            .filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory)
                             .map((pkg) => (
                               <div
                                 key={pkg.id}
@@ -1597,66 +1598,36 @@ export default function CreateInvoicePage() {
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
-                                    <h4 className="font-semibold">{pkg.name}</h4>
-                                    {pkg.description && (
-                                      <p className="text-sm text-gray-500">{pkg.description}</p>
+                                    <h4 className="font-semibold">{pkg.name || pkg.variant_name}</h4>
+                                    {pkg.inclusions && (
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {(Array.isArray(pkg.inclusions) 
+                                          ? pkg.inclusions 
+                                          : typeof pkg.inclusions === 'string' 
+                                            ? pkg.inclusions.split(',').map((s: string) => s.trim())
+                                            : []
+                                        ).slice(0, 3).map((inc: string, i: number) => (
+                                          <Badge key={i} variant="outline" className="text-xs">{inc}</Badge>
+                                        ))}
+                                        {(Array.isArray(pkg.inclusions) ? pkg.inclusions.length : 0) > 3 && (
+                                          <Badge variant="outline" className="text-xs">+{(Array.isArray(pkg.inclusions) ? pkg.inclusions.length : 0) - 3} more</Badge>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
                                   <div className="text-right">
                                     <p className="text-lg font-bold text-green-600">₹{pkg.base_price?.toLocaleString() || 0}</p>
-                                    <p className="text-xs text-gray-500">{pkg.package_variants?.length || 0} variants</p>
+                                    {pkg.security_deposit > 0 && (
+                                      <p className="text-xs text-gray-500">+₹{pkg.security_deposit} deposit</p>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             ))}
                         </div>
-                        {packages.filter(pkg => pkg.category_id === selectedPackageCategory).length === 0 && (
+                        {packages.filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory).length === 0 && (
                           <p className="text-sm text-gray-500 text-center py-4">No packages in this category</p>
                         )}
-                      </div>
-                    )}
-
-                    {/* Variant Selection */}
-                    {selectedPackage && selectedPackage.package_variants && selectedPackage.package_variants.length > 0 && (
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Step 3: Select Variant (Optional)</Label>
-                        <div className="grid grid-cols-1 gap-2">
-                          {selectedPackage.package_variants.map((variant: any) => (
-                            <div
-                              key={variant.id}
-                              className={`p-3 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                                selectedPackageVariant?.id === variant.id
-                                  ? "border-blue-500 bg-blue-50"
-                                  : "border-gray-200 hover:border-gray-300"
-                              }`}
-                              onClick={() => setSelectedPackageVariant(variant)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h4 className="font-medium">{variant.variant_name || variant.name}</h4>
-                                  {variant.inclusions && (
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {(Array.isArray(variant.inclusions) 
-                                        ? variant.inclusions 
-                                        : typeof variant.inclusions === 'string' 
-                                          ? variant.inclusions.split(',').map((s: string) => s.trim())
-                                          : []
-                                      ).map((inc: string, i: number) => (
-                                        <Badge key={i} variant="outline" className="text-xs">{inc}</Badge>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <p className="font-semibold text-blue-600">₹{variant.base_price?.toLocaleString() || 0}</p>
-                                  {variant.security_deposit > 0 && (
-                                    <p className="text-xs text-gray-500">+₹{variant.security_deposit} deposit</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
                       </div>
                     )}
 
@@ -1665,15 +1636,27 @@ export default function CreateInvoicePage() {
                       <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-semibold text-green-800">Selected: {selectedPackage.name}</h4>
-                            {selectedPackageVariant && (
-                              <p className="text-sm text-green-700">Variant: {selectedPackageVariant.variant_name || selectedPackageVariant.name}</p>
+                            <h4 className="font-semibold text-green-800">Selected: {selectedPackage.name || selectedPackage.variant_name}</h4>
+                            {selectedPackage.inclusions && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {(Array.isArray(selectedPackage.inclusions) 
+                                  ? selectedPackage.inclusions 
+                                  : typeof selectedPackage.inclusions === 'string' 
+                                    ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
+                                    : []
+                                ).map((inc: string, i: number) => (
+                                  <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
+                                ))}
+                              </div>
                             )}
                           </div>
                           <div className="text-right">
                             <p className="text-lg font-bold text-green-700">
-                              ₹{(selectedPackageVariant?.base_price || selectedPackage.base_price || 0).toLocaleString()}
+                              ₹{(selectedPackage.base_price || 0).toLocaleString()}
                             </p>
+                            {selectedPackage.security_deposit > 0 && (
+                              <p className="text-xs text-gray-500">+₹{selectedPackage.security_deposit} deposit</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2108,8 +2091,7 @@ export default function CreateInvoicePage() {
                 {selectionMode === "package" && selectedPackage && (
                   <div className="flex justify-between text-blue-600">
                     <span>
-                      Package: {selectedPackage.name}
-                      {selectedPackageVariant && ` (${selectedPackageVariant.variant_name || selectedPackageVariant.name})`}
+                      Package: {selectedPackage.name || selectedPackage.variant_name}
                     </span>
                     <span>{formatCurrency(packagePrice)}</span>
                   </div>
