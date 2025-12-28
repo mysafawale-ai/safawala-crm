@@ -34,6 +34,7 @@ export class InvoiceService {
         .from("product_orders")
         .select("*")
         .eq("is_quote", false)
+        .eq("is_archived", false)
         .order("created_at", { ascending: false })
 
       // Fetch from package_bookings where is_quote=false (actual bookings)
@@ -41,6 +42,7 @@ export class InvoiceService {
         .from("package_bookings")
         .select("*")
         .eq("is_quote", false)
+        .eq("is_archived", false)
         .order("created_at", { ascending: false })
 
       // Apply franchise filter unless super admin

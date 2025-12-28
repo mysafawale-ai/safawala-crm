@@ -112,32 +112,11 @@ const navigationItems = {
   ],
   business: [
     {
-      title: "New Invoice",
+      title: "New Booking",
       url: "/create-invoice",
       icon: FileText,
       permission: "bookings",
-      description: "Create invoice-style order with editable fields, print, download quote",
-    },
-    {
-      title: "All Invoices",
-      url: "/invoices",
-      icon: FileCheck,
-      permission: "invoices",
-      description: "View, edit, and manage all saved invoices with search and filtering",
-    },
-    {
-      title: "Quotes",
-      url: "/quotes",
-      icon: FileText,
-      permission: "quotes",
-      description: "Generate price quotes, proposals, and estimates for wedding services",
-    },
-    {
-      title: "Rental Invoices",
-      url: "/product-rental-invoices",
-      icon: FileCheck,
-      permission: "invoices",
-      description: "Manage product rental invoices, payment tracking, and rental periods",
+      description: "Create new booking with invoice, print, save as quote, or confirm order",
     },
     {
       title: "Laundry",

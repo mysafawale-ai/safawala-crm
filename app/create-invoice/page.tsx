@@ -162,6 +162,17 @@ export default function CreateInvoicePage() {
   const [skipProductSelection, setSkipProductSelection] = useState(false)
   const [useCustomAmount, setUseCustomAmount] = useState(false)
   const [customAmount, setCustomAmount] = useState(0)
+  
+  // Selection Mode: "products" = individual products, "package" = package with products inside
+  const [selectionMode, setSelectionMode] = useState<"products" | "package">("products")
+  
+  // Package Selection State
+  const [packages, setPackages] = useState<any[]>([])
+  const [packagesCategories, setPackagesCategories] = useState<any[]>([])
+  const [selectedPackageCategory, setSelectedPackageCategory] = useState<string>("")
+  const [selectedPackage, setSelectedPackage] = useState<any | null>(null)
+  const [selectedPackageVariant, setSelectedPackageVariant] = useState<any | null>(null)
+  const [packagesLoading, setPackagesLoading] = useState(false)
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -310,6 +321,66 @@ export default function CreateInvoicePage() {
       console.error("[CreateInvoice] Error loading products and categories:", error)
     }
   }
+
+  // Load packages for package selection mode
+  const loadPackages = async () => {
+    setPackagesLoading(true)
+    try {
+      // Get current user to get franchise_id
+      const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+      const user = userRes.ok ? await userRes.json() : null
+      const franchiseId = user?.franchise_id
+
+      // Fetch package_sets with variants
+      let packagesQuery = supabaseClient
+        .from('package_sets')
+        .select('*, package_variants(*)')
+        .eq('is_active', true)
+
+      if (user?.role !== 'super_admin' && franchiseId) {
+        packagesQuery = packagesQuery.eq('franchise_id', franchiseId)
+      }
+
+      const { data: packagesData, error: packagesError } = await packagesQuery.order('display_order')
+      
+      if (packagesError) {
+        console.error("[CreateInvoice] Error loading packages:", packagesError)
+      } else {
+        setPackages(packagesData || [])
+        console.log("[CreateInvoice] Loaded packages:", packagesData?.length || 0)
+      }
+
+      // Fetch packages_categories
+      let categoriesQuery = supabaseClient
+        .from('packages_categories')
+        .select('*')
+        .eq('is_active', true)
+
+      if (user?.role !== 'super_admin' && franchiseId) {
+        categoriesQuery = categoriesQuery.eq('franchise_id', franchiseId)
+      }
+
+      const { data: categoriesData, error: categoriesError } = await categoriesQuery.order('display_order')
+      
+      if (categoriesError) {
+        console.error("[CreateInvoice] Error loading package categories:", categoriesError)
+      } else {
+        setPackagesCategories(categoriesData || [])
+        console.log("[CreateInvoice] Loaded package categories:", categoriesData?.length || 0)
+      }
+    } catch (error) {
+      console.error("[CreateInvoice] Error loading packages:", error)
+    } finally {
+      setPackagesLoading(false)
+    }
+  }
+
+  // Load packages when selection mode changes to "package" and for rentals
+  useEffect(() => {
+    if (selectionMode === "package" && invoiceData.invoice_type === "rental") {
+      loadPackages()
+    }
+  }, [selectionMode, invoiceData.invoice_type])
 
   // Create custom product
   const handleCreateCustomProduct = async () => {
@@ -498,14 +569,25 @@ export default function CreateInvoicePage() {
 
   // Calculations
   const itemsSubtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0)
-  const subtotal = useCustomAmount && customAmount > 0 ? customAmount : itemsSubtotal
+  // Include package price if a package is selected
+  const packagePrice = selectionMode === "package" && selectedPackage 
+    ? (selectedPackageVariant?.base_price || selectedPackage.base_price || 0) 
+    : 0
+  const baseSubtotal = itemsSubtotal + packagePrice
+  const subtotal = useCustomAmount && customAmount > 0 ? customAmount : baseSubtotal
   const discountAmount = invoiceData.discount_type === "percentage" 
     ? (subtotal * invoiceData.discount_amount / 100)
     : invoiceData.discount_amount
   const afterDiscount = subtotal - discountAmount
   const gstAmount = (afterDiscount * invoiceData.gst_percentage) / 100
   const lostDamagedTotal = lostDamagedItems.reduce((sum, item) => sum + item.total_charge, 0)
-  const securityDeposit = invoiceData.invoice_type === "rental" ? invoiceData.security_deposit : 0
+  // Include package security deposit if selected
+  const packageSecurityDeposit = selectionMode === "package" && selectedPackage
+    ? (selectedPackageVariant?.security_deposit || selectedPackage.security_deposit || 0)
+    : 0
+  const securityDeposit = invoiceData.invoice_type === "rental" 
+    ? (invoiceData.security_deposit + packageSecurityDeposit) 
+    : 0
   const grandTotal = afterDiscount + gstAmount + securityDeposit + lostDamagedTotal
   const pendingAmount = grandTotal - invoiceData.amount_paid
 
@@ -721,7 +803,10 @@ export default function CreateInvoicePage() {
         coupon_code: invoiceData.coupon_code || null,
         coupon_discount: invoiceData.coupon_discount || 0,
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
-        notes: invoiceData.notes,
+        // Include package info in notes if selected
+        notes: selectedPackage 
+          ? `[PACKAGE: ${selectedPackage.name}${selectedPackageVariant ? ` - ${selectedPackageVariant.variant_name || selectedPackageVariant.name}` : ''} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
+          : invoiceData.notes,
         is_quote: true,
         order_status: "quote",
       }
@@ -746,7 +831,7 @@ export default function CreateInvoicePage() {
       await supabase.from("product_order_items").insert(itemsData)
 
       toast({ title: "Quote Saved", description: `Quote ${order.order_number} created` })
-      router.push("/quotes")
+      router.push("/bookings")
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
     }
@@ -759,8 +844,10 @@ export default function CreateInvoicePage() {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
       return
     }
-    if (invoiceItems.length === 0) {
-      toast({ title: "Error", description: "Please add at least one item", variant: "destructive" })
+    // Allow package-only orders (no items required if package selected)
+    const hasPackage = selectionMode === "package" && selectedPackage
+    if (invoiceItems.length === 0 && !hasPackage && !skipProductSelection) {
+      toast({ title: "Error", description: "Please add at least one item or select a package", variant: "destructive" })
       return
     }
 
@@ -797,10 +884,13 @@ export default function CreateInvoicePage() {
         coupon_code: invoiceData.coupon_code || null,
         coupon_discount: invoiceData.coupon_discount || 0,
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
-        notes: invoiceData.notes,
+        // Include package info in notes if selected
+        notes: selectedPackage 
+          ? `[PACKAGE: ${selectedPackage.name}${selectedPackageVariant ? ` - ${selectedPackageVariant.variant_name || selectedPackageVariant.name}` : ''} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
+          : invoiceData.notes,
         is_quote: false,
         order_status: "confirmed",
-        has_items: true,
+        has_items: invoiceItems.length > 0 || !!selectedPackage,
       }
 
       let order: any
@@ -889,11 +979,11 @@ export default function CreateInvoicePage() {
       }
 
       const message = isUpdate 
-        ? `Invoice ${order.order_number} updated successfully`
-        : `Invoice ${order.order_number} created successfully`
+        ? `Booking ${order.order_number} updated successfully`
+        : `Booking ${order.order_number} created successfully`
       
-      toast({ title: isUpdate ? "Invoice Updated" : "Invoice Created", description: message })
-      router.push("/invoices")
+      toast({ title: isUpdate ? "Booking Updated" : "Booking Created", description: message })
+      router.push("/bookings")
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
     }
@@ -935,20 +1025,20 @@ export default function CreateInvoicePage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">
-              {mode === "final-bill" ? "Final Bill" : mode === "edit" ? "Edit Invoice" : "Create Invoice"}
+              {mode === "final-bill" ? "Final Bill" : mode === "edit" ? "Edit Booking" : "New Booking"}
             </h1>
             <p className="text-sm text-gray-600">
-              Fill in the details below to create an invoice
+              Fill in the details below to create a booking
             </p>
           </div>
         </div>
         
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Link href="/invoices">
+          <Link href="/bookings">
             <Button variant="outline" size="sm">
               <FileText className="h-4 w-4 mr-2" />
-              All Invoices
+              All Bookings
             </Button>
           </Link>
           <Button variant="outline" size="sm" onClick={handlePrint}>
@@ -1214,81 +1304,91 @@ export default function CreateInvoicePage() {
                   </div>
                 </Card>
 
-                {/* Groom & Bride Details - rentals only */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <User className="h-4 w-4 text-blue-500" />
-                      <span className="font-semibold">Groom Details</span>
-                    </div>
-                    <div className="space-y-3 text-sm">
-                      <div>
-                        <Label className="text-xs text-gray-500">Name</Label>
-                        <Input
-                          value={invoiceData.groom_name}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
-                          placeholder="Groom's name"
-                          className="print:border-0 print:p-0"
-                        />
+                {/* Groom & Bride Details - rentals only, conditional based on event_participant */}
+                <div className={`grid gap-6 ${
+                  invoiceData.event_participant === "both" 
+                    ? "grid-cols-1 md:grid-cols-2" 
+                    : "grid-cols-1 max-w-md"
+                }`}>
+                  {/* Groom Details - show for "groom" or "both" */}
+                  {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && (
+                    <Card className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <User className="h-4 w-4 text-blue-500" />
+                        <span className="font-semibold">Groom Details</span>
                       </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">WhatsApp</Label>
-                        <Input
-                          value={invoiceData.groom_whatsapp}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
-                          placeholder="WhatsApp number"
-                          className="print:border-0 print:p-0"
-                        />
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <Label className="text-xs text-gray-500">Name</Label>
+                          <Input
+                            value={invoiceData.groom_name}
+                            onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
+                            placeholder="Groom's name"
+                            className="print:border-0 print:p-0"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">WhatsApp</Label>
+                          <Input
+                            value={invoiceData.groom_whatsapp}
+                            onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
+                            placeholder="WhatsApp number"
+                            className="print:border-0 print:p-0"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">Address</Label>
+                          <Textarea
+                            value={invoiceData.groom_address}
+                            onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
+                            placeholder="Address"
+                            rows={2}
+                            className="print:border-0 print:p-0"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">Address</Label>
-                        <Textarea
-                          value={invoiceData.groom_address}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
-                          placeholder="Address"
-                          rows={2}
-                          className="print:border-0 print:p-0"
-                        />
-                      </div>
-                    </div>
-                  </Card>
+                    </Card>
+                  )}
 
-                  <Card className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <User className="h-4 w-4 text-pink-500" />
-                      <span className="font-semibold">Bride Details</span>
-                    </div>
-                    <div className="space-y-3 text-sm">
-                      <div>
-                        <Label className="text-xs text-gray-500">Name</Label>
-                        <Input
-                          value={invoiceData.bride_name}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
-                          placeholder="Bride's name"
-                          className="print:border-0 print:p-0"
-                        />
+                  {/* Bride Details - show for "bride" or "both" */}
+                  {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && (
+                    <Card className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <User className="h-4 w-4 text-pink-500" />
+                        <span className="font-semibold">Bride Details</span>
                       </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">WhatsApp</Label>
-                        <Input
-                          value={invoiceData.bride_whatsapp}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
-                          placeholder="WhatsApp number"
-                          className="print:border-0 print:p-0"
-                        />
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <Label className="text-xs text-gray-500">Name</Label>
+                          <Input
+                            value={invoiceData.bride_name}
+                            onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
+                            placeholder="Bride's name"
+                            className="print:border-0 print:p-0"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">WhatsApp</Label>
+                          <Input
+                            value={invoiceData.bride_whatsapp}
+                            onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
+                            placeholder="WhatsApp number"
+                            className="print:border-0 print:p-0"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">Address</Label>
+                          <Textarea
+                            value={invoiceData.bride_address}
+                            onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
+                            placeholder="Address"
+                            rows={2}
+                            className="print:border-0 print:p-0"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">Address</Label>
-                        <Textarea
-                          value={invoiceData.bride_address}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
-                          placeholder="Address"
-                          rows={2}
-                          className="print:border-0 print:p-0"
-                        />
-                      </div>
-                    </div>
-                  </Card>
+                    </Card>
+                  )}
                 </div>
               </>
             ) : (
@@ -1379,8 +1479,43 @@ export default function CreateInvoicePage() {
               </div>
             </div>
 
-            {/* Skip Product Selection & Custom Amount Options */}
+            {/* Selection Mode Toggle & Options - Only for rentals */}
             <Card className="p-4 mb-4 print:hidden bg-gray-50">
+              {/* Selection Mode Toggle - Only for rental */}
+              {invoiceData.invoice_type === "rental" && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <Label className="text-sm font-medium mb-2 block">Selection Mode</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={selectionMode === "products" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setSelectionMode("products")
+                        setSelectedPackage(null)
+                        setSelectedPackageVariant(null)
+                        setSelectedPackageCategory("")
+                      }}
+                      className="flex-1"
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Individual Products
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={selectionMode === "package" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectionMode("package")}
+                      className="flex-1"
+                    >
+                      <Tag className="h-4 w-4 mr-2" />
+                      Package
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Skip Product Selection */}
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="skipProductSelection"
@@ -1404,8 +1539,182 @@ export default function CreateInvoicePage() {
               )}
             </Card>
 
-            {/* Product Selector - Show all categories and products */}
-            {!skipProductSelection && (
+            {/* Package Selector - Show when package mode is selected (rental only) */}
+            {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
+              <Card className="p-4 mb-4 print:hidden">
+                {packagesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-500">Loading packages...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Package Category Selection */}
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Step 1: Select Package Category</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {packagesCategories.map((cat) => (
+                          <Button
+                            key={cat.id}
+                            type="button"
+                            variant={selectedPackageCategory === cat.id ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPackageCategory(cat.id)
+                              setSelectedPackage(null)
+                              setSelectedPackageVariant(null)
+                            }}
+                            className="justify-start"
+                          >
+                            {cat.name}
+                          </Button>
+                        ))}
+                      </div>
+                      {packagesCategories.length === 0 && (
+                        <p className="text-sm text-gray-500 text-center py-4">No package categories found</p>
+                      )}
+                    </div>
+
+                    {/* Package Selection */}
+                    {selectedPackageCategory && (
+                      <div>
+                        <Label className="text-sm font-medium mb-2 block">Step 2: Select Package</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {packages
+                            .filter(pkg => pkg.category_id === selectedPackageCategory)
+                            .map((pkg) => (
+                              <div
+                                key={pkg.id}
+                                className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                                  selectedPackage?.id === pkg.id
+                                    ? "border-green-500 bg-green-50"
+                                    : "border-gray-200 hover:border-gray-300"
+                                }`}
+                                onClick={() => {
+                                  setSelectedPackage(pkg)
+                                  setSelectedPackageVariant(null)
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-semibold">{pkg.name}</h4>
+                                    {pkg.description && (
+                                      <p className="text-sm text-gray-500">{pkg.description}</p>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-lg font-bold text-green-600">₹{pkg.base_price?.toLocaleString() || 0}</p>
+                                    <p className="text-xs text-gray-500">{pkg.package_variants?.length || 0} variants</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                        {packages.filter(pkg => pkg.category_id === selectedPackageCategory).length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">No packages in this category</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Variant Selection */}
+                    {selectedPackage && selectedPackage.package_variants && selectedPackage.package_variants.length > 0 && (
+                      <div>
+                        <Label className="text-sm font-medium mb-2 block">Step 3: Select Variant (Optional)</Label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {selectedPackage.package_variants.map((variant: any) => (
+                            <div
+                              key={variant.id}
+                              className={`p-3 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                                selectedPackageVariant?.id === variant.id
+                                  ? "border-blue-500 bg-blue-50"
+                                  : "border-gray-200 hover:border-gray-300"
+                              }`}
+                              onClick={() => setSelectedPackageVariant(variant)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium">{variant.variant_name || variant.name}</h4>
+                                  {variant.inclusions && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {(Array.isArray(variant.inclusions) 
+                                        ? variant.inclusions 
+                                        : typeof variant.inclusions === 'string' 
+                                          ? variant.inclusions.split(',').map((s: string) => s.trim())
+                                          : []
+                                      ).map((inc: string, i: number) => (
+                                        <Badge key={i} variant="outline" className="text-xs">{inc}</Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-blue-600">₹{variant.base_price?.toLocaleString() || 0}</p>
+                                  {variant.security_deposit > 0 && (
+                                    <p className="text-xs text-gray-500">+₹{variant.security_deposit} deposit</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Selected Package Summary */}
+                    {selectedPackage && (
+                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-green-800">Selected: {selectedPackage.name}</h4>
+                            {selectedPackageVariant && (
+                              <p className="text-sm text-green-700">Variant: {selectedPackageVariant.variant_name || selectedPackageVariant.name}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-green-700">
+                              ₹{(selectedPackageVariant?.base_price || selectedPackage.base_price || 0).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add Products to Package */}
+                    {selectedPackage && (
+                      <div className="border-t pt-4">
+                        <Label className="text-sm font-medium mb-2 block">
+                          Add Products to Package (Optional)
+                        </Label>
+                        <p className="text-xs text-gray-500 mb-3">
+                          Select additional individual products to include with this package
+                        </p>
+                        <ProductSelector
+                          products={products.map(p => ({
+                            ...p,
+                            category: p.category || '',
+                            security_deposit: p.security_deposit || 0,
+                            sale_price: p.sale_price || p.rental_price,
+                          }))}
+                          categories={categories}
+                          subcategories={subcategories}
+                          selectedItems={invoiceItems.map(item => ({
+                            product_id: item.product_id,
+                            quantity: item.quantity
+                          }))}
+                          bookingType={invoiceData.invoice_type}
+                          eventDate={invoiceData.event_date}
+                          onProductSelect={(product) => addProduct(product as Product)}
+                          onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Product Selector - Show when products mode is selected (or for sales) */}
+            {!skipProductSelection && (selectionMode === "products" || invoiceData.invoice_type === "sale") && (
               <div className="print:hidden mb-4">
                 <ProductSelector
                   products={products.map(p => ({
@@ -1795,6 +2104,23 @@ export default function CreateInvoicePage() {
             <Card className="p-4 bg-gray-50">
               <div className="font-semibold mb-3">Summary</div>
               <div className="space-y-2 text-sm">
+                {/* Show package if selected */}
+                {selectionMode === "package" && selectedPackage && (
+                  <div className="flex justify-between text-blue-600">
+                    <span>
+                      Package: {selectedPackage.name}
+                      {selectedPackageVariant && ` (${selectedPackageVariant.variant_name || selectedPackageVariant.name})`}
+                    </span>
+                    <span>{formatCurrency(packagePrice)}</span>
+                  </div>
+                )}
+                {/* Show items subtotal separately if there's a package */}
+                {selectionMode === "package" && selectedPackage && itemsSubtotal > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Additional Items</span>
+                    <span>{formatCurrency(itemsSubtotal)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>

@@ -743,19 +743,8 @@ export default function BookingsPage() {
   }
 
   const handleEditBooking = (bookingId: string, source?: string) => {
-    // Route to the appropriate create page with edit parameter
-    if (source === 'package_bookings') {
-      router.push(`/book-package?edit=${bookingId}`)
-    } else if (source === 'product_orders') {
-      router.push(`/create-product-order?edit=${bookingId}`)
-    } else {
-      // Fallback - try to detect from booking type
-      toast({ 
-        title: "Cannot edit", 
-        description: "Unable to determine booking type. Please try again.",
-        variant: "destructive"
-      })
-    }
+    // Route to the unified create-invoice page with edit parameter
+    router.push(`/create-invoice?mode=edit&id=${bookingId}`)
   }
 
   // Helper function to load items for a booking into the compact display
@@ -1195,16 +1184,10 @@ export default function BookingsPage() {
           </Button>
           <Button variant="outline" size="sm" onClick={()=>exportBookings('csv')}>CSV</Button>
           <Button variant="outline" size="sm" onClick={()=>exportBookings('pdf')}>PDF</Button>
-          <Link href="/create-product-order">
+          <Link href="/create-invoice">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create Product Order
-            </Button>
-          </Link>
-          <Link href="/book-package">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Book Package
+              New Booking
             </Button>
           </Link>
         </div>
