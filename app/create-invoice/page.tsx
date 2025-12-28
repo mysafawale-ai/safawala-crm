@@ -272,17 +272,21 @@ export default function CreateInvoicePage() {
       const response = await fetch("/api/customers?basic=1", {
         method: "GET",
         cache: "no-store",
+        credentials: "include",
       })
 
       if (!response.ok) {
         console.error("[CreateInvoice] Failed to fetch customers:", response.status, response.statusText)
+        const errorText = await response.text()
+        console.error("[CreateInvoice] Error response:", errorText)
         setCustomers([])
         return
       }
 
       const result = await response.json()
-      const data = result?.data || []
-      console.log("[CreateInvoice] Loaded customers:", Array.isArray(data) ? data.length : 0)
+      console.log("[CreateInvoice] Raw API response:", result)
+      const data = result?.data || result || []
+      console.log("[CreateInvoice] Loaded customers:", Array.isArray(data) ? data.length : 0, data)
       setCustomers(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error("[CreateInvoice] Error loading customers:", error)
