@@ -653,3 +653,26 @@
     border-color: #f6e1c3;
   }
 }
+
+/* ============================================
+   PRINT STYLES - Hide unnecessary UI elements
+   ============================================ */
+@media print {
+  /* Hide all toast notifications */
+  .toaster,
+  [data-sonner-toaster],
+  [data-radix-toast-viewport],
+  [role="status"][aria-live="polite"],
+  .Toaster,
+  div[class*="toast"],
+  section[aria-label*="Notifications"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Hide other non-essential UI elements during print */
+  .print\\:hidden,
+  [data-print-hidden="true"] {
+    display: none !important;
+  }
+}

@@ -145,6 +145,9 @@ export default function CreateInvoicePage() {
   // Company Settings for PDF
   const [companySettings, setCompanySettings] = useState<any>(null)
 
+  // Franchise ID for data isolation
+  const [franchiseId, setFranchiseId] = useState<string | null>(null)
+
   // State
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -239,9 +242,10 @@ export default function CreateInvoicePage() {
       // Get current user to get franchise_id
       const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
       const user = userRes.ok ? await userRes.json() : null
-      const franchiseId = user?.franchise_id
+      const userFranchiseId = user?.franchise_id
+      setFranchiseId(userFranchiseId) // Store in state for later use
 
-      if (!franchiseId) {
+      if (!userFranchiseId) {
         console.warn("[CreateInvoice] No franchise_id found, using default ORD001")
         setInvoiceData(prev => ({
           ...prev,
@@ -250,7 +254,7 @@ export default function CreateInvoicePage() {
         return
       }
 
-      const response = await fetch(`/api/invoice-sequences?franchise_id=${franchiseId}`, {
+      const response = await fetch(`/api/invoice-sequences?franchise_id=${userFranchiseId}`, {
         cache: "no-store"
       })
 
@@ -881,9 +885,25 @@ export default function CreateInvoicePage() {
 
     setSaving(true)
     try {
+      // Get franchise_id fresh from user session
+      let currentFranchiseId = franchiseId
+      if (!currentFranchiseId) {
+        const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+        const user = userRes.ok ? await userRes.json() : null
+        currentFranchiseId = user?.franchise_id
+        if (currentFranchiseId) setFranchiseId(currentFranchiseId)
+      }
+      
+      if (!currentFranchiseId) {
+        toast({ title: "Error", description: "Session expired. Please refresh the page.", variant: "destructive" })
+        setSaving(false)
+        return
+      }
+
       const orderData = {
         order_number: invoiceData.invoice_number.replace("ORD", "QTE").replace("SAL", "QTE"),
         customer_id: selectedCustomer.id,
+        franchise_id: currentFranchiseId,
         booking_type: invoiceData.invoice_type,
         event_type: invoiceData.event_type,
         event_participant: invoiceData.event_participant,
@@ -958,9 +978,25 @@ export default function CreateInvoicePage() {
 
     setSaving(true)
     try {
+      // Get franchise_id fresh from user session
+      let currentFranchiseId = franchiseId
+      if (!currentFranchiseId) {
+        const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+        const user = userRes.ok ? await userRes.json() : null
+        currentFranchiseId = user?.franchise_id
+        if (currentFranchiseId) setFranchiseId(currentFranchiseId)
+      }
+      
+      if (!currentFranchiseId) {
+        toast({ title: "Error", description: "Session expired. Please refresh the page.", variant: "destructive" })
+        setSaving(false)
+        return
+      }
+
       const orderData = {
         order_number: invoiceData.invoice_number,
         customer_id: selectedCustomer.id,
+        franchise_id: currentFranchiseId,
         booking_type: invoiceData.invoice_type,
         event_type: invoiceData.event_type,
         event_participant: invoiceData.event_participant,
@@ -2230,7 +2266,7 @@ export default function CreateInvoicePage() {
 
           {/* Lost/Damaged Items Section - only for rentals */}
           {invoiceData.invoice_type === "rental" && (mode === "final-bill" || lostDamagedItems.length > 0) && (
-            <div className="border-t pt-6">
+            <div className="border-t pt-6 relative z-50">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -2253,7 +2289,7 @@ export default function CreateInvoicePage() {
                   No lost or damaged items
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden">
+                <div className="border rounded-lg overflow-visible">
                   <table className="w-full text-sm">
                     <thead className="bg-red-50">
                       <tr>
@@ -2265,10 +2301,10 @@ export default function CreateInvoicePage() {
                         <th className="w-12 print:hidden"></th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="relative">
                       {lostDamagedItems.map((item) => (
                         <tr key={item.id} className="border-t">
-                          <td className="p-3 relative">
+                          <td className="p-3 relative" style={{ overflow: 'visible' }}>
                             {item.product_name ? (
                               <div className="flex items-center gap-2">
                                 <span className="font-medium">{item.product_name}</span>
@@ -2288,7 +2324,7 @@ export default function CreateInvoicePage() {
                                 </Button>
                               </div>
                             ) : (
-                              <div className="print:hidden">
+                              <div className="print:hidden relative">
                                 <Input
                                   placeholder="Search product..."
                                   onFocus={() => setLostDamagedProductSearch(item.id)}
@@ -2296,7 +2332,7 @@ export default function CreateInvoicePage() {
                                   className="text-sm"
                                 />
                                 {lostDamagedProductSearch === item.id && productSearch && (
-                                  <div className="absolute z-20 left-3 right-3 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                  <div className="absolute z-[9999] left-0 right-0 mt-1 bg-white border rounded-lg shadow-xl max-h-60 overflow-y-auto" style={{ top: '100%' }}>
                                     {products
                                       .filter(p => 
                                         p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -2400,7 +2436,7 @@ export default function CreateInvoicePage() {
           )}
 
           {/* Totals Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
             {/* Payment Method & Discounts - Combined */}
             <Card className="p-4">
               <div className="font-semibold mb-3 underline">Payment Method & Discounts</div>

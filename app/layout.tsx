@@ -52,8 +52,10 @@ export default function RootLayout({
     >
       <body className={`${inter.className} antialiased heritage-body`}>
         <TooltipProvider>{children}</TooltipProvider>
-        <Toaster />
-        <SonnerToaster />
+        <div className="print:hidden">
+          <Toaster />
+          <SonnerToaster />
+        </div>
       </body>
     </html>
   )

@@ -15,6 +15,7 @@ export function Toaster() {
 
   return (
     <ToastProvider>
+      <div className="print:hidden">
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast key={id} {...props}>
@@ -29,7 +30,8 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      <ToastViewport className="print:hidden" />
+      </div>
     </ToastProvider>
   )
 }
