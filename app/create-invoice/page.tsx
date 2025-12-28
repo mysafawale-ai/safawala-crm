@@ -586,7 +586,8 @@ export default function CreateInvoicePage() {
   const securityDeposit = invoiceData.invoice_type === "rental" 
     ? (invoiceData.security_deposit + packageSecurityDeposit) 
     : 0
-  const grandTotal = afterDiscount + gstAmount + securityDeposit + lostDamagedTotal
+  const depositRefundAmount = isDepositRefunded && invoiceData.invoice_type === "rental" ? securityDeposit : 0
+  const grandTotal = (afterDiscount + gstAmount + securityDeposit + lostDamagedTotal) - depositRefundAmount
   const pendingAmount = grandTotal - invoiceData.amount_paid
 
   // Filter customers - show all if no search term, otherwise filter
@@ -2069,7 +2070,7 @@ export default function CreateInvoicePage() {
 
                 {/* Security Deposit - rental only */}
                 {invoiceData.invoice_type === "rental" && (
-                  <div className="space-y-2">
+                  <div>
                     <Label className="text-xs text-gray-500">Security Deposit (₹)</Label>
                     <Input
                       type="number"
@@ -2078,19 +2079,6 @@ export default function CreateInvoicePage() {
                       className="print:border-0"
                       placeholder="Enter security deposit"
                     />
-                    <div className="flex items-center space-x-2 pt-1">
-                      <Checkbox
-                        id="depositRefunded"
-                        checked={isDepositRefunded}
-                        onCheckedChange={(checked) => setIsDepositRefunded(checked as boolean)}
-                      />
-                      <label
-                        htmlFor="depositRefunded"
-                        className="text-xs text-gray-500 cursor-pointer"
-                      >
-                        Mark as Refunded
-                      </label>
-                    </div>
                   </div>
                 )}
 
@@ -2189,15 +2177,36 @@ export default function CreateInvoicePage() {
                   <span>{formatCurrency(gstAmount)}</span>
                 </div>
                 {invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Security Deposit</span>
-                    <span>{formatCurrency(securityDeposit)}</span>
+                  <div className="space-y-2 p-2 bg-blue-50 rounded">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Security Deposit</span>
+                      <span>{formatCurrency(securityDeposit)}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-1">
+                      <Checkbox
+                        id="depositRefunded"
+                        checked={isDepositRefunded}
+                        onCheckedChange={(checked) => setIsDepositRefunded(checked as boolean)}
+                      />
+                      <label
+                        htmlFor="depositRefunded"
+                        className="text-xs text-gray-600 cursor-pointer"
+                      >
+                        Refunded to Customer
+                      </label>
+                    </div>
                   </div>
                 )}
                 {lostDamagedTotal > 0 && (
                   <div className="flex justify-between text-red-600">
                     <span>Lost/Damaged Charges</span>
                     <span>{formatCurrency(lostDamagedTotal)}</span>
+                  </div>
+                )}
+                {isDepositRefunded && invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
+                  <div className="flex justify-between text-green-600 font-medium">
+                    <span>Security Deposit (Refunded)</span>
+                    <span>-{formatCurrency(securityDeposit)}</span>
                   </div>
                 )}
                 <div className="border-t pt-2 flex justify-between font-bold text-lg">
