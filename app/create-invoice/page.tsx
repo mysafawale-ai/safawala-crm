@@ -191,7 +191,6 @@ export default function CreateInvoicePage() {
     return_date: "",
     return_time: "",
     venue_address: "",
-    delivery_address: "",
     groom_name: "",
     groom_whatsapp: "",
     groom_address: "",
@@ -526,7 +525,6 @@ export default function CreateInvoicePage() {
           return_date: order.return_date || "",
           return_time: order.return_time || "",
           venue_address: order.venue_address || "",
-          delivery_address: order.delivery_address || "",
           groom_name: order.groom_name || "",
           groom_whatsapp: order.groom_whatsapp || "",
           groom_address: order.groom_address || "",
@@ -779,7 +777,6 @@ export default function CreateInvoicePage() {
         return_date: invoiceData.return_date || null,
         return_time: invoiceData.return_time || null,
         venue_address: invoiceData.venue_address,
-        delivery_address: invoiceData.delivery_address || null,
         groom_name: invoiceData.groom_name,
         groom_whatsapp: invoiceData.groom_whatsapp || null,
         groom_address: invoiceData.groom_address || null,
@@ -858,7 +855,6 @@ export default function CreateInvoicePage() {
         return_date: invoiceData.return_date || null,
         return_time: invoiceData.return_time || null,
         venue_address: invoiceData.venue_address,
-        delivery_address: invoiceData.delivery_address || null,
         groom_name: invoiceData.groom_name,
         groom_whatsapp: invoiceData.groom_whatsapp || null,
         groom_address: invoiceData.groom_address || null,
@@ -1412,19 +1408,7 @@ export default function CreateInvoicePage() {
                     />
                   </div>
                 </div>
-                <div className="mt-3">
-                  <Label className="text-xs text-gray-500 flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    Delivery Address
-                  </Label>
-                  <Textarea
-                    value={invoiceData.delivery_address}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, delivery_address: e.target.value })}
-                    placeholder="Enter delivery address with complete details"
-                    rows={3}
-                    className="mt-1 print:border-0 print:p-0"
-                  />
-                </div>
+
               </Card>
             )}
           </div>
@@ -1441,19 +1425,6 @@ export default function CreateInvoicePage() {
                   value={invoiceData.venue_address}
                   onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
                   placeholder="Enter venue address..."
-                  rows={2}
-                  className="mt-1 print:border-0 print:p-0"
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-500 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  Delivery Address (if different)
-                </Label>
-                <Textarea
-                  value={invoiceData.delivery_address}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, delivery_address: e.target.value })}
-                  placeholder="Leave empty if same as venue..."
                   rows={2}
                   className="mt-1 print:border-0 print:p-0"
                 />
@@ -1509,25 +1480,27 @@ export default function CreateInvoicePage() {
                 </div>
               )}
 
-              {/* Skip Product Selection */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="skipProductSelection"
-                  checked={skipProductSelection}
-                  onCheckedChange={(checked) => setSkipProductSelection(checked as boolean)}
-                />
-                <label
-                  htmlFor="skipProductSelection"
-                  className="text-sm font-medium leading-none cursor-pointer"
-                >
-                  Save Details First (Add Products/Packages Later)
-                </label>
-              </div>
+              {/* Skip Product Selection - for products mode only */}
+              {selectionMode === "products" && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="skipProductSelection"
+                    checked={skipProductSelection}
+                    onCheckedChange={(checked) => setSkipProductSelection(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="skipProductSelection"
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    Save Details First (Add Products Later)
+                  </label>
+                </div>
+              )}
 
-              {skipProductSelection && (
+              {skipProductSelection && selectionMode === "products" && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800">
-                    ✅ You can save now and add products/packages later during editing. Useful for quick bookings!
+                    ✅ You can save now and add products later during editing. Useful for quick bookings!
                   </p>
                 </div>
               )}
