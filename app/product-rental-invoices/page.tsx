@@ -24,7 +24,7 @@ import {
 import {
   Plus,
   Search,
-  Eye,
+  Archive,
   RefreshCw,
   FileText,
   CheckCircle,
@@ -39,7 +39,6 @@ import {
 import { InvoiceService } from "@/lib/services/invoice-service"
 import { useToast } from "@/hooks/use-toast"
 import type { Invoice } from "@/lib/types"
-import { ProductRentalInvoice } from "@/components/invoices/product-rental-invoice"
 
 interface InvoiceStats {
   total: number
@@ -80,8 +79,6 @@ function ProductRentalInvoicesContent() {
   const [durationFilter, setDurationFilter] = useState("all") // all, short (1-2 days), medium (3-7), long (8+)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
-  const [showViewDialog, setShowViewDialog] = useState(false)
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
   useEffect(() => {
     loadInvoices()
@@ -248,9 +245,33 @@ function ProductRentalInvoicesContent() {
     })
   }
 
-  const handleViewInvoice = (invoice: Invoice) => {
-    setSelectedInvoice(invoice)
-    setShowViewDialog(true)
+  const handleArchiveInvoice = async (invoice: Invoice) => {
+    if (!confirm("Are you sure you want to archive this invoice?")) return
+    
+    try {
+      const response = await fetch('/api/bookings/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: invoice.id, type: 'product_order' })
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to archive invoice')
+      }
+      
+      toast({ title: 'Archived', description: 'Invoice archived successfully' })
+      await loadInvoices()
+      await loadStats()
+    } catch (error: any) {
+      console.error('Archive error:', error)
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to archive invoice', 
+        variant: 'destructive' 
+      })
+    }
   }
 
   return (
@@ -526,9 +547,10 @@ function ProductRentalInvoicesContent() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleViewInvoice(invoice)}
+                          onClick={() => handleArchiveInvoice(invoice)}
+                          title="Archive Invoice"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Archive className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -580,15 +602,6 @@ function ProductRentalInvoicesContent() {
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* View Invoice Dialog */}
-      {selectedInvoice && (
-        <ProductRentalInvoice
-          invoice={selectedInvoice}
-          open={showViewDialog}
-          onOpenChange={setShowViewDialog}
-        />
       )}
     </div>
   )
