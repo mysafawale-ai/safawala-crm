@@ -633,6 +633,8 @@ export default function CreateInvoicePage() {
 
       if (order) {
         setSelectedCustomer(order.customers)
+        
+        // Auto-fill all invoice data from existing order
         setInvoiceData({
           invoice_number: order.order_number || "",
           invoice_type: order.booking_type || "rental",
@@ -651,7 +653,7 @@ export default function CreateInvoicePage() {
           bride_name: order.bride_name || "",
           bride_whatsapp: order.bride_whatsapp || "",
           bride_address: order.bride_address || "",
-          payment_method: order.payment_method || "cash",
+          payment_method: order.payment_method || "Cash / Offline Payment",
           amount_paid: order.amount_paid || 0,
           security_deposit: order.security_deposit || 0,
           gst_percentage: order.gst_percentage || 5,
@@ -663,6 +665,12 @@ export default function CreateInvoicePage() {
           notes: order.notes || "",
         })
         
+        // Set security deposit from order
+        if (order.security_deposit) {
+          setInvoiceData(prev => ({ ...prev, security_deposit: order.security_deposit }))
+        }
+        
+        // Map order items to invoice items
         const items = (order.product_order_items || []).map((item: any) => ({
           id: item.id,
           product_id: item.product_id,
@@ -675,6 +683,13 @@ export default function CreateInvoicePage() {
           total_price: item.total_price,
         }))
         setInvoiceItems(items)
+        
+        // Store franchise_id from order
+        if (order.franchise_id) {
+          setFranchiseId(order.franchise_id)
+        }
+        
+        console.log("[EditOrder] Loaded order:", order.order_number, "with", items.length, "items")
       }
     } catch (error) {
       console.error("Error loading order:", error)
@@ -1281,11 +1296,20 @@ export default function CreateInvoicePage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">
-              {mode === "final-bill" ? "Final Bill" : mode === "edit" ? "Edit Booking" : "New Booking"}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">
+                {mode === "final-bill" ? "Final Bill" : mode === "edit" ? "Edit Booking" : "New Booking"}
+              </h1>
+              {mode === "edit" && (
+                <Badge className="bg-orange-500 text-white hover:bg-orange-600">
+                  EDITING
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-gray-600">
-              Fill in the details below to create a booking
+              {mode === "edit" 
+                ? `Order: ${invoiceData.invoice_number || "Loading..."}` 
+                : "Fill in the details below to create a booking"}
             </p>
           </div>
         </div>
@@ -1308,7 +1332,7 @@ export default function CreateInvoicePage() {
           </Button>
           <Button size="sm" onClick={handleCreateOrder} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-            Create Order
+            {mode === "edit" ? "Update Order" : "Create Order"}
           </Button>
         </div>
       </div>
@@ -3001,7 +3025,7 @@ export default function CreateInvoicePage() {
               </Button>
               <Button onClick={handleCreateOrder} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                Create Order
+                {mode === "edit" ? "Update Order" : "Create Order"}
               </Button>
             </div>
           </div>
