@@ -617,82 +617,122 @@ export default function CreateInvoicePage() {
   const loadExistingOrder = async (id: string) => {
     setLoading(true)
     try {
-      // Try product_orders first
-      let { data: order, error } = await supabase
+      console.log("[EditOrder] Loading order:", id)
+      
+      // Fetch order first (without joins that might fail)
+      const { data: order, error: orderError } = await supabase
         .from("product_orders")
-        .select(`
-          *,
-          customers (id, name, phone, email, address, city, state, pincode),
-          product_order_items (
-            id, product_id, quantity, unit_price, total_price,
-            products (id, name, barcode, product_code, category, image_url, rental_price, sale_price, stock_available)
-          )
-        `)
+        .select("*")
         .eq("id", id)
         .single()
 
-      if (order) {
-        setSelectedCustomer(order.customers)
-        
-        // Auto-fill all invoice data from existing order
-        setInvoiceData({
-          invoice_number: order.order_number || "",
-          invoice_type: order.booking_type || "rental",
-          event_type: order.event_type || "wedding",
-          event_participant: order.event_participant || "both",
-          event_date: order.event_date || "",
-          event_time: order.event_time || "",
-          delivery_date: order.delivery_date || "",
-          delivery_time: order.delivery_time || "",
-          return_date: order.return_date || "",
-          return_time: order.return_time || "",
-          venue_address: order.venue_address || "",
-          groom_name: order.groom_name || "",
-          groom_whatsapp: order.groom_whatsapp || "",
-          groom_address: order.groom_address || "",
-          bride_name: order.bride_name || "",
-          bride_whatsapp: order.bride_whatsapp || "",
-          bride_address: order.bride_address || "",
-          payment_method: order.payment_method || "Cash / Offline Payment",
-          amount_paid: order.amount_paid || 0,
-          security_deposit: order.security_deposit || 0,
-          gst_percentage: order.gst_percentage || 5,
-          discount_amount: order.discount_amount || 0,
-          discount_type: "fixed",
-          coupon_code: order.coupon_code || "",
-          coupon_discount: order.coupon_discount || 0,
-          sales_closed_by_id: order.sales_closed_by_id || "",
-          notes: order.notes || "",
-        })
-        
-        // Set security deposit from order
-        if (order.security_deposit) {
-          setInvoiceData(prev => ({ ...prev, security_deposit: order.security_deposit }))
-        }
-        
-        // Map order items to invoice items
-        const items = (order.product_order_items || []).map((item: any) => ({
-          id: item.id,
-          product_id: item.product_id,
-          product_name: item.products?.name || "Unknown",
-          barcode: item.products?.barcode,
-          category: item.products?.category,
-          image_url: item.products?.image_url,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-        }))
-        setInvoiceItems(items)
-        
-        // Store franchise_id from order
-        if (order.franchise_id) {
-          setFranchiseId(order.franchise_id)
-        }
-        
-        console.log("[EditOrder] Loaded order:", order.order_number, "with", items.length, "items")
+      if (orderError) {
+        console.error("[EditOrder] Error fetching order:", orderError)
+        toast({ title: "Error", description: "Failed to load order", variant: "destructive" })
+        setLoading(false)
+        return
       }
-    } catch (error) {
-      console.error("Error loading order:", error)
+
+      if (!order) {
+        console.error("[EditOrder] Order not found:", id)
+        toast({ title: "Error", description: "Order not found", variant: "destructive" })
+        setLoading(false)
+        return
+      }
+
+      console.log("[EditOrder] Order data:", order)
+
+      // Fetch customer separately
+      let customer = null
+      if (order.customer_id) {
+        const { data: customerData, error: customerError } = await supabase
+          .from("customers")
+          .select("id, name, phone, email, address, city, state, pincode")
+          .eq("id", order.customer_id)
+          .single()
+        
+        if (!customerError && customerData) {
+          customer = customerData
+          console.log("[EditOrder] Customer loaded:", customerData.name)
+        } else {
+          console.warn("[EditOrder] Could not load customer:", customerError)
+        }
+      }
+
+      // Fetch order items separately
+      const { data: orderItems, error: itemsError } = await supabase
+        .from("product_order_items")
+        .select(`
+          id, product_id, quantity, unit_price, total_price,
+          products (id, name, barcode, product_code, category, image_url, rental_price, sale_price, stock_available)
+        `)
+        .eq("order_id", order.id)
+
+      if (itemsError) {
+        console.warn("[EditOrder] Could not load items:", itemsError)
+      }
+
+      // Set customer
+      if (customer) {
+        setSelectedCustomer(customer)
+      }
+        
+      // Auto-fill all invoice data from existing order
+      setInvoiceData({
+        invoice_number: order.order_number || "",
+        invoice_type: order.booking_type || "rental",
+        event_type: order.event_type || "wedding",
+        event_participant: order.event_participant || "both",
+        event_date: order.event_date || "",
+        event_time: order.event_time || "",
+        delivery_date: order.delivery_date || "",
+        delivery_time: order.delivery_time || "",
+        return_date: order.return_date || "",
+        return_time: order.return_time || "",
+        venue_address: order.venue_address || "",
+        groom_name: order.groom_name || "",
+        groom_whatsapp: order.groom_whatsapp || "",
+        groom_address: order.groom_address || "",
+        bride_name: order.bride_name || "",
+        bride_whatsapp: order.bride_whatsapp || "",
+        bride_address: order.bride_address || "",
+        payment_method: order.payment_method || "Cash / Offline Payment",
+        amount_paid: order.amount_paid || 0,
+        security_deposit: order.security_deposit || 0,
+        gst_percentage: order.gst_percentage || 5,
+        discount_amount: order.discount_amount || 0,
+        discount_type: "fixed",
+        coupon_code: order.coupon_code || "",
+        coupon_discount: order.coupon_discount || 0,
+        sales_closed_by_id: order.sales_closed_by_id || "",
+        notes: order.notes || "",
+      })
+      
+      // Map order items to invoice items
+      const items = (orderItems || []).map((item: any) => ({
+        id: item.id,
+        product_id: item.product_id,
+        product_name: item.products?.name || "Unknown Product",
+        barcode: item.products?.barcode,
+        category: item.products?.category,
+        image_url: item.products?.image_url,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+      }))
+      setInvoiceItems(items)
+      
+      // Store franchise_id from order
+      if (order.franchise_id) {
+        setFranchiseId(order.franchise_id)
+      }
+      
+      console.log("[EditOrder] Successfully loaded order:", order.order_number, "Customer:", customer?.name, "Items:", items.length)
+      toast({ title: "Order Loaded", description: `Editing ${order.order_number}` })
+      
+    } catch (error: any) {
+      console.error("[EditOrder] Error loading order:", error)
+      toast({ title: "Error", description: error.message || "Failed to load order", variant: "destructive" })
     }
     setLoading(false)
   }
@@ -1113,7 +1153,7 @@ export default function CreateInvoicePage() {
         await supabase
           .from("product_order_items")
           .delete()
-          .eq("product_order_id", orderId)
+          .eq("order_id", orderId)
 
         order = { id: orderId, order_number: invoiceData.invoice_number }
         isUpdate = true
