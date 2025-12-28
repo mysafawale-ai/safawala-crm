@@ -226,17 +226,56 @@ export default function CreateInvoicePage() {
     pincode: "",
   })
 
-  // Generate invoice number
+  // Generate invoice number based on stored sequences
   useEffect(() => {
     if (mode === "new" && !invoiceData.invoice_number) {
-      const prefix = invoiceData.invoice_type === "rental" ? "ORD" : "SAL"
-      const timestamp = Date.now().toString().slice(-8)
+      loadNextInvoiceNumber()
+    }
+  }, [mode])
+
+  // Load next invoice number from sequence
+  const loadNextInvoiceNumber = async () => {
+    try {
+      // Get current user to get franchise_id
+      const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+      const user = userRes.ok ? await userRes.json() : null
+      const franchiseId = user?.franchise_id
+
+      if (!franchiseId) {
+        console.warn("[CreateInvoice] No franchise_id found, using default ORD001")
+        setInvoiceData(prev => ({
+          ...prev,
+          invoice_number: "ORD001"
+        }))
+        return
+      }
+
+      const response = await fetch(`/api/invoice-sequences?franchise_id=${franchiseId}`, {
+        cache: "no-store"
+      })
+
+      if (!response.ok) {
+        console.warn("[CreateInvoice] Failed to load sequence, using default ORD001")
+        setInvoiceData(prev => ({
+          ...prev,
+          invoice_number: "ORD001"
+        }))
+        return
+      }
+
+      const { next_invoice_number } = await response.json()
       setInvoiceData(prev => ({
         ...prev,
-        invoice_number: `${prefix}${timestamp}`
+        invoice_number: next_invoice_number || "ORD001"
+      }))
+    } catch (error) {
+      console.error("[CreateInvoice] Error loading next invoice number:", error)
+      setInvoiceData(prev => ({
+        ...prev,
+        invoice_number: "ORD001"
       }))
     }
-  }, [mode, invoiceData.invoice_type])
+  }
 
   // Load customers and products
   useEffect(() => {
@@ -1047,6 +1086,28 @@ export default function CreateInvoicePage() {
         ? `Booking ${order.order_number} updated successfully`
         : `Booking ${order.order_number} created successfully`
       
+      // Save invoice number sequence (only for new orders, not updates)
+      if (!isUpdate) {
+        try {
+          const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+          const user = userRes.ok ? await userRes.json() : null
+          const franchiseId = user?.franchise_id
+
+          if (franchiseId) {
+            await fetch('/api/invoice-sequences', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                franchise_id: franchiseId,
+                invoice_number: invoiceData.invoice_number
+              })
+            }).catch(err => console.warn("[CreateInvoice] Failed to save sequence:", err))
+          }
+        } catch (err) {
+          console.warn("[CreateInvoice] Error saving invoice sequence:", err)
+        }
+      }
+      
       toast({ title: isUpdate ? "Booking Updated" : "Booking Created", description: message })
       router.push("/bookings")
     } catch (error: any) {
@@ -1349,14 +1410,19 @@ export default function CreateInvoicePage() {
               </div>
             </div>
             {/* Invoice Info */}
-            <div className="flex items-center gap-4 sm:gap-6">
-              <div>
-                <Label className="text-[10px] md:text-xs text-gray-500">Invoice #</Label>
-                <div className="font-mono font-bold text-sm md:text-base">{invoiceData.invoice_number}</div>
+            <div className="flex items-center gap-3 sm:gap-6">
+              <div className="flex-1">
+                <Label className="text-[10px] md:text-xs text-gray-500 block mb-1">Invoice #</Label>
+                <Input
+                  value={invoiceData.invoice_number}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, invoice_number: e.target.value })}
+                  className="font-mono font-bold text-sm md:text-base h-8 md:h-9"
+                  placeholder="e.g., ORD001"
+                />
               </div>
               <div className="text-right">
-                <Label className="text-[10px] md:text-xs text-gray-500">Date</Label>
-                <div className="font-medium text-sm md:text-base">{format(new Date(), "dd MMM yyyy")}</div>
+                <Label className="text-[10px] md:text-xs text-gray-500 block mb-1">Date</Label>
+                <div className="font-medium text-sm md:text-base mt-1">{format(new Date(), "dd MMM yyyy")}</div>
               </div>
             </div>
           </div>
