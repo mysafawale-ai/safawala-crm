@@ -208,7 +208,7 @@ export default function CreateInvoicePage() {
     bride_name: "",
     bride_whatsapp: "",
     bride_address: "",
-    payment_method: "cash" as "upi" | "bank" | "card" | "cash" | "international",
+    payment_method: "Cash / Offline Payment" as "UPI / QR Payment" | "Bank Transfer" | "Debit / Credit Card" | "Cash / Offline Payment" | "International Payment",
     amount_paid: 0,
     security_deposit: 0,
     gst_percentage: 5,
@@ -965,8 +965,8 @@ export default function CreateInvoicePage() {
         bride_name: invoiceData.bride_name || '',
         bride_whatsapp: invoiceData.bride_whatsapp || null,
         bride_address: invoiceData.bride_address || null,
-        payment_method: invoiceData.payment_method || 'cash',
-        payment_type: invoiceData.payment_method || 'cash',
+        payment_method: invoiceData.payment_method || 'Cash / Offline Payment',
+        payment_type: invoiceData.payment_method || 'Cash / Offline Payment',
         amount_paid: 0,
         total_amount: grandTotal || 0,
         subtotal: subtotal || 0,
@@ -1062,8 +1062,8 @@ export default function CreateInvoicePage() {
         bride_name: invoiceData.bride_name || '',
         bride_whatsapp: invoiceData.bride_whatsapp || null,
         bride_address: invoiceData.bride_address || null,
-        payment_method: invoiceData.payment_method || 'cash',
-        payment_type: invoiceData.payment_method || 'cash',
+        payment_method: invoiceData.payment_method || 'Cash / Offline Payment',
+        payment_type: invoiceData.payment_method || 'Cash / Offline Payment',
         amount_paid: invoiceData.amount_paid || 0,
         total_amount: grandTotal || 0,
         subtotal: subtotal || 0,
@@ -2477,11 +2477,11 @@ export default function CreateInvoicePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="upi">UPI / QR Payment</SelectItem>
-                      <SelectItem value="bank">Bank Transfer</SelectItem>
-                      <SelectItem value="card">Debit / Credit Card</SelectItem>
-                      <SelectItem value="cash">Cash / Offline Payment</SelectItem>
-                      <SelectItem value="international">International Payment</SelectItem>
+                      <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
+                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
+                      <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
+                      <SelectItem value="International Payment">International Payment</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2852,7 +2852,7 @@ export default function CreateInvoicePage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Method:</span>
-                  <span className="font-medium capitalize">{invoiceData.payment_method === 'upi' ? 'UPI / QR' : invoiceData.payment_method === 'bank' ? 'Bank Transfer' : invoiceData.payment_method === 'card' ? 'Card' : invoiceData.payment_method === 'international' ? 'International' : 'Cash'}</span>
+                  <span className="font-medium">{invoiceData.payment_method}</span>
                 </div>
                 {invoiceData.coupon_code && invoiceData.coupon_discount > 0 && (
                   <div className="flex justify-between text-green-600">
