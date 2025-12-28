@@ -1336,21 +1336,24 @@ export default function CreateInvoicePage() {
             </div>
           </div>
 
-          {/* Customer Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
+          {/* Customer & Event Section - Improved Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Customer Details Card */}
+            <Card className="p-4 shadow-sm border-l-4 border-l-orange-500">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-orange-500" />
-                  <span className="font-semibold">Customer Details</span>
+                  <div className="p-1.5 bg-orange-100 rounded-lg">
+                    <User className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <span className="font-semibold text-gray-800">Customer</span>
                 </div>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="print:hidden"
+                  className="print:hidden h-8 text-xs border-orange-200 hover:bg-orange-50 hover:text-orange-600"
                   onClick={() => setShowNewCustomerDialog(true)}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-3.5 w-3.5 mr-1" />
                   New
                 </Button>
               </div>
@@ -1363,19 +1366,20 @@ export default function CreateInvoicePage() {
                     placeholder="Search customers..."
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-9 text-sm bg-gray-50 border-gray-200 focus:bg-white"
                   />
                 </div>
               </div>
 
               {/* Customer List or Selected Customer */}
               {selectedCustomer ? (
-                <div className="p-3 rounded-md bg-orange-50 border border-orange-200 flex items-start justify-between">
-                  <div>
-                    <div className="font-medium text-orange-900">
+                <div className="p-3 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 flex items-start justify-between">
+                  <div className="space-y-0.5">
+                    <div className="font-semibold text-orange-900">
                       {selectedCustomer.name}
                     </div>
-                    <div className="text-xs text-orange-700">
+                    <div className="text-sm text-orange-700 flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
                       {selectedCustomer.phone}
                     </div>
                     {selectedCustomer.email && (
@@ -1387,49 +1391,49 @@ export default function CreateInvoicePage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="print:hidden"
+                    className="print:hidden h-7 w-7 p-0 hover:bg-orange-200"
                     onClick={() => setSelectedCustomer(null)}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               ) : (
-                <div className="border rounded-md max-h-56 overflow-y-auto text-sm print:hidden">
+                <div className="border rounded-lg max-h-48 overflow-y-auto text-sm print:hidden bg-white">
                   {customersLoading ? (
                     <div className="space-y-0">
-                      {[1, 2, 3, 4, 5].map((i) => (
+                      {[1, 2, 3, 4].map((i) => (
                         <div key={i} className="p-3 border-b last:border-b-0">
-                          <div className="h-5 w-32 mb-2 bg-gray-200 rounded animate-pulse" />
-                          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-4 w-28 mb-1.5 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
                         </div>
                       ))}
                     </div>
                   ) : (
                     <>
-                      {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
+                      {(customerSearch ? filteredCustomers : customers.slice(0, 4)).map((c) => (
                         <button
                           key={c.id}
                           onClick={() => setSelectedCustomer(c)}
-                          className="w-full text-left p-3 border-b last:border-b-0 hover:bg-orange-50 transition-colors"
+                          className="w-full text-left p-2.5 border-b last:border-b-0 hover:bg-orange-50 transition-colors group"
                         >
-                          <div className="font-medium">{c.name}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="font-medium text-gray-800 group-hover:text-orange-700">{c.name}</div>
+                          <div className="text-xs text-gray-500">
                             {c.phone}
                           </div>
                         </button>
                       ))}
                       {customerSearch && filteredCustomers.length === 0 && (
-                        <div className="p-3 text-xs text-muted-foreground">
-                          No matches
+                        <div className="p-3 text-xs text-gray-500 text-center">
+                          No matches found
                         </div>
                       )}
-                      {!customerSearch && customers.length > 5 && (
-                        <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
-                          Showing first 5 of {customers.length} customers. Type to search more...
+                      {!customerSearch && customers.length > 4 && (
+                        <div className="p-2 text-xs text-gray-500 text-center bg-gray-50 border-t">
+                          Type to search {customers.length} customers...
                         </div>
                       )}
                       {!customerSearch && customers.length === 0 && !customersLoading && (
-                        <div className="p-3 text-xs text-muted-foreground">
+                        <div className="p-3 text-xs text-gray-500 text-center">
                           No customers found
                         </div>
                       )}
@@ -1442,21 +1446,23 @@ export default function CreateInvoicePage() {
             {/* Event / Delivery Details */}
             {invoiceData.invoice_type === "rental" ? (
               <>
-                {/* Full event details for rentals */}
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <CalendarIcon className="h-4 w-4 text-orange-500" />
-                    <span className="font-semibold">Event Details</span>
+                {/* Full event details for rentals - spans 2 columns */}
+                <Card className="p-4 shadow-sm border-l-4 border-l-blue-500 lg:col-span-2">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="p-1.5 bg-blue-100 rounded-lg">
+                      <CalendarIcon className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <span className="font-semibold text-gray-800">Event Details</span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                     <div>
-                      <Label className="text-xs text-gray-500">Event Type</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Event Type</Label>
                       <Select
                         value={invoiceData.event_type}
                         onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
                       >
-                        <SelectTrigger className="print:border-0 print:p-0">
+                        <SelectTrigger className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1468,12 +1474,12 @@ export default function CreateInvoicePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">For</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">For</Label>
                       <Select
                         value={invoiceData.event_participant}
                         onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
                       >
-                        <SelectTrigger className="print:border-0 print:p-0">
+                        <SelectTrigger className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1484,197 +1490,199 @@ export default function CreateInvoicePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Event Date</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Event Date</Label>
                       <Input
                         type="date"
                         value={invoiceData.event_date}
                         onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
-                        className="print:border-0 print:p-0"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Event Time</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Event Time</Label>
                       <Input
                         type="time"
                         value={invoiceData.event_time}
                         onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
-                        className="print:border-0 print:p-0"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                       />
                     </div>
-                    <div className="md:col-start-1">
-                      <Label className="text-xs text-gray-500">Delivery Date</Label>
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Date</Label>
                       <Input
                         type="date"
                         value={invoiceData.delivery_date}
                         onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
-                        className="print:border-0 print:p-0"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Delivery Time</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Time</Label>
                       <Input
                         type="time"
                         value={invoiceData.delivery_time}
                         onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
-                        className="print:border-0 print:p-0"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Return Date</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Return Date</Label>
                       <Input
                         type="date"
                         value={invoiceData.return_date}
                         onChange={(e) => setInvoiceData({ ...invoiceData, return_date: e.target.value })}
-                        className="print:border-0 print:p-0"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Return Time</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Return Time</Label>
                       <Input
                         type="time"
                         value={invoiceData.return_time}
                         onChange={(e) => setInvoiceData({ ...invoiceData, return_time: e.target.value })}
-                        className="print:border-0 print:p-0"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                      />
+                    </div>
+                    {/* Venue Address - full width at bottom */}
+                    <div className="col-span-2 md:col-span-4 pt-2 border-t border-gray-100 mt-1">
+                      <Label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        Venue Address
+                      </Label>
+                      <Textarea
+                        value={invoiceData.venue_address}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
+                        placeholder="Enter venue address..."
+                        rows={2}
+                        className="bg-gray-50 border-gray-200 resize-none print:border-0 print:p-0"
                       />
                     </div>
                   </div>
                 </Card>
-
-                {/* Groom & Bride Details - rentals only, conditional based on event_participant */}
-                <div className={`grid gap-6 ${
-                  invoiceData.event_participant === "both" 
-                    ? "grid-cols-1 md:grid-cols-2" 
-                    : "grid-cols-1 max-w-md"
-                }`}>
-                  {/* Groom Details - show for "groom" or "both" */}
-                  {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && (
-                    <Card className="p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <User className="h-4 w-4 text-blue-500" />
-                        <span className="font-semibold">Groom Details</span>
-                      </div>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <Label className="text-xs text-gray-500">Name</Label>
-                          <Input
-                            value={invoiceData.groom_name}
-                            onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
-                            placeholder="Groom's name"
-                            className="print:border-0 print:p-0"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">WhatsApp</Label>
-                          <Input
-                            value={invoiceData.groom_whatsapp}
-                            onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
-                            placeholder="WhatsApp number"
-                            className="print:border-0 print:p-0"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">Address</Label>
-                          <Textarea
-                            value={invoiceData.groom_address}
-                            onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
-                            placeholder="Address"
-                            rows={2}
-                            className="print:border-0 print:p-0"
-                          />
-                        </div>
-                      </div>
-                    </Card>
-                  )}
-
-                  {/* Bride Details - show for "bride" or "both" */}
-                  {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && (
-                    <Card className="p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <User className="h-4 w-4 text-pink-500" />
-                        <span className="font-semibold">Bride Details</span>
-                      </div>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <Label className="text-xs text-gray-500">Name</Label>
-                          <Input
-                            value={invoiceData.bride_name}
-                            onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
-                            placeholder="Bride's name"
-                            className="print:border-0 print:p-0"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">WhatsApp</Label>
-                          <Input
-                            value={invoiceData.bride_whatsapp}
-                            onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
-                            placeholder="WhatsApp number"
-                            className="print:border-0 print:p-0"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-gray-500">Address</Label>
-                          <Textarea
-                            value={invoiceData.bride_address}
-                            onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
-                            placeholder="Address"
-                            rows={2}
-                            className="print:border-0 print:p-0"
-                          />
-                        </div>
-                      </div>
-                    </Card>
-                  )}
-                </div>
               </>
             ) : (
               /* Direct sale layout: only delivery details + address */
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <CalendarIcon className="h-4 w-4 text-orange-500" />
-                  <span className="font-semibold">Direct Sale Details</span>
+              <Card className="p-4 shadow-sm border-l-4 border-l-green-500 lg:col-span-2">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 bg-green-100 rounded-lg">
+                    <CalendarIcon className="h-4 w-4 text-green-600" />
+                  </div>
+                  <span className="font-semibold text-gray-800">Direct Sale Details</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                   <div>
-                    <Label className="text-xs text-gray-500">Delivery Date</Label>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Date</Label>
                     <Input
                       type="date"
                       value={invoiceData.delivery_date}
                       onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
-                      className="print:border-0 print:p-0"
+                      className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-500">Delivery Time</Label>
+                    <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Time</Label>
                     <Input
                       type="time"
                       value={invoiceData.delivery_time}
                       onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
-                      className="print:border-0 print:p-0"
+                      className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
                     />
                   </div>
                 </div>
-
               </Card>
             )}
           </div>
 
-          {/* Address section for rentals only (venue + delivery) */}
+          {/* Groom & Bride Details - separate section, only for rentals */}
           {invoiceData.invoice_type === "rental" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-gray-500 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  Venue Address
-                </Label>
-                <Textarea
-                  value={invoiceData.venue_address}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
-                  placeholder="Enter venue address..."
-                  rows={2}
-                  className="mt-1 print:border-0 print:p-0"
-                />
-              </div>
+            <div className={`grid gap-4 ${
+              invoiceData.event_participant === "both" 
+                ? "grid-cols-1 md:grid-cols-2" 
+                : "grid-cols-1 md:max-w-md"
+            }`}>
+              {/* Groom Details - show for "groom" or "both" */}
+              {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && (
+                <Card className="p-4 shadow-sm border-l-4 border-l-sky-500">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="p-1.5 bg-sky-100 rounded-lg">
+                      <User className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <span className="font-semibold text-gray-800">Groom Details</span>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Name</Label>
+                      <Input
+                        value={invoiceData.groom_name}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
+                        placeholder="Groom's name"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">WhatsApp</Label>
+                      <Input
+                        value={invoiceData.groom_whatsapp}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
+                        placeholder="WhatsApp number"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Address</Label>
+                      <Textarea
+                        value={invoiceData.groom_address}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
+                        placeholder="Address"
+                        rows={2}
+                        className="bg-gray-50 border-gray-200 resize-none print:border-0 print:p-0"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Bride Details - show for "bride" or "both" */}
+              {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && (
+                <Card className="p-4 shadow-sm border-l-4 border-l-pink-500">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="p-1.5 bg-pink-100 rounded-lg">
+                      <User className="h-4 w-4 text-pink-600" />
+                    </div>
+                    <span className="font-semibold text-gray-800">Bride Details</span>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Name</Label>
+                      <Input
+                        value={invoiceData.bride_name}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
+                        placeholder="Bride's name"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">WhatsApp</Label>
+                      <Input
+                        value={invoiceData.bride_whatsapp}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
+                        placeholder="WhatsApp number"
+                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">Address</Label>
+                      <Textarea
+                        value={invoiceData.bride_address}
+                        onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
+                        placeholder="Address"
+                        rows={2}
+                        className="bg-gray-50 border-gray-200 resize-none print:border-0 print:p-0"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
           )}
 
@@ -2549,26 +2557,30 @@ export default function CreateInvoicePage() {
               <span className="font-semibold text-xs">Terms & Conditions</span>
             </div>
             <div className="text-[10px] text-gray-600 print:text-[9px]">
-              {invoiceData.invoice_type === "rental" ? (
-                <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
-                  <li>Items must be returned by agreed return date</li>
-                  <li>Late returns incur additional charges</li>
-                  <li>Return items in original condition</li>
-                  <li>Customer responsible during rental period</li>
-                  <li>Damage/loss: Repair or replacement cost charged</li>
-                  <li>Security deposit covers damages</li>
-                  <li>Advance payment required for confirmation</li>
-                  <li>ID proof required at delivery</li>
-                </ul>
+              {companySettings?.terms_conditions ? (
+                <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
               ) : (
-                <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
-                  <li>All sales are final, no returns</li>
-                  <li>Check items before leaving</li>
-                  <li>Warranty as per product terms</li>
-                  <li>Receipt required for any claims</li>
-                  <li>Prices inclusive of applicable taxes</li>
-                  <li>Management decision final in disputes</li>
-                </ul>
+                invoiceData.invoice_type === "rental" ? (
+                  <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
+                    <li>Items must be returned by agreed return date</li>
+                    <li>Late returns incur additional charges</li>
+                    <li>Return items in original condition</li>
+                    <li>Customer responsible during rental period</li>
+                    <li>Damage/loss: Repair or replacement cost charged</li>
+                    <li>Security deposit covers damages</li>
+                    <li>Advance payment required for confirmation</li>
+                    <li>ID proof required at delivery</li>
+                  </ul>
+                ) : (
+                  <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
+                    <li>All sales are final, no returns</li>
+                    <li>Check items before leaving</li>
+                    <li>Warranty as per product terms</li>
+                    <li>Receipt required for any claims</li>
+                    <li>Prices inclusive of applicable taxes</li>
+                    <li>Management decision final in disputes</li>
+                  </ul>
+                )
               )}
             </div>
           </Card>
@@ -2768,26 +2780,30 @@ export default function CreateInvoicePage() {
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">Terms & Conditions</div>
             <div className="text-[9px] text-gray-600">
-              {invoiceData.invoice_type === "rental" ? (
-                <ul className="list-disc list-inside space-y-0.5 columns-2">
-                  <li>Items must be returned by agreed return date</li>
-                  <li>Late returns incur additional charges</li>
-                  <li>Return items in original condition</li>
-                  <li>Customer responsible during rental period</li>
-                  <li>Damage/loss: Repair or replacement cost charged</li>
-                  <li>Security deposit covers damages</li>
-                  <li>Advance payment required for confirmation</li>
-                  <li>ID proof required at delivery</li>
-                </ul>
+              {companySettings?.terms_conditions ? (
+                <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
               ) : (
-                <ul className="list-disc list-inside space-y-0.5 columns-2">
-                  <li>All sales are final, no returns</li>
-                  <li>Check items before leaving</li>
-                  <li>Warranty as per product terms</li>
-                  <li>Receipt required for any claims</li>
-                  <li>Prices inclusive of applicable taxes</li>
-                  <li>Management decision final in disputes</li>
-                </ul>
+                invoiceData.invoice_type === "rental" ? (
+                  <ul className="list-disc list-inside space-y-0.5 columns-2">
+                    <li>Items must be returned by agreed return date</li>
+                    <li>Late returns incur additional charges</li>
+                    <li>Return items in original condition</li>
+                    <li>Customer responsible during rental period</li>
+                    <li>Damage/loss: Repair or replacement cost charged</li>
+                    <li>Security deposit covers damages</li>
+                    <li>Advance payment required for confirmation</li>
+                    <li>ID proof required at delivery</li>
+                  </ul>
+                ) : (
+                  <ul className="list-disc list-inside space-y-0.5 columns-2">
+                    <li>All sales are final, no returns</li>
+                    <li>Check items before leaving</li>
+                    <li>Warranty as per product terms</li>
+                    <li>Receipt required for any claims</li>
+                    <li>Prices inclusive of applicable taxes</li>
+                    <li>Management decision final in disputes</li>
+                  </ul>
+                )
               )}
             </div>
           </div>
