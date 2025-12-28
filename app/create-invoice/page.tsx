@@ -2077,6 +2077,21 @@ export default function CreateInvoicePage() {
                   />
                 </div>
 
+                {/* Amount Paid */}
+                <div>
+                  <Label className="text-xs text-gray-500">Amount Paid (₹)</Label>
+                  <Input
+                    type="number"
+                    value={invoiceData.amount_paid}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, amount_paid: parseFloat(e.target.value) || 0 })}
+                    className="print:border-0"
+                    placeholder="Enter amount paid"
+                  />
+                  {invoiceData.amount_paid > 0 && (
+                    <p className="text-xs text-blue-500 mt-1">Balance: {formatCurrency(Math.max(0, grandTotal - invoiceData.amount_paid))}</p>
+                  )}
+                </div>
+
                 {/* Coupon Code - simple input */}
                 <div className="print:hidden">
                   <Label className="text-xs text-gray-500">Coupon Code (Optional)</Label>
