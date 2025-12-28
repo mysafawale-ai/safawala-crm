@@ -173,12 +173,8 @@ export function BookingsTabs({
                       return (
                         <Badge 
                           variant="outline" 
-                          className="text-orange-600 border-orange-300 cursor-pointer hover:bg-orange-50"
-                          onClick={() => {
-                            setCurrentBookingForItems?.(booking)
-                            setSelectedItems?.([])
-                            setShowItemsSelection?.(true)
-                          }}
+                          className="text-orange-600 border-orange-300"
+                          title="Click Edit button to add products"
                         >
                           ⏳ Selection Pending
                         </Badge>
