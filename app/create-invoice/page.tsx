@@ -921,7 +921,7 @@ export default function CreateInvoicePage() {
         bride_whatsapp: invoiceData.bride_whatsapp || null,
         bride_address: invoiceData.bride_address || null,
         payment_method: invoiceData.payment_method,
-        payment_type: 'full', // Required field: full, advance, partial
+        payment_type: invoiceData.payment_method, // Store payment method as type
         amount_paid: 0,
         total_amount: grandTotal,
         subtotal: subtotal,
@@ -1016,7 +1016,7 @@ export default function CreateInvoicePage() {
         bride_whatsapp: invoiceData.bride_whatsapp || null,
         bride_address: invoiceData.bride_address || null,
         payment_method: invoiceData.payment_method,
-        payment_type: 'full', // Required field: full, advance, partial
+        payment_type: invoiceData.payment_method, // Store payment method as type
         amount_paid: invoiceData.amount_paid,
         total_amount: grandTotal,
         subtotal: subtotal,
