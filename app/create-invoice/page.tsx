@@ -570,7 +570,8 @@ export default function CreateInvoicePage() {
     ? (useCustomPackagePrice && customPackagePrice > 0 ? customPackagePrice : (selectedPackage.base_price || 0))
     : 0
   const baseSubtotal = itemsSubtotal + packagePrice
-  const subtotal = baseSubtotal
+  // Use override price if enabled, otherwise use calculated subtotal
+  const subtotal = (useCustomPackagePrice && customPackagePrice > 0) ? customPackagePrice : baseSubtotal
   const discountAmount = invoiceData.discount_type === "percentage" 
     ? (subtotal * invoiceData.discount_amount / 100)
     : invoiceData.discount_amount
@@ -2018,8 +2019,8 @@ export default function CreateInvoicePage() {
                 {/* Custom Amount */}
                 {/* Removed - use Override Package Price instead for package mode */}
 
-                {/* Override Package Price - only for package mode */}
-                {selectionMode === "package" && selectedPackage && (
+                {/* Override Price - for both products and packages in rentals */}
+                {invoiceData.invoice_type === "rental" && (
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Checkbox
@@ -2027,17 +2028,17 @@ export default function CreateInvoicePage() {
                         checked={useCustomPackagePrice}
                         onCheckedChange={(checked) => setUseCustomPackagePrice(checked as boolean)}
                       />
-                      <Label htmlFor="useCustomPackagePrice" className="text-xs text-gray-500 cursor-pointer">Override Package Price (₹)</Label>
+                      <Label htmlFor="useCustomPackagePrice" className="text-xs text-gray-500 cursor-pointer">Override price (₹)</Label>
                     </div>
                     <Input
                       type="number"
                       value={customPackagePrice}
                       onChange={(e) => setCustomPackagePrice(parseFloat(e.target.value) || 0)}
                       className="print:border-0"
-                      placeholder="Enter custom package price"
+                      placeholder="Enter custom price"
                       disabled={!useCustomPackagePrice}
                     />
-                    {useCustomPackagePrice && customPackagePrice > 0 && <p className="text-xs text-orange-500 mt-1">Overrides base package price</p>}
+                    {useCustomPackagePrice && customPackagePrice > 0 && <p className="text-xs text-orange-500 mt-1">Overrides total price</p>}
                   </div>
                 )}
 
