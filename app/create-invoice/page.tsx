@@ -172,6 +172,7 @@ export default function CreateInvoicePage() {
   const [validatingCoupon, setValidatingCoupon] = useState(false)
   const [couponError, setCouponError] = useState<string | null>(null)
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
+  const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   
   // Selection Mode: "products" = individual products, "package" = package with products inside
   const [selectionMode, setSelectionMode] = useState<"products" | "package">("products")
@@ -826,6 +827,49 @@ export default function CreateInvoicePage() {
   }
 
   // Create new customer via API (respects franchise + validation)
+  // Pincode auto-fill for city and state
+  const handlePincodeChange = async (value: string) => {
+    // Update pincode value
+    setNewCustomer(prev => ({ ...prev, pincode: value }))
+    
+    // Only lookup if 6 digits
+    if (value.length !== 6 || !/^\d{6}$/.test(value)) {
+      setPincodeStatus("idle")
+      return
+    }
+
+    setPincodeStatus("loading")
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${value}`)
+      const data = await response.json()
+
+      if (data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
+        const postOffice = data[0].PostOffice[0]
+        setNewCustomer(prev => ({
+          ...prev,
+          pincode: value,
+          city: postOffice.District || "",
+          state: postOffice.State || "",
+        }))
+        setPincodeStatus("success")
+        toast({
+          title: "Pincode Verified",
+          description: `${postOffice.District}, ${postOffice.State}`,
+        })
+      } else {
+        setPincodeStatus("error")
+        toast({
+          title: "Invalid Pincode",
+          description: "Please enter a valid 6-digit pincode",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Pincode lookup error:", error)
+      setPincodeStatus("error")
+    }
+  }
+
   const handleCreateCustomer = async () => {
     if (!newCustomer.name || !newCustomer.phone) {
       toast({ title: "Error", description: "Name and phone are required", variant: "destructive" })
@@ -864,6 +908,7 @@ export default function CreateInvoicePage() {
 
       setShowNewCustomerDialog(false)
       setNewCustomer({ name: "", phone: "", address: "", city: "", state: "", pincode: "" })
+      setPincodeStatus("idle")
       toast({ title: "Success", description: result.message || "Customer created" })
     } catch (error) {
       console.error("[CreateInvoice] Error creating customer:", error)
@@ -2999,10 +3044,32 @@ export default function CreateInvoicePage() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div>
+                <Label className="text-xs">Pincode</Label>
+                <div className="relative">
+                  <Input
+                    value={newCustomer.pincode}
+                    onChange={(e) => handlePincodeChange(e.target.value)}
+                    placeholder="6 digits"
+                    maxLength={6}
+                    className={pincodeStatus === "success" ? "border-green-500 pr-8" : pincodeStatus === "error" ? "border-red-500" : ""}
+                  />
+                  {pincodeStatus === "loading" && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  )}
+                  {pincodeStatus === "success" && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-green-500">✓</div>
+                  )}
+                </div>
+              </div>
+              <div>
                 <Label className="text-xs">City</Label>
                 <Input
                   value={newCustomer.city}
                   onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })}
+                  placeholder="Auto-filled"
+                  className={pincodeStatus === "success" ? "bg-green-50" : ""}
                 />
               </div>
               <div>
@@ -3010,13 +3077,8 @@ export default function CreateInvoicePage() {
                 <Input
                   value={newCustomer.state}
                   onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Pincode</Label>
-                <Input
-                  value={newCustomer.pincode}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, pincode: e.target.value })}
+                  placeholder="Auto-filled"
+                  className={pincodeStatus === "success" ? "bg-green-50" : ""}
                 />
               </div>
             </div>
