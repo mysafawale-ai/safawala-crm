@@ -269,7 +269,8 @@ export default function CreateInvoicePage() {
   const loadCustomers = async () => {
     setCustomersLoading(true)
     try {
-      const response = await fetch("/api/customers?basic=1", {
+      // Use same endpoint as booking edit page (without ?basic=1)
+      const response = await fetch("/api/customers", {
         method: "GET",
         cache: "no-store",
         credentials: "include",
