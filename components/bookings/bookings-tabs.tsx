@@ -181,41 +181,14 @@ export function BookingsTabs({
                       )
                     }
                     
-                    if (bookingType === 'rental') {
-                      return (
-                        <Badge 
-                          variant="default"
-                          className="bg-blue-600 cursor-pointer hover:bg-blue-700"
-                          onClick={() => {
-                            setProductDialogBooking?.(booking)
-                            setProductDialogType?.('items')
-                            setShowProductDialog?.(true)
-                          }}
-                        >
-                          📦 Items
-                        </Badge>
-                      )
-                    }
-                    
-                    if (items.length === 0) {
-                      return (
-                        <Badge 
-                          variant="default"
-                          className="cursor-pointer hover:bg-primary/80"
-                          onClick={() => handleOpenCompactDisplay?.(booking)}
-                        >
-                          Items
-                        </Badge>
-                      )
-                    }
-                    
+                    // Show static "Items Selected" tag - no popup
                     return (
                       <Badge 
-                        variant="outline"
-                        className="cursor-pointer hover:bg-gray-100 border-gray-300"
-                        onClick={() => handleOpenCompactDisplay?.(booking)}
+                        variant="default"
+                        className="bg-green-600"
+                        title={`${items.length} item(s) selected`}
                       >
-                        Items
+                        ✓ Items Selected
                       </Badge>
                     )
                   })()}
