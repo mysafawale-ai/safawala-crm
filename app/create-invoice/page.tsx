@@ -162,6 +162,9 @@ export default function CreateInvoicePage() {
   const [skipProductSelection, setSkipProductSelection] = useState(false)
   const [useCustomAmount, setUseCustomAmount] = useState(false)
   const [customAmount, setCustomAmount] = useState(0)
+  const [useCustomPackagePrice, setUseCustomPackagePrice] = useState(false)
+  const [customPackagePrice, setCustomPackagePrice] = useState(0)
+  const [isDepositRefunded, setIsDepositRefunded] = useState(false)
   
   // Selection Mode: "products" = individual products, "package" = package with products inside
   const [selectionMode, setSelectionMode] = useState<"products" | "package">("products")
@@ -566,7 +569,7 @@ export default function CreateInvoicePage() {
   const itemsSubtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0)
   // Include package price if a package is selected (package is now a variant directly)
   const packagePrice = selectionMode === "package" && selectedPackage 
-    ? (selectedPackage.base_price || 0) 
+    ? (useCustomPackagePrice && customPackagePrice > 0 ? customPackagePrice : (selectedPackage.base_price || 0))
     : 0
   const baseSubtotal = itemsSubtotal + packagePrice
   const subtotal = useCustomAmount && customAmount > 0 ? customAmount : baseSubtotal
@@ -1460,6 +1463,8 @@ export default function CreateInvoicePage() {
                         setSelectedPackage(null)
                         setSelectedPackageVariant(null)
                         setSelectedPackageCategory("")
+                        setUseCustomPackagePrice(false)
+                        setCustomPackagePrice(0)
                       }}
                       className="flex-1"
                     >
@@ -1551,6 +1556,8 @@ export default function CreateInvoicePage() {
                               setSelectedPackageCategory(cat.id)
                               setSelectedPackage(null)
                               setSelectedPackageVariant(null)
+                              setUseCustomPackagePrice(false)
+                              setCustomPackagePrice(0)
                             }}
                             className="justify-start"
                           >
@@ -1581,6 +1588,8 @@ export default function CreateInvoicePage() {
                                 onClick={() => {
                                   setSelectedPackage(pkg)
                                   setSelectedPackageVariant(null)
+                                  setUseCustomPackagePrice(false)
+                                  setCustomPackagePrice(0)
                                 }}
                               >
                                 <div className="flex items-center justify-between">
@@ -1630,31 +1639,64 @@ export default function CreateInvoicePage() {
 
                     {/* Selected Package Summary */}
                     {selectedPackage && (
-                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold text-green-800">Selected: {selectedPackage.name || selectedPackage.variant_name}</h4>
-                            {selectedPackage.inclusions && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {(Array.isArray(selectedPackage.inclusions) 
-                                  ? selectedPackage.inclusions 
-                                  : typeof selectedPackage.inclusions === 'string' 
-                                    ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
-                                    : []
-                                ).map((inc: string, i: number) => (
-                                  <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
-                                ))}
-                              </div>
-                            )}
+                      <div className="space-y-3">
+                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-semibold text-green-800">Selected: {selectedPackage.name || selectedPackage.variant_name}</h4>
+                              {selectedPackage.inclusions && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {(Array.isArray(selectedPackage.inclusions) 
+                                    ? selectedPackage.inclusions 
+                                    : typeof selectedPackage.inclusions === 'string' 
+                                      ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
+                                      : []
+                                  ).map((inc: string, i: number) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-green-700">
+                                ₹{packagePrice.toLocaleString()}
+                              </p>
+                              {selectedPackage.security_deposit > 0 && (
+                                <p className="text-xs text-gray-500">+₹{selectedPackage.security_deposit} deposit</p>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-green-700">
-                              ₹{(selectedPackage.base_price || 0).toLocaleString()}
+                        </div>
+
+                        {/* Custom Package Price */}
+                        <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Checkbox
+                              id="useCustomPackagePrice"
+                              checked={useCustomPackagePrice}
+                              onCheckedChange={(checked) => setUseCustomPackagePrice(checked as boolean)}
+                            />
+                            <label
+                              htmlFor="useCustomPackagePrice"
+                              className="text-xs font-medium text-orange-700 cursor-pointer"
+                            >
+                              Override Package Price
+                            </label>
+                          </div>
+                          {useCustomPackagePrice && (
+                            <Input
+                              type="number"
+                              value={customPackagePrice}
+                              onChange={(e) => setCustomPackagePrice(parseFloat(e.target.value) || 0)}
+                              placeholder="Enter custom price"
+                              className="text-sm"
+                            />
+                          )}
+                          {useCustomPackagePrice && customPackagePrice > 0 && (
+                            <p className="text-xs text-orange-600 mt-1">
+                              Final price: ₹{customPackagePrice.toLocaleString()} (overrides base price)
                             </p>
-                            {selectedPackage.security_deposit > 0 && (
-                              <p className="text-xs text-gray-500">+₹{selectedPackage.security_deposit} deposit</p>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -2027,7 +2069,7 @@ export default function CreateInvoicePage() {
 
                 {/* Security Deposit - rental only */}
                 {invoiceData.invoice_type === "rental" && (
-                  <div>
+                  <div className="space-y-2">
                     <Label className="text-xs text-gray-500">Security Deposit (₹)</Label>
                     <Input
                       type="number"
@@ -2036,6 +2078,19 @@ export default function CreateInvoicePage() {
                       className="print:border-0"
                       placeholder="Enter security deposit"
                     />
+                    <div className="flex items-center space-x-2 pt-1">
+                      <Checkbox
+                        id="depositRefunded"
+                        checked={isDepositRefunded}
+                        onCheckedChange={(checked) => setIsDepositRefunded(checked as boolean)}
+                      />
+                      <label
+                        htmlFor="depositRefunded"
+                        className="text-xs text-gray-500 cursor-pointer"
+                      >
+                        Mark as Refunded
+                      </label>
+                    </div>
                   </div>
                 )}
 
