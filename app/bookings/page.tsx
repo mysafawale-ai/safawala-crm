@@ -789,45 +789,34 @@ export default function BookingsPage() {
   }
 
   const handleArchiveBooking = async (bookingId: string, source?: string) => {
-    if (!confirm("Archive this booking? It will be moved to the archived section.")) {
-      return
-    }
+    if (!confirm("Archive this booking?")) return
+    
+    console.log('[Archive] Starting archive for:', bookingId, 'source:', source)
     
     try {
-      console.log('[Bookings] Archiving booking:', bookingId, 'source:', source)
+      // Try product_orders first (most common)
+      const response = await fetch('/api/bookings/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: bookingId, 
+          type: source === 'package_bookings' ? 'package_booking' : 'product_order'
+        })
+      })
       
-      // Determine the correct table based on source
-      let tableName = 'product_orders' // default
-      if (source === 'package_bookings' || source === 'package_booking') {
-        tableName = 'package_bookings'
-      } else if (source === 'direct_sales' || source === 'direct_sales_orders') {
-        tableName = 'direct_sales_orders'
-      }
+      const result = await response.json()
+      console.log('[Archive] Response:', result)
       
-      // Direct Supabase update - simpler and more reliable
-      const supabase = createClient()
-      const { error } = await supabase
-        .from(tableName)
-        .update({ is_archived: true })
-        .eq('id', bookingId)
-      
-      if (error) {
-        console.error('[Bookings] Archive error:', error)
-        throw new Error(error.message || 'Failed to archive booking')
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to archive')
       }
       
       toast({ title: 'Archived', description: 'Booking archived successfully' })
-      
-      // Refresh the list
       await refresh()
       
     } catch (error: any) {
-      console.error('[Bookings] Archive error:', error)
-      toast({ 
-        title: 'Error', 
-        description: error.message || 'Failed to archive booking', 
-        variant: 'destructive' 
-      })
+      console.error('[Archive] Error:', error)
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
     }
   }
 
