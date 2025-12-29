@@ -2081,9 +2081,8 @@ export default function CreateInvoicePage() {
 
 
           {/* Selection Mode Toggle & Options - Only for rentals */}
-          <Card className="p-4 mb-4 print:hidden bg-gray-50">
-            {/* Selection Mode Toggle - Only for rental */}
-            {invoiceData.invoice_type === "rental" && (
+          {invoiceData.invoice_type === "rental" && (
+            <Card className="p-4 mb-4 print:hidden bg-gray-50">
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <Label className="text-sm font-medium mb-2 block">Selection Mode</Label>
                 <div className="flex gap-2">
@@ -2116,9 +2115,8 @@ export default function CreateInvoicePage() {
                   </Button>
                 </div>
               </div>
-            )}
-
-          </Card>
+            </Card>
+          )}
 
             {/* Package Selector - Show when package mode is selected (rental only) */}
             {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
