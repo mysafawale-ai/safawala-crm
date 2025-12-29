@@ -2055,55 +2055,45 @@ export default function CreateInvoicePage() {
 
 
 
-          {/* Items Section */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-orange-500" />
-                <span className="font-semibold">Items</span>
-                <Badge variant="secondary">{invoiceItems.length}</Badge>
-              </div>
-            </div>
-
-            {/* Selection Mode Toggle & Options - Only for rentals */}
-            <Card className="p-4 mb-4 print:hidden bg-gray-50">
-              {/* Selection Mode Toggle - Only for rental */}
-              {invoiceData.invoice_type === "rental" && (
-                <div className="mb-4 pb-4 border-b border-gray-200">
-                  <Label className="text-sm font-medium mb-2 block">Selection Mode</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={selectionMode === "products" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        setSelectionMode("products")
-                        setSelectedPackage(null)
-                        setSelectedPackageVariant(null)
-                        setSelectedPackageCategory("")
-                        setUseCustomPackagePrice(false)
-                        setCustomPackagePrice(0)
-                      }}
-                      className="flex-1"
-                    >
-                      <Package className="h-4 w-4 mr-2" />
-                      Individual Products
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={selectionMode === "package" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectionMode("package")}
-                      className="flex-1"
-                    >
-                      <Tag className="h-4 w-4 mr-2" />
-                      Package
-                    </Button>
-                  </div>
+          {/* Selection Mode Toggle & Options - Only for rentals */}
+          <Card className="p-4 mb-4 print:hidden bg-gray-50">
+            {/* Selection Mode Toggle - Only for rental */}
+            {invoiceData.invoice_type === "rental" && (
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <Label className="text-sm font-medium mb-2 block">Selection Mode</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={selectionMode === "products" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setSelectionMode("products")
+                      setSelectedPackage(null)
+                      setSelectedPackageVariant(null)
+                      setSelectedPackageCategory("")
+                      setUseCustomPackagePrice(false)
+                      setCustomPackagePrice(0)
+                    }}
+                    className="flex-1"
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Individual Products
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={selectionMode === "package" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectionMode("package")}
+                    className="flex-1"
+                  >
+                    <Tag className="h-4 w-4 mr-2" />
+                    Package
+                  </Button>
                 </div>
-              )}
+              </div>
+            )}
 
-            </Card>
+          </Card>
 
             {/* Package Selector - Show when package mode is selected (rental only) */}
             {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
@@ -2459,7 +2449,6 @@ export default function CreateInvoicePage() {
                 </tbody>
               </table>
             </div>
-          </div>
 
           {/* Lost/Damaged Items Section - only for rentals */}
           {invoiceData.invoice_type === "rental" && (mode === "final-bill" || lostDamagedItems.length > 0) && (
