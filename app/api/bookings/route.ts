@@ -59,6 +59,22 @@ export async function GET(request: NextRequest) {
       .eq('franchise_id', franchiseId)
       .eq('booking_type', 'rental')
       .eq('is_quote', false)
+      .eq('is_archived', false)
+      .order("created_at", { ascending: false })
+
+    // ============ PRODUCT ORDERS (SALES ONLY) ============
+    // Sales created via create-invoice are stored in product_orders with booking_type='sale'
+    let productSalesQuery = supabase
+      .from("product_orders")
+      .select(`
+        id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
+        event_type, venue_address, total_amount, amount_paid, notes, created_at, has_modifications, modifications_details, modification_date,
+        customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
+      `)
+      .eq('franchise_id', franchiseId)
+      .eq('booking_type', 'sale')
+      .eq('is_quote', false)
+      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     // ============ DIRECT SALES ORDERS (FROM DIRECT_SALES_ORDERS TABLE) ============
@@ -89,28 +105,31 @@ export async function GET(request: NextRequest) {
       .eq('is_quote', false)
       .order("created_at", { ascending: false })
 
-    // Execute all three queries in parallel
-    const [productRes, directSalesRes, packageRes] = await Promise.all([
+    // Execute all four queries in parallel
+    const [productRes, productSalesRes, directSalesRes, packageRes] = await Promise.all([
       productQuery,
+      productSalesQuery,
       directSalesQuery,
       packageQuery
     ])
 
     // Log results
     console.log(`[Bookings API] Fetching for franchiseId: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
-    console.log(`[Bookings API] Product orders: ${(productRes.data || []).length}, Error: ${productRes.error?.message || 'none'}`)
+    console.log(`[Bookings API] Product rentals: ${(productRes.data || []).length}, Error: ${productRes.error?.message || 'none'}`)
+    console.log(`[Bookings API] Product sales: ${(productSalesRes.data || []).length}, Error: ${productSalesRes.error?.message || 'none'}`)
     if (productRes.data && productRes.data.length > 0) {
       console.log(`[Bookings API] Product sample - first 3 franchise_ids:`, productRes.data.slice(0, 3).map((r: any) => r.franchise_id))
     }
     console.log(`[Bookings API] Package bookings: ${(packageRes.data || []).length}, Error: ${packageRes.error?.message || 'none'}`)
-    console.log(`[Bookings API] Direct sales: ${(directSalesRes.data || []).length}, Error: ${directSalesRes.error?.message || 'none'}`)
+    console.log(`[Bookings API] Direct sales (table): ${(directSalesRes.data || []).length}, Error: ${directSalesRes.error?.message || 'none'}`)
     
     if (productRes.error) console.error(`[Bookings API] Product error details:`, productRes.error)
+    if (productSalesRes.error) console.error(`[Bookings API] Product sales error details:`, productSalesRes.error)
     if (packageRes.error) console.error(`[Bookings API] Package error details:`, packageRes.error)
     if (directSalesRes.error) console.error(`[Bookings API] Direct sales error details:`, directSalesRes.error)
 
     // Compute item quantity totals for each booking
-    const productIds = (productRes.data || []).map((r: any) => r.id)
+    const productIds = [...(productRes.data || []).map((r: any) => r.id), ...(productSalesRes.data || []).map((r: any) => r.id)]
     const packageIds = (packageRes.data || []).map((r: any) => r.id)
 
     let productTotals: Record<string, number> = {}
@@ -272,7 +291,9 @@ export async function GET(request: NextRequest) {
     }})
 
     // Map to unified Booking shape with total_safas
-    const productRows = (productRes.data || []).map((r: any) => ({
+    // Combine product rentals and product sales
+    const allProductOrders = [...(productRes.data || []), ...(productSalesRes.data || [])]
+    const productRows = allProductOrders.map((r: any) => ({
       id: r.id,
       booking_number: r.order_number,
       customer_id: r.customer_id,
@@ -396,7 +417,7 @@ export async function GET(request: NextRequest) {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
 
-    console.log(`[Bookings API] Returning ${data.length} bookings (${productRows.length} product, ${directSalesRows.length} direct sales, ${packageRows.length} package)`)
+    console.log(`[Bookings API] Returning ${data.length} bookings (${productRows.length} product orders [rentals+sales], ${directSalesRows.length} direct sales table, ${packageRows.length} package)`)
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error("[Bookings API] Error:", error)

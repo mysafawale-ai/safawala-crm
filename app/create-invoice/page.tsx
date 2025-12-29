@@ -174,6 +174,7 @@ export default function CreateInvoicePage() {
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [modificationDateOpen, setModificationDateOpen] = useState(false)
+  const [deliveryDateOpen, setDeliveryDateOpen] = useState(false)
   
   // Selection Mode: "products" = individual products, "package" = package with products inside
   const [selectionMode, setSelectionMode] = useState<"products" | "package">("products")
@@ -1852,12 +1853,36 @@ export default function CreateInvoicePage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                   <div>
                     <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Date</Label>
-                    <Input
-                      type="date"
-                      value={invoiceData.delivery_date}
-                      onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
-                      className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                    />
+                    <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left h-9 bg-gray-50 border-gray-200"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {invoiceData.delivery_date
+                            ? format(new Date(invoiceData.delivery_date), "dd/MM/yyyy")
+                            : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={
+                            invoiceData.delivery_date
+                              ? new Date(invoiceData.delivery_date)
+                              : undefined
+                          }
+                          onSelect={(d) => {
+                            setInvoiceData({
+                              ...invoiceData,
+                              delivery_date: d?.toISOString().split('T')[0] || "",
+                            })
+                            setDeliveryDateOpen(false)
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Time</Label>
