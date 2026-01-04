@@ -396,11 +396,23 @@ export default function CreateInvoicePage() {
       // Fetch products with barcodes (same as create-product-order)
       const productsWithBarcodes = await fetchProductsWithBarcodes(franchiseId)
       
-      // Map to Product interface
+      // Fetch all categories to map category_id to name
+      const { data: categoriesData } = await supabaseClient
+        .from('product_categories')
+        .select('*')
+
+      const categoryMap: { [key: string]: string } = {}
+      if (categoriesData) {
+        categoriesData.forEach((c: any) => {
+          categoryMap[c.id] = c.name
+        })
+      }
+      
+      // Map to Product interface, including category name
       const mappedProducts = productsWithBarcodes.map(p => ({
         id: p.id,
         name: p.name,
-        category: '', // Will fill from category_id lookup
+        category: categoryMap[p.category_id] || '', // Lookup category name from category_id
         category_id: p.category_id,
         subcategory_id: undefined,
         rental_price: p.rental_price || 0,
@@ -415,13 +427,11 @@ export default function CreateInvoicePage() {
 
       setProducts(mappedProducts)
       console.log("[CreateInvoice] Loaded products:", mappedProducts.length)
+      if (mappedProducts.length > 0) {
+        console.log("[CreateInvoice] Sample product:", mappedProducts[0])
+      }
 
-      // Fetch categories
-      const { data: categoriesData } = await supabaseClient
-        .from('product_categories')
-        .select('*')
-        .order('name')
-
+      // Set categories
       if (categoriesData) {
         const mainCats = categoriesData.filter((c: any) => !c.parent_id) || []
         const subCats = categoriesData.filter((c: any) => c.parent_id) || []
@@ -815,12 +825,19 @@ export default function CreateInvoicePage() {
 
   // Helper: Check if a product is from a safa category (BARATI SAFA, GROOM SAFA, etc.)
   const isSafaProduct = (product: Product): boolean => {
-    const productCategory = (product.category || "").toUpperCase()
-    // Only restrict these specific safa categories
+    const productCategory = (product.category || "").toUpperCase().trim()
+    const productName = (product.name || "").toUpperCase()
+    
+    // Check by category name
     const safaCategories = ["BARATI SAFA", "GROOM SAFA", "BRIDE SAFA"]
-    const isSafa = safaCategories.includes(productCategory)
-    console.log("[isSafaProduct] Category input:", product.category, "→ Uppercase:", productCategory, "Is safa?:", isSafa)
-    return isSafa
+    const isSafaByCategory = safaCategories.includes(productCategory)
+    
+    // Also check by product name as fallback (e.g., "Barati Safa (Wedding Turban)")
+    const isSafaByName = productName.includes("BARATI SAFA") || productName.includes("GROOM SAFA") || productName.includes("BRIDE SAFA")
+    
+    const result = isSafaByCategory || isSafaByName
+    console.log(`[isSafaProduct] Name: "${product.name}" | Category: "${product.category}" → ByCategory: ${isSafaByCategory}, ByName: ${isSafaByName}, Result: ${result}`)
+    return result
   }
 
   // Helper: Count total safas currently in invoice (from BARATI SAFA and GROOM SAFA categories)
@@ -832,11 +849,16 @@ export default function CreateInvoicePage() {
     
     const result = invoiceItems
       .filter(item => {
-        const itemCategory = (item.category || "").toUpperCase()
+        const itemCategory = (item.category || "").toUpperCase().trim()
+        const itemName = (item.product_name || "").toUpperCase()
         const safaCategories = ["BARATI SAFA", "GROOM SAFA", "BRIDE SAFA"]
-        const matches = safaCategories.includes(itemCategory)
+        
+        const isSafaByCategory = safaCategories.includes(itemCategory)
+        const isSafaByName = itemName.includes("BARATI SAFA") || itemName.includes("GROOM SAFA") || itemName.includes("BRIDE SAFA")
+        const matches = isSafaByCategory || isSafaByName
+        
         if (matches) {
-          console.log(`    ✓ SAFA MATCH: "${item.category}" → "${itemCategory}"`)
+          console.log(`    ✓ SAFA MATCH: Category="${item.category}" | Name="${item.product_name}"`)
         }
         return matches
       })
@@ -2670,8 +2692,8 @@ export default function CreateInvoicePage() {
               </div>
             )}
 
-            {/* Extra Items Section */}
-            {selectedPackage && (
+            {/* Extra Items Section - HIDDEN */}
+            {false && selectedPackage && (
               <div className="border-t pt-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
