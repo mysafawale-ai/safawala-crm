@@ -24,6 +24,7 @@ export interface UserPermissions {
   // Business Operations
   quotes: boolean
   invoices: boolean
+  invoice_payment_access: boolean
   laundry: boolean
   expenses: boolean
   deliveries: boolean

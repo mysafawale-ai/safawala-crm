@@ -148,6 +148,10 @@ export default function CreateInvoicePage() {
   // Franchise ID for data isolation
   const [franchiseId, setFranchiseId] = useState<string | null>(null)
 
+  // Current user permissions
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [userPermissions, setUserPermissions] = useState<any>(null)
+
   // State
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -186,14 +190,18 @@ export default function CreateInvoicePage() {
   const [selectedPackage, setSelectedPackage] = useState<any | null>(null)
   const [selectedPackageVariant, setSelectedPackageVariant] = useState<any | null>(null)
   const [packagesLoading, setPackagesLoading] = useState(false)
+  const [bypassSafaLimit, setBypassSafaLimit] = useState(false)
+  const [safaLimit, setSafaLimit] = useState<number | null>(null)
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
+  const [extraItems, setExtraItems] = useState<InvoiceItem[]>([])
   const [lostDamagedItems, setLostDamagedItems] = useState<LostDamagedItem[]>([])
   
   const [invoiceData, setInvoiceData] = useState({
     invoice_number: "",
+    invoice_date: format(new Date(), "yyyy-MM-dd"),
     invoice_type: "rental" as "rental" | "sale",
     event_type: "wedding" as "wedding" | "engagement" | "reception" | "other",
     event_participant: "both" as "both" | "groom" | "bride",
@@ -247,9 +255,21 @@ export default function CreateInvoicePage() {
   // Load next invoice number from sequence
   const loadNextInvoiceNumber = async () => {
     try {
-      // Get current user to get franchise_id
+      // Get current user to get franchise_id and permissions
       const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
       const user = userRes.ok ? await userRes.json() : null
+      if (user) {
+        setCurrentUser(user)
+        setUserPermissions(user.permissions || {})
+        
+        // Auto-select current user as Sales Staff when creating new invoice
+        if (mode === "new") {
+          setInvoiceData(prev => ({
+            ...prev,
+            sales_closed_by_id: user.id
+          }))
+        }
+      }
       const userFranchiseId = user?.franchise_id
       setFranchiseId(userFranchiseId) // Store in state for later use
 
@@ -687,6 +707,7 @@ export default function CreateInvoicePage() {
       // Auto-fill all invoice data from existing order
       setInvoiceData({
         invoice_number: order.order_number || "",
+        invoice_date: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : format(new Date(), "yyyy-MM-dd"),
         invoice_type: order.booking_type || "rental",
         event_type: order.event_type || "wedding",
         event_participant: order.event_participant || "both",
@@ -750,7 +771,7 @@ export default function CreateInvoicePage() {
   }
 
   // Calculations
-  const itemsSubtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0)
+  const itemsSubtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0) + extraItems.reduce((sum, item) => sum + item.total_price, 0)
   // Include package price if a package is selected (package is now a variant directly)
   const packagePrice = selectionMode === "package" && selectedPackage 
     ? (useCustomPackagePrice && customPackagePrice > 0 ? customPackagePrice : (selectedPackage.base_price || 0))
@@ -790,12 +811,76 @@ export default function CreateInvoicePage() {
     p.product_code?.toLowerCase().includes(productSearch.toLowerCase())
   )
 
+  // Helper: Get safa limit from manual input
+
+  // Helper: Check if a product is from a safa category (BARATI SAFA, GROOM SAFA, etc.)
+  const isSafaProduct = (product: Product): boolean => {
+    const productCategory = (product.category || "").toUpperCase()
+    // Only restrict these specific safa categories
+    const safaCategories = ["BARATI SAFA", "GROOM SAFA", "BRIDE SAFA"]
+    return safaCategories.includes(productCategory)
+  }
+
+  // Helper: Count total safas currently in invoice (from BARATI SAFA and GROOM SAFA categories)
+  const countSafasInInvoice = (): number => {
+    return invoiceItems
+      .filter(item => {
+        const itemCategory = (item.category || "").toUpperCase()
+        const safaCategories = ["BARATI SAFA", "GROOM SAFA", "BRIDE SAFA"]
+        return safaCategories.includes(itemCategory)
+      })
+      .reduce((sum, item) => sum + item.quantity, 0)
+  }
+
   // Add product to invoice
   const addProduct = (product: Product) => {
+    console.log("=== ADD PRODUCT ===")
+    console.log("Product:", product.name)
+    console.log("Category:", product.category)
+    console.log("Bypass Limit:", bypassSafaLimit)
+    console.log("Current Safa Limit from state:", safaLimit)
+    
+    // If bypass is enabled, skip all restrictions
+    if (bypassSafaLimit) {
+      console.log("✅ Bypass enabled - adding without restriction")
+    } else {
+      // Check safa limit only if NOT bypassed
+      const isSafa = isSafaProduct(product)
+      console.log("Is Safa Product:", isSafa)
+      
+      if (isSafa) {
+        const currentSafas = countSafasInInvoice()
+        console.log("Safa Limit:", safaLimit)
+        console.log("Current Safas:", currentSafas)
+        
+        if (safaLimit !== null && currentSafas >= safaLimit) {
+          console.log("❌ BLOCKED - Limit reached")
+          toast({ 
+            title: "Safa Limit Reached", 
+            description: `Maximum ${safaLimit} safas allowed. Currently: ${currentSafas}`,
+            variant: "destructive" 
+          })
+          return
+        }
+      }
+    }
+
     const existingIndex = invoiceItems.findIndex(item => item.product_id === product.id)
     
     if (existingIndex >= 0) {
-      // Increase quantity
+      // Increase quantity - also check safa limit
+      if (safaLimit !== null && isSafaProduct(product)) {
+        const currentSafas = countSafasInInvoice()
+        if (currentSafas >= safaLimit) {
+          toast({ 
+            title: "Safa Limit Reached", 
+            description: `You can only add ${safaLimit} safas for this package. Currently added: ${currentSafas}`,
+            variant: "destructive" 
+          })
+          return
+        }
+      }
+      
       const updated = [...invoiceItems]
       updated[existingIndex].quantity += 1
       updated[existingIndex].total_price = updated[existingIndex].quantity * updated[existingIndex].unit_price
@@ -828,6 +913,42 @@ export default function CreateInvoicePage() {
       removeItem(itemId)
       return
     }
+
+    // Find the item being updated
+    const item = invoiceItems.find(i => i.id === itemId)
+    if (!item) return
+
+    // If bypass is enabled, allow any quantity
+    if (bypassSafaLimit) {
+      setInvoiceItems(items =>
+        items.map(i =>
+          i.id === itemId
+            ? { ...i, quantity: newQuantity, total_price: newQuantity * i.unit_price }
+            : i
+        )
+      )
+      return
+    }
+
+    // Check safa limit for this item
+    const isSafa = isSafaProduct({ name: item.product_name, category: item.category } as Product)
+    if (isSafa) {
+      if (safaLimit !== null) {
+        const currentSafas = countSafasInInvoice()
+        const quantityDifference = newQuantity - item.quantity
+        
+        if (currentSafas + quantityDifference > safaLimit) {
+          const maxAllowed = Math.max(0, safaLimit - (currentSafas - item.quantity))
+          toast({ 
+            title: "Safa Limit Exceeded", 
+            description: `Can only add ${maxAllowed} more safas. Max limit: ${safaLimit}`,
+            variant: "destructive" 
+          })
+          return
+        }
+      }
+    }
+
     setInvoiceItems(items =>
       items.map(item =>
         item.id === itemId
@@ -840,6 +961,58 @@ export default function CreateInvoicePage() {
   // Remove item
   const removeItem = (itemId: string) => {
     setInvoiceItems(items => items.filter(item => item.id !== itemId))
+  }
+
+  // Add extra item (no safa limit restriction)
+  const addExtraItem = (product: Product) => {
+    const existingIndex = extraItems.findIndex(item => item.product_id === product.id)
+    
+    if (existingIndex >= 0) {
+      // Increase quantity
+      const updated = [...extraItems]
+      updated[existingIndex].quantity += 1
+      updated[existingIndex].total_price = updated[existingIndex].quantity * updated[existingIndex].unit_price
+      setExtraItems(updated)
+    } else {
+      // Add new item
+      const unitPrice = invoiceData.invoice_type === "rental" ? product.rental_price : (product.sale_price || product.rental_price)
+      const newItem: InvoiceItem = {
+        id: `extra-${Date.now()}`,
+        product_id: product.id,
+        product_name: product.name,
+        barcode: product.barcode,
+        category: product.category,
+        image_url: product.image_url,
+        quantity: 1,
+        unit_price: unitPrice,
+        total_price: unitPrice,
+      }
+      setExtraItems([...extraItems, newItem])
+    }
+    
+    setProductSearch("")
+    setShowProductDropdown(false)
+    toast({ title: "Extra Item Added", description: `${product.name} added as extra item` })
+  }
+
+  // Update extra item quantity
+  const updateExtraItemQuantity = (itemId: string, newQuantity: number) => {
+    if (newQuantity < 1) {
+      removeExtraItem(itemId)
+      return
+    }
+    setExtraItems(items =>
+      items.map(item =>
+        item.id === itemId
+          ? { ...item, quantity: newQuantity, total_price: newQuantity * item.unit_price }
+          : item
+      )
+    )
+  }
+
+  // Remove extra item
+  const removeExtraItem = (itemId: string) => {
+    setExtraItems(items => items.filter(item => item.id !== itemId))
   }
 
   // Add lost/damaged item
@@ -993,6 +1166,10 @@ export default function CreateInvoicePage() {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
       return
     }
+    if (!invoiceData.event_date) {
+      toast({ title: "Error", description: "Please select an event date", variant: "destructive" })
+      return
+    }
     // Items are optional - save skeleton quote first, add items later
 
     setSaving(true)
@@ -1068,14 +1245,23 @@ export default function CreateInvoicePage() {
       if (error) throw error
 
       // Insert items (only if there are items)
-      if (invoiceItems.length > 0) {
-        const itemsData = invoiceItems.map(item => ({
-          order_id: order.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-        }))
+      if (invoiceItems.length > 0 || extraItems.length > 0) {
+        const itemsData = [
+          ...invoiceItems.map(item => ({
+            order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+          })),
+          ...extraItems.map(item => ({
+            order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+          }))
+        ]
 
         await supabase.from("product_order_items").insert(itemsData)
       }
@@ -1092,6 +1278,10 @@ export default function CreateInvoicePage() {
   const handleCreateOrder = async () => {
     if (!selectedCustomer) {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
+      return
+    }
+    if (!invoiceData.event_date) {
+      toast({ title: "Error", description: "Please select an event date", variant: "destructive" })
       return
     }
     // Products/packages are now optional - allow saving skeleton/header first
@@ -1194,14 +1384,23 @@ export default function CreateInvoicePage() {
       }
 
       // Insert/re-insert items (only if there are items)
-      if (invoiceItems.length > 0) {
-        const itemsData = invoiceItems.map(item => ({
-          order_id: order.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-        }))
+      if (invoiceItems.length > 0 || extraItems.length > 0) {
+        const itemsData = [
+          ...invoiceItems.map(item => ({
+            order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+          })),
+          ...extraItems.map(item => ({
+            order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+          }))
+        ]
 
         await supabase.from("product_order_items").insert(itemsData)
       }
@@ -1479,7 +1678,7 @@ export default function CreateInvoicePage() {
             </div>
             <div className="text-right">
               <div className="text-xs text-amber-700 font-medium">Date</div>
-              <div className="font-semibold text-gray-900">{format(new Date(), "dd MMM yyyy")}</div>
+              <div className="font-semibold text-gray-900">{invoiceData.invoice_date ? format(new Date(invoiceData.invoice_date), "dd MMM yyyy") : format(new Date(), "dd MMM yyyy")}</div>
             </div>
             <div className="text-right">
               <div className="text-xs text-amber-700 font-medium">Type</div>
@@ -1595,9 +1794,14 @@ export default function CreateInvoicePage() {
                   placeholder="e.g., ORD001"
                 />
               </div>
-              <div className="text-right">
+              <div className="text-right flex-1">
                 <Label className="text-[10px] md:text-xs text-gray-500 block mb-1">Date</Label>
-                <div className="font-medium text-sm md:text-base mt-1">{format(new Date(), "dd MMM yyyy")}</div>
+                <Input
+                  type="date"
+                  value={invoiceData.invoice_date}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, invoice_date: e.target.value })}
+                  className="font-medium text-sm md:text-base h-8 md:h-9"
+                />
               </div>
             </div>
           </div>
@@ -1756,7 +1960,7 @@ export default function CreateInvoicePage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Date</Label>
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Date <span className="text-red-500">*</span></Label>
                       <div className="relative">
                         <Input
                           type="date"
@@ -2160,6 +2364,13 @@ export default function CreateInvoicePage() {
                                 console.log("[CreateInvoice]   category_id:", packages[0].category_id)
                                 console.log("[CreateInvoice]   package_id:", (packages[0] as any).package_id)
                               }
+                              
+                              // Extract safa limit from category name (e.g., "31 Safas" → 31)
+                              const match = cat.name.match(/(\d+)\s*Safa/i)
+                              const limit = match ? parseInt(match[1]) : null
+                              console.log("[CreateInvoice] Extracted safa limit from category:", cat.name, "→", limit)
+                              setSafaLimit(limit)
+                              
                               setSelectedPackageCategory(cat.id)
                               setSelectedPackage(null)
                               setSelectedPackageVariant(null)
@@ -2387,6 +2598,162 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
             )}
+            {/* Safa Limit Control */}
+            {selectedPackage && (
+              <div className="border-l-4 border-l-purple-400 bg-purple-50 p-4 rounded space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium text-purple-900 block mb-2">
+                      Safa Limit Control
+                    </Label>
+                    {safaLimit !== null ? (
+                      <div className="bg-white border border-purple-200 rounded p-3 mb-2">
+                        <p className="text-sm font-semibold text-purple-900">
+                          📦 Auto-detected Limit: <span className="text-lg text-purple-600">{safaLimit} safas</span>
+                        </p>
+                        <p className="text-xs text-purple-700 mt-1">
+                          This limit was extracted from your selected package category
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-white border border-gray-200 rounded p-3 mb-2">
+                        <p className="text-sm text-gray-600">
+                          No safa limit detected. Select a package category with safas (e.g., "31 Safas") to set a limit.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-end">
+                    <Checkbox
+                      id="bypassSafaLimit"
+                      checked={bypassSafaLimit}
+                      onCheckedChange={(checked) => setBypassSafaLimit(checked as boolean)}
+                      disabled={safaLimit === null}
+                    />
+                    <label
+                      htmlFor="bypassSafaLimit"
+                      className="text-sm font-medium text-purple-900 ml-2 cursor-pointer"
+                    >
+                      Bypass Limit
+                    </label>
+                  </div>
+                </div>
+                
+                {safaLimit !== null && !bypassSafaLimit && (
+                  <div className="bg-white border border-purple-200 rounded p-2 text-xs text-purple-800">
+                    ✓ Restriction Active: Maximum {safaLimit} safas allowed | Current: {countSafasInInvoice()}
+                  </div>
+                )}
+                {safaLimit !== null && bypassSafaLimit && (
+                  <div className="bg-white border border-orange-200 rounded p-2 text-xs text-orange-800">
+                    ⚠ Bypass Enabled: Unlimited safas allowed
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Extra Items Section */}
+            {selectedPackage && (
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-blue-500" />
+                    <span className="font-semibold text-blue-700">Extra Items (No Limit)</span>
+                    <Badge variant="outline" className="text-xs bg-blue-50">Bypass restrictions</Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addExtraItem(products[0])}
+                    disabled={products.length === 0}
+                    className="print:hidden text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Extra Item
+                  </Button>
+                </div>
+
+                {extraItems.length === 0 ? (
+                  <div className="text-center py-4 text-gray-400 text-sm border rounded-lg">
+                    No extra items added
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-blue-50">
+                        <tr>
+                          <th className="text-left p-3 font-medium">Item</th>
+                          <th className="text-center p-3 font-medium w-36">Qty</th>
+                          <th className="text-right p-3 font-medium w-24">Rate</th>
+                          <th className="text-right p-3 font-medium w-28">Total</th>
+                          <th className="w-12 print:hidden"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {extraItems.map((item) => (
+                          <tr key={item.id} className="border-t hover:bg-blue-50">
+                            <td className="p-3">
+                              <div className="flex items-center gap-3">
+                                {item.image_url ? (
+                                  <img src={item.image_url} alt="" className="h-10 w-10 object-cover rounded print:hidden" />
+                                ) : (
+                                  <div className="h-10 w-10 bg-blue-100 rounded flex items-center justify-center print:hidden">
+                                    <Package className="h-5 w-5 text-blue-400" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-medium">{item.product_name}</div>
+                                  {item.barcode && <div className="text-xs text-gray-500">#{item.barcode}</div>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 print:hidden"
+                                  onClick={() => updateExtraItemQuantity(item.id, item.quantity - 1)}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => updateExtraItemQuantity(item.id, parseInt(e.target.value) || 1)}
+                                  className="w-16 text-center h-7 print:border-0"
+                                  min={1}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 print:hidden"
+                                  onClick={() => updateExtraItemQuantity(item.id, item.quantity + 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </td>
+                            <td className="p-3 text-right">{formatCurrency(item.unit_price)}</td>
+                            <td className="p-3 text-right font-semibold">{formatCurrency(item.total_price)}</td>
+                            <td className="p-3 print:hidden">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-blue-500 hover:text-blue-700"
+                                onClick={() => removeExtraItem(item.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Items Table */}
             <div className="border rounded-lg overflow-hidden">
@@ -2472,6 +2839,18 @@ export default function CreateInvoicePage() {
                 </tbody>
               </table>
             </div>
+
+          {/* Notes */}
+          <div className="border-t pt-6">
+            <Label className="text-xs text-gray-500">Notes</Label>
+            <Textarea
+              value={invoiceData.notes}
+              onChange={(e) => setInvoiceData({ ...invoiceData, notes: e.target.value })}
+              placeholder="Any additional notes..."
+              rows={2}
+              className="mt-1 print:border-0"
+            />
+          </div>
 
           {/* Lost/Damaged Items Section - only for rentals */}
           {invoiceData.invoice_type === "rental" && (mode === "final-bill" || lostDamagedItems.length > 0) && (
@@ -2646,7 +3025,8 @@ export default function CreateInvoicePage() {
 
           {/* Totals Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-            {/* Payment Method & Discounts - Combined */}
+            {/* Payment Method & Discounts - Combined (Only show if user has permission) */}
+            {userPermissions?.invoice_payment_access !== false && (
             <Card className="p-4">
               <div className="font-semibold mb-3 underline">Payment Method & Discounts</div>
               <div className="space-y-3 text-sm">
@@ -2805,6 +3185,7 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
             </Card>
+            )}
 
             {/* Financial Summary */}
             <Card className="p-4 bg-gray-50">
@@ -2887,18 +3268,6 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
             </Card>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <Label className="text-xs text-gray-500">Notes</Label>
-            <Textarea
-              value={invoiceData.notes}
-              onChange={(e) => setInvoiceData({ ...invoiceData, notes: e.target.value })}
-              placeholder="Any additional notes..."
-              rows={2}
-              className="mt-1 print:border-0"
-            />
           </div>
 
           {/* Terms & Conditions - Compact for print */}
@@ -3028,9 +3397,18 @@ export default function CreateInvoicePage() {
             </div>
           )}
 
+          {/* Notes - Print */}
+          {invoiceData.notes && (
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="text-xs text-amber-700 font-semibold mb-1 uppercase tracking-wide">Notes</div>
+              <div className="text-sm text-gray-700">{invoiceData.notes}</div>
+            </div>
+          )}
+
           {/* Payment Info & Summary - Print Only */}
           <div className="grid grid-cols-2 gap-4 mt-4">
-            {/* Payment Info */}
+            {/* Payment Info (Only show if user has permission) */}
+            {userPermissions?.invoice_payment_access !== false && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-amber-700 font-semibold mb-3 uppercase tracking-wide">Payment Information</div>
               <div className="space-y-2 text-sm">
@@ -3052,6 +3430,7 @@ export default function CreateInvoicePage() {
                 )}
               </div>
             </div>
+            )}
 
             {/* Financial Summary */}
             <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
@@ -3118,14 +3497,6 @@ export default function CreateInvoicePage() {
               </div>
             </div>
           </div>
-
-          {/* Notes - Print */}
-          {invoiceData.notes && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-amber-700 font-semibold mb-1 uppercase tracking-wide">Notes</div>
-              <div className="text-sm text-gray-700">{invoiceData.notes}</div>
-            </div>
-          )}
 
           {/* Terms & Conditions - Print */}
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">

@@ -85,6 +85,7 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         vendors: true,
         quotes: true,
         invoices: true,
+        invoice_payment_access: true,
         laundry: true,
         expenses: true,
         deliveries: true,
@@ -108,6 +109,7 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         vendors: true,
         quotes: true,
         invoices: true,
+        invoice_payment_access: true,
         laundry: true,
         expenses: true,
         deliveries: true,
@@ -131,6 +133,7 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         vendors: false,
         quotes: true,
         invoices: true,
+        invoice_payment_access: false,
         laundry: true,
         expenses: false,
         deliveries: true,
@@ -154,6 +157,7 @@ const getDefaultPermissions = (role: 'super_admin' | 'franchise_admin' | 'staff'
         vendors: false,
         quotes: false,
         invoices: false,
+        invoice_payment_access: false,
         laundry: false,
         expenses: false,
         deliveries: false,
@@ -200,6 +204,7 @@ const permissionLabels: Record<keyof UserPermissions, string> = {
   vendors: 'Vendors',
   quotes: 'Quotes',
   invoices: 'Invoices',
+  invoice_payment_access: 'Invoice Payment & Discounts',
   laundry: 'Laundry',
   expenses: 'Expenses',
   deliveries: 'Deliveries & Returns',
@@ -223,7 +228,7 @@ const getVisibleCategories = (currentUserRole: string) => {
     },
     business: {
       title: 'Business Operations',
-      permissions: ['quotes', 'invoices', 'laundry', 'expenses', 'deliveries', 'productArchive', 'payroll', 'attendance']
+      permissions: ['quotes', 'invoices', 'invoice_payment_access', 'laundry', 'expenses', 'deliveries', 'productArchive', 'payroll', 'attendance']
     },
     analytics: {
       title: 'Analytics & Reports',
