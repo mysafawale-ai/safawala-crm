@@ -283,7 +283,7 @@ export default function CreateInvoicePage() {
         return
       }
 
-      const response = await fetch(`/api/invoice-sequences?franchise_id=${userFranchiseId}`, {
+      const response = await fetch(`/api/invoice-sequences?franchise_id=${userFranchiseId}&type=${invoiceData.invoice_type}`, {
         cache: "no-store"
       })
 
@@ -1361,7 +1361,7 @@ export default function CreateInvoicePage() {
         if (existingOrder) {
           // Order number exists, get a fresh one from the sequence
           console.warn(`[CreateOrder] Order number "${orderNumber}" already exists, regenerating...`)
-          const seqRes = await fetch(`/api/invoice-sequences?franchise_id=${currentFranchiseId}`, { cache: "no-store" })
+          const seqRes = await fetch(`/api/invoice-sequences?franchise_id=${currentFranchiseId}&type=${invoiceData.invoice_type}`, { cache: "no-store" })
           if (seqRes.ok) {
             const { next_invoice_number } = await seqRes.json()
             orderNumber = next_invoice_number || orderNumber
@@ -1533,6 +1533,7 @@ export default function CreateInvoicePage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 franchise_id: franchiseId,
+                type: invoiceData.invoice_type,
                 invoice_number: orderNumber
               })
             }).catch(err => console.warn("[CreateInvoice] Failed to save sequence:", err))
