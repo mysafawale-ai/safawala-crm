@@ -195,6 +195,7 @@ export default function CreateInvoicePage() {
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [editingOrderCustomerId, setEditingOrderCustomerId] = useState<string | null>(null)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [extraItems, setExtraItems] = useState<InvoiceItem[]>([])
   const [lostDamagedItems, setLostDamagedItems] = useState<LostDamagedItem[]>([])
@@ -352,6 +353,19 @@ export default function CreateInvoicePage() {
       loadExistingOrder(orderId)
     }
   }, [orderId, mode])
+
+  // Auto-select customer from customers list when editing
+  useEffect(() => {
+    if (editingOrderCustomerId && customers.length > 0 && !selectedCustomer) {
+      const matchingCustomer = customers.find(c => c.id === editingOrderCustomerId)
+      if (matchingCustomer) {
+        console.log("[EditOrder] Auto-selecting customer:", matchingCustomer.name)
+        setSelectedCustomer(matchingCustomer)
+      } else {
+        console.warn("[EditOrder] Customer not found in list:", editingOrderCustomerId)
+      }
+    }
+  }, [editingOrderCustomerId, customers])
 
   const loadCustomers = async () => {
     setCustomersLoading(true)
@@ -698,22 +712,9 @@ export default function CreateInvoicePage() {
 
       console.log("[EditOrder] Order data loaded:", order.order_number, order)
 
-      // Fetch customer separately
-      let customer = null
-      if (order.customer_id) {
-        const { data: customerData, error: customerError } = await supabase
-          .from("customers")
-          .select("id, name, phone, email, address, city, state, pincode")
-          .eq("id", order.customer_id)
-          .single()
-        
-        if (!customerError && customerData) {
-          customer = customerData
-          console.log("[EditOrder] Customer loaded:", customerData.name)
-        } else {
-          console.warn("[EditOrder] Could not load customer:", customerError)
-        }
-      }
+      // Fetch customer ID for later matching
+      let customerId = order.customer_id
+      console.log("[EditOrder] Order has customer_id:", customerId)
 
       // Fetch order items separately
       const { data: orderItems, error: itemsError } = await supabase
@@ -728,12 +729,14 @@ export default function CreateInvoicePage() {
         console.warn("[EditOrder] Could not load items:", itemsError)
       }
 
-      // Set customer
-      if (customer) {
-        console.log("[EditOrder] Setting customer:", customer.name, customer.id)
-        setSelectedCustomer(customer)
+      // Auto-set customer from customers list (wait for it to load)
+      // We'll set a flag and match it in the effect below
+      if (customerId) {
+        // Store the customer ID to match later
+        setEditingOrderCustomerId(customerId)
+        console.log("[EditOrder] Will auto-select customer ID:", customerId)
       } else {
-        console.log("[EditOrder] No customer found for order")
+        console.log("[EditOrder] Order has no customer_id")
       }
         
       // Auto-fill all invoice data from existing order
