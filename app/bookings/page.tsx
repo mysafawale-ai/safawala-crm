@@ -70,10 +70,26 @@ export default function BookingsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [productFilter, setProductFilter] = useState<string>("all")
+  const [safaQuantitySort, setSafaQuantitySort] = useState<string>("all")
+  const [distanceSort, setDistanceSort] = useState<string>("all")
   // Pending filters (UI staging)
-  const [pendingFilters, setPendingFilters] = useState<{status:string; type:string; products:string}>({ status:'all', type:'all', products:'all' })
-  const applyFilters = () => { setStatusFilter(pendingFilters.status); setTypeFilter(pendingFilters.type); setProductFilter(pendingFilters.products); toast({ title:'Filters applied' }) }
-  const resetFilters = () => { setPendingFilters({status:'all', type:'all', products:'all'}); setStatusFilter('all'); setTypeFilter('all'); setProductFilter('all') }
+  const [pendingFilters, setPendingFilters] = useState<{status:string; type:string; products:string; safaSort:string; distanceSort:string}>({ status:'all', type:'all', products:'all', safaSort:'all', distanceSort:'all' })
+  const applyFilters = () => { 
+    setStatusFilter(pendingFilters.status)
+    setTypeFilter(pendingFilters.type)
+    setProductFilter(pendingFilters.products)
+    setSafaQuantitySort(pendingFilters.safaSort)
+    setDistanceSort(pendingFilters.distanceSort)
+    toast({ title:'Filters applied' })
+  }
+  const resetFilters = () => { 
+    setPendingFilters({status:'all', type:'all', products:'all', safaSort:'all', distanceSort:'all'})
+    setStatusFilter('all')
+    setTypeFilter('all')
+    setProductFilter('all')
+    setSafaQuantitySort('all')
+    setDistanceSort('all')
+  }
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table")
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   
@@ -681,11 +697,56 @@ export default function BookingsPage() {
     return matchesSearch && matchesStatus && matchesType && matchesProducts
   })
 
-  // Always sort by created_at (newest first)
-  const sortedBookings = [...filteredBookings].sort((a,b)=>{
+  // Helper: Extract safa count from booking items
+  const getSafaQuantity = (booking: Booking): number => {
+    const items = bookingItems[booking.id] || []
+    return items.reduce((sum, item) => {
+      const isSafa = item.category?.toUpperCase().includes('SAFA')
+      return sum + (isSafa ? item.quantity || 0 : 0)
+    }, 0)
+  }
+
+  // Helper: Calculate distance from pincode (using basic logic)
+  const getDistanceFromPincode = (pincode: string): number => {
+    // Simple hash-based distance calculation (in real app, use actual coordinates)
+    if (!pincode) return 0
+    let distance = 0
+    for (let i = 0; i < pincode.length; i++) {
+      distance += pincode.charCodeAt(i)
+    }
+    return distance % 100 // Returns 0-99 as proxy distance
+  }
+
+  // Sort bookings based on selected filters
+  const sortedBookings = [...filteredBookings].sort((a, b) => {
+    // Primary sort: Safa Quantity if selected
+    if (safaQuantitySort !== 'all') {
+      const aSafa = getSafaQuantity(a)
+      const bSafa = getSafaQuantity(b)
+      if (safaQuantitySort === 'low-to-high') {
+        if (aSafa !== bSafa) return aSafa - bSafa
+      } else if (safaQuantitySort === 'high-to-low') {
+        if (aSafa !== bSafa) return bSafa - aSafa
+      }
+    }
+    
+    // Secondary sort: Distance from pincode if selected
+    if (distanceSort !== 'all') {
+      const aPincode = (a as any).customer_pincode || (a as any).pincode || ''
+      const bPincode = (b as any).customer_pincode || (b as any).pincode || ''
+      const aDistance = getDistanceFromPincode(aPincode)
+      const bDistance = getDistanceFromPincode(bPincode)
+      if (distanceSort === 'low-to-high') {
+        if (aDistance !== bDistance) return aDistance - bDistance
+      } else if (distanceSort === 'high-to-low') {
+        if (aDistance !== bDistance) return bDistance - aDistance
+      }
+    }
+    
+    // Default: sort by created_at (newest first)
     const aDate = new Date(a.created_at).getTime()
     const bDate = new Date(b.created_at).getTime()
-    return bDate - aDate // Descending order (newest first)
+    return bDate - aDate
   })
 
   // Pagination calculations
@@ -1325,6 +1386,26 @@ export default function BookingsPage() {
                 <SelectItem value="all">All Products</SelectItem>
                 <SelectItem value="selected">Products Selected</SelectItem>
                 <SelectItem value="pending">Selection Pending</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={pendingFilters.safaSort} onValueChange={(v)=>setPendingFilters(p=>({...p,safaSort:v}))}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Safa Quantity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Safa Quantities</SelectItem>
+                <SelectItem value="low-to-high">Safa: Low to High</SelectItem>
+                <SelectItem value="high-to-low">Safa: High to Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={pendingFilters.distanceSort} onValueChange={(v)=>setPendingFilters(p=>({...p,distanceSort:v}))}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Distance (Pincode)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Distances</SelectItem>
+                <SelectItem value="low-to-high">Distance: Low to High</SelectItem>
+                <SelectItem value="high-to-low">Distance: High to Low</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="secondary" size="sm" onClick={applyFilters}>Apply</Button>
