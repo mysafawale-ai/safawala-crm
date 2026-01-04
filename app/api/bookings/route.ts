@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
       `)
       .eq('franchise_id', franchiseId)
       .eq('booking_type', 'rental')
-      .eq('is_quote', false)
       .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
@@ -73,7 +72,6 @@ export async function GET(request: NextRequest) {
       `)
       .eq('franchise_id', franchiseId)
       .eq('booking_type', 'sale')
-      .eq('is_quote', false)
       .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
@@ -102,7 +100,6 @@ export async function GET(request: NextRequest) {
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('franchise_id', franchiseId)
-      .eq('is_quote', false)
       .order("created_at", { ascending: false })
 
     // Execute all four queries in parallel
