@@ -78,7 +78,7 @@ export function BookingsTabs({
     [bookings]
   )
   const directSales = useMemo(() => 
-    bookings.filter(b => (b as any).source === 'direct_sales'),
+    bookings.filter(b => (b as any).source === 'direct_sales' || ((b as any).source === 'product_orders' && (b as any).type === 'sale')),
     [bookings]
   )
   const packageBookings = useMemo(() => 
