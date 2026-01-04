@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   const supabase = createClient()
   const franchiseId = request.nextUrl.searchParams.get("franchise_id")
+  const type = request.nextUrl.searchParams.get("type") || "rental" // Default to rental
 
   if (!franchiseId) {
     return NextResponse.json(
@@ -13,11 +14,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get the last invoice sequence for this franchise
+    // Get the last invoice sequence for this franchise and type
     const { data, error } = await supabase
       .from("invoice_sequences")
       .select("*")
       .eq("franchise_id", franchiseId)
+      .eq("type", type)
       .single()
 
     if (error && error.code !== "PGRST116") {
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
   const supabase = createClient()
   const body = await request.json()
 
-  const { franchise_id, invoice_number } = body
+  const { franchise_id, invoice_number, type = "rental" } = body
 
   if (!franchise_id || !invoice_number) {
     return NextResponse.json(
@@ -50,12 +52,12 @@ export async function POST(request: NextRequest) {
 
   try {
     // Extract prefix and last number from invoice_number
-    // e.g., "ORD001" -> prefix: "ORD", last_number: 1
+    // e.g., "SALE001" -> prefix: "SALE", last_number: 1 or "RENT001" -> prefix: "RENT", last_number: 1
     const match = invoice_number.match(/^([A-Za-z-]+?)(\d+)$/)
     
     if (!match) {
       return NextResponse.json(
-        { error: "Invalid invoice number format. Use format like ORD001 or INV-2025-001" },
+        { error: "Invalid invoice number format. Use format like SALE001 or RENT001" },
         { status: 400 }
       )
     }
@@ -69,11 +71,12 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           franchise_id,
+          type,
           prefix,
           last_number: lastNumber,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "franchise_id" }
+        { onConflict: "franchise_id,type" }
       )
       .select()
       .single()
@@ -94,7 +97,7 @@ export async function PUT(request: NextRequest) {
   const supabase = createClient()
   const body = await request.json()
 
-  const { franchise_id } = body
+  const { franchise_id, type = "rental" } = body
 
   if (!franchise_id) {
     return NextResponse.json(
@@ -109,6 +112,7 @@ export async function PUT(request: NextRequest) {
       .from("invoice_sequences")
       .select("*")
       .eq("franchise_id", franchise_id)
+      .eq("type", type)
       .single()
 
     if (fetchError && fetchError.code !== "PGRST116") {
@@ -116,13 +120,15 @@ export async function PUT(request: NextRequest) {
     }
 
     let nextInvoiceNumber: string
+    const typePrefix = type === "sale" ? "SALE" : "RENT"
 
     if (!sequence) {
-      // No sequence yet, check the database for the last order number
+      // No sequence yet, check the database for the last order number of this type
       const { data: lastOrder, error: orderError } = await supabase
         .from("product_orders")
         .select("order_number")
         .eq("franchise_id", franchise_id)
+        .eq("booking_type", type)
         .order("created_at", { ascending: false })
         .limit(1)
         .single()
@@ -141,10 +147,10 @@ export async function PUT(request: NextRequest) {
           const paddedNumber = String(nextNumber).padStart(String(lastNumber).length, "0")
           nextInvoiceNumber = `${prefix}${paddedNumber}`
         } else {
-          nextInvoiceNumber = "ORD001"
+          nextInvoiceNumber = `${typePrefix}001`
         }
       } else {
-        nextInvoiceNumber = "ORD001"
+        nextInvoiceNumber = `${typePrefix}001`
       }
     } else {
       // Generate next number based on stored prefix and last_number
