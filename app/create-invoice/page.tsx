@@ -1617,7 +1617,31 @@ export default function CreateInvoicePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
+    <>
+      <style>{`
+        @page {
+          margin: 0;
+          size: A4;
+        }
+        @media print {
+          html, body {
+            margin: 0;
+            padding: 0;
+            height: auto;
+          }
+          /* Remove browser print headers/footers */
+          @page {
+            margin: 10mm;
+            @bottom-left { content: none; }
+            @bottom-center { content: none; }
+            @bottom-right { content: none; }
+            @top-left { content: none; }
+            @top-center { content: none; }
+            @top-right { content: none; }
+          }
+        }
+      `}</style>
+      <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
       {/* Header - Hidden on print */}
       <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
@@ -3854,5 +3878,6 @@ export default function CreateInvoicePage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   )
 }
