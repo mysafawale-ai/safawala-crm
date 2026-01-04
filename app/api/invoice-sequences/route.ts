@@ -14,12 +14,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // SEPARATE SEQUENCES BY TYPE: Get the last invoice of this specific type
+    // SEPARATE SEQUENCES BY TYPE: Get the last BOOKING of this specific type (exclude quotes)
     const { data: lastOrder, error: orderError } = await supabase
       .from("product_orders")
       .select("order_number, created_at")
       .eq("franchise_id", franchiseId)
       .eq("booking_type", type)  // Filter by type
+      .neq("status", "quote")  // Exclude quotes - only get actual bookings
       .order("created_at", { ascending: false })
       .limit(1)
       .single()
@@ -111,12 +112,13 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    // SEPARATE SEQUENCES BY TYPE: Read the LAST invoice of this type and increment from it
+    // SEPARATE SEQUENCES BY TYPE: Read the LAST BOOKING of this type and increment from it (exclude quotes)
     const { data: lastOrder, error: orderError } = await supabase
       .from("product_orders")
       .select("order_number")
       .eq("franchise_id", franchise_id)
       .eq("booking_type", type)  // Filter by type
+      .neq("status", "quote")  // Exclude quotes - only get actual bookings
       .order("created_at", { ascending: false })
       .limit(1)
       .single()
