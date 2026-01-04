@@ -1244,7 +1244,7 @@ export default function CreateInvoicePage() {
       }
 
       const orderData = {
-        order_number: invoiceData.invoice_number.replace("ORD", "QTE").replace("SAL", "QTE"),
+        order_number: "", // Leave blank for quotes - no invoice number needed
         customer_id: selectedCustomer.id,
         franchise_id: currentFranchiseId,
         booking_type: invoiceData.invoice_type || 'rental',
