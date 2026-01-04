@@ -818,7 +818,9 @@ export default function CreateInvoicePage() {
     const productCategory = (product.category || "").toUpperCase()
     // Only restrict these specific safa categories
     const safaCategories = ["BARATI SAFA", "GROOM SAFA", "BRIDE SAFA"]
-    return safaCategories.includes(productCategory)
+    const isSafa = safaCategories.includes(productCategory)
+    console.log("[isSafaProduct] Category input:", product.category, "→ Uppercase:", productCategory, "Is safa?:", isSafa)
+    return isSafa
   }
 
   // Helper: Count total safas currently in invoice (from BARATI SAFA and GROOM SAFA categories)
@@ -918,6 +920,8 @@ export default function CreateInvoicePage() {
     const item = invoiceItems.find(i => i.id === itemId)
     if (!item) return
 
+    console.log("[UpdateQuantity] Item category from DB:", item.category, "Raw:", JSON.stringify(item.category))
+
     // If bypass is enabled, allow any quantity
     if (bypassSafaLimit) {
       setInvoiceItems(items =>
@@ -932,20 +936,22 @@ export default function CreateInvoicePage() {
 
     // Check safa limit for this item
     const isSafa = isSafaProduct({ name: item.product_name, category: item.category } as Product)
-    if (isSafa) {
-      if (safaLimit !== null) {
-        const currentSafas = countSafasInInvoice()
-        const quantityDifference = newQuantity - item.quantity
-        
-        if (currentSafas + quantityDifference > safaLimit) {
-          const maxAllowed = Math.max(0, safaLimit - (currentSafas - item.quantity))
-          toast({ 
-            title: "Safa Limit Exceeded", 
-            description: `Can only add ${maxAllowed} more safas. Max limit: ${safaLimit}`,
-            variant: "destructive" 
-          })
-          return
-        }
+    console.log("[UpdateQuantity] Is Safa?:", isSafa, "SafaLimit:", safaLimit)
+    
+    if (isSafa && safaLimit !== null) {
+      const currentSafas = countSafasInInvoice()
+      const quantityDifference = newQuantity - item.quantity
+      console.log("[UpdateQuantity] Current Safas:", currentSafas, "Difference:", quantityDifference, "New Total:", currentSafas + quantityDifference, "Limit:", safaLimit)
+      
+      if (currentSafas + quantityDifference > safaLimit) {
+        const maxAllowed = Math.max(0, safaLimit - (currentSafas - item.quantity))
+        console.log("[UpdateQuantity] BLOCKED! Max allowed:", maxAllowed)
+        toast({ 
+          title: "Safa Limit Exceeded", 
+          description: `Can only add ${maxAllowed} more safas. Max limit: ${safaLimit}`,
+          variant: "destructive" 
+        })
+        return
       }
     }
 
