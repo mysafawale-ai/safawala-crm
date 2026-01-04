@@ -252,13 +252,6 @@ export default function CreateInvoicePage() {
     }
   }, [mode])
 
-  // Reload invoice number when invoice_type changes
-  useEffect(() => {
-    if (mode === "new" && invoiceData.invoice_number) {
-      loadNextInvoiceNumber()
-    }
-  }, [invoiceData.invoice_type])
-
   // Load next invoice number from sequence
   const loadNextInvoiceNumber = async () => {
     try {
@@ -279,9 +272,10 @@ export default function CreateInvoicePage() {
       }
       const userFranchiseId = user?.franchise_id
       setFranchiseId(userFranchiseId) // Store in state for later use
+      console.log(`[LoadNextInvoice] User franchise_id: ${userFranchiseId}`)
 
       if (!userFranchiseId) {
-        console.warn("[CreateInvoice] No franchise_id found, using default ORD001")
+        console.warn("[LoadNextInvoice] No franchise_id found, using default ORD001")
         setInvoiceData(prev => ({
           ...prev,
           invoice_number: "ORD001"
@@ -289,12 +283,12 @@ export default function CreateInvoicePage() {
         return
       }
 
-      const response = await fetch(`/api/invoice-sequences?franchise_id=${userFranchiseId}&type=${invoiceData.invoice_type}`, {
+      const response = await fetch(`/api/invoice-sequences?franchise_id=${userFranchiseId}`, {
         cache: "no-store"
       })
 
       if (!response.ok) {
-        console.warn("[CreateInvoice] Failed to load sequence, using default ORD001")
+        console.warn(`[LoadNextInvoice] API returned ${response.status}, using default ORD001`)
         setInvoiceData(prev => ({
           ...prev,
           invoice_number: "ORD001"
@@ -302,13 +296,15 @@ export default function CreateInvoicePage() {
         return
       }
 
-      const { next_invoice_number } = await response.json()
+      const data = await response.json()
+      const nextNum = data.next_invoice_number || "ORD001"
+      console.log(`[LoadNextInvoice] API returned: ${nextNum}`)
       setInvoiceData(prev => ({
         ...prev,
-        invoice_number: next_invoice_number || "ORD001"
+        invoice_number: nextNum
       }))
     } catch (error) {
-      console.error("[CreateInvoice] Error loading next invoice number:", error)
+      console.error("[LoadNextInvoice] Error loading next invoice number:", error)
       setInvoiceData(prev => ({
         ...prev,
         invoice_number: "ORD001"
@@ -1353,6 +1349,7 @@ export default function CreateInvoicePage() {
 
       // For new orders, verify the invoice number is unique, otherwise regenerate
       let orderNumber = invoiceData.invoice_number
+      console.log(`[CreateOrder] Creating order with invoice_number: ${orderNumber}`)
       if (!orderId || mode !== "edit") {
         // Check if this order number already exists
         const { data: existingOrder } = await supabase
@@ -1363,13 +1360,16 @@ export default function CreateInvoicePage() {
         
         if (existingOrder) {
           // Order number exists, get a fresh one from the sequence
-          console.warn("[CreateOrder] Order number already exists, regenerating...")
-          const seqRes = await fetch(`/api/invoice-sequences?franchise_id=${currentFranchiseId}&type=${invoiceData.invoice_type}`, { cache: "no-store" })
+          console.warn(`[CreateOrder] Order number "${orderNumber}" already exists, regenerating...`)
+          const seqRes = await fetch(`/api/invoice-sequences?franchise_id=${currentFranchiseId}`, { cache: "no-store" })
           if (seqRes.ok) {
             const { next_invoice_number } = await seqRes.json()
             orderNumber = next_invoice_number || orderNumber
+            console.log(`[CreateOrder] Regenerated to: ${orderNumber}`)
             setInvoiceData(prev => ({ ...prev, invoice_number: orderNumber }))
           }
+        } else {
+          console.log(`[CreateOrder] Order number "${orderNumber}" is unique, using it`)
         }
       }
 
@@ -1533,7 +1533,6 @@ export default function CreateInvoicePage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 franchise_id: franchiseId,
-                type: invoiceData.invoice_type,
                 invoice_number: orderNumber
               })
             }).catch(err => console.warn("[CreateInvoice] Failed to save sequence:", err))

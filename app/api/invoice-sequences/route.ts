@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest) {
   const supabase = createClient()
   const franchiseId = request.nextUrl.searchParams.get("franchise_id")
-  const type = request.nextUrl.searchParams.get("type") || "rental" // Default to rental
+  const type = request.nextUrl.searchParams.get("type") // Optional for backward compatibility
 
   if (!franchiseId) {
     return NextResponse.json(
@@ -14,24 +14,48 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get the last invoice sequence for this franchise and type
-    const { data, error } = await supabase
-      .from("invoice_sequences")
-      .select("*")
+    // HYBRID SYSTEM: Get the last invoice and extract next number
+    // Ignores type - just reads the absolute last order created
+    const { data: lastOrder, error: orderError } = await supabase
+      .from("product_orders")
+      .select("order_number, created_at")
       .eq("franchise_id", franchiseId)
-      .eq("type", type)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .single()
 
-    if (error && error.code !== "PGRST116") {
-      // PGRST116 = no rows found
-      throw error
+    if (orderError && orderError.code !== "PGRST116") {
+      console.error("[InvoiceSequences] DB Error:", orderError)
+      throw orderError
     }
 
-    return NextResponse.json({ data: data || null }, { status: 200 })
+    let nextInvoiceNumber: string
+
+    if (lastOrder && lastOrder.order_number) {
+      console.log(`[InvoiceSequences] Found last order: ${lastOrder.order_number}`)
+      // Extract and increment from last order number
+      const match = lastOrder.order_number.match(/^([A-Za-z0-9-]+?)(\d+)$/)
+      if (match) {
+        const prefix = match[1]
+        const lastNumber = parseInt(match[2], 10)
+        const nextNumber = lastNumber + 1
+        const paddedNumber = String(nextNumber).padStart(String(lastNumber).length, "0")
+        nextInvoiceNumber = `${prefix}${paddedNumber}`
+        console.log(`[InvoiceSequences] Extracted: prefix="${prefix}", lastNum=${lastNumber}, next="${nextInvoiceNumber}"`)
+      } else {
+        console.log(`[InvoiceSequences] Regex failed to parse: ${lastOrder.order_number}`)
+        nextInvoiceNumber = "ORD001"
+      }
+    } else {
+      console.log(`[InvoiceSequences] No orders found, using default ORD001`)
+      nextInvoiceNumber = "ORD001"
+    }
+
+    return NextResponse.json({ next_invoice_number: nextInvoiceNumber }, { status: 200 })
   } catch (error) {
-    console.error("[Invoice Sequences] Error fetching sequence:", error)
+    console.error("[Invoice Sequences] Error generating next invoice number:", error)
     return NextResponse.json(
-      { error: "Failed to fetch invoice sequence" },
+      { error: "Failed to generate next invoice number" },
       { status: 500 }
     )
   }
@@ -41,7 +65,7 @@ export async function POST(request: NextRequest) {
   const supabase = createClient()
   const body = await request.json()
 
-  const { franchise_id, invoice_number, type = "rental" } = body
+  const { franchise_id, invoice_number } = body
 
   if (!franchise_id || !invoice_number) {
     return NextResponse.json(
@@ -51,43 +75,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Extract prefix and last number from invoice_number
-    // e.g., "SALE001" -> prefix: "SALE", last_number: 1 or "RENT001" -> prefix: "RENT", last_number: 1
-    const match = invoice_number.match(/^([A-Za-z-]+?)(\d+)$/)
+    // In hybrid system, we just validate the format but don't need to store sequences
+    // The system reads directly from product_orders table
+    const match = invoice_number.match(/^([A-Za-z0-9-]+?)(\d+)$/)
     
     if (!match) {
       return NextResponse.json(
-        { error: "Invalid invoice number format. Use format like SALE001 or RENT001" },
+        { error: "Invalid invoice number format. Use format like INV001, SALE001, ORD001, etc" },
         { status: 400 }
       )
     }
 
-    const prefix = match[1]
-    const lastNumber = parseInt(match[2], 10)
-
-    // Upsert the sequence
-    const { data, error } = await supabase
-      .from("invoice_sequences")
-      .upsert(
-        {
-          franchise_id,
-          type,
-          prefix,
-          last_number: lastNumber,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "franchise_id,type" }
-      )
-      .select()
-      .single()
-
-    if (error) throw error
-
-    return NextResponse.json({ data, success: true }, { status: 200 })
+    console.log(`[Hybrid Invoice] Saved invoice number: ${invoice_number}`)
+    return NextResponse.json({ success: true, invoice_number }, { status: 200 })
   } catch (error) {
-    console.error("[Invoice Sequences] Error updating sequence:", error)
+    console.error("[Invoice Sequences] Error validating invoice number:", error)
     return NextResponse.json(
-      { error: "Failed to update invoice sequence" },
+      { error: "Failed to validate invoice number" },
       { status: 500 }
     )
   }
@@ -97,7 +101,7 @@ export async function PUT(request: NextRequest) {
   const supabase = createClient()
   const body = await request.json()
 
-  const { franchise_id, type = "rental" } = body
+  const { franchise_id } = body
 
   if (!franchise_id) {
     return NextResponse.json(
@@ -107,56 +111,45 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    // Get the current sequence and generate the next invoice number
-    const { data: sequence, error: fetchError } = await supabase
-      .from("invoice_sequences")
-      .select("*")
+    // HYBRID SYSTEM: Read the LAST invoice from database and increment from it
+    // This allows users to write ANY format (INV001, SALE001, CUSTOM100, etc)
+    // and the system will increment from whatever they wrote
+    
+    const { data: lastOrder, error: orderError } = await supabase
+      .from("product_orders")
+      .select("order_number")
       .eq("franchise_id", franchise_id)
-      .eq("type", type)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .single()
 
-    if (fetchError && fetchError.code !== "PGRST116") {
-      throw fetchError
+    if (orderError && orderError.code !== "PGRST116") {
+      throw orderError
     }
 
     let nextInvoiceNumber: string
-    const typePrefix = type === "sale" ? "SALE" : "RENT"
 
-    if (!sequence) {
-      // No sequence yet, check the database for the last order number of this type
-      const { data: lastOrder, error: orderError } = await supabase
-        .from("product_orders")
-        .select("order_number")
-        .eq("franchise_id", franchise_id)
-        .eq("booking_type", type)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single()
-
-      if (orderError && orderError.code !== "PGRST116") {
-        throw orderError
-      }
-
-      if (lastOrder && lastOrder.order_number) {
-        // Extract number from last order and increment
-        const match = lastOrder.order_number.match(/^([A-Za-z-]+?)(\d+)$/)
-        if (match) {
-          const prefix = match[1]
-          const lastNumber = parseInt(match[2], 10)
-          const nextNumber = lastNumber + 1
-          const paddedNumber = String(nextNumber).padStart(String(lastNumber).length, "0")
-          nextInvoiceNumber = `${prefix}${paddedNumber}`
-        } else {
-          nextInvoiceNumber = `${typePrefix}001`
-        }
+    if (lastOrder && lastOrder.order_number) {
+      // Extract prefix and number from last order
+      // Handles: INV001, SALE001, ORD001, RENT001, CUSTOM100, etc.
+      const match = lastOrder.order_number.match(/^([A-Za-z0-9-]+?)(\d+)$/)
+      
+      if (match) {
+        const prefix = match[1]
+        const lastNumber = parseInt(match[2], 10)
+        const nextNumber = lastNumber + 1
+        // Preserve padding: if last was INV001, next is INV002; if INV0001, next is INV0002
+        const paddedNumber = String(nextNumber).padStart(String(lastNumber).length, "0")
+        nextInvoiceNumber = `${prefix}${paddedNumber}`
+        
+        console.log(`[Hybrid Invoice] Last: ${lastOrder.order_number} → Next: ${nextInvoiceNumber}`)
       } else {
-        nextInvoiceNumber = `${typePrefix}001`
+        // Fallback: can't parse, return default
+        nextInvoiceNumber = "ORD001"
       }
     } else {
-      // Generate next number based on stored prefix and last_number
-      const nextNumber = sequence.last_number + 1
-      const paddedNumber = String(nextNumber).padStart(String(sequence.last_number).length, "0")
-      nextInvoiceNumber = `${sequence.prefix}${paddedNumber}`
+      // No orders found, default to ORD001
+      nextInvoiceNumber = "ORD001"
     }
 
     return NextResponse.json({ next_invoice_number: nextInvoiceNumber }, { status: 200 })
