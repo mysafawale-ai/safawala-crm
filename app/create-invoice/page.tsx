@@ -346,7 +346,9 @@ export default function CreateInvoicePage() {
 
   // Load existing order if editing
   useEffect(() => {
+    console.log("[EditOrder] useEffect triggered - mode:", mode, "orderId:", orderId)
     if (orderId && mode !== "new") {
+      console.log("[EditOrder] Loading existing order...")
       loadExistingOrder(orderId)
     }
   }, [orderId, mode])
@@ -666,6 +668,7 @@ export default function CreateInvoicePage() {
   }
 
   const loadExistingOrder = async (id: string) => {
+    console.log("[EditOrder] loadExistingOrder called with id:", id)
     setLoading(true)
     try {
       console.log("[EditOrder] Loading order:", id)
@@ -677,9 +680,11 @@ export default function CreateInvoicePage() {
         .eq("id", id)
         .single()
 
+      console.log("[EditOrder] Query result - order:", order, "error:", orderError)
+
       if (orderError) {
         console.error("[EditOrder] Error fetching order:", orderError)
-        toast({ title: "Error", description: "Failed to load order", variant: "destructive" })
+        toast({ title: "Error", description: `Failed to load order: ${orderError.message}`, variant: "destructive" })
         setLoading(false)
         return
       }
@@ -691,7 +696,7 @@ export default function CreateInvoicePage() {
         return
       }
 
-      console.log("[EditOrder] Order data:", order)
+      console.log("[EditOrder] Order data loaded:", order.order_number, order)
 
       // Fetch customer separately
       let customer = null
@@ -725,7 +730,10 @@ export default function CreateInvoicePage() {
 
       // Set customer
       if (customer) {
+        console.log("[EditOrder] Setting customer:", customer.name, customer.id)
         setSelectedCustomer(customer)
+      } else {
+        console.log("[EditOrder] No customer found for order")
       }
         
       // Auto-fill all invoice data from existing order
@@ -764,6 +772,8 @@ export default function CreateInvoicePage() {
         modification_date: order.modification_date ? new Date(order.modification_date).toISOString() : "",
         modification_time: order.modification_date ? format(new Date(order.modification_date), "HH:mm") : "10:00",
       })
+      
+      console.log("[EditOrder] Invoice data set - invoice_number:", order.order_number, "event_date:", order.event_date)
       
       // Map order items to invoice items
       const items = (orderItems || []).map((item: any) => ({
