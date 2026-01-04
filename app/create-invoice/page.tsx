@@ -252,6 +252,13 @@ export default function CreateInvoicePage() {
     }
   }, [mode])
 
+  // Reload invoice number when invoice type changes (rental vs sales)
+  useEffect(() => {
+    if (mode === "new") {
+      loadNextInvoiceNumber()
+    }
+  }, [invoiceData.invoice_type])
+
   // Load next invoice number from sequence
   const loadNextInvoiceNumber = async () => {
     try {
@@ -272,13 +279,15 @@ export default function CreateInvoicePage() {
       }
       const userFranchiseId = user?.franchise_id
       setFranchiseId(userFranchiseId) // Store in state for later use
-      console.log(`[LoadNextInvoice] User franchise_id: ${userFranchiseId}`)
+      console.log(`[LoadNextInvoice] Franchise: ${userFranchiseId}, Type: ${invoiceData.invoice_type}`)
 
       if (!userFranchiseId) {
-        console.warn("[LoadNextInvoice] No franchise_id found, using default ORD001")
+        console.warn("[LoadNextInvoice] No franchise_id found, using default")
+        const defaultNum = invoiceData.invoice_type === 'sale' ? 'ORD001' : 'INV001'
+        console.log(`[LoadNextInvoice] Default number for ${invoiceData.invoice_type}: ${defaultNum}`)
         setInvoiceData(prev => ({
           ...prev,
-          invoice_number: "ORD001"
+          invoice_number: defaultNum
         }))
         return
       }
@@ -288,17 +297,19 @@ export default function CreateInvoicePage() {
       })
 
       if (!response.ok) {
-        console.warn(`[LoadNextInvoice] API returned ${response.status}, using default ORD001`)
+        console.warn(`[LoadNextInvoice] API error for ${invoiceData.invoice_type}: ${response.status}`)
+        const defaultNum = invoiceData.invoice_type === 'sale' ? 'ORD001' : 'INV001'
+        console.log(`[LoadNextInvoice] Using default: ${defaultNum}`)
         setInvoiceData(prev => ({
           ...prev,
-          invoice_number: "ORD001"
+          invoice_number: defaultNum
         }))
         return
       }
 
       const data = await response.json()
-      const nextNum = data.next_invoice_number || "ORD001"
-      console.log(`[LoadNextInvoice] API returned: ${nextNum}`)
+      const nextNum = data.next_invoice_number || (invoiceData.invoice_type === 'sale' ? 'ORD001' : 'INV001')
+      console.log(`[LoadNextInvoice] ${invoiceData.invoice_type.toUpperCase()} → ${nextNum}`)
       setInvoiceData(prev => ({
         ...prev,
         invoice_number: nextNum
