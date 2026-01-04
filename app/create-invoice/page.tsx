@@ -825,13 +825,25 @@ export default function CreateInvoicePage() {
 
   // Helper: Count total safas currently in invoice (from BARATI SAFA and GROOM SAFA categories)
   const countSafasInInvoice = (): number => {
-    return invoiceItems
+    console.log("[countSafasInInvoice] Checking all invoice items:")
+    invoiceItems.forEach((item, idx) => {
+      console.log(`  [${idx}] ${item.product_name} | Category: "${item.category}" | Qty: ${item.quantity}`)
+    })
+    
+    const result = invoiceItems
       .filter(item => {
         const itemCategory = (item.category || "").toUpperCase()
         const safaCategories = ["BARATI SAFA", "GROOM SAFA", "BRIDE SAFA"]
-        return safaCategories.includes(itemCategory)
+        const matches = safaCategories.includes(itemCategory)
+        if (matches) {
+          console.log(`    ✓ SAFA MATCH: "${item.category}" → "${itemCategory}"`)
+        }
+        return matches
       })
       .reduce((sum, item) => sum + item.quantity, 0)
+    
+    console.log("[countSafasInInvoice] TOTAL SAFAS:", result)
+    return result
   }
 
   // Add product to invoice
