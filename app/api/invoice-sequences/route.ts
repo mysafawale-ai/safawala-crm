@@ -43,6 +43,12 @@ export async function GET(request: NextRequest) {
         const paddedNumber = String(nextNumber).padStart(numberStr.length, "0")  // Pad to original length
         nextInvoiceNumber = `${prefix}${paddedNumber}`
         console.log(`[InvoiceSequences] Extracted: prefix="${prefix}", originalLen=${numberStr.length}, lastNum=${lastNumber}, next="${nextInvoiceNumber}"`) 
+      } else {
+        console.log(`[InvoiceSequences] Regex failed to parse: ${lastOrder.order_number}`)
+        nextInvoiceNumber = "ORD001"
+      }
+    } else {
+      console.log(`[InvoiceSequences] No orders found, using default ORD001`)
       nextInvoiceNumber = "ORD001"
     }
 
