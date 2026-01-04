@@ -118,8 +118,34 @@ export async function PUT(request: NextRequest) {
     let nextInvoiceNumber: string
 
     if (!sequence) {
-      // No sequence yet, return default
-      nextInvoiceNumber = "ORD001"
+      // No sequence yet, check the database for the last order number
+      const { data: lastOrder, error: orderError } = await supabase
+        .from("product_orders")
+        .select("order_number")
+        .eq("franchise_id", franchise_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single()
+
+      if (orderError && orderError.code !== "PGRST116") {
+        throw orderError
+      }
+
+      if (lastOrder && lastOrder.order_number) {
+        // Extract number from last order and increment
+        const match = lastOrder.order_number.match(/^([A-Za-z-]+?)(\d+)$/)
+        if (match) {
+          const prefix = match[1]
+          const lastNumber = parseInt(match[2], 10)
+          const nextNumber = lastNumber + 1
+          const paddedNumber = String(nextNumber).padStart(String(lastNumber).length, "0")
+          nextInvoiceNumber = `${prefix}${paddedNumber}`
+        } else {
+          nextInvoiceNumber = "ORD001"
+        }
+      } else {
+        nextInvoiceNumber = "ORD001"
+      }
     } else {
       // Generate next number based on stored prefix and last_number
       const nextNumber = sequence.last_number + 1
