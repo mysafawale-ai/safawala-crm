@@ -3276,6 +3276,12 @@ export default function CreateInvoicePage() {
                     <span>{formatCurrency(itemsSubtotal)}</span>
                   </div>
                 )}
+                {lostDamagedTotal > 0 && (
+                  <div className="flex justify-between text-red-600">
+                    <span>Additional Products</span>
+                    <span>+{formatCurrency(lostDamagedTotal)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
@@ -3411,8 +3417,8 @@ export default function CreateInvoicePage() {
             </div>
           )}
 
-          {/* Items Table - Print Optimized (includes Lost/Damaged as products) */}
-          {(invoiceItems.length > 0 || lostDamagedItems.length > 0) && (
+          {/* Items Table - Print Optimized */}
+          {invoiceItems.length > 0 && (
             <div>
               <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">
                 {selectionMode === "package" && selectedPackage ? "Additional Products" : "Products"}
@@ -3434,12 +3440,31 @@ export default function CreateInvoicePage() {
                       <td className="p-2 text-center font-medium">{item.quantity}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Lost/Damaged Items - Print Only */}
+          {lostDamagedItems.length > 0 && (
+            <div className="mt-4">
+              <div className="text-xs text-red-700 font-semibold mb-2 uppercase tracking-wide">Additional Products</div>
+              <table className="w-full text-sm border border-red-200 rounded">
+                <thead className="bg-red-50">
+                  <tr>
+                    <th className="text-left p-2 text-xs font-semibold text-red-800 border-b border-red-200">Item</th>
+                    <th className="text-center p-2 text-xs font-semibold text-red-800 border-b border-red-200 w-20">Type</th>
+                    <th className="text-center p-2 text-xs font-semibold text-red-800 border-b border-red-200 w-16">Qty</th>
+                    <th className="text-right p-2 text-xs font-semibold text-red-800 border-b border-red-200 w-24">Charge</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {lostDamagedItems.map((item) => (
-                    <tr key={item.id} className="border-b border-red-100 bg-red-50">
-                      <td className="p-2">
-                        <div className="font-medium text-red-700">[{item.type.toUpperCase()}] {item.product_name}</div>
-                      </td>
-                      <td className="p-2 text-center font-medium text-red-700">{item.quantity}</td>
+                    <tr key={item.id} className="border-b border-red-100">
+                      <td className="p-2 font-medium text-gray-900">{item.product_name}</td>
+                      <td className="p-2 text-center capitalize">{item.type}</td>
+                      <td className="p-2 text-center">{item.quantity}</td>
+                      <td className="p-2 text-right text-red-600 font-medium">{formatCurrency(item.total_charge)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3516,12 +3541,6 @@ export default function CreateInvoicePage() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Security Deposit</span>
                     <span className="font-medium">{formatCurrency(securityDeposit)}</span>
-                  </div>
-                )}
-                {lostDamagedTotal > 0 && (
-                  <div className="flex justify-between text-red-600">
-                    <span>Lost/Damaged</span>
-                    <span>+{formatCurrency(lostDamagedTotal)}</span>
                   </div>
                 )}
                 <div className="border-t border-amber-300 pt-2 mt-2">
