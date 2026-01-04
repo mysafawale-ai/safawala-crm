@@ -37,17 +37,12 @@ export async function GET(request: NextRequest) {
       const match = lastOrder.order_number.match(/^([A-Za-z0-9-]+?)(\d+)$/)
       if (match) {
         const prefix = match[1]
-        const lastNumber = parseInt(match[2], 10)
-        const nextNumber = lastNumber + 1
-        const paddedNumber = String(nextNumber).padStart(String(lastNumber).length, "0")
+        const numberStr = match[2]  // Original string e.g. "002"
+        const lastNumber = parseInt(numberStr, 10)  // Parsed number e.g. 2
+        const nextNumber = lastNumber + 1  // e.g. 3
+        const paddedNumber = String(nextNumber).padStart(numberStr.length, "0")  // Pad to original length
         nextInvoiceNumber = `${prefix}${paddedNumber}`
-        console.log(`[InvoiceSequences] Extracted: prefix="${prefix}", lastNum=${lastNumber}, next="${nextInvoiceNumber}"`)
-      } else {
-        console.log(`[InvoiceSequences] Regex failed to parse: ${lastOrder.order_number}`)
-        nextInvoiceNumber = "ORD001"
-      }
-    } else {
-      console.log(`[InvoiceSequences] No orders found, using default ORD001`)
+        console.log(`[InvoiceSequences] Extracted: prefix="${prefix}", originalLen=${numberStr.length}, lastNum=${lastNumber}, next="${nextInvoiceNumber}"`) 
       nextInvoiceNumber = "ORD001"
     }
 
@@ -136,13 +131,14 @@ export async function PUT(request: NextRequest) {
       
       if (match) {
         const prefix = match[1]
-        const lastNumber = parseInt(match[2], 10)
-        const nextNumber = lastNumber + 1
+        const numberStr = match[2]  // Original string e.g. "001" or "002"
+        const lastNumber = parseInt(numberStr, 10)  // Parsed number e.g. 1 or 2
+        const nextNumber = lastNumber + 1  // e.g. 2 or 3
         // Preserve padding: if last was INV001, next is INV002; if INV0001, next is INV0002
-        const paddedNumber = String(nextNumber).padStart(String(lastNumber).length, "0")
+        const paddedNumber = String(nextNumber).padStart(numberStr.length, "0")
         nextInvoiceNumber = `${prefix}${paddedNumber}`
         
-        console.log(`[Hybrid Invoice] Last: ${lastOrder.order_number} → Next: ${nextInvoiceNumber}`)
+        console.log(`[Hybrid Invoice] Last: ${lastOrder.order_number} → Next: ${nextInvoiceNumber} (padding: ${numberStr.length} digits)`)
       } else {
         // Fallback: can't parse, return default
         nextInvoiceNumber = "ORD001"
