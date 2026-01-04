@@ -1344,8 +1344,30 @@ export default function CreateInvoicePage() {
         return
       }
 
+      // For new orders, verify the invoice number is unique, otherwise regenerate
+      let orderNumber = invoiceData.invoice_number
+      if (!orderId || mode !== "edit") {
+        // Check if this order number already exists
+        const { data: existingOrder } = await supabase
+          .from("product_orders")
+          .select("id")
+          .eq("order_number", orderNumber)
+          .single()
+        
+        if (existingOrder) {
+          // Order number exists, get a fresh one from the sequence
+          console.warn("[CreateOrder] Order number already exists, regenerating...")
+          const seqRes = await fetch(`/api/invoice-sequences?franchise_id=${currentFranchiseId}`, { cache: "no-store" })
+          if (seqRes.ok) {
+            const { next_invoice_number } = await seqRes.json()
+            orderNumber = next_invoice_number || orderNumber
+            setInvoiceData(prev => ({ ...prev, invoice_number: orderNumber }))
+          }
+        }
+      }
+
       const orderData = {
-        order_number: invoiceData.invoice_number,
+        order_number: orderNumber,
         customer_id: selectedCustomer.id,
         franchise_id: currentFranchiseId,
         booking_type: invoiceData.invoice_type || 'rental',
