@@ -976,8 +976,9 @@ export default function CreateInvoicePage() {
   const packageSecurityDeposit = selectionMode === "package" && selectedPackage
     ? (selectedPackage.security_deposit || 0)
     : 0
+  // Security Deposit: Use package deposit by default, add user's additional deposit if any
   const securityDeposit = invoiceData.invoice_type === "rental" 
-    ? (invoiceData.security_deposit + packageSecurityDeposit) 
+    ? (packageSecurityDeposit + invoiceData.security_deposit) 
     : 0
   const depositRefundAmount = isDepositRefunded && invoiceData.invoice_type === "rental" ? securityDeposit : 0
   const grandTotal = (afterDiscount + gstAmount + securityDeposit + lostDamagedTotal) - depositRefundAmount
