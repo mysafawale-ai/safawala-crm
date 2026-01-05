@@ -972,13 +972,9 @@ export default function CreateInvoicePage() {
   const afterDiscount = subtotal - discountAmount
   const gstAmount = (afterDiscount * invoiceData.gst_percentage) / 100
   const lostDamagedTotal = lostDamagedItems.reduce((sum, item) => sum + item.total_charge, 0)
-  // Include package security deposit if selected (package is now a variant directly)
-  const packageSecurityDeposit = selectionMode === "package" && selectedPackage
-    ? (selectedPackage.security_deposit || 0)
-    : 0
-  // Security Deposit: Use package deposit by default, add user's additional deposit if any
+  // Security Deposit: The field value IS the total deposit (auto-filled with package deposit, but can be increased by user)
   const securityDeposit = invoiceData.invoice_type === "rental" 
-    ? (packageSecurityDeposit + invoiceData.security_deposit) 
+    ? (invoiceData.security_deposit || 0)
     : 0
   const depositRefundAmount = isDepositRefunded && invoiceData.invoice_type === "rental" ? securityDeposit : 0
   const grandTotal = (afterDiscount + gstAmount + securityDeposit + lostDamagedTotal) - depositRefundAmount
@@ -2784,6 +2780,13 @@ export default function CreateInvoicePage() {
                                   setSelectedPackageVariant(null)
                                   setUseCustomPackagePrice(false)
                                   setCustomPackagePrice(0)
+                                  // AUTO-FILL security deposit field with package security deposit
+                                  if (pkg.security_deposit && pkg.security_deposit > 0) {
+                                    setInvoiceData(prev => ({
+                                      ...prev,
+                                      security_deposit: pkg.security_deposit
+                                    }))
+                                  }
                                 }}
                               >
                                 <div className="flex items-center justify-between">
@@ -3454,19 +3457,16 @@ export default function CreateInvoicePage() {
 
                 {/* Security Deposit - rental only, and only if package has deposit or user entered amount */}
                 {invoiceData.invoice_type === "rental" && (
-                  packageSecurityDeposit > 0 || invoiceData.security_deposit > 0
+                  invoiceData.security_deposit > 0
                 ) && (
                   <div>
-                    <Label className="text-xs text-gray-500">
-                      Additional Security Deposit (₹)
-                      {packageSecurityDeposit > 0 && <span className="text-blue-600"> (Package: ₹{packageSecurityDeposit.toLocaleString()})</span>}
-                    </Label>
+                    <Label className="text-xs text-gray-500">Security Deposit (₹) - Auto-filled from package</Label>
                     <Input
                       type="number"
                       value={invoiceData.security_deposit || ''}
                       onChange={(e) => setInvoiceData({ ...invoiceData, security_deposit: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                       className="print:border-0"
-                      placeholder="Additional deposit (beyond package)"
+                      placeholder="Security deposit"
                     />
                   </div>
                 )}
