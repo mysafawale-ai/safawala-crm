@@ -726,6 +726,8 @@ export default function CreateInvoicePage() {
         `)
         .eq("order_id", order.id)
 
+      console.log("[EditOrder] Order items query result:", { orderItems, itemsError, orderId: order.id })
+
       if (itemsError) {
         console.warn("[EditOrder] Could not load items:", itemsError)
       }
@@ -1476,6 +1478,7 @@ export default function CreateInvoicePage() {
       }
 
       // Insert items (only if there are items)
+      console.log("[SaveQuote] Saving items - invoiceItems:", invoiceItems.length, "extraItems:", extraItems.length)
       if (invoiceItems.length > 0 || extraItems.length > 0) {
         const itemsData = [
           ...invoiceItems.map(item => ({
@@ -1494,7 +1497,15 @@ export default function CreateInvoicePage() {
           }))
         ]
 
-        await supabase.from("product_order_items").insert(itemsData)
+        console.log("[SaveQuote] Inserting items:", itemsData)
+        const { error: itemsError } = await supabase.from("product_order_items").insert(itemsData)
+        if (itemsError) {
+          console.error("[SaveQuote] Error inserting items:", itemsError)
+        } else {
+          console.log("[SaveQuote] Items inserted successfully")
+        }
+      } else {
+        console.log("[SaveQuote] No items to save")
       }
 
       const message = isUpdate ? `Quote ${order.order_number} updated` : `Quote ${order.order_number} created`
@@ -1657,6 +1668,7 @@ export default function CreateInvoicePage() {
       }
 
       // Insert/re-insert items (only if there are items)
+      console.log("[CreateOrder] Saving items - invoiceItems:", invoiceItems.length, "extraItems:", extraItems.length)
       if (invoiceItems.length > 0 || extraItems.length > 0) {
         const itemsData = [
           ...invoiceItems.map(item => ({
@@ -1675,7 +1687,15 @@ export default function CreateInvoicePage() {
           }))
         ]
 
-        await supabase.from("product_order_items").insert(itemsData)
+        console.log("[CreateOrder] Inserting items:", itemsData)
+        const { error: itemsError } = await supabase.from("product_order_items").insert(itemsData)
+        if (itemsError) {
+          console.error("[CreateOrder] Error inserting items:", itemsError)
+        } else {
+          console.log("[CreateOrder] Items inserted successfully")
+        }
+      } else {
+        console.log("[CreateOrder] No items to save")
       }
 
       // Handle lost/damaged items - Save to dedicated table AND archive from inventory
