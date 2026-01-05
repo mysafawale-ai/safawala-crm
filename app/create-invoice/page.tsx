@@ -797,18 +797,26 @@ export default function CreateInvoicePage() {
       // Load package variant if exists
       if (order.variant_id) {
         try {
-          const { data: variant } = await supabase
+          const { data: variant, error: variantError } = await supabase
             .from("package_variants")
-            .select("*, package_sets(id, name, category_id)")
+            .select("*")
             .eq("id", order.variant_id)
             .single()
           
-          if (variant) {
-            setSelectedPackage(variant)
-            if (variant.package_sets?.category_id) {
-              setSelectedPackageCategory(variant.package_sets.category_id)
+          if (variantError) {
+            console.warn("[EditOrder] Could not load package variant:", variantError)
+          } else if (variant) {
+            // Map security_deposit from deposit_amount if needed
+            const mappedVariant = {
+              ...variant,
+              security_deposit: variant.deposit_amount || variant.security_deposit || 0,
             }
-            console.log("[EditOrder] Loaded package variant:", variant.name || variant.variant_name)
+            setSelectedPackage(mappedVariant)
+            // Set category from variant's category_id
+            if (variant.category_id) {
+              setSelectedPackageCategory(variant.category_id)
+            }
+            console.log("[EditOrder] Loaded package variant:", variant.name, "with base_price:", variant.base_price, "security_deposit:", mappedVariant.security_deposit)
           }
         } catch (pkgError) {
           console.warn("[EditOrder] Could not load package variant:", pkgError)
