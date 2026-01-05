@@ -1392,7 +1392,7 @@ export default function CreateInvoicePage() {
       }
 
       toast({ title: "Quote Saved", description: `Quote ${order.order_number} created` })
-      router.push("/bookings")
+      router.push("/bookings?refresh=" + Date.now())
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
     }
@@ -1662,7 +1662,7 @@ export default function CreateInvoicePage() {
       }
       
       toast({ title: isUpdate ? "Booking Updated" : "Booking Created", description: message })
-      router.push("/bookings")
+      router.push("/bookings?refresh=" + Date.now())
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
     }
