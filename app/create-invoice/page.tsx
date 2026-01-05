@@ -902,6 +902,13 @@ export default function CreateInvoicePage() {
         total_price: item.total_price,
       }))
       setInvoiceItems(items)
+      
+      // Log which items are package items vs extra items
+      const packageItems = (orderItems || []).filter((item: any) => item.is_package_item)
+      const extraItems = (orderItems || []).filter((item: any) => !item.is_package_item)
+      console.log("[EditOrder] Loaded items breakdown:")
+      console.log("  - Package items:", packageItems.length, packageItems.map((i: any) => i.products?.name))
+      console.log("  - Extra items:", extraItems.length, extraItems.map((i: any) => i.products?.name))
 
       // Load lost/damaged items (NEW)
       try {
@@ -1493,6 +1500,9 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // Mark as package item if in package mode
+            is_package_item: selectionMode === "package" ? true : false,
+            variant_id: selectionMode === "package" && selectedPackage ? selectedPackage.id : null,
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
@@ -1500,6 +1510,9 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // Extra items are NOT package items (they're additional)
+            is_package_item: false,
+            variant_id: null,
           }))
         ]
 
@@ -1683,6 +1696,9 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // Mark as package item if in package mode
+            is_package_item: selectionMode === "package" ? true : false,
+            variant_id: selectionMode === "package" && selectedPackage ? selectedPackage.id : null,
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
@@ -1690,6 +1706,9 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // Extra items are NOT package items (they're additional)
+            is_package_item: false,
+            variant_id: null,
           }))
         ]
 
