@@ -795,6 +795,7 @@ export default function CreateInvoicePage() {
       }
       
       // Load package variant if exists
+      let packageLoaded = false
       if (order.variant_id) {
         try {
           const { data: variant, error: variantError } = await supabase
@@ -812,14 +813,69 @@ export default function CreateInvoicePage() {
               security_deposit: variant.deposit_amount || variant.security_deposit || 0,
             }
             setSelectedPackage(mappedVariant)
+            setSelectionMode("package")
             // Set category from variant's category_id
             if (variant.category_id) {
               setSelectedPackageCategory(variant.category_id)
             }
+            packageLoaded = true
             console.log("[EditOrder] Loaded package variant:", variant.name, "with base_price:", variant.base_price, "security_deposit:", mappedVariant.security_deposit)
           }
         } catch (pkgError) {
           console.warn("[EditOrder] Could not load package variant:", pkgError)
+        }
+      }
+      
+      // Fallback: Try to find package from notes if not loaded from variant_id
+      // Notes format: [PACKAGE: Package Name @ ₹Price]
+      if (!packageLoaded && order.notes?.includes('[PACKAGE:')) {
+        const packageMatch = order.notes.match(/\[PACKAGE:\s*([^@]+)\s*@\s*₹?(\d+)\]/)
+        if (packageMatch) {
+          const packageName = packageMatch[1].trim()
+          const packagePrice = parseFloat(packageMatch[2])
+          console.log("[EditOrder] Found package in notes:", packageName, "price:", packagePrice)
+          
+          // Try to find matching variant by name
+          try {
+            const { data: matchingVariants } = await supabase
+              .from("package_variants")
+              .select("*")
+              .ilike("name", `%${packageName}%`)
+              .limit(1)
+            
+            if (matchingVariants && matchingVariants.length > 0) {
+              const variant = matchingVariants[0]
+              const mappedVariant = {
+                ...variant,
+                security_deposit: variant.deposit_amount || variant.security_deposit || 0,
+              }
+              setSelectedPackage(mappedVariant)
+              setSelectionMode("package")
+              if (variant.category_id) {
+                setSelectedPackageCategory(variant.category_id)
+              }
+              // Set custom price if it differs from variant base price
+              if (packagePrice && packagePrice !== variant.base_price) {
+                setUseCustomPackagePrice(true)
+                setCustomPackagePrice(packagePrice)
+              }
+              console.log("[EditOrder] Matched package from notes:", variant.name)
+            } else {
+              // No matching variant found - create a placeholder package
+              console.log("[EditOrder] No matching variant found, creating placeholder")
+              setSelectionMode("package")
+              setSelectedPackage({
+                name: packageName,
+                base_price: packagePrice,
+                security_deposit: 0,
+                inclusions: [],
+              })
+              setUseCustomPackagePrice(true)
+              setCustomPackagePrice(packagePrice)
+            }
+          } catch (e) {
+            console.warn("[EditOrder] Error finding package by name:", e)
+          }
         }
       }
       
