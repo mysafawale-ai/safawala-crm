@@ -1501,9 +1501,6 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
-            // Mark as package item if in package mode
-            is_package_item: selectionMode === "package" ? true : false,
-            variant_id: selectionMode === "package" && selectedPackage ? selectedPackage.id : null,
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
@@ -1511,9 +1508,6 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
-            // Extra items are NOT package items (they're additional)
-            is_package_item: false,
-            variant_id: null,
           }))
         ]
 
@@ -1521,8 +1515,9 @@ export default function CreateInvoicePage() {
         const { error: itemsError } = await supabase.from("product_order_items").insert(itemsData)
         if (itemsError) {
           console.error("[SaveQuote] Error inserting items:", itemsError)
+          throw itemsError
         } else {
-          console.log("[SaveQuote] Items inserted successfully")
+          console.log("[SaveQuote] Items inserted successfully:", itemsData.length, "items")
         }
       } else {
         console.log("[SaveQuote] No items to save")
@@ -1703,9 +1698,6 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
-            // Mark as package item if in package mode
-            is_package_item: selectionMode === "package" ? true : false,
-            variant_id: selectionMode === "package" && selectedPackage ? selectedPackage.id : null,
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
@@ -1713,9 +1705,6 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
-            // Extra items are NOT package items (they're additional)
-            is_package_item: false,
-            variant_id: null,
           }))
         ]
 
@@ -1723,8 +1712,9 @@ export default function CreateInvoicePage() {
         const { error: itemsError } = await supabase.from("product_order_items").insert(itemsData)
         if (itemsError) {
           console.error("[CreateOrder] Error inserting items:", itemsError)
+          throw itemsError
         } else {
-          console.log("[CreateOrder] Items inserted successfully")
+          console.log("[CreateOrder] Items inserted successfully:", itemsData.length, "items")
         }
       } else {
         console.log("[CreateOrder] No items to save")
@@ -1972,10 +1962,13 @@ export default function CreateInvoicePage() {
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSaveAsQuote} disabled={saving}>
-            <FileText className="h-4 w-4 mr-2" />
-            Save as Quote
-          </Button>
+          {/* Save as Quote - only show in new mode, not in edit mode */}
+          {mode !== "edit" && (
+            <Button variant="outline" size="sm" onClick={handleSaveAsQuote} disabled={saving}>
+              <FileText className="h-4 w-4 mr-2" />
+              Save as Quote
+            </Button>
+          )}
           <Button size="sm" onClick={handleCreateOrder} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
             {mode === "edit" && editingQuote ? "Convert to Booking" : mode === "edit" ? "Update Order" : "Create Order"}
@@ -3928,10 +3921,13 @@ export default function CreateInvoicePage() {
                 <Printer className="h-4 w-4 mr-2" />
                 Print
               </Button>
-              <Button variant="outline" onClick={handleSaveAsQuote} disabled={saving}>
-                <FileText className="h-4 w-4 mr-2" />
-                Save as Quote
-              </Button>
+              {/* Save as Quote - only show in new mode, not in edit mode */}
+              {mode !== "edit" && (
+                <Button variant="outline" onClick={handleSaveAsQuote} disabled={saving}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Save as Quote
+                </Button>
+              )}
               <Button onClick={handleCreateOrder} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                 {mode === "edit" && editingQuote ? "Convert to Booking" : mode === "edit" ? "Update Order" : "Create Order"}
