@@ -739,6 +739,12 @@ export default function CreateInvoicePage() {
       } else {
         console.log("[EditOrder] Order has no customer_id")
       }
+      
+      // Clean notes - remove legacy [PACKAGE: ...] prefix if present
+      let cleanedNotes = order.notes || ""
+      if (cleanedNotes.includes('[PACKAGE:')) {
+        cleanedNotes = cleanedNotes.replace(/\[PACKAGE:[^\]]+\]\n?/, '').trim()
+      }
         
       // Auto-fill all invoice data from existing order
       setInvoiceData({
@@ -769,7 +775,7 @@ export default function CreateInvoicePage() {
         coupon_code: order.coupon_code || "",
         coupon_discount: order.coupon_discount || 0,
         sales_closed_by_id: order.sales_closed_by_id || "",
-        notes: order.notes || "",
+        notes: cleanedNotes,
         // Modification fields
         has_modifications: order.has_modifications || false,
         modifications_details: order.modifications_details || "",
@@ -1421,13 +1427,10 @@ export default function CreateInvoicePage() {
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
         status: 'quote',
         pending_amount: grandTotal || 0,
-        notes: selectedPackage 
-          ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
-          : (invoiceData.notes || ''),
+        notes: invoiceData.notes || '',
         is_quote: true,
         // Package selection fields
         selection_mode: selectionMode || 'products',
-        package_id: selectedPackage?.package_id || selectedPackage?.set_id || null,
         variant_id: selectedPackage?.id || null,
         use_custom_pricing: useCustomPackagePrice || false,
         custom_package_price: customPackagePrice || 0,
@@ -1606,13 +1609,10 @@ export default function CreateInvoicePage() {
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
         status: 'confirmed',
         pending_amount: Math.max(0, (grandTotal || 0) - (invoiceData.amount_paid || 0)),
-        notes: selectedPackage 
-          ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
-          : (invoiceData.notes || ''),
+        notes: invoiceData.notes || '',
         is_quote: false,
         // Package selection fields (NEW)
         selection_mode: selectionMode || 'products',
-        package_id: selectedPackage?.package_id || selectedPackage?.set_id || null,
         variant_id: selectedPackage?.id || null,
         use_custom_pricing: useCustomPackagePrice || false,
         custom_package_price: customPackagePrice || 0,
