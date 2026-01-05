@@ -764,7 +764,7 @@ export default function CreateInvoicePage() {
         security_deposit: order.security_deposit || 0,
         gst_percentage: order.gst_percentage || 5,
         discount_amount: order.discount_amount || 0,
-        discount_type: "fixed",
+        discount_type: order.discount_type || "fixed", // NEW: Load discount type
         coupon_code: order.coupon_code || "",
         coupon_discount: order.coupon_discount || 0,
         sales_closed_by_id: order.sales_closed_by_id || "",
@@ -775,6 +775,38 @@ export default function CreateInvoicePage() {
         modification_date: order.modification_date ? new Date(order.modification_date).toISOString() : "",
         modification_time: order.modification_date ? format(new Date(order.modification_date), "HH:mm") : "10:00",
       })
+
+      // Load package selection state (NEW)
+      if (order.selection_mode) {
+        setSelectionMode(order.selection_mode as "products" | "package")
+      }
+      if (order.use_custom_pricing) {
+        setUseCustomPackagePrice(order.use_custom_pricing)
+      }
+      if (order.custom_package_price) {
+        setCustomPackagePrice(order.custom_package_price)
+      }
+      
+      // Load package variant if exists
+      if (order.variant_id) {
+        try {
+          const { data: variant } = await supabase
+            .from("package_variants")
+            .select("*, package_sets(id, name, category_id)")
+            .eq("id", order.variant_id)
+            .single()
+          
+          if (variant) {
+            setSelectedPackage(variant)
+            if (variant.package_sets?.category_id) {
+              setSelectedPackageCategory(variant.package_sets.category_id)
+            }
+            console.log("[EditOrder] Loaded package variant:", variant.name || variant.variant_name)
+          }
+        } catch (pkgError) {
+          console.warn("[EditOrder] Could not load package variant:", pkgError)
+        }
+      }
       
       console.log("[EditOrder] Invoice data set - invoice_number:", order.order_number, "event_date:", order.event_date)
       
@@ -791,6 +823,32 @@ export default function CreateInvoicePage() {
         total_price: item.total_price,
       }))
       setInvoiceItems(items)
+
+      // Load lost/damaged items (NEW)
+      try {
+        const { data: lostDamagedData } = await supabase
+          .from("order_lost_damaged_items")
+          .select("*")
+          .eq("order_id", order.id)
+        
+        if (lostDamagedData && lostDamagedData.length > 0) {
+          const loadedLostDamaged = lostDamagedData.map((ld: any) => ({
+            id: ld.id,
+            product_id: ld.product_id,
+            product_name: ld.product_name,
+            barcode: ld.barcode,
+            type: ld.type as "lost" | "damaged",
+            quantity: ld.quantity,
+            charge_per_item: ld.charge_per_item,
+            total_charge: ld.total_charge,
+            notes: ld.notes,
+          }))
+          setLostDamagedItems(loadedLostDamaged)
+          console.log("[EditOrder] Loaded lost/damaged items:", loadedLostDamaged.length)
+        }
+      } catch (ldError) {
+        console.warn("[EditOrder] Could not load lost/damaged items:", ldError)
+      }
       
       // Store franchise_id from order
       if (order.franchise_id) {
@@ -1426,6 +1484,7 @@ export default function CreateInvoicePage() {
         gst_amount: gstAmount || 0,
         gst_percentage: invoiceData.gst_percentage || 5,
         discount_amount: discountAmount || 0,
+        discount_type: invoiceData.discount_type || 'fixed', // NEW: Save discount type
         security_deposit: securityDeposit || 0,
         coupon_code: invoiceData.coupon_code || null,
         coupon_discount: invoiceData.coupon_discount || 0,
@@ -1436,6 +1495,12 @@ export default function CreateInvoicePage() {
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : (invoiceData.notes || ''),
         is_quote: false,
+        // Package selection fields (NEW)
+        selection_mode: selectionMode || 'products',
+        package_id: selectedPackage?.package_id || selectedPackage?.set_id || null,
+        variant_id: selectedPackage?.id || null,
+        use_custom_pricing: useCustomPackagePrice || false,
+        custom_package_price: customPackagePrice || 0,
         // Modification fields (for direct sales)
         has_modifications: invoiceData.has_modifications || false,
         modifications_details: invoiceData.has_modifications ? invoiceData.modifications_details : null,
@@ -1498,8 +1563,37 @@ export default function CreateInvoicePage() {
         await supabase.from("product_order_items").insert(itemsData)
       }
 
-      // Handle lost/damaged items - archive products from inventory
+      // Handle lost/damaged items - Save to dedicated table AND archive from inventory
       if (lostDamagedItems.length > 0) {
+        // First, delete existing lost/damaged items for this order (in case of edit)
+        if (isUpdate) {
+          await supabase
+            .from("order_lost_damaged_items")
+            .delete()
+            .eq("order_id", order.id)
+        }
+
+        // Insert lost/damaged items to dedicated table
+        const lostDamagedData = lostDamagedItems.map(ldItem => ({
+          order_id: order.id,
+          product_id: ldItem.product_id || null,
+          product_name: ldItem.product_name,
+          barcode: ldItem.barcode || null,
+          type: ldItem.type,
+          quantity: ldItem.quantity,
+          charge_per_item: ldItem.charge_per_item,
+          total_charge: ldItem.total_charge,
+          notes: ldItem.notes || null,
+        }))
+
+        try {
+          await supabase.from("order_lost_damaged_items").insert(lostDamagedData)
+          console.log("[CreateOrder] Saved lost/damaged items:", lostDamagedData.length)
+        } catch (ldError) {
+          console.warn("[CreateOrder] Could not save lost/damaged items (table may not exist):", ldError)
+        }
+
+        // Also update inventory and log to archive
         for (const ldItem of lostDamagedItems) {
           if (ldItem.product_id) {
             // Get current product stock
