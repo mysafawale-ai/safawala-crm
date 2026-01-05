@@ -945,7 +945,13 @@ export default function CreateInvoicePage() {
   }
 
   // Calculations
-  const itemsSubtotal = invoiceItems.reduce((sum, item) => sum + item.total_price, 0) + extraItems.reduce((sum, item) => sum + item.total_price, 0)
+  // When package mode: items are included in package price (for tracking only), don't add their prices
+  // Only extraItems are additional products beyond the package
+  const additionalItemsSubtotal = extraItems.reduce((sum, item) => sum + item.total_price, 0)
+  // Items subtotal only counts when NOT in package mode (individual product selection)
+  const itemsSubtotal = selectionMode === "package" 
+    ? additionalItemsSubtotal  // In package mode, only extra items add to price
+    : invoiceItems.reduce((sum, item) => sum + item.total_price, 0) + additionalItemsSubtotal
   // Include package price if a package is selected (package is now a variant directly)
   const packagePrice = selectionMode === "package" && selectedPackage 
     ? (useCustomPackagePrice && customPackagePrice > 0 ? customPackagePrice : (selectedPackage.base_price || 0))
@@ -3560,7 +3566,7 @@ export default function CreateInvoicePage() {
                 )}
                 {lostDamagedTotal > 0 && (
                   <div className="flex justify-between text-red-600">
-                    <span>Additional Products</span>
+                    <span>Lost/Damaged Charges</span>
                     <span>+{formatCurrency(lostDamagedTotal)}</span>
                   </div>
                 )}
