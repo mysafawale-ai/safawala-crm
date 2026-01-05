@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Camera, PenTool, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Loader2, Camera, PenTool, AlertCircle, CheckCircle2, X } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 
 interface ProductItem {
   product_id: string
@@ -39,27 +39,40 @@ export function UnifiedHandoverDialog({
   
   // Form state
   const [loading, setLoading] = useState(false)
-  const [currentTab, setCurrentTab] = useState('recipient')
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasSignature, setHasSignature] = useState(false)
   
-  // Recipient info
+  // RECIPIENT INFORMATION
   const [recipientName, setRecipientName] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
+  const [recipientEmail, setRecipientEmail] = useState('')
+  const [recipientAddress, setRecipientAddress] = useState('')
   
-  // Photo
+  // DELIVERY INFORMATION
+  const [deliveryCondition, setDeliveryCondition] = useState('good')
+  const [deliveryNotes, setDeliveryNotes] = useState('')
+  
+  // PHOTO & SIGNATURE
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   
-  // Items
+  // ITEMS
   const [items, setItems] = useState<(ProductItem & {
     qty_used: number
     qty_not_used: number
     qty_damaged: number
     qty_lost: number
+    condition_before?: string
+    condition_after?: string
     damage_reason?: string
     damage_notes?: string
+    item_notes?: string
   })[]>([])
+  
+  // ADDITIONAL NOTES
+  const [generalNotes, setGeneralNotes] = useState('')
+  const [issues, setIssues] = useState('')
+  const [feedback, setFeedback] = useState('')
 
   // Initialize form
   useEffect(() => {
@@ -67,15 +80,34 @@ export function UnifiedHandoverDialog({
       if (!open || !delivery) return
       setLoading(true)
       try {
+        console.log('📦 Loading handover data for delivery:', { 
+          delivery_id: delivery.id, 
+          booking_id: delivery.booking_id, 
+          booking_source: delivery.booking_source 
+        })
+
         // Get booking items
         let productItems: any[] = []
+        
+        if (!delivery.booking_id || !delivery.booking_source) {
+          console.warn('⚠️ Missing booking_id or booking_source in delivery')
+          setItems([])
+          setLoading(false)
+          return
+        }
+
         if (delivery.booking_source === 'product_order') {
+          console.log('📥 Fetching product_order items...')
           const res = await fetch(`/api/product-orders/${delivery.booking_id}`)
           if (res.ok) {
             const json = await res.json()
-            productItems = json.items || []
+            productItems = json.items || json.data?.items || []
+            console.log('✅ Product order items:', productItems)
+          } else {
+            console.warn('⚠️ Product order API error:', res.status)
           }
         } else if (delivery.booking_source === 'package_booking') {
+          console.log('📥 Fetching package_booking items...')
           const res = await fetch(`/api/package-bookings/${delivery.booking_id}`)
           if (res.ok) {
             const json = await res.json()
@@ -85,7 +117,17 @@ export function UnifiedHandoverDialog({
                 quantity: 1 
               }))
             ) || []
+            console.log('✅ Package booking items:', productItems)
+          } else {
+            console.warn('⚠️ Package booking API error:', res.status)
           }
+        }
+
+        if (productItems.length === 0) {
+          console.warn('⚠️ No items found in booking')
+          setItems([])
+          setLoading(false)
+          return
         }
 
         // Fetch product details
@@ -95,7 +137,7 @@ export function UnifiedHandoverDialog({
             const p = pr.ok ? await pr.json() : null
             return {
               product_id: pi.product_id,
-              product_name: p?.name || 'Unknown Product',
+              product_name: p?.name || p?.data?.name || 'Unknown Product',
               qty_delivered: pi.quantity || 1,
               category: p?.category,
               qty_used: 0,
@@ -108,10 +150,12 @@ export function UnifiedHandoverDialog({
           })
         )
 
+        console.log('✅ Items with details:', withDetails)
         setItems(withDetails)
         setLoading(false)
       } catch (e) {
-        console.error('Failed loading handover data', e)
+        console.error('❌ Failed loading handover data', e)
+        setItems([])
         setLoading(false)
       }
     }
@@ -323,11 +367,11 @@ export function UnifiedHandoverDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Complete Delivery Handover</DialogTitle>
           <DialogDescription>
-            Capture recipient info, photos, signature, and categorize items (used, not used, damaged, lost)
+            All information in one form - recipient details, photo, items, and signature
           </DialogDescription>
         </DialogHeader>
 
@@ -336,278 +380,155 @@ export function UnifiedHandoverDialog({
             <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading…
           </div>
         ) : (
-          <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="recipient">Recipient</TabsTrigger>
-              <TabsTrigger value="photo">Photo</TabsTrigger>
-              <TabsTrigger value="items">Items</TabsTrigger>
-              <TabsTrigger value="signature">Signature</TabsTrigger>
-            </TabsList>
+          <div className="space-y-6 overflow-y-auto max-h-[calc(90vh-140px)] pr-4">
+            
+            {/* SECTION 1: RESPONSIBLE PERSON */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Responsible Person</h3>
+              
+              <div>
+                <Label htmlFor="recipient-name" className="font-medium">Name *</Label>
+                <Input
+                  id="recipient-name"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  placeholder="Name of responsible person"
+                  disabled={loading}
+                  className="mt-1"
+                />
+              </div>
 
-            {/* Recipient Tab */}
-            <TabsContent value="recipient" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recipient Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="recipient-name">Name *</Label>
-                    <Input
-                      id="recipient-name"
-                      value={recipientName}
-                      onChange={(e) => setRecipientName(e.target.value)}
-                      placeholder="Full name of person receiving delivery"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="recipient-phone">Phone Number *</Label>
-                    <Input
-                      id="recipient-phone"
-                      value={recipientPhone}
-                      onChange={(e) => setRecipientPhone(e.target.value)}
-                      placeholder="Contact phone number"
-                      disabled={loading}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+              <div>
+                <Label htmlFor="recipient-phone" className="font-medium">Phone Number *</Label>
+                <Input
+                  id="recipient-phone"
+                  value={recipientPhone}
+                  onChange={(e) => setRecipientPhone(e.target.value)}
+                  placeholder="Phone number"
+                  disabled={loading}
+                  className="mt-1"
+                />
+              </div>
+            </div>
 
-            {/* Photo Tab */}
-            <TabsContent value="photo" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Delivery Photo *</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                    {photoUrl ? (
-                      <>
-                        <img src={photoUrl} alt="Delivery photo" className="w-full max-h-96 object-contain mx-auto rounded" />
-                        <Button
-                          variant="outline"
-                          className="mt-4"
-                          onClick={() => {
-                            fileInputRef.current?.click()
-                          }}
-                          disabled={loading}
-                        >
-                          <Camera className="h-4 w-4 mr-2" /> Retake Photo
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Camera className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-sm font-medium mb-2">Click to capture photo</p>
-                        <p className="text-xs text-muted-foreground mb-4">Take a photo of the items at handover</p>
-                        <Button
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={loading}
-                        >
-                          <Camera className="h-4 w-4 mr-2" /> Capture Photo
-                        </Button>
-                      </>
-                    )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePhotoCapture}
-                      className="hidden"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+            <Separator />
 
-            {/* Items Tab */}
-            <TabsContent value="items" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Item Categorization</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Categorize each item: Used (→Laundry), Not Used (→Inventory), Damaged/Lost (→Archive)
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {items.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No items found for this delivery</p>
-                  ) : (
-                    items.map((item, idx) => (
-                      <div key={item.product_id} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium">{item.product_name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Delivered: {item.qty_delivered} units
-                            </p>
-                          </div>
-                          <div className="text-sm">
-                            {(() => {
-                              const total = item.qty_used + item.qty_not_used + item.qty_damaged + item.qty_lost
-                              const remaining = Math.max(0, item.qty_delivered - total)
-                              return (
-                                remaining > 0 ? (
-                                  <span className="text-red-600 font-medium">Unassigned: {remaining}</span>
-                                ) : (
-                                  <span className="text-green-600 font-medium flex items-center"><CheckCircle2 className="h-4 w-4 mr-1" /> Complete</span>
-                                )
-                              )
-                            })()}
-                          </div>
-                        </div>
+            {/* SECTION 2: SAFA IMAGES */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Safa Images Photo *</h3>
 
-                        {/* Quantity inputs grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div>
-                            <Label className="text-xs">Used (Laundry)</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={item.qty_delivered}
-                              value={item.qty_used}
-                              onChange={(e) => updateItem(idx, 'qty_used', parseInt(e.target.value) || 0)}
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Not Used (Inventory)</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={item.qty_delivered}
-                              value={item.qty_not_used}
-                              onChange={(e) => updateItem(idx, 'qty_not_used', parseInt(e.target.value) || 0)}
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Damaged (Archive)</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={item.qty_delivered}
-                              value={item.qty_damaged}
-                              onChange={(e) => updateItem(idx, 'qty_damaged', parseInt(e.target.value) || 0)}
-                              className="text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Lost (Archive)</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={item.qty_delivered}
-                              value={item.qty_lost}
-                              onChange={(e) => updateItem(idx, 'qty_lost', parseInt(e.target.value) || 0)}
-                              className="text-sm"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Damage details if damaged */}
-                        {item.qty_damaged > 0 && (
-                          <div className="space-y-3 border-t pt-3">
-                            <Alert>
-                              <AlertCircle className="h-4 w-4" />
-                              <AlertDescription>
-                                Reason for damage required for {item.qty_damaged} item(s)
-                              </AlertDescription>
-                            </Alert>
-                            <div>
-                              <Label className="text-xs">Damage Reason *</Label>
-                              <Select value={item.damage_reason || ''} onValueChange={(val) => {
-                                const updated = [...items]
-                                updated[idx].damage_reason = val
-                                setItems(updated)
-                              }}>
-                                <SelectTrigger className="text-sm">
-                                  <SelectValue placeholder="Select reason" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="stain">Stain</SelectItem>
-                                  <SelectItem value="tear">Tear / Hole</SelectItem>
-                                  <SelectItem value="burn">Burn Mark</SelectItem>
-                                  <SelectItem value="fade">Fade / Discoloration</SelectItem>
-                                  <SelectItem value="button">Button / Zipper Issue</SelectItem>
-                                  <SelectItem value="smell">Bad Smell</SelectItem>
-                                  <SelectItem value="other">Other</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Additional Damage Notes</Label>
-                              <Textarea
-                                value={item.damage_notes || ''}
-                                onChange={(e) => {
-                                  const updated = [...items]
-                                  updated[idx].damage_notes = e.target.value
-                                  setItems(updated)
-                                }}
-                                placeholder="Describe the damage in detail..."
-                                className="text-sm h-20"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Signature Tab */}
-            <TabsContent value="signature" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Signature</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Recipient signature confirms receipt and acknowledgment
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
-                    <canvas
-                      ref={canvasRef}
-                      width={400}
-                      height={200}
-                      onMouseDown={startDrawing}
-                      onMouseUp={stopDrawing}
-                      onMouseMove={drawSignature}
-                      onMouseLeave={stopDrawing}
-                      className="w-full border cursor-crosshair bg-white rounded"
-                    />
-                  </div>
-                  <div className="flex gap-2">
+              <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
+                {photoUrl ? (
+                  <>
+                    <img src={photoUrl} alt="Safa photo" className="w-full max-h-48 object-contain mx-auto rounded mb-3" />
                     <Button
-                      variant={hasSignature ? 'outline' : 'default'}
-                      onClick={clearSignature}
-                      disabled={!hasSignature || loading}
-                      className="flex-1"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        fileInputRef.current?.click()
+                      }}
+                      disabled={loading}
                     >
-                      Clear Signature
+                      <Camera className="h-4 w-4 mr-2" /> Retake Photo
                     </Button>
-                    {hasSignature && (
-                      <div className="flex-1 flex items-center text-green-600 text-sm font-medium">
-                        <CheckCircle2 className="h-4 w-4 mr-2" /> Signature captured
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm font-medium mb-2">Capture Photo</p>
+                    <Button
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                    >
+                      <Camera className="h-4 w-4 mr-2" /> Capture Photo
+                    </Button>
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoCapture}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* SECTION 3: SAFA CATEGORIZATION */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Safa Categorization *</h3>
+
+              {items.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No items found for this delivery</p>
+              ) : (
+                <div className="space-y-4">
+                  {items.map((item, idx) => (
+                    <div key={item.product_id} className="border rounded-lg p-4 space-y-3 bg-white">
+                      <div>
+                        <h4 className="font-medium text-base">{item.product_name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Total: <span className="font-semibold">{item.qty_delivered} units</span>
+                        </p>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+
+                      {/* Quantity inputs */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-sm font-medium">Used Safa</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.qty_delivered}
+                            value={item.qty_used}
+                            onChange={(e) => updateItem(idx, 'qty_used', parseInt(e.target.value) || 0)}
+                            className="text-sm mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Fresh Safa</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.qty_delivered}
+                            value={item.qty_not_used}
+                            onChange={(e) => updateItem(idx, 'qty_not_used', parseInt(e.target.value) || 0)}
+                            className="text-sm mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Damage/Lost</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.qty_delivered}
+                            value={item.qty_damaged + item.qty_lost}
+                            onChange={(e) => {
+                              const total = parseInt(e.target.value) || 0
+                              updateItem(idx, 'qty_damaged', Math.ceil(total / 2))
+                              updateItem(idx, 'qty_lost', Math.floor(total / 2))
+                            }}
+                            className="text-sm mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="mt-6 pt-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading || items.length === 0}>
+          <Button onClick={handleSave} disabled={loading || items.length === 0} size="lg">
             {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             Complete Handover
           </Button>

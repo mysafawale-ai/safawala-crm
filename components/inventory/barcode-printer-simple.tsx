@@ -6,9 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Printer, Plus, Trash2 } from "lucide-react"
+import { Printer, Plus, Trash2, Download, FileCode, Info } from "lucide-react"
 import { toast } from "sonner"
 import { printBarcodes } from "@/lib/barcode-print-service"
+import { 
+  printThermalLabels, 
+  downloadZPL, 
+  copyZPLToClipboard,
+  getZebraSetupInstructions 
+} from "@/lib/zebra-zpl-service"
 
 interface BarcodeItem {
   id: string
@@ -24,7 +30,7 @@ interface BarcodePrinterProps {
 }
 
 interface PrintSettings {
-  paperSize: "thermal-4x6" | "a4" | "a5" | "a6" | "custom"
+  paperSize: "zebra-25x50" | "thermal-4x6" | "a4" | "a5" | "a6" | "custom"
   columns: number
   marginTop: number
   marginLeft: number
@@ -48,17 +54,18 @@ export function SimpleBarcodePrinter({
   ])
 
   const [settings, setSettings] = useState<PrintSettings>({
-    paperSize: "a4",
+    paperSize: "zebra-25x50",
     columns: 2,
-    marginTop: 10,
-    marginLeft: 10,
-    marginRight: 10,
+    marginTop: 0,
+    marginLeft: 0,
+    marginRight: 0,
     barcodeScale: 1,
-    barcodeRotation: 90,
+    barcodeRotation: 0,
   })
 
   // Paper size presets
   const PAPER_SIZES = {
+    "zebra-25x50": { name: "🖨️ Zebra ZD230 - 25×50mm (2-col)", width: 100, height: 25 },
     "thermal-4x6": { name: "Thermal 4×6 inch", width: 101.6, height: 152.4 },
     a4: { name: "A4 (210×297mm)", width: 210, height: 297 },
     a5: { name: "A5 (148×210mm)", width: 148, height: 210 },
@@ -130,6 +137,9 @@ export function SimpleBarcodePrinter({
     setSettings({ ...settings, [field]: value })
   }
 
+  // Check if using Zebra printer preset
+  const isZebraPrinter = settings.paperSize === "zebra-25x50"
+
   const handlePrint = async () => {
     if (barcodes.length === 0) {
       toast.error("Add at least one barcode")
@@ -137,30 +147,76 @@ export function SimpleBarcodePrinter({
     }
 
     try {
-      await printBarcodes({
-        barcodes,
-        columns: settings.columns,
-        leftMargin: settings.marginLeft / 10,
-        rightMargin: settings.marginRight / 10,
-        topMargin: settings.marginTop / 10,
-        barcodeScale: settings.barcodeScale,
-        barcodeRotation: settings.barcodeRotation,
-      })
-
-      toast.success(
-        `Printing ${barcodes.length} barcodes (${layout.totalPages} page${layout.totalPages > 1 ? "s" : ""})`
-      )
+      // Use optimized thermal print for Zebra
+      if (isZebraPrinter) {
+        await printThermalLabels({
+          barcodes,
+          labelWidthMM: 50,
+          labelHeightMM: 25,
+          columns: 2,
+        })
+        toast.success(
+          `Printing ${barcodes.length} thermal labels (${Math.ceil(barcodes.length / 2)} rows)`
+        )
+      } else {
+        await printBarcodes({
+          barcodes,
+          columns: settings.columns,
+          leftMargin: settings.marginLeft / 10,
+          rightMargin: settings.marginRight / 10,
+          topMargin: settings.marginTop / 10,
+          barcodeScale: settings.barcodeScale,
+          barcodeRotation: settings.barcodeRotation,
+        })
+        toast.success(
+          `Printing ${barcodes.length} barcodes (${layout.totalPages} page${layout.totalPages > 1 ? "s" : ""})`
+        )
+      }
     } catch (error) {
       console.error("Print error:", error)
       toast.error("Failed to print barcodes")
     }
   }
 
+  const handleDownloadZPL = () => {
+    if (barcodes.length === 0) {
+      toast.error("Add at least one barcode")
+      return
+    }
+    
+    downloadZPL({
+      barcodes,
+      labelWidthMM: 50,
+      labelHeightMM: 25,
+      columns: 2,
+    }, `barcodes_${Date.now()}.zpl`)
+    
+    toast.success("ZPL file downloaded! Send to printer using Zebra Setup Utilities")
+  }
+
+  const handleCopyZPL = async () => {
+    if (barcodes.length === 0) {
+      toast.error("Add at least one barcode")
+      return
+    }
+    
+    await copyZPLToClipboard({
+      barcodes,
+      labelWidthMM: 50,
+      labelHeightMM: 25,
+      columns: 2,
+    })
+    
+    toast.success("ZPL commands copied to clipboard!")
+  }
+
+  const [showSetupHelp, setShowSetupHelp] = useState(false)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Barcode Printer</DialogTitle>
+          <DialogTitle>Barcode Printer {isZebraPrinter && "- Zebra ZD230 Mode"}</DialogTitle>
         </DialogHeader>
 
         <div className="flex gap-6 flex-1 overflow-hidden">
@@ -677,37 +733,85 @@ export function SimpleBarcodePrinter({
                   <div className="p-2 bg-blue-50 rounded">
                     <div className="text-gray-600 font-medium">Layout</div>
                     <div className="text-lg font-bold text-blue-600">
-                      {layout.cols}×{layout.rows}
+                      {isZebraPrinter ? "2×1" : `${layout.cols}×${layout.rows}`}
                     </div>
                   </div>
                   <div className="p-2 bg-green-50 rounded">
-                    <div className="text-gray-600 font-medium">Per Page</div>
+                    <div className="text-gray-600 font-medium">Per Row</div>
                     <div className="text-lg font-bold text-green-600">
-                      {layout.barcodesPerPage}
+                      {isZebraPrinter ? "2" : layout.barcodesPerPage}
                     </div>
                   </div>
                   <div className="p-2 bg-orange-50 rounded">
-                    <div className="text-gray-600 font-medium">Total Pages</div>
+                    <div className="text-gray-600 font-medium">Total Rows</div>
                     <div className="text-lg font-bold text-orange-600">
-                      {layout.totalPages}
+                      {isZebraPrinter ? Math.ceil(barcodes.length / 2) : layout.totalPages}
                     </div>
                   </div>
                 </div>
+
+                {/* Zebra Printer Info */}
+                {isZebraPrinter && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                    <div className="flex items-start gap-2 text-xs text-amber-800">
+                      <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <strong>Zebra ZD230 Mode:</strong> Each row prints 2 labels (50mm × 25mm each).
+                        Total width: 100mm. Make sure your printer is set to continuous media or gap detection.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         </div>
 
+        {/* Setup Help Modal */}
+        {showSetupHelp && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSetupHelp(false)}>
+            <div className="bg-white rounded-lg max-w-2xl max-h-[80vh] overflow-auto p-6 m-4" onClick={e => e.stopPropagation()}>
+              <h2 className="text-xl font-bold mb-4">Zebra ZD230 Printer Setup</h2>
+              <pre className="text-xs whitespace-pre-wrap bg-gray-100 p-4 rounded overflow-auto max-h-96">
+                {getZebraSetupInstructions()}
+              </pre>
+              <Button onClick={() => setShowSetupHelp(false)} className="mt-4 w-full">Close</Button>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="flex gap-2 justify-end pt-4 border-t mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
-            <Printer className="w-4 h-4 mr-2" />
-            Print {barcodes.length} Barcodes ({layout.totalPages} Page
-            {layout.totalPages > 1 ? "s" : ""})
-          </Button>
+        <div className="flex flex-wrap gap-2 justify-between pt-4 border-t mt-4">
+          <div className="flex gap-2">
+            {isZebraPrinter && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setShowSetupHelp(true)}>
+                  <Info className="w-4 h-4 mr-1" />
+                  Setup Guide
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadZPL}>
+                  <Download className="w-4 h-4 mr-1" />
+                  Download ZPL
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCopyZPL}>
+                  <FileCode className="w-4 h-4 mr-1" />
+                  Copy ZPL
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
+              <Printer className="w-4 h-4 mr-2" />
+              {isZebraPrinter 
+                ? `Print ${barcodes.length} Labels (${Math.ceil(barcodes.length / 2)} Rows)`
+                : `Print ${barcodes.length} Barcodes (${layout.totalPages} Page${layout.totalPages > 1 ? "s" : ""})`
+              }
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
