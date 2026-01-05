@@ -196,6 +196,7 @@ export default function CreateInvoicePage() {
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [editingOrderCustomerId, setEditingOrderCustomerId] = useState<string | null>(null)
+  const [editingQuote, setEditingQuote] = useState(false) // Track if editing a quote (for "Convert to Booking" button)
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [extraItems, setExtraItems] = useState<InvoiceItem[]>([])
   const [lostDamagedItems, setLostDamagedItems] = useState<LostDamagedItem[]>([])
@@ -776,6 +777,12 @@ export default function CreateInvoicePage() {
         modification_time: order.modification_date ? format(new Date(order.modification_date), "HH:mm") : "10:00",
       })
 
+      // Check if this is a quote (for "Convert to Booking" button)
+      if (order.is_quote || order.status === 'quote' || order.order_number?.startsWith('QTE')) {
+        setEditingQuote(true)
+        console.log("[EditOrder] Editing a QUOTE - will show 'Convert to Booking' button")
+      }
+
       // Load package selection state (NEW)
       if (order.selection_mode) {
         setSelectionMode(order.selection_mode as "products" | "package")
@@ -855,7 +862,7 @@ export default function CreateInvoicePage() {
         setFranchiseId(order.franchise_id)
       }
       
-      console.log("[EditOrder] Successfully loaded order:", order.order_number, "Customer:", customer?.name, "Items:", items.length)
+      console.log("[EditOrder] Successfully loaded order:", order.order_number, "Items:", items.length)
       toast({ title: "Order Loaded", description: `Editing ${order.order_number}` })
       
     } catch (error: any) {
@@ -1462,11 +1469,22 @@ export default function CreateInvoicePage() {
         return
       }
 
-      // For new orders, verify the invoice number is unique, otherwise regenerate
+      // For new orders OR converting quote to booking, generate/verify invoice number
       let orderNumber = invoiceData.invoice_number
       console.log(`[CreateOrder] Creating order with invoice_number: ${orderNumber}`)
-      if (!orderId || mode !== "edit") {
-        // Check if this order number already exists
+      
+      // If converting from quote, generate a new INV/ORD/SAL number
+      if (editingQuote && mode === "edit") {
+        console.log(`[CreateOrder] Converting QUOTE to BOOKING - generating new invoice number`)
+        const seqRes = await fetch(`/api/invoice-sequences?franchise_id=${currentFranchiseId}&type=${invoiceData.invoice_type}`, { cache: "no-store" })
+        if (seqRes.ok) {
+          const { next_invoice_number } = await seqRes.json()
+          orderNumber = next_invoice_number || orderNumber
+          console.log(`[CreateOrder] Generated new invoice number for converted booking: ${orderNumber}`)
+          setInvoiceData(prev => ({ ...prev, invoice_number: orderNumber }))
+        }
+      } else if (!orderId || mode !== "edit") {
+        // Check if this order number already exists (for new orders)
         const { data: existingOrder } = await supabase
           .from("product_orders")
           .select("id")
@@ -1667,12 +1685,16 @@ export default function CreateInvoicePage() {
         }
       }
 
-      const message = isUpdate 
-        ? `Booking ${order.order_number} updated successfully`
-        : `Booking ${order.order_number} created successfully`
+      // Determine the message based on update vs create vs convert from quote
+      const isConvertFromQuote = editingQuote && mode === "edit"
+      const message = isConvertFromQuote
+        ? `Quote converted to Booking ${order.order_number} successfully`
+        : isUpdate 
+          ? `Booking ${order.order_number} updated successfully`
+          : `Booking ${order.order_number} created successfully`
       
-      // Save invoice number sequence (only for new orders, not updates)
-      if (!isUpdate) {
+      // Save invoice number sequence (for new orders or quote conversions)
+      if (!isUpdate || isConvertFromQuote) {
         try {
           const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
           const user = userRes.ok ? await userRes.json() : null
@@ -1840,7 +1862,7 @@ export default function CreateInvoicePage() {
           </Button>
           <Button size="sm" onClick={handleCreateOrder} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-            {mode === "edit" ? "Update Order" : "Create Order"}
+            {mode === "edit" && editingQuote ? "Convert to Booking" : mode === "edit" ? "Update Order" : "Create Order"}
           </Button>
         </div>
       </div>
@@ -3797,7 +3819,7 @@ export default function CreateInvoicePage() {
               </Button>
               <Button onClick={handleCreateOrder} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                {mode === "edit" ? "Update Order" : "Create Order"}
+                {mode === "edit" && editingQuote ? "Convert to Booking" : mode === "edit" ? "Update Order" : "Create Order"}
               </Button>
             </div>
           </div>
