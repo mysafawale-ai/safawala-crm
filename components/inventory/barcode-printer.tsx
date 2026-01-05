@@ -133,7 +133,8 @@ export function BarcodePrinter({
     
     .name {
       font-size: 6pt;
-      color: #333;
+      font-weight: bold;
+      color: #000;
       text-align: center;
       max-width: 48mm;
       line-height: 1.2;
