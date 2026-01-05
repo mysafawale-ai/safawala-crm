@@ -39,11 +39,38 @@ export async function GET(request: NextRequest) {
       if (match) {
         const prefix = match[1]
         const numberStr = match[2]  // Original string e.g. "002"
-        const lastNumber = parseInt(numberStr, 10)  // Parsed number e.g. 2
-        const nextNumber = lastNumber + 1  // e.g. 3
-        const paddedNumber = String(nextNumber).padStart(numberStr.length, "0")  // Pad to original length
-        nextInvoiceNumber = `${prefix}${paddedNumber}`
-        console.log(`[InvoiceSequences] Extracted: prefix="${prefix}", originalLen=${numberStr.length}, lastNum=${lastNumber}, next="${nextInvoiceNumber}"`) 
+        let lastNumber = parseInt(numberStr, 10)  // Parsed number e.g. 2
+        const paddingLength = numberStr.length
+        
+        // Check if the next number already exists, and keep incrementing until we find an available one
+        let candidate: string
+        let candidateExists = true
+        
+        while (candidateExists) {
+          lastNumber++
+          const paddedNumber = String(lastNumber).padStart(paddingLength, "0")
+          candidate = `${prefix}${paddedNumber}`
+          
+          // Check if this candidate already exists
+          const { data: existingOrder, error: checkError } = await supabase
+            .from("product_orders")
+            .select("id")
+            .eq("order_number", candidate)
+            .single()
+          
+          if (checkError?.code === "PGRST116") {
+            // Not found - this number is available
+            candidateExists = false
+          } else if (checkError) {
+            throw checkError
+          } else if (existingOrder) {
+            // Found - keep looping
+            candidateExists = true
+          }
+        }
+        
+        nextInvoiceNumber = candidate!
+        console.log(`[InvoiceSequences] Generated unique number: ${nextInvoiceNumber}`)
       } else {
         console.log(`[InvoiceSequences] Regex failed to parse: ${lastOrder.order_number}`)
         nextInvoiceNumber = type === "sale" ? "ORD001" : "INV001"
