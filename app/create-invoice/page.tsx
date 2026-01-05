@@ -3624,12 +3624,6 @@ export default function CreateInvoicePage() {
                     </div>
                   </div>
                 )}
-                {lostDamagedTotal > 0 && (
-                  <div className="flex justify-between text-red-600">
-                    <span>Lost/Damaged Charges</span>
-                    <span>{formatCurrency(lostDamagedTotal)}</span>
-                  </div>
-                )}
                 {isDepositRefunded && invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
                   <div className="flex justify-between text-green-600 font-medium">
                     <span>Security Deposit (Refunded)</span>
