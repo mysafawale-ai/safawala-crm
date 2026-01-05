@@ -13,6 +13,7 @@
  * - Keyboard navigation (Arrow keys, Enter, Escape)
  * - Responsive grid layout
  * - Out of stock handling
+ * - Barcode scanning auto-add
  */
 
 import { useState, useMemo, useEffect, useRef, KeyboardEvent } from "react"
@@ -20,8 +21,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Package, AlertCircle, Eye, Plus } from "lucide-react"
+import { Search, Package, AlertCircle, Eye, Plus, Scan } from "lucide-react"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
+import { toast } from "sonner"
 
 export interface Product {
   id: string
@@ -85,8 +87,120 @@ export function ProductSelector({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null)
   const [focusedIndex, setFocusedIndex] = useState(-1)
+  const [barcodeInput, setBarcodeInput] = useState("")
+  const [isScanning, setIsScanning] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
   const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
+  const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Barcode scan handler - auto add to cart
+  const handleBarcodeScan = async (code: string) => {
+    if (!code.trim()) return
+    
+    setIsScanning(true)
+    console.log('[ProductSelector] Barcode scan:', code)
+    
+    try {
+      // Try API lookup first
+      const response = await fetch('/api/barcode/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: code.trim() })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('[ProductSelector] ✅ Found via API:', result.product.name)
+        
+        // Find matching product in our list to use proper typing
+        const matchedProduct = products.find(p => p.id === result.product.id)
+        if (matchedProduct) {
+          onProductSelect(matchedProduct)
+          toast.success("Product added!", {
+            description: `${matchedProduct.name} added to cart`,
+            duration: 2000
+          })
+        } else {
+          // Product not in local list, create from API response
+          onProductSelect({
+            id: result.product.id,
+            name: result.product.name,
+            category: result.product.category || '',
+            category_id: result.product.category_id,
+            subcategory_id: result.product.subcategory_id,
+            rental_price: result.product.rental_price || 0,
+            sale_price: result.product.sale_price || result.product.price || 0,
+            security_deposit: result.product.security_deposit || 0,
+            stock_available: result.product.stock_available || 0,
+            image_url: result.product.image_url,
+            barcode: result.product.barcode
+          })
+          toast.success("Product added!", {
+            description: `${result.product.name} added to cart`,
+            duration: 2000
+          })
+        }
+        setBarcodeInput("")
+        return
+      }
+      
+      // Fallback: Search in local products
+      const foundProduct = products.find(p => {
+        const matchesBarcode = p.barcode === code.trim()
+        const matchesProductCode = p.product_code === code.trim()
+        const matchesAnyBarcode = p.all_barcode_numbers?.includes(code.trim())
+        return matchesBarcode || matchesProductCode || matchesAnyBarcode
+      })
+      
+      if (foundProduct) {
+        console.log('[ProductSelector] ✅ Found in local products:', foundProduct.name)
+        onProductSelect(foundProduct)
+        toast.success("Product added!", {
+          description: `${foundProduct.name} added to cart`,
+          duration: 2000
+        })
+        setBarcodeInput("")
+        return
+      }
+      
+      // Not found
+      console.log('[ProductSelector] ❌ Product not found:', code)
+      toast.error("Product not found", {
+        description: `No product found with barcode: ${code}`,
+        duration: 3000
+      })
+      
+    } catch (error) {
+      console.error('[ProductSelector] Barcode scan error:', error)
+      toast.error("Scan error", {
+        description: "Failed to lookup barcode",
+        duration: 3000
+      })
+    } finally {
+      setIsScanning(false)
+      setBarcodeInput("")
+      // Re-focus barcode input for next scan
+      setTimeout(() => barcodeInputRef.current?.focus(), 100)
+    }
+  }
+
+  // Barcode input change handler with debounce
+  const handleBarcodeInputChange = (value: string) => {
+    setBarcodeInput(value)
+    
+    // Clear existing timeout
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current)
+    }
+    
+    // Set debounce for auto-scan (1 second after last character)
+    if (value.trim()) {
+      scanTimeoutRef.current = setTimeout(() => {
+        handleBarcodeScan(value)
+      }, 1000)
+    }
+  }
 
   // Log on mount and when props change
   useEffect(() => {
@@ -290,6 +404,32 @@ export function ProductSelector({
                 ))}
             </div>
           )}
+
+        {/* Barcode Scanner Input - Auto adds to cart */}
+        <div className="relative">
+          <Scan className="absolute left-3 top-3 h-4 w-4 text-green-600" />
+          <Input
+            ref={barcodeInputRef}
+            placeholder="Scan barcode to auto-add product..."
+            value={barcodeInput}
+            onChange={(e) => handleBarcodeInputChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && barcodeInput.trim()) {
+                e.preventDefault()
+                if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current)
+                handleBarcodeScan(barcodeInput)
+              }
+            }}
+            className="pl-10 pr-10 border-green-200 focus:border-green-500 focus:ring-green-500 bg-green-50/50"
+            disabled={isScanning}
+            autoComplete="off"
+          />
+          {isScanning && (
+            <div className="absolute right-3 top-3">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-green-500 border-t-transparent" />
+            </div>
+          )}
+        </div>
 
         {/* Search Input */}
         <div className="relative">
