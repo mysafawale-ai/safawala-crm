@@ -78,8 +78,94 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // ===== STEP 2: Search in barcodes table =====
+    console.log('[API] Step 2: Searching barcodes table...')
+    
+    const { data: barcodeRecord } = await supabase
+      .from('barcodes')
+      .select('*, products(*)')
+      .eq('barcode_number', searchBarcode)
+      .eq('is_active', true)
+      .limit(1)
+      .single()
+
+    if (barcodeRecord?.products) {
+      const product = barcodeRecord.products as any
+      console.log('[API] ✅ Found in barcodes table:', {
+        barcode: searchBarcode,
+        product: product.name
+      })
+
+      return NextResponse.json({
+        success: true,
+        source: 'barcodes_table',
+        barcode: searchBarcode,
+        product: {
+          id: product.id,
+          name: product.name,
+          barcode: product.barcode,
+          category: product.category,
+          category_id: product.category_id,
+          subcategory_id: product.subcategory_id,
+          image_url: product.image_url,
+          price: product.price,
+          rental_price: product.rental_price,
+          sale_price: product.price,
+          security_deposit: product.security_deposit,
+          stock_available: product.stock_available,
+          franchise_id: product.franchise_id
+        },
+        barcode_type: barcodeRecord.barcode_type || 'secondary'
+      })
+    }
+
+    // ===== STEP 3: Search by product_code =====
+    console.log('[API] Step 3: Searching products.product_code...')
+    
+    let productCodeQuery = supabase
+      .from('products')
+      .select('*')
+      .eq('product_code', searchBarcode)
+      .limit(1)
+
+    if (franchiseId) {
+      productCodeQuery = productCodeQuery.eq('franchise_id', franchiseId)
+    }
+
+    const { data: productsByCode } = await productCodeQuery
+
+    if (productsByCode && productsByCode.length > 0) {
+      const product = productsByCode[0] as any
+      console.log('[API] ✅ Found in products table (product_code):', {
+        barcode: searchBarcode,
+        product: product.name
+      })
+
+      return NextResponse.json({
+        success: true,
+        source: 'product_code',
+        barcode: searchBarcode,
+        product: {
+          id: product.id,
+          name: product.name,
+          barcode: product.barcode,
+          category: product.category,
+          category_id: product.category_id,
+          subcategory_id: product.subcategory_id,
+          image_url: product.image_url,
+          price: product.price,
+          rental_price: product.rental_price,
+          sale_price: product.price,
+          security_deposit: product.security_deposit,
+          stock_available: product.stock_available,
+          franchise_id: product.franchise_id
+        },
+        barcode_type: 'product_code'
+      })
+    }
+
     // ===== NOT FOUND =====
-    console.log('[API] ❌ Barcode not found:', searchBarcode)
+    console.log('[API] ❌ Barcode not found in any source:', searchBarcode)
 
     return NextResponse.json(
       {
