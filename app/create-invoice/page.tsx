@@ -1343,6 +1343,7 @@ export default function CreateInvoicePage() {
         gst_amount: gstAmount || 0,
         gst_percentage: invoiceData.gst_percentage || 5,
         discount_amount: discountAmount || 0,
+        discount_type: invoiceData.discount_type || 'fixed',
         security_deposit: securityDeposit || 0,
         coupon_code: invoiceData.coupon_code || null,
         coupon_discount: invoiceData.coupon_discount || 0,
@@ -1353,6 +1354,12 @@ export default function CreateInvoicePage() {
           ? `[PACKAGE: ${selectedPackage.name || selectedPackage.variant_name} @ ₹${packagePrice}]${invoiceData.notes ? '\n' + invoiceData.notes : ''}`
           : (invoiceData.notes || ''),
         is_quote: true,
+        // Package selection fields
+        selection_mode: selectionMode || 'products',
+        package_id: selectedPackage?.package_id || selectedPackage?.set_id || null,
+        variant_id: selectedPackage?.id || null,
+        use_custom_pricing: useCustomPackagePrice || false,
+        custom_package_price: customPackagePrice || 0,
         // Modification fields (for direct sales)
         has_modifications: invoiceData.has_modifications || false,
         modifications_details: invoiceData.has_modifications ? invoiceData.modifications_details : null,
@@ -1361,13 +1368,38 @@ export default function CreateInvoicePage() {
           : null,
       }
 
-      const { data: order, error } = await supabase
-        .from("product_orders")
-        .insert([orderData])
-        .select()
-        .single()
+      let order: any
+      let isUpdate = false
 
-      if (error) throw error
+      // Check if editing existing quote
+      if (orderId && mode === "edit") {
+        // Update existing quote
+        const { error: updateError } = await supabase
+          .from("product_orders")
+          .update(orderData)
+          .eq("id", orderId)
+
+        if (updateError) throw updateError
+
+        // Delete existing items before re-inserting
+        await supabase
+          .from("product_order_items")
+          .delete()
+          .eq("order_id", orderId)
+
+        order = { id: orderId, order_number: invoiceData.invoice_number }
+        isUpdate = true
+      } else {
+        // Create new quote
+        const { data: newOrder, error } = await supabase
+          .from("product_orders")
+          .insert([orderData])
+          .select()
+          .single()
+
+        if (error) throw error
+        order = newOrder
+      }
 
       // Insert items (only if there are items)
       if (invoiceItems.length > 0 || extraItems.length > 0) {
@@ -1391,7 +1423,8 @@ export default function CreateInvoicePage() {
         await supabase.from("product_order_items").insert(itemsData)
       }
 
-      toast({ title: "Quote Saved", description: `Quote ${order.order_number} created` })
+      const message = isUpdate ? `Quote ${order.order_number} updated` : `Quote ${order.order_number} created`
+      toast({ title: isUpdate ? "Quote Updated" : "Quote Saved", description: message })
       router.push("/bookings?refresh=" + Date.now())
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
