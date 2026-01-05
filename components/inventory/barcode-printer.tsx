@@ -85,7 +85,7 @@ export function BarcodePrinter({
   <title>Labels</title>
   <style>
     @page {
-      size: 100mm 25mm;
+      size: 100mm 25mm landscape;
       margin: 0;
     }
     
@@ -95,6 +95,7 @@ export function BarcodePrinter({
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
+      width: 100mm;
     }
     
     .row {
