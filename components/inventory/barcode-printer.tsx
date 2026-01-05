@@ -59,15 +59,11 @@ export function BarcodePrinter({
             })
             const barcodeImg = canvas.toDataURL("image/png")
             
-            const displayName = productName.length > 18 
-              ? productName.substring(0, 16) + ".." 
-              : productName
-            
             labelsHTML += `
               <div class="label">
                 <img src="${barcodeImg}" class="barcode" />
                 <div class="code">${productCode}</div>
-                <div class="name">${displayName}</div>
+                <div class="name">${productName}</div>
               </div>
             `
           } else {
@@ -125,19 +121,24 @@ export function BarcodePrinter({
     
     .barcode {
       width: 42mm;
-      height: 12mm;
+      height: 10mm;
     }
     
     .code {
       font-family: monospace;
-      font-size: 9pt;
+      font-size: 8pt;
       font-weight: bold;
-      margin-top: 1mm;
+      margin-top: 0.5mm;
     }
     
     .name {
-      font-size: 7pt;
+      font-size: 6pt;
       color: #333;
+      text-align: center;
+      max-width: 48mm;
+      line-height: 1.2;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     
     @media print {
@@ -175,7 +176,6 @@ export function BarcodePrinter({
   }
 
   const rows = Math.ceil(quantity / 2)
-  const displayName = productName.length > 16 ? productName.substring(0, 14) + ".." : productName
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -224,27 +224,27 @@ export function BarcodePrinter({
               <div className="flex gap-2">
                 {/* Left Label */}
                 <div className="flex-1 border border-gray-400 p-2 bg-gray-50 flex flex-col items-center">
-                  <div className="bg-black h-8 w-full flex items-center justify-center mb-1">
+                  <div className="bg-black h-6 w-full flex items-center justify-center mb-1">
                     <div className="flex gap-px">
                       {Array.from({ length: 30 }).map((_, i) => (
-                        <div key={i} className="w-0.5 h-5 bg-white" style={{ width: i % 3 === 0 ? '2px' : '1px' }} />
+                        <div key={i} className="w-0.5 h-4 bg-white" style={{ width: i % 3 === 0 ? '2px' : '1px' }} />
                       ))}
                     </div>
                   </div>
-                  <div className="text-xs font-mono font-bold">{productCode}</div>
-                  <div className="text-[10px] text-gray-600 truncate max-w-full">{displayName}</div>
+                  <div className="text-[10px] font-mono font-bold">{productCode}</div>
+                  <div className="text-[8px] text-gray-600 text-center leading-tight max-w-full">{productName}</div>
                 </div>
                 {/* Right Label */}
                 <div className="flex-1 border border-gray-400 p-2 bg-gray-50 flex flex-col items-center">
-                  <div className="bg-black h-8 w-full flex items-center justify-center mb-1">
+                  <div className="bg-black h-6 w-full flex items-center justify-center mb-1">
                     <div className="flex gap-px">
                       {Array.from({ length: 30 }).map((_, i) => (
-                        <div key={i} className="w-0.5 h-5 bg-white" style={{ width: i % 3 === 0 ? '2px' : '1px' }} />
+                        <div key={i} className="w-0.5 h-4 bg-white" style={{ width: i % 3 === 0 ? '2px' : '1px' }} />
                       ))}
                     </div>
                   </div>
-                  <div className="text-xs font-mono font-bold">{productCode}</div>
-                  <div className="text-[10px] text-gray-600 truncate max-w-full">{displayName}</div>
+                  <div className="text-[10px] font-mono font-bold">{productCode}</div>
+                  <div className="text-[8px] text-gray-600 text-center leading-tight max-w-full">{productName}</div>
                 </div>
               </div>
               <div className="text-center text-[10px] text-gray-400 mt-2">
