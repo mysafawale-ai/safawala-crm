@@ -1546,6 +1546,12 @@ export default function CreateInvoicePage() {
       toast({ title: "Error", description: "Please select an event date", variant: "destructive" })
       return
     }
+
+    // DEBUG: Log state before saving
+    console.log("[CreateOrder] ===== SAVE START =====")
+    console.log("[CreateOrder] invoiceItems:", invoiceItems.length, invoiceItems.map(i => i.product_name))
+    console.log("[CreateOrder] extraItems:", extraItems.length, extraItems.map(i => i.product_name))
+    console.log("[CreateOrder] lostDamagedItems:", lostDamagedItems.length)
     // Products/packages are now optional - allow saving skeleton/header first
     // Users can add items later during editing
 
@@ -3452,16 +3458,21 @@ export default function CreateInvoicePage() {
                   </div>
                 )}
 
-                {/* Security Deposit - rental only */}
+                {/* Security Deposit - rental only, and only if package has deposit or user entered amount */}
                 {invoiceData.invoice_type === "rental" && (
+                  packageSecurityDeposit > 0 || invoiceData.security_deposit > 0
+                ) && (
                   <div>
-                    <Label className="text-xs text-gray-500">Security Deposit (₹)</Label>
+                    <Label className="text-xs text-gray-500">
+                      Additional Security Deposit (₹)
+                      {packageSecurityDeposit > 0 && <span className="text-blue-600"> (Package: ₹{packageSecurityDeposit.toLocaleString()})</span>}
+                    </Label>
                     <Input
                       type="number"
                       value={invoiceData.security_deposit || ''}
                       onChange={(e) => setInvoiceData({ ...invoiceData, security_deposit: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                       className="print:border-0"
-                      placeholder="Enter security deposit"
+                      placeholder="Additional deposit (beyond package)"
                     />
                   </div>
                 )}
