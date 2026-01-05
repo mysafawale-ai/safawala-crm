@@ -8,7 +8,7 @@ The hybrid invoicing system allows you to:
 
 ## Testing Steps
 
-### Step 1: Create First Invoice with Manual Number
+### Steplp -d Zebra_Technologies_ZTC_ZD230_203dpi_ZPL ~/Downloads/YOUR_FILE.zpl 1: Create First Invoice with Manual Number
 1. Open Create Invoice page
 2. **IMPORTANT**: Clear the auto-filled invoice number
 3. Type your custom number: `INV0001`

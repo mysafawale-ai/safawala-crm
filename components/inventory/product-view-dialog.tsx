@@ -21,8 +21,6 @@ import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { generateBarcode } from "@/lib/barcode-generator"
 import { BarcodePrinter } from "@/components/inventory/barcode-printer"
-import { SimpleBarcodePrinter } from "@/components/inventory/barcode-printer-simple"
-import { ZebraDirectThermalPrinter } from "@/components/inventory/zebra-direct-thermal-printer"
 // Fixed import path for ProductItemService
 import { ProductItemService } from "@/lib/services/product-item-service"
 
@@ -68,8 +66,6 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const [downloading, setDownloading] = useState(false)
   const [downloadingPDF, setDownloadingPDF] = useState(false)
   const [barcodePrinterOpen, setBarcodePrinterOpen] = useState(false)
-  const [advancedPrinterOpen, setAdvancedPrinterOpen] = useState(false)
-  const [zebraPrinterOpen, setZebraPrinterOpen] = useState(false)
   const [generatedBarcode, setGeneratedBarcode] = useState<string>("")
   const [itemBarcodes, setItemBarcodes] = useState<
     Array<{
@@ -527,27 +523,10 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                       <Button
                         size="sm"
                         className="w-full bg-green-600 hover:bg-green-700"
-                        onClick={() => setZebraPrinterOpen(true)}
-                      >
-                        <Printer className="h-4 w-4 mr-1" />
-                        🖨️ Zebra Direct Print
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="w-full bg-blue-600 hover:bg-blue-700"
                         onClick={() => setBarcodePrinterOpen(true)}
                       >
                         <Printer className="h-4 w-4 mr-1" />
-                        Quick Print
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setAdvancedPrinterOpen(true)}
-                      >
-                        <Settings className="h-4 w-4 mr-1" />
-                        Advanced Settings
+                        Print Labels
                       </Button>
                     </div>
                   </div>
@@ -571,24 +550,6 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
         <BarcodePrinter
           open={barcodePrinterOpen}
           onOpenChange={setBarcodePrinterOpen}
-          productCode={product.barcode || product.product_code || ""}
-          productName={product.name}
-        />
-      )}
-
-      {product && (
-        <SimpleBarcodePrinter
-          open={advancedPrinterOpen}
-          onOpenChange={setAdvancedPrinterOpen}
-          productCode={product.barcode || product.product_code || ""}
-          productName={product.name}
-        />
-      )}
-
-      {product && (
-        <ZebraDirectThermalPrinter
-          open={zebraPrinterOpen}
-          onOpenChange={setZebraPrinterOpen}
           productCode={product.barcode || product.product_code || ""}
           productName={product.name}
         />
