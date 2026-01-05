@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { authenticateRequest, canAccessFranchise } from "@/lib/auth-middleware"
 
 export const dynamic = "force-dynamic"
 
@@ -12,6 +13,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate and check permissions
+    const auth = await authenticateRequest(request, { minRole: "staff", requirePermission: "deliveries" })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
+    const user = auth.user!
+
     const supabase = createClient()
     const deliveryId = params.id
     const body = await request.json()
@@ -46,6 +54,11 @@ export async function PATCH(
         { error: "Delivery not found" },
         { status: 404 }
       )
+    }
+
+    // Check franchise access
+    if (!canAccessFranchise(user as any, delivery.franchise_id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
     
     // Validate status transitions
