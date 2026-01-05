@@ -3566,7 +3566,7 @@ export default function CreateInvoicePage() {
                 )}
                 {lostDamagedTotal > 0 && (
                   <div className="flex justify-between text-red-600">
-                    <span>Lost/Damaged Charges</span>
+                    <span>Additional Products</span>
                     <span>+{formatCurrency(lostDamagedTotal)}</span>
                   </div>
                 )}
