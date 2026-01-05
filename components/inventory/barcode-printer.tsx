@@ -174,9 +174,12 @@ export function BarcodePrinter({
     }
   }
 
+  const rows = Math.ceil(quantity / 2)
+  const displayName = productName.length > 16 ? productName.substring(0, 14) + ".." : productName
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xs">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <Printer className="w-4 h-4" />
@@ -185,11 +188,7 @@ export function BarcodePrinter({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="bg-gray-100 p-2 rounded text-sm">
-            <div className="font-mono font-bold">{productCode}</div>
-            <div className="text-gray-500 text-xs truncate">{productName}</div>
-          </div>
-
+          {/* Quantity */}
           <div>
             <Label className="text-xs mb-1 block">Quantity</Label>
             <div className="flex gap-1 flex-wrap">
@@ -213,6 +212,45 @@ export function BarcodePrinter({
                 </Button>
               ))}
             </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {quantity} labels = {rows} rows (2 per row)
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div>
+            <Label className="text-xs mb-1 block">Preview (1 Row = 2 Labels)</Label>
+            <div className="border-2 border-dashed border-gray-300 rounded p-3 bg-white">
+              <div className="flex gap-2">
+                {/* Left Label */}
+                <div className="flex-1 border border-gray-400 p-2 bg-gray-50 flex flex-col items-center">
+                  <div className="bg-black h-8 w-full flex items-center justify-center mb-1">
+                    <div className="flex gap-px">
+                      {Array.from({ length: 30 }).map((_, i) => (
+                        <div key={i} className="w-0.5 h-5 bg-white" style={{ width: i % 3 === 0 ? '2px' : '1px' }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-xs font-mono font-bold">{productCode}</div>
+                  <div className="text-[10px] text-gray-600 truncate max-w-full">{displayName}</div>
+                </div>
+                {/* Right Label */}
+                <div className="flex-1 border border-gray-400 p-2 bg-gray-50 flex flex-col items-center">
+                  <div className="bg-black h-8 w-full flex items-center justify-center mb-1">
+                    <div className="flex gap-px">
+                      {Array.from({ length: 30 }).map((_, i) => (
+                        <div key={i} className="w-0.5 h-5 bg-white" style={{ width: i % 3 === 0 ? '2px' : '1px' }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-xs font-mono font-bold">{productCode}</div>
+                  <div className="text-[10px] text-gray-600 truncate max-w-full">{displayName}</div>
+                </div>
+              </div>
+              <div className="text-center text-[10px] text-gray-400 mt-2">
+                ← 100mm (50mm × 2) →
+              </div>
+            </div>
           </div>
 
           <Button
@@ -221,7 +259,7 @@ export function BarcodePrinter({
             className="w-full bg-green-600 hover:bg-green-700"
           >
             <Printer className="w-4 h-4 mr-2" />
-            {isPrinting ? "Printing..." : `Print ${quantity} Labels`}
+            {isPrinting ? "Printing..." : `Print ${quantity} Labels (${rows} Rows)`}
           </Button>
         </div>
       </DialogContent>
