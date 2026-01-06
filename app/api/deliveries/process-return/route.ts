@@ -11,15 +11,20 @@ interface ReturnItem {
   variant_id?: string
   product_name: string
   variant_name?: string
+  barcode?: string
   quantity: number
   lost_damaged: number
   used: number
   fresh: number
+  unit_price?: number
 }
 
 /**
  * POST /api/deliveries/process-return
- * Process return: send used to laundry, fresh to inventory, lost/damaged to booking
+ * Process return: 
+ * - USED items → Laundry (auto-create laundry entry)
+ * - FRESH items → Back to Inventory (+stock)
+ * - LOST/DAMAGED items → Archive (NO stock increment) + Add to Invoice
  */
 export async function POST(request: NextRequest) {
   try {
@@ -51,6 +56,7 @@ export async function POST(request: NextRequest) {
     let usedToLaundry = 0
     let freshToInventory = 0
     let lostDamagedCount = 0
+    let lostDamagedCharge = 0
 
     // Determine which table to update
     const itemsTable = booking_source === "package_booking"
@@ -61,9 +67,18 @@ export async function POST(request: NextRequest) {
       ? "package_bookings"
       : "product_orders"
 
+    // Get delivery details for reference
+    const { data: delivery } = await supabaseServer
+      .from("deliveries")
+      .select("delivery_number, customer_id")
+      .eq("id", delivery_id)
+      .single()
+
+    console.log("[Process Return] Starting return processing for delivery:", delivery?.delivery_number)
+
     // Process each item
     for (const item of typedItems) {
-      // 1. Update item with return quantities (try/catch since columns may not exist)
+      // 1. Update item with return quantities
       try {
         await supabaseServer
           .from(itemsTable)
@@ -79,37 +94,40 @@ export async function POST(request: NextRequest) {
         console.warn(`[Process Return] Could not update item ${item.id} return quantities:`, itemErr)
       }
 
-      // Count totals even if item update fails
+      // Count totals
       if (item.used > 0) usedToLaundry += item.used
       if (item.fresh > 0) freshToInventory += item.fresh
       if (item.lost_damaged > 0) lostDamagedCount += item.lost_damaged
 
-      // 2. Send USED items to Laundry
-      if (item.used > 0 && item.variant_id) {
-        // Create laundry entry (try/catch since table may not exist)
+      // ===================================================================
+      // 2. USED items → Create LAUNDRY entry (auto-filled, user edits later)
+      // ===================================================================
+      if (item.used > 0) {
         try {
           await supabaseServer.from("laundry_items").insert({
-            variant_id: item.variant_id,
-            product_id: item.product_id,
+            variant_id: item.variant_id || null,
+            product_id: item.product_id || null,
             product_name: item.product_name,
-            variant_name: item.variant_name,
+            variant_name: item.variant_name || null,
             quantity: item.used,
             status: "pending",
-            source: "return",
+            source: "delivery_return",
             source_id: delivery_id,
             booking_id: booking_id,
             franchise_id: auth.user?.franchise_id,
             created_by: auth.user?.id,
-            notes: `Return from delivery - ${item.used} items need cleaning`,
+            notes: `Auto-added from return processing - ${delivery?.delivery_number || 'Unknown'} - ${item.used} items need cleaning`,
           })
+          console.log(`[Process Return] ✅ Created laundry entry for ${item.product_name} x${item.used}`)
         } catch (laundryErr) {
           console.warn(`[Process Return] Could not create laundry entry:`, laundryErr)
         }
       }
 
-      // 3. Return FRESH items to Inventory (increase stock)
+      // ===================================================================
+      // 3. FRESH items → Back to INVENTORY (increase stock)
+      // ===================================================================
       if (item.fresh > 0 && item.variant_id) {
-        // Get current stock and update
         try {
           const { data: variant } = await supabaseServer
             .from("product_variants")
@@ -118,26 +136,29 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (variant) {
+            const newStock = (variant.stock_quantity || 0) + item.fresh
             await supabaseServer
               .from("product_variants")
               .update({
-                stock_quantity: (variant.stock_quantity || 0) + item.fresh,
+                stock_quantity: newStock,
                 updated_at: new Date().toISOString(),
               })
               .eq("id", item.variant_id)
 
-            // Log inventory movement (try/catch since table may not exist)
+            console.log(`[Process Return] ✅ Restored ${item.fresh} items to inventory for ${item.product_name}`)
+
+            // Log inventory movement
             try {
               await supabaseServer.from("inventory_movements").insert({
                 variant_id: item.variant_id,
                 product_id: item.product_id,
-                movement_type: "return",
+                movement_type: "return_fresh",
                 quantity: item.fresh,
                 previous_stock: variant.stock_quantity || 0,
-                new_stock: (variant.stock_quantity || 0) + item.fresh,
+                new_stock: newStock,
                 reference_type: "delivery_return",
                 reference_id: delivery_id,
-                notes: `Fresh items returned from delivery`,
+                notes: `Fresh items returned from ${delivery?.delivery_number || 'delivery'}`,
                 franchise_id: auth.user?.franchise_id,
                 created_by: auth.user?.id,
               })
@@ -150,13 +171,72 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 4. Track LOST/DAMAGED items
+      // ===================================================================
+      // 4. LOST/DAMAGED items → ARCHIVE (NO stock change) + Add to INVOICE
+      // ===================================================================
       if (item.lost_damaged > 0) {
-        // Update booking's lost_damaged_items JSON
+        // Get product price for charging
+        let chargePerItem = item.unit_price || 0
+        if (!chargePerItem && item.product_id) {
+          try {
+            const { data: product } = await supabaseServer
+              .from("products")
+              .select("rental_price, sale_price")
+              .eq("id", item.product_id)
+              .single()
+            chargePerItem = product?.sale_price || product?.rental_price || 0
+          } catch (priceErr) {
+            console.warn(`[Process Return] Could not get product price:`, priceErr)
+          }
+        }
+
+        const totalCharge = chargePerItem * item.lost_damaged
+        lostDamagedCharge += totalCharge
+
+        // 4a. Add to PRODUCT_ARCHIVE (permanent record, NO stock increment)
+        try {
+          await supabaseServer.from("product_archive").insert({
+            product_id: item.product_id || null,
+            variant_id: item.variant_id || null,
+            product_name: item.product_name,
+            variant_name: item.variant_name || null,
+            quantity: item.lost_damaged,
+            reason: "lost_damaged",
+            source: "delivery_return",
+            source_id: delivery_id,
+            booking_id: booking_id,
+            franchise_id: auth.user?.franchise_id,
+            created_by: auth.user?.id,
+            notes: `Lost/Damaged during return - ${delivery?.delivery_number || 'Unknown'} - Charged: ₹${totalCharge}`,
+          })
+          console.log(`[Process Return] ✅ Archived ${item.lost_damaged} lost/damaged items: ${item.product_name}`)
+        } catch (archiveErr) {
+          console.warn("Could not insert to product_archive:", archiveErr)
+        }
+
+        // 4b. Add to ORDER_LOST_DAMAGED_ITEMS (for invoice charging)
+        try {
+          await supabaseServer.from("order_lost_damaged_items").insert({
+            order_id: booking_id,
+            product_id: item.product_id || null,
+            product_name: item.product_name,
+            barcode: item.barcode || null,
+            type: "damaged", // or "lost" - could be specified per item
+            quantity: item.lost_damaged,
+            charge_per_item: chargePerItem,
+            total_charge: totalCharge,
+            notes: `Auto-added from return processing - ${delivery?.delivery_number || 'Unknown'}`,
+          })
+          console.log(`[Process Return] ✅ Added lost/damaged charge to invoice: ${item.product_name} x${item.lost_damaged} = ₹${totalCharge}`)
+        } catch (invoiceErr) {
+          console.warn("Could not add to order_lost_damaged_items:", invoiceErr)
+        }
+
+        // 4c. Update booking's lost_damaged_items JSON (for quick reference)
         try {
           const { data: booking } = await supabaseServer
             .from(bookingTable)
-            .select("lost_damaged_items")
+            .select("lost_damaged_items, total_amount")
             .eq("id", booking_id)
             .single()
 
@@ -167,37 +247,94 @@ export async function POST(request: NextRequest) {
             product_name: item.product_name,
             variant_name: item.variant_name,
             quantity: item.lost_damaged,
+            charge_per_item: chargePerItem,
+            total_charge: totalCharge,
             reported_at: new Date().toISOString(),
             reported_by: auth.user?.name || auth.user?.email,
             source: "return_processing",
           }
 
+          // Update booking with lost/damaged info AND update total amount
+          const newTotal = (booking?.total_amount || 0) + totalCharge
           await supabaseServer
             .from(bookingTable)
             .update({
               lost_damaged_items: [...existingLostDamaged, newLostDamagedEntry],
+              total_amount: newTotal,
               updated_at: new Date().toISOString(),
             })
             .eq("id", booking_id)
-        } catch (lostDamagedErr) {
-          console.warn(`[Process Return] Could not update lost/damaged items:`, lostDamagedErr)
+          
+          console.log(`[Process Return] ✅ Updated booking total: ₹${booking?.total_amount || 0} → ₹${newTotal}`)
+        } catch (bookingErr) {
+          console.warn(`[Process Return] Could not update booking lost/damaged items:`, bookingErr)
         }
+      }
+    }
 
-        // Also log to product_archive table if it exists
-        try {
-          await supabaseServer.from("product_archive").insert({
-            product_id: item.product_id,
-            variant_id: item.variant_id,
-            product_name: item.product_name,
-            variant_name: item.variant_name,
-            quantity: item.lost_damaged,
-            reason: "lost_damaged",
-            source: "delivery_return",
-            source_id: delivery_id,
-            booking_id: booking_id,
-            franchise_id: auth.user?.franchise_id,
-            created_by: auth.user?.id,
-            notes: notes || `Lost/damaged during delivery return`,
+    // 5. Update delivery status to return_completed
+    const { error: statusError } = await supabaseServer
+      .from("deliveries")
+      .update({
+        status: "return_completed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", delivery_id)
+
+    if (statusError) {
+      console.error("[Process Return] Failed to update delivery status:", statusError)
+      throw new Error(`Failed to update delivery status: ${statusError.message}`)
+    }
+
+    // Try to update optional return fields
+    try {
+      await supabaseServer
+        .from("deliveries")
+        .update({
+          returned_at: new Date().toISOString(),
+          return_confirmation_name: client_name,
+          return_confirmation_phone: client_phone,
+          return_notes: notes,
+          return_photo_url: photo_url,
+          return_processed_by: auth.user?.id,
+        })
+        .eq("id", delivery_id)
+    } catch (optionalErr) {
+      console.warn("[Process Return] Optional return fields not updated:", optionalErr)
+    }
+
+    // 6. Update booking return status
+    try {
+      await supabaseServer
+        .from(bookingTable)
+        .update({
+          return_status: "completed",
+          return_completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", booking_id)
+    } catch (bookingErr) {
+      console.warn("[Process Return] Booking return status not updated:", bookingErr)
+    }
+
+    console.log(`[Process Return] ✅ Complete! Laundry: ${usedToLaundry}, Inventory: ${freshToInventory}, Lost/Damaged: ${lostDamagedCount} (₹${lostDamagedCharge})`)
+
+    return NextResponse.json({
+      success: true,
+      message: "Return processed successfully",
+      used_to_laundry: usedToLaundry,
+      fresh_to_inventory: freshToInventory,
+      lost_damaged_count: lostDamagedCount,
+      lost_damaged_charge: lostDamagedCharge,
+    })
+  } catch (error: any) {
+    console.error("[Process Return] Error:", error)
+    return NextResponse.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    )
+  }
+}
           })
         } catch (archiveErr) {
           // Table might not exist, that's okay
