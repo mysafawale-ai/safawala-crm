@@ -649,9 +649,15 @@ export default function DeliveriesPage() {
 
     setLoadingDeliveryItems(true)
     try {
+      // Determine which tables to query based on booking_source
+      const isPackageBooking = delivery.booking_source === "package_booking"
+      const orderTable = isPackageBooking ? "package_bookings" : "product_orders"
+      const itemsTable = isPackageBooking ? "package_booking_product_items" : "product_order_items"
+      const foreignKey = isPackageBooking ? "package_booking_id" : "order_id"
+
       // Fetch the order to get package/variant info
       const { data: orderData, error: orderError } = await supabase
-        .from("product_orders")
+        .from(orderTable)
         .select("variant_id, selection_mode, custom_package_price")
         .eq("id", delivery.booking_id)
         .single()
@@ -674,11 +680,11 @@ export default function DeliveriesPage() {
         setDeliveryPackage(null)
       }
 
-      // Fetch items from product_order_items table using the booking_id
+      // Fetch items from the appropriate items table
       const { data, error } = await supabase
-        .from("product_order_items")
+        .from(itemsTable)
         .select("*")
-        .eq("order_id", delivery.booking_id)
+        .eq(foreignKey, delivery.booking_id)
 
       if (error) {
         console.error("[DeliveryDetails] Error fetching items:", error)
@@ -2033,7 +2039,7 @@ export default function DeliveriesPage() {
               )}
 
               {/* Return Confirmation Details */}
-              {selectedDelivery.status === 'return_completed' && (
+              {(selectedDelivery as any).returned_at && (
                 <div className="border-t pt-4 mt-4">
                   <Label className="text-sm font-bold text-blue-700 mb-3 block">🔄 Return Confirmation</Label>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
@@ -2047,6 +2053,41 @@ export default function DeliveriesPage() {
                         <p className="font-semibold">{(selectedDelivery as any).return_confirmation_phone || 'Not recorded'}</p>
                       </div>
                     </div>
+
+                    {/* Return Items Breakdown */}
+                    {deliveryItems.length > 0 && deliveryItems.some((item: any) => 
+                      item.return_lost_damaged > 0 || item.return_used > 0 || item.return_fresh > 0
+                    ) && (
+                      <div className="border-t pt-3 mt-3">
+                        <h4 className="font-semibold text-blue-800 mb-2">📦 Return Items Breakdown</h4>
+                        <div className="space-y-2">
+                          {deliveryItems.map((item: any, index: number) => (
+                            <div key={index} className="bg-white rounded p-3 border border-blue-100">
+                              <div className="font-medium text-sm mb-2">{item.product_name}</div>
+                              <div className="grid grid-cols-4 gap-2 text-xs">
+                                <div className="text-center">
+                                  <div className="text-gray-500">Total</div>
+                                  <div className="font-bold text-lg">{item.quantity}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-red-600">Lost/Damaged</div>
+                                  <div className="font-bold text-lg text-red-600">{item.return_lost_damaged || 0}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-orange-600">Used→Laundry</div>
+                                  <div className="font-bold text-lg text-orange-600">{item.return_used || 0}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-green-600">Fresh→Stock</div>
+                                  <div className="font-bold text-lg text-green-600">{item.return_fresh || 0}</div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {(selectedDelivery as any).return_notes && (
                       <div>
                         <span className="text-sm text-blue-700 font-medium">Return Notes:</span>
@@ -2063,10 +2104,10 @@ export default function DeliveriesPage() {
                         />
                       </div>
                     )}
-                    {selectedDelivery.returned_at && (
+                    {(selectedDelivery as any).returned_at && (
                       <div>
                         <span className="text-sm text-blue-700 font-medium">Returned At:</span>
-                        <p className="font-semibold">{new Date(selectedDelivery.returned_at).toLocaleString()}</p>
+                        <p className="font-semibold">{new Date((selectedDelivery as any).returned_at).toLocaleString()}</p>
                       </div>
                     )}
                   </div>
