@@ -17,6 +17,8 @@ interface ReturnItem {
   used: number
   fresh: number
   unit_price?: number
+  return_notes?: string
+  return_photo_url?: string
 }
 
 /**
@@ -116,7 +118,8 @@ export async function POST(request: NextRequest) {
             booking_id: booking_id,
             franchise_id: auth.user?.franchise_id,
             created_by: auth.user?.id,
-            notes: `Auto-added from return processing - ${delivery?.delivery_number || 'Unknown'} - ${item.used} items need cleaning`,
+            notes: item.return_notes || `Auto-added from return processing - ${delivery?.delivery_number || 'Unknown'} - ${item.used} items need cleaning`,
+            return_photo_url: item.return_photo_url || null,
           })
           console.log(`[Process Return] ✅ Created laundry entry for ${item.product_name} x${item.used}`)
         } catch (laundryErr) {
@@ -207,7 +210,8 @@ export async function POST(request: NextRequest) {
             booking_id: booking_id,
             franchise_id: auth.user?.franchise_id,
             created_by: auth.user?.id,
-            notes: `Lost/Damaged during return - ${delivery?.delivery_number || 'Unknown'} - Charged: ₹${totalCharge}`,
+            notes: item.return_notes || `Lost/Damaged during return - ${delivery?.delivery_number || 'Unknown'} - Charged: ₹${totalCharge}`,
+            return_photo_url: item.return_photo_url || null,
           })
           console.log(`[Process Return] ✅ Archived ${item.lost_damaged} lost/damaged items: ${item.product_name}`)
         } catch (archiveErr) {
@@ -225,7 +229,8 @@ export async function POST(request: NextRequest) {
             quantity: item.lost_damaged,
             charge_per_item: chargePerItem,
             total_charge: totalCharge,
-            notes: `Auto-added from return processing - ${delivery?.delivery_number || 'Unknown'}`,
+            notes: item.return_notes || `Auto-added from return processing - ${delivery?.delivery_number || 'Unknown'}`,
+            return_photo_url: item.return_photo_url || null,
           })
           console.log(`[Process Return] ✅ Added lost/damaged charge to invoice: ${item.product_name} x${item.lost_damaged} = ₹${totalCharge}`)
         } catch (invoiceErr) {

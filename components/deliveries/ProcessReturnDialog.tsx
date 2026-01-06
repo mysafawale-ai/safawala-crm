@@ -450,6 +450,8 @@ export function ProcessReturnDialog({
             lost_damaged: item.lost_damaged || 0,
             used: item.used || 0,
             fresh: item.fresh || 0,
+            return_notes: item.return_notes,
+            return_photo_url: item.return_photo_url,
           })),
           client_name: clientName,
           client_phone: clientPhone,
