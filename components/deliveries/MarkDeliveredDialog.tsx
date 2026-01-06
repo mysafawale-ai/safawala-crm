@@ -262,12 +262,13 @@ export function MarkDeliveredDialog({
         }
       }
 
-      // Update delivery status using existing PATCH endpoint
-      const res = await fetch(`/api/deliveries/${delivery.id}`, {
-        method: 'PATCH',
+      // Update delivery status using update-status endpoint (workaround for dynamic route 404)
+      const res = await fetch(`/api/deliveries/update-status`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          delivery_id: delivery.id,
           status: 'delivered',
           delivery_confirmation_name: clientName,
           delivery_confirmation_phone: clientPhone,

@@ -312,11 +312,11 @@ export default function DeliveriesPage() {
   const handleStartTransit = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
     try {
-      const res = await fetch(`/api/deliveries/${deliveryId}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/deliveries/update-status`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ status: "in_transit" }),
+        body: JSON.stringify({ delivery_id: deliveryId, status: "in_transit" }),
       })
 
       if (!res.ok) {
@@ -355,11 +355,11 @@ export default function DeliveriesPage() {
   const handleMarkDelivered = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
     try {
-      const res = await fetch(`/api/deliveries/${deliveryId}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/deliveries/update-status`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ status: "delivered" }),
+        body: JSON.stringify({ delivery_id: deliveryId, status: "delivered" }),
       })
 
       if (!res.ok) {
@@ -608,11 +608,11 @@ export default function DeliveriesPage() {
   const handleCancelDelivery = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
     try {
-      const res = await fetch(`/api/deliveries/${deliveryId}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/deliveries/update-status`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ status: "cancelled" }),
+        body: JSON.stringify({ delivery_id: deliveryId, status: "cancelled" }),
       })
 
       if (!res.ok) {
