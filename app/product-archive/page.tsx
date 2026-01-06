@@ -175,7 +175,8 @@ export default function ProductArchivePage() {
           original_rental_price: selectedProduct.rental_price,
           original_sale_price: selectedProduct.sale_price,
           image_url: selectedProduct.image_url,
-          archived_by: user?.id || "system",
+          created_by: user?.id || null,
+          source: "manual",
         })
 
       if (archiveError) {

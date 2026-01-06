@@ -1802,7 +1802,7 @@ export default function CreateInvoicePage() {
                   original_rental_price: product.rental_price,
                   original_sale_price: product.sale_price,
                   image_url: product.image_url,
-                  created_by: user?.id || "system",
+                  created_by: user?.id || null,
                 })
               } catch (archiveErr) {
                 console.warn("[CreateOrder] Could not insert into product_archive:", archiveErr)
