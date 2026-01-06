@@ -126,15 +126,26 @@ export async function POST(request: NextRequest) {
     }
 
     // ===================================================================
-    // AUTO-CREATE EXPENSE when delivery/fuel charges are added/changed
+    // AUTO-CREATE EXPENSE when delivery/fuel charges exist
     // ===================================================================
-    const newDeliveryCharge = parseFloat(body.delivery_charge) || 0
-    const newFuelCost = parseFloat(body.fuel_cost) || 0
-    const totalExpense = newDeliveryCharge + newFuelCost
+    const newDeliveryCharge = parseFloat(body.delivery_charge || 0)
+    const newFuelCost = parseFloat(body.fuel_cost || 0)
+    
+    // Get current delivery charges if not provided in body
+    let currentDeliveryCharge = newDeliveryCharge
+    let currentFuelCost = newFuelCost
+    
+    if (existingDelivery && (newDeliveryCharge === 0 && newFuelCost === 0)) {
+      // If charges not in request, use existing delivery charges
+      currentDeliveryCharge = existingDelivery.delivery_charge || 0
+      currentFuelCost = existingDelivery.fuel_cost || 0
+    }
+    
+    const totalExpense = currentDeliveryCharge + currentFuelCost
     const oldTotal = (existingDelivery?.delivery_charge || 0) + (existingDelivery?.fuel_cost || 0)
 
-    // Only create expense if charges were added (didn't exist before) or increased
-    if (totalExpense > 0 && totalExpense !== oldTotal) {
+    // Create expense if charges exist and this is first time or charges changed
+    if (totalExpense > 0) {
       try {
         // Check if expense already exists for this delivery
         const { data: existingExpense } = await supabaseServer
@@ -144,22 +155,24 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (existingExpense) {
-          // Update existing expense
-          await supabaseServer
-            .from("expenses")
-            .update({
-              amount: totalExpense,
-              description: `Delivery charges for ${existingDelivery?.delivery_number || 'delivery'} - Delivery: ₹${newDeliveryCharge}, Fuel: ₹${newFuelCost}`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingExpense.id)
-          console.log(`[Deliveries Update Status] ✅ Updated expense: ₹${existingExpense.amount} → ₹${totalExpense}`)
+          // Update existing expense if amount changed
+          if (totalExpense !== existingExpense.amount) {
+            await supabaseServer
+              .from("expenses")
+              .update({
+                amount: totalExpense,
+                description: `Delivery charges for ${existingDelivery?.delivery_number || 'delivery'} - Delivery: ₹${currentDeliveryCharge}, Fuel: ₹${currentFuelCost}`,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingExpense.id)
+            console.log(`[Deliveries Update Status] ✅ Updated expense: ₹${existingExpense.amount} → ₹${totalExpense}`)
+          }
         } else {
           // Create new expense
           await supabaseServer.from("expenses").insert({
             franchise_id: existingDelivery?.franchise_id || auth.user?.franchise_id,
             category: "Transportation",
-            description: `Delivery charges for ${existingDelivery?.delivery_number || 'delivery'} - Delivery: ₹${newDeliveryCharge}, Fuel: ₹${newFuelCost}`,
+            description: `Delivery charges for ${existingDelivery?.delivery_number || 'delivery'} - Delivery: ₹${currentDeliveryCharge}, Fuel: ₹${currentFuelCost}`,
             amount: totalExpense,
             expense_date: existingDelivery?.delivery_date || new Date().toISOString().split('T')[0],
             payment_method: "cash",
