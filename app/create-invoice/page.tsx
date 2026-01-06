@@ -717,13 +717,10 @@ export default function CreateInvoicePage() {
       let customerId = order.customer_id
       console.log("[EditOrder] Order has customer_id:", customerId)
 
-      // Fetch order items separately
+      // Fetch order items separately (now with denormalized product details)
       const { data: orderItems, error: itemsError } = await supabase
         .from("product_order_items")
-        .select(`
-          id, product_id, quantity, unit_price, total_price,
-          products (id, name, barcode, product_code, category, image_url, rental_price, sale_price, stock_available)
-        `)
+        .select("*")  // Get all columns including denormalized: product_name, barcode, category, image_url
         .eq("order_id", order.id)
 
       console.log("[EditOrder] Order items query result:", { orderItems, itemsError, orderId: order.id })
@@ -889,26 +886,22 @@ export default function CreateInvoicePage() {
       
       console.log("[EditOrder] Invoice data set - invoice_number:", order.order_number, "event_date:", order.event_date)
       
-      // Map order items to invoice items
+      // Map order items to invoice items (using denormalized columns directly)
       const items = (orderItems || []).map((item: any) => ({
         id: item.id,
         product_id: item.product_id,
-        product_name: item.products?.name || "Unknown Product",
-        barcode: item.products?.barcode,
-        category: item.products?.category,
-        image_url: item.products?.image_url,
+        product_name: item.product_name || "Unknown Product",
+        barcode: item.barcode || "",
+        category: item.category || "",
+        image_url: item.image_url || "",
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
       }))
       setInvoiceItems(items)
       
-      // Log which items are package items vs extra items
-      const packageItems = (orderItems || []).filter((item: any) => item.is_package_item)
-      const extraItems = (orderItems || []).filter((item: any) => !item.is_package_item)
-      console.log("[EditOrder] Loaded items breakdown:")
-      console.log("  - Package items:", packageItems.length, packageItems.map((i: any) => i.products?.name))
-      console.log("  - Extra items:", extraItems.length, extraItems.map((i: any) => i.products?.name))
+      // Log items loaded
+      console.log("[EditOrder] Loaded items from denormalized columns:", items)
 
       // Load lost/damaged items (NEW)
       try {
@@ -1497,6 +1490,11 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // DENORMALIZE product details
+            product_name: item.product_name || "",
+            barcode: item.barcode || "",
+            category: item.category || "",
+            image_url: item.image_url || "",
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
@@ -1504,6 +1502,11 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // DENORMALIZE product details
+            product_name: item.product_name || "",
+            barcode: item.barcode || "",
+            category: item.category || "",
+            image_url: item.image_url || "",
           }))
         ]
 
@@ -1694,6 +1697,11 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // DENORMALIZE product details so items don't disappear if product is deleted
+            product_name: item.product_name || "",
+            barcode: item.barcode || "",
+            category: item.category || "",
+            image_url: item.image_url || "",
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
@@ -1701,10 +1709,15 @@ export default function CreateInvoicePage() {
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
+            // DENORMALIZE product details
+            product_name: item.product_name || "",
+            barcode: item.barcode || "",
+            category: item.category || "",
+            image_url: item.image_url || "",
           }))
         ]
 
-        console.log("[CreateOrder] Inserting items:", itemsData)
+        console.log("[CreateOrder] Inserting items with denormalized details:", itemsData)
         const { error: itemsError } = await supabase.from("product_order_items").insert(itemsData)
         if (itemsError) {
           console.error("[CreateOrder] Error inserting items:", itemsError)
