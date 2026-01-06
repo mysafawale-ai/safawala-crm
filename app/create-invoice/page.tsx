@@ -1786,6 +1786,7 @@ export default function CreateInvoicePage() {
                 .eq("id", ldItem.product_id)
 
               // Auto-archive: Insert into product_archive table
+              // Only use columns that exist in the original table
               try {
                 const { data: { user } } = await supabase.auth.getUser()
                 await supabase.from("product_archive").insert({
@@ -1794,15 +1795,12 @@ export default function CreateInvoicePage() {
                   category: product.category,
                   barcode: product.barcode,
                   product_code: product.product_code,
-                  quantity: ldItem.quantity,
                   reason: ldItem.type === "lost" ? "lost" : "damaged",
-                  source: "invoice",
-                  source_id: order.id,
                   notes: `${ldItem.type === "lost" ? "Lost" : "Damaged"} from Invoice ${order.order_number || "Unknown"}`,
                   original_rental_price: product.rental_price,
                   original_sale_price: product.sale_price,
                   image_url: product.image_url,
-                  created_by: user?.id || null,
+                  archived_by: user?.id,
                 })
               } catch (archiveErr) {
                 console.warn("[CreateOrder] Could not insert into product_archive:", archiveErr)

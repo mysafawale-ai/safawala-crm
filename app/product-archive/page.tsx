@@ -99,22 +99,11 @@ export default function ProductArchivePage() {
     try {
       setLoading(true)
 
-      // Fetch archived products
-      // NOTE: Filter by source='invoice' to show only items from invoice creation
-      // Once the ADD_SOURCE_TO_PRODUCT_ARCHIVE.sql migration is run, this will filter correctly
-      let query = supabase
+      // Fetch archived products - all for now (will filter by source after migration)
+      const { data: archived, error: archiveError } = await supabase
         .from("product_archive")
         .select("*")
-
-      // Try to filter by source, fallback to all if column doesn't exist yet
-      try {
-        query = query.eq("source", "invoice")
-      } catch (e) {
-        // Column might not exist yet, fetch all
-        console.warn("source column not available yet, showing all archive items")
-      }
-
-      const { data: archived, error: archiveError } = await query.order("created_at", { ascending: false })
+        .order("archived_at", { ascending: false })
 
       if (archiveError) {
         console.error("Error fetching archived products:", archiveError)
@@ -160,7 +149,8 @@ export default function ProductArchivePage() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Insert into archive (for each unit being archived)
+      // Insert into archive - only use columns that exist in the original table
+      // (quantity, source, source_id will be added in migration)
       const { error: archiveError } = await supabase
         .from("product_archive")
         .insert({
@@ -169,14 +159,12 @@ export default function ProductArchivePage() {
           product_code: selectedProduct.product_code,
           barcode: selectedProduct.barcode,
           category: selectedProduct.category,
-          quantity: archiveForm.quantity,
           reason: archiveForm.reason,
           notes: archiveForm.notes,
           original_rental_price: selectedProduct.rental_price,
           original_sale_price: selectedProduct.sale_price,
           image_url: selectedProduct.image_url,
-          created_by: user?.id || null,
-          source: "manual",
+          archived_by: user?.id,
         })
 
       if (archiveError) {
