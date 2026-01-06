@@ -85,6 +85,13 @@ interface Delivery {
   delivery_photo_url?: string
   delivery_notes?: string
   delivery_items_count?: number
+  delivery_items_confirmed?: boolean
+  // Return confirmation fields
+  return_confirmation_name?: string
+  return_confirmation_phone?: string
+  return_photo_url?: string
+  return_notes?: string
+  returned_at?: string
 }
 
 interface Staff {
@@ -266,6 +273,20 @@ export default function DeliveriesPage() {
             booking_id: d.booking_id || undefined,
             booking_source: d.booking_source || undefined,
             rescheduled_return_at: d.rescheduled_return_at || undefined,
+            // Delivery confirmation fields
+            delivered_at: d.delivered_at || undefined,
+            delivery_confirmation_name: d.delivery_confirmation_name || undefined,
+            delivery_confirmation_phone: d.delivery_confirmation_phone || undefined,
+            delivery_photo_url: d.delivery_photo_url || undefined,
+            delivery_items_count: d.delivery_items_count || undefined,
+            delivery_items_confirmed: d.delivery_items_confirmed || undefined,
+            delivery_notes: d.delivery_notes || undefined,
+            // Return confirmation fields
+            return_confirmation_name: d.return_confirmation_name || undefined,
+            return_confirmation_phone: d.return_confirmation_phone || undefined,
+            return_photo_url: d.return_photo_url || undefined,
+            return_notes: d.return_notes || undefined,
+            returned_at: d.returned_at || undefined,
           }))
           
           setDeliveries(mappedDeliveries)
