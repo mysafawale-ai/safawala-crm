@@ -84,12 +84,25 @@ export function ProcessReturnDialog({
   // Load delivery items when dialog opens
   useEffect(() => {
     if (open && delivery?.booking_id) {
-      loadDeliveryItems()
-      // Pre-fill client info
+      // Reset state for new delivery
+      setItems([])
       setClientName(delivery.customer_name || "")
       setClientPhone(delivery.customer_phone || "")
+      setNotes("")
+      setPhotoUrl(null)
+      setPhotoFile(null)
+      // Then load items
+      loadDeliveryItems()
+    } else if (!open) {
+      // Clear state when dialog closes
+      setItems([])
+      setClientName("")
+      setClientPhone("")
+      setNotes("")
+      setPhotoUrl(null)
+      setPhotoFile(null)
     }
-  }, [open, delivery])
+  }, [open, delivery?.id]) // Use delivery.id as dependency to reload on delivery change
 
   // Cleanup camera on close
   useEffect(() => {
@@ -251,9 +264,19 @@ export function ProcessReturnDialog({
         ? "package_booking_product_items" 
         : "product_order_items"
 
+      console.log('[ProcessReturn Save] Saving items to table:', table)
+      console.log('[ProcessReturn Save] Items to save:', items)
+
       // Update each item with return quantities
+      let savedCount = 0
       for (const item of items) {
-        await supabase
+        console.log(`[ProcessReturn Save] Updating item ${item.id}:`, {
+          return_lost_damaged: item.lost_damaged || 0,
+          return_used: item.used || 0,
+          return_fresh: item.fresh || 0,
+        })
+
+        const { data, error } = await supabase
           .from(table)
           .update({
             return_lost_damaged: item.lost_damaged || 0,
@@ -261,7 +284,17 @@ export function ProcessReturnDialog({
             return_fresh: item.fresh || 0,
           })
           .eq("id", item.id)
+          .select()
+
+        if (error) {
+          console.error(`[ProcessReturn Save] Failed to update item ${item.id}:`, error)
+        } else {
+          console.log(`[ProcessReturn Save] Successfully updated item ${item.id}:`, data)
+          savedCount++
+        }
       }
+
+      console.log(`[ProcessReturn Save] Saved ${savedCount}/${items.length} items`)
 
       // Update delivery with return confirmation info
       await fetch("/api/deliveries/update-status", {
@@ -279,7 +312,7 @@ export function ProcessReturnDialog({
 
       toast({
         title: "Saved",
-        description: "Return quantities saved. You can process later.",
+        description: `Return quantities saved for ${savedCount} items. You can process later.`,
       })
       onSuccess()
       onClose()
