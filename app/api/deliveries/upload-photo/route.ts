@@ -11,7 +11,7 @@ export const runtime = 'nodejs'
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await authenticateRequest(request, { minRole: "staff", requirePermission: "deliveries" })
+    const auth = await authenticateRequest(request, { minRole: "staff" })
     if (!auth.authorized) {
       return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
