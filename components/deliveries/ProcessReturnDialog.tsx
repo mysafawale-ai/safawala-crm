@@ -141,10 +141,6 @@ export function ProcessReturnDialog({
       setShowCamera(false)
     }
   }, [open])
-      setPhotoFile(null)
-      setShowCamera(false)
-    }
-  }, [open])
 
   // Cleanup camera on close
   useEffect(() => {
