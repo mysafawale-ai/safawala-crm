@@ -85,12 +85,20 @@ export function ProcessReturnDialog({
   useEffect(() => {
     if (open && delivery?.booking_id) {
       // ALWAYS reset state when opening dialog, even if same delivery
-      console.log('[ProcessReturn] Dialog opened, resetting state')
+      console.log('[ProcessReturn] Dialog opened, loading delivery data')
       setItems([])
       setClientName(delivery.customer_name || "")
       setClientPhone(delivery.customer_phone || "")
-      setNotes("")
-      setPhotoUrl(null)
+      
+      // Load saved notes and photo from delivery record (if they exist)
+      setNotes((delivery as any).return_notes || "")
+      setPhotoUrl((delivery as any).return_photo_url || null)
+      
+      console.log('[ProcessReturn] Loaded return data:', {
+        notes: (delivery as any).return_notes,
+        photo: (delivery as any).return_photo_url ? 'YES' : 'NO'
+      })
+      
       setPhotoFile(null)
       setShowCamera(false)
       // Then load items
