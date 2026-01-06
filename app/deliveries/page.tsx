@@ -27,6 +27,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
 import { UnifiedHandoverDialog } from "@/components/deliveries/UnifiedHandoverDialog"
 import { MarkDeliveredDialog } from "@/components/deliveries/MarkDeliveredDialog"
+import { ProcessReturnDialog } from "@/components/deliveries/ProcessReturnDialog"
 import { DialogFooter } from "@/components/ui/dialog"
 import { formatTime12Hour } from "@/lib/utils"
 
@@ -105,6 +106,7 @@ export default function DeliveriesPage() {
   const [showReturnDialog, setShowReturnDialog] = useState(false)
   const [showHandoverDialog, setShowHandoverDialog] = useState(false)
   const [showMarkDeliveredDialog, setShowMarkDeliveredDialog] = useState(false)
+  const [showProcessReturnDialog, setShowProcessReturnDialog] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
   const [selectedReturn, setSelectedReturn] = useState<any>(null)
   const [returns, setReturns] = useState<any[]>([])
@@ -659,6 +661,8 @@ export default function DeliveriesPage() {
     switch (status) {
       case "delivered":
         return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "return_completed":
+        return <PackageCheck className="h-4 w-4 text-purple-500" />
       case "in_transit":
         return <Truck className="h-4 w-4 text-blue-500" />
       case "pending":
@@ -1676,18 +1680,32 @@ export default function DeliveriesPage() {
                       </>
                     )}
                     {delivery.status === "delivered" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedDelivery(delivery)
-                          setShowHandoverDialog(true)
-                          replaceQuery({ tab: "deliveries", action: "handover", delivery_id: delivery.id })
-                        }}
-                      >
-                        <Package className="h-4 w-4 mr-1" />
-                        Capture Handover
-                      </Button>
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => {
+                            setSelectedDelivery(delivery)
+                            setShowProcessReturnDialog(true)
+                          }}
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1" />
+                          Process Return
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDelivery(delivery)
+                            setShowHandoverDialog(true)
+                            replaceQuery({ tab: "deliveries", action: "handover", delivery_id: delivery.id })
+                          }}
+                        >
+                          <Package className="h-4 w-4 mr-1" />
+                          Capture Handover
+                        </Button>
+                      </>
                     )}
                     <Button
                       variant="ghost"
@@ -2664,6 +2682,28 @@ export default function DeliveriesPage() {
         delivery={selectedDelivery}
         onSuccess={async () => {
           setShowMarkDeliveredDialog(false)
+          setSelectedDelivery(null)
+          await fetchData()
+        }}
+      />
+
+      {/* Process Return Dialog (New Simplified Flow) */}
+      <ProcessReturnDialog
+        open={showProcessReturnDialog}
+        onClose={() => {
+          setShowProcessReturnDialog(false)
+          setSelectedDelivery(null)
+        }}
+        delivery={selectedDelivery ? {
+          id: selectedDelivery.id,
+          delivery_number: selectedDelivery.delivery_number,
+          customer_name: selectedDelivery.customer_name,
+          customer_phone: selectedDelivery.customer_phone,
+          booking_id: selectedDelivery.booking_id,
+          booking_source: selectedDelivery.booking_source,
+        } : null}
+        onSuccess={async () => {
+          setShowProcessReturnDialog(false)
           setSelectedDelivery(null)
           await fetchData()
         }}
