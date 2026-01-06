@@ -315,12 +315,19 @@ export default function DeliveriesPage() {
       const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ status: "in_transit" }),
       })
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.message || "Failed to update status")
+        // Handle non-JSON responses (like 404 HTML pages)
+        const contentType = res.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const error = await res.json()
+          throw new Error(error.error || error.message || "Failed to update status")
+        } else {
+          throw new Error(`Server error: ${res.status} ${res.statusText}`)
+        }
       }
 
       toast({
@@ -330,9 +337,10 @@ export default function DeliveriesPage() {
 
       await fetchData()
     } catch (error: any) {
+      console.error("Start transit error:", error)
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to start transit",
         variant: "destructive",
       })
     } finally {
@@ -597,12 +605,18 @@ export default function DeliveriesPage() {
       const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ status: "cancelled" }),
       })
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.message || "Failed to cancel delivery")
+        const contentType = res.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const error = await res.json()
+          throw new Error(error.error || error.message || "Failed to cancel delivery")
+        } else {
+          throw new Error(`Server error: ${res.status} ${res.statusText}`)
+        }
       }
 
       toast({
@@ -612,9 +626,10 @@ export default function DeliveriesPage() {
 
       await fetchData()
     } catch (error: any) {
+      console.error("Cancel delivery error:", error)
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to cancel delivery",
         variant: "destructive",
       })
     } finally {
