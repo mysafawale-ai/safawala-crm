@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseServer } from "@/lib/supabase-server-simple"
+import { authenticateRequest } from "@/lib/auth-middleware"
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -10,6 +11,12 @@ export const runtime = 'nodejs'
  */
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate request
+    const auth = await authenticateRequest(request, { minRole: "staff" })
+    if (!auth.authorized) {
+      return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
+    }
+
     const body = await request.json()
 
     console.log('[Deliveries Create API] Creating new delivery')
@@ -70,6 +77,8 @@ export async function POST(request: NextRequest) {
       delivery_charge: deliveryCharge,
       fuel_cost: fuelCost,
       special_instructions: body.special_instructions || null,
+      franchise_id: auth.user?.franchise_id,
+      created_by: auth.user?.id,
     }
 
     const { data: delivery, error } = await supabaseServer
@@ -102,6 +111,29 @@ export async function POST(request: NextRequest) {
           .insert(assignments)
       } catch (staffError) {
         console.warn("[Deliveries Create API] Could not create staff assignments:", staffError)
+      }
+    }
+
+    // ===================================================================
+    // AUTO-CREATE EXPENSE when delivery/fuel charges are provided
+    // ===================================================================
+    const totalExpense = deliveryCharge + fuelCost
+    if (totalExpense > 0) {
+      try {
+        await supabaseServer.from("expenses").insert({
+          franchise_id: auth.user?.franchise_id,
+          category: "Transportation",
+          description: `Delivery charges for ${deliveryNumber} - Delivery: ₹${deliveryCharge}, Fuel: ₹${fuelCost}`,
+          amount: totalExpense,
+          expense_date: new Date().toISOString().split('T')[0],
+          payment_method: "cash",
+          vendor_name: body.driver_name || "Delivery Staff",
+          notes: `Auto-generated for delivery ${deliveryNumber}`,
+          created_by: auth.user?.id,
+        })
+        console.log(`[Deliveries Create API] ✅ Created expense: ₹${totalExpense}`)
+      } catch (expenseErr) {
+        console.warn("[Deliveries Create API] Could not create expense:", expenseErr)
       }
     }
 
