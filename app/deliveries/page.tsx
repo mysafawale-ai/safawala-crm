@@ -1648,18 +1648,25 @@ export default function DeliveriesPage() {
                     )}
                     {delivery.status === "delivered" && (
                       <>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700"
-                          onClick={() => {
-                            setSelectedDelivery(delivery)
-                            setShowProcessReturnDialog(true)
-                          }}
-                        >
-                          <RotateCcw className="h-4 w-4 mr-1" />
-                          Process Return
-                        </Button>
+                        {(delivery as any).returned_at ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-300">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Order Completed
+                          </Badge>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700"
+                            onClick={() => {
+                              setSelectedDelivery(delivery)
+                              setShowProcessReturnDialog(true)
+                            }}
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            Process Return
+                          </Button>
+                        )}
                       </>
                     )}
                     <Button
