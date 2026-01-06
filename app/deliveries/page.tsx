@@ -106,6 +106,8 @@ export default function DeliveriesPage() {
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
   const [selectedReturn, setSelectedReturn] = useState<any>(null)
   const [returns, setReturns] = useState<any[]>([])
+  const [deliveryItems, setDeliveryItems] = useState<any[]>([])
+  const [loadingDeliveryItems, setLoadingDeliveryItems] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
   const [loadingAddresses, setLoadingAddresses] = useState(false)
@@ -644,6 +646,36 @@ export default function DeliveriesPage() {
     }
   }
 
+  // Fetch items for the selected delivery
+  const loadDeliveryItems = async (delivery: Delivery) => {
+    if (!delivery.booking_id) {
+      setDeliveryItems([])
+      return
+    }
+
+    setLoadingDeliveryItems(true)
+    try {
+      // Fetch items from product_order_items table using the booking_id
+      const { data, error } = await supabase
+        .from("product_order_items")
+        .select("*")
+        .eq("order_id", delivery.booking_id)
+
+      if (error) {
+        console.error("[DeliveryDetails] Error fetching items:", error)
+        setDeliveryItems([])
+      } else {
+        console.log("[DeliveryDetails] Loaded items:", data)
+        setDeliveryItems(data || [])
+      }
+    } catch (err) {
+      console.error("[DeliveryDetails] Exception fetching items:", err)
+      setDeliveryItems([])
+    } finally {
+      setLoadingDeliveryItems(false)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "delivered":
@@ -682,6 +714,13 @@ export default function DeliveriesPage() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, statusFilter, deliveryTypeFilter])
+
+  // Load delivery items when view dialog is opened
+  useEffect(() => {
+    if (showViewDialog && selectedDelivery) {
+      loadDeliveryItems(selectedDelivery)
+    }
+  }, [showViewDialog, selectedDelivery?.id])
 
   // Mock drivers data (since we don't have a drivers table)
   const mockDrivers = [
@@ -1934,6 +1973,37 @@ export default function DeliveriesPage() {
                 <Label className="text-sm font-medium">Special Instructions</Label>
                 <p className="text-sm">{selectedDelivery.special_instructions || "None"}</p>
               </div>
+
+              {/* Selected Products Section */}
+              <div className="border-t pt-4 mt-2">
+                <Label className="text-sm font-medium mb-3 block">📦 Products to Deliver</Label>
+                {loadingDeliveryItems ? (
+                  <div className="text-sm text-muted-foreground">Loading products...</div>
+                ) : deliveryItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {deliveryItems.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{item.product_name || `Product ${item.product_id}`}</div>
+                          {item.barcode && <div className="text-xs text-muted-foreground">Barcode: {item.barcode}</div>}
+                          {item.category && <div className="text-xs text-muted-foreground">Category: {item.category}</div>}
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-sm">Qty: <span className="text-lg text-blue-600">{item.quantity}</span></div>
+                          <div className="text-xs text-muted-foreground">₹{item.unit_price || 0} each</div>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="mt-3 pt-2 border-t">
+                      <div className="text-sm font-medium">
+                        Total Items: <span className="text-lg text-green-600">{deliveryItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">No products found for this delivery</div>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
@@ -2123,6 +2193,37 @@ export default function DeliveriesPage() {
                 value={editForm.special_instructions}
                 onChange={(e) => setEditForm({ ...editForm, special_instructions: e.target.value })}
               />
+            </div>
+
+            {/* Products Section in Edit Dialog */}
+            <div className="border-t pt-4 mt-2 space-y-2">
+              <Label className="text-sm font-medium">📦 Products to Deliver</Label>
+              {loadingDeliveryItems ? (
+                <div className="text-sm text-muted-foreground">Loading products...</div>
+              ) : deliveryItems.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {deliveryItems.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{item.product_name || `Product ${item.product_id}`}</div>
+                        {item.barcode && <div className="text-xs text-muted-foreground">Barcode: {item.barcode}</div>}
+                        {item.category && <div className="text-xs text-muted-foreground">Category: {item.category}</div>}
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-sm">Qty: <span className="text-lg text-blue-600">{item.quantity}</span></div>
+                        <div className="text-xs text-muted-foreground">₹{item.unit_price || 0}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="mt-3 pt-2 border-t">
+                    <div className="text-sm font-medium">
+                      Total Items: <span className="text-lg text-green-600">{deliveryItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground italic">No products found for this delivery</div>
+              )}
             </div>
           </div>
           <div className="flex justify-end space-x-2">
