@@ -88,6 +88,7 @@ export default function ProductArchivePage() {
     product_id: "",
     reason: "lost",
     notes: "",
+    quantity: 1,
   })
 
   useEffect(() => {
@@ -137,13 +138,18 @@ export default function ProductArchivePage() {
       return
     }
 
+    if (archiveForm.quantity < 1 || archiveForm.quantity > selectedProduct.stock_available) {
+      toast.error(`Please enter a valid quantity between 1 and ${selectedProduct.stock_available}`)
+      return
+    }
+
     try {
       setArchiving(true)
 
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Insert into archive
+      // Insert into archive (for each unit being archived)
       const { error: archiveError } = await supabase
         .from("product_archive")
         .insert({
@@ -152,6 +158,7 @@ export default function ProductArchivePage() {
           product_code: selectedProduct.product_code,
           barcode: selectedProduct.barcode,
           category: selectedProduct.category,
+          quantity: archiveForm.quantity,
           reason: archiveForm.reason,
           notes: archiveForm.notes,
           original_rental_price: selectedProduct.rental_price,
@@ -164,19 +171,20 @@ export default function ProductArchivePage() {
         throw archiveError
       }
 
-      // Reduce stock to 0 for the archived product
+      // Reduce stock by the archived quantity
+      const newStockAvailable = Math.max(0, selectedProduct.stock_available - archiveForm.quantity)
       const { error: updateError } = await supabase
         .from("products")
-        .update({ stock_available: 0 })
+        .update({ stock_available: newStockAvailable })
         .eq("id", selectedProduct.id)
 
       if (updateError) {
         throw updateError
       }
 
-      toast.success(`Product archived: ${selectedProduct.name}`)
+      toast.success(`${archiveForm.quantity} unit(s) of ${selectedProduct.name} archived`)
       setShowArchiveDialog(false)
-      setArchiveForm({ product_id: "", reason: "lost", notes: "" })
+      setArchiveForm({ product_id: "", reason: "lost", notes: "", quantity: 1 })
       setSelectedProduct(null)
       fetchData()
     } catch (error) {
@@ -530,7 +538,7 @@ export default function ProductArchivePage() {
                 onValueChange={(value) => {
                   const product = activeProducts.find((p) => p.id === value)
                   setSelectedProduct(product || null)
-                  setArchiveForm({ ...archiveForm, product_id: value })
+                  setArchiveForm({ ...archiveForm, product_id: value, quantity: 1 })
                 }}
               >
                 <SelectTrigger>
@@ -581,6 +589,26 @@ export default function ProductArchivePage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {selectedProduct && (
+              <div className="space-y-2">
+                <Label>Quantity to Archive</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={selectedProduct.stock_available}
+                    value={archiveForm.quantity}
+                    onChange={(e) => {
+                      const value = Math.min(Math.max(1, parseInt(e.target.value) || 1), selectedProduct.stock_available)
+                      setArchiveForm({ ...archiveForm, quantity: value })
+                    }}
+                    className="w-32"
+                  />
+                  <span className="text-sm text-gray-500">/ {selectedProduct.stock_available} available</span>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Notes (Optional)</Label>

@@ -1767,7 +1767,7 @@ export default function CreateInvoicePage() {
             // Get current product stock
             const { data: product } = await supabase
               .from("products")
-              .select("stock_available, stock_total")
+              .select("stock_available, stock_total, name, category, barcode, product_code, rental_price, sale_price, image_url")
               .eq("id", ldItem.product_id)
               .single()
 
@@ -1784,6 +1784,27 @@ export default function CreateInvoicePage() {
                   updated_at: new Date().toISOString(),
                 })
                 .eq("id", ldItem.product_id)
+
+              // Auto-archive: Insert into product_archive table
+              try {
+                const { data: { user } } = await supabase.auth.getUser()
+                await supabase.from("product_archive").insert({
+                  product_id: ldItem.product_id,
+                  product_name: product.name,
+                  category: product.category,
+                  barcode: product.barcode,
+                  product_code: product.product_code,
+                  quantity: ldItem.quantity,
+                  reason: ldItem.type === "lost" ? "lost" : "damaged",
+                  notes: `${ldItem.type === "lost" ? "Lost" : "Damaged"} from Invoice ${order.order_number || "Unknown"}`,
+                  original_rental_price: product.rental_price,
+                  original_sale_price: product.sale_price,
+                  image_url: product.image_url,
+                  archived_by: user?.id || "system",
+                })
+              } catch (archiveErr) {
+                console.warn("[CreateOrder] Could not insert into product_archive:", archiveErr)
+              }
 
               // Log to archive/activity (if table exists) - ignore errors
               try {

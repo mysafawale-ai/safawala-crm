@@ -150,13 +150,19 @@ export default function ExpensesPage() {
   const addCategory = async () => {
     if(!newCategory.name.trim()) { toast.error('Name required'); return }
     try {
-      const { data, error } = await supabase.from('expense_categories').insert({ name:newCategory.name, description:newCategory.description||null, color:newCategory.color||'#2563eb'}).select('id,name,color,description')
+      const { data, error } = await supabase.from('expense_categories').insert({ 
+        name: newCategory.name, 
+        description: newCategory.description || null, 
+        color: newCategory.color || '#2563eb',
+        is_active: true,
+        created_at: new Date().toISOString()
+      }).select('id,name,color,description,is_active')
       if(error) throw error
       if(data && data[0]) setCategories(prev=>[...prev, data[0] as any])
       toast.success('Category added')
       setShowCategoryDialog(false)
       setNewCategory({ name:'', description:'', color:'#2563eb'})
-    } catch(e){ console.error(e); toast.error('Add category failed') }
+    } catch(e){ console.error('Add category error:', e); toast.error('Add category failed') }
   }
   const updateCategory = async () => {
     if(!editingCategoryId) return
