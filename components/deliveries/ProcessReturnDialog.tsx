@@ -44,6 +44,9 @@ interface DeliveryItem {
   lost_damaged?: number
   used?: number
   fresh?: number
+  // Return notes and photo per item
+  return_notes?: string
+  return_photo_url?: string
 }
 
 interface ProcessReturnDialogProps {
@@ -189,7 +192,7 @@ export function ProcessReturnDialog({
           ? item.return_fresh 
           : (item.quantity || 1) - lost - used
         
-        console.log(`[ProcessReturn] Item ${item.id}: return_lost_damaged=${lost}, return_used=${used}, return_fresh=${item.return_fresh}, loaded_fresh=${fresh}`)
+        console.log(`[ProcessReturn] Item ${item.id}: return_lost_damaged=${lost}, return_used=${used}, return_fresh=${item.return_fresh}, notes="${item.return_notes}", photo=${item.return_photo_url ? 'YES' : 'NO'}`)
         
         return {
           id: item.id,
@@ -201,6 +204,8 @@ export function ProcessReturnDialog({
           lost_damaged: lost,
           used: used,
           fresh: fresh,
+          return_notes: item.return_notes || "",
+          return_photo_url: item.return_photo_url || null,
         }
       })
 
@@ -348,6 +353,8 @@ export function ProcessReturnDialog({
             return_lost_damaged: item.lost_damaged || 0,
             return_used: item.used || 0,
             return_fresh: item.fresh || 0,
+            return_notes: item.return_notes || "",
+            return_photo_url: item.return_photo_url || null,
           })
           .eq("id", item.id)
           .select()
