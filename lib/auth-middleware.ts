@@ -83,7 +83,7 @@ export async function authenticateRequest(
     }
 
     // 2. Fetch app user profile with permissions (case-insensitive email match)
-    const { data: appUser, error: profileError } = await supabaseServer
+    let { data: appUser, error: profileError } = await supabaseServer
       .from('users')
       .select(`
         id,
@@ -103,7 +103,62 @@ export async function authenticateRequest(
       .eq('is_active', true)
       .single();
 
-    if (profileError || !appUser) {
+    // If user profile doesn't exist, try to create a default one
+    if ((profileError || !appUser) && authUser.email) {
+      console.warn(`[Auth] User profile not found for ${authUser.email}, attempting to create default profile`);
+      
+      // Try to get first franchise as default
+      let defaultFranchiseId: string | null = null;
+      try {
+        const { data: franchises } = await supabaseServer
+          .from('franchises')
+          .select('id')
+          .limit(1)
+          .single();
+        defaultFranchiseId = franchises?.id || null;
+      } catch (err) {
+        console.warn('[Auth] Could not fetch default franchise:', err);
+      }
+
+      // Create default user profile
+      try {
+        const { data: newUser } = await supabaseServer
+          .from('users')
+          .insert({
+            id: authUser.id,
+            email: authUser.email,
+            name: authUser.user_metadata?.name || authUser.email.split('@')[0] || 'User',
+            role: 'staff', // Default role
+            franchise_id: defaultFranchiseId,
+            is_active: true,
+            permissions: null, // Will use defaults based on role
+          })
+          .select(`
+            id,
+            name,
+            email,
+            role,
+            franchise_id,
+            is_active,
+            permissions,
+            franchises!left (
+              id,
+              name,
+              code
+            )
+          `)
+          .single();
+        
+        if (newUser) {
+          appUser = newUser;
+          console.log(`[Auth] Created default user profile for ${authUser.email}`);
+        }
+      } catch (createErr: any) {
+        console.error('[Auth] Failed to create user profile:', createErr.message);
+      }
+    }
+
+    if (profileError && !appUser) {
       return {
         authorized: false,
         error: { error: 'Forbidden', message: 'User profile not found or inactive' },

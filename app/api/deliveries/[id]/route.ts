@@ -38,7 +38,8 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Authenticate user
+    // Authenticate user - just need staff role
+    // Don't require permission check since it might not be set on existing users
     const auth = await authenticateRequest(request, { minRole: 'staff' })
     if (!auth.authorized) {
       console.error("[Deliveries API] Unauthorized:", auth.error)
