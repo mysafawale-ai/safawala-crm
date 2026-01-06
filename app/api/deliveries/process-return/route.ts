@@ -272,36 +272,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Update delivery status to delivered (return processed)
+    // 5. Update delivery status and return timestamp
     // Note: Check constraint only allows: pending, in_transit, delivered, cancelled
+    // We update all fields in one call to ensure returned_at is set
+    const updateFields: any = {
+      status: "delivered",
+      updated_at: new Date().toISOString(),
+    }
+
+    // Add return fields - these should exist if the migration was run
+    updateFields.returned_at = new Date().toISOString()
+    if (client_name) updateFields.return_confirmation_name = client_name
+    if (client_phone) updateFields.return_confirmation_phone = client_phone
+    if (notes) updateFields.return_notes = notes
+    if (photo_url) updateFields.return_photo_url = photo_url
+    if (auth.user?.id) updateFields.return_processed_by = auth.user.id
+
     const { error: statusError } = await supabaseServer
       .from("deliveries")
-      .update({
-        status: "delivered",
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateFields)
       .eq("id", delivery_id)
 
     if (statusError) {
-      console.error("[Process Return] Failed to update delivery status:", statusError)
-      throw new Error(`Failed to update delivery status: ${statusError.message}`)
-    }
-
-    // Try to update optional return fields
-    try {
-      await supabaseServer
+      console.error("[Process Return] Failed to update delivery:", statusError)
+      // If it fails, try with just the basic fields
+      const { error: basicError } = await supabaseServer
         .from("deliveries")
         .update({
-          returned_at: new Date().toISOString(),
-          return_confirmation_name: client_name,
-          return_confirmation_phone: client_phone,
-          return_notes: notes,
-          return_photo_url: photo_url,
-          return_processed_by: auth.user?.id,
+          status: "delivered",
+          updated_at: new Date().toISOString(),
         })
         .eq("id", delivery_id)
-    } catch (optionalErr) {
-      console.warn("[Process Return] Optional return fields not updated:", optionalErr)
+      
+      if (basicError) {
+        throw new Error(`Failed to update delivery status: ${basicError.message}`)
+      }
+      console.warn("[Process Return] Updated with basic fields only (some columns may not exist)")
+    } else {
+      console.log("[Process Return] ✅ Updated delivery with all return fields including returned_at")
     }
 
     // 6. Update booking return status
