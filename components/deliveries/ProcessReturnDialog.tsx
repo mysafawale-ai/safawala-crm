@@ -152,17 +152,25 @@ export function ProcessReturnDialog({
       if (error) throw error
 
       // Map items with return quantities (default to 0)
-      const mappedItems: DeliveryItem[] = (data || []).map((item: any) => ({
-        id: item.id,
-        product_name: item.product_name || item.name || "Unknown Product",
-        variant_name: item.variant_name,
-        quantity: item.quantity || 1,
-        product_id: item.product_id,
-        variant_id: item.variant_id,
-        lost_damaged: item.return_lost_damaged || 0,
-        used: item.return_used || 0,
-        fresh: (item.quantity || 1) - (item.return_lost_damaged || 0) - (item.return_used || 0),
-      }))
+      const mappedItems: DeliveryItem[] = (data || []).map((item: any) => {
+        const lost = item.return_lost_damaged || 0
+        const used = item.return_used || 0
+        const fresh = (item.quantity || 1) - lost - used
+        
+        console.log(`[ProcessReturn] Item ${item.id}: return_lost_damaged=${lost}, return_used=${used}, quantity=${item.quantity}, calculated_fresh=${fresh}`)
+        
+        return {
+          id: item.id,
+          product_name: item.product_name || item.name || "Unknown Product",
+          variant_name: item.variant_name,
+          quantity: item.quantity || 1,
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          lost_damaged: lost,
+          used: used,
+          fresh: fresh,
+        }
+      })
 
       console.log('[ProcessReturn] Mapped items:', mappedItems)
       setItems(mappedItems)
