@@ -272,14 +272,31 @@ export function ProcessReturnDialog({
       const table = delivery.booking_source === "package_booking" 
         ? "package_booking_product_items" 
         : "product_order_items"
+      const foreignKey = delivery.booking_source === "package_booking"
+        ? "package_booking_id"
+        : "order_id"
 
       console.log('[ProcessReturn Save] Saving items to table:', table)
+      console.log('[ProcessReturn Save] Booking ID:', delivery.booking_id)
       console.log('[ProcessReturn Save] Items to save:', items)
+
+      // Verify items are not empty
+      if (items.length === 0) {
+        toast({
+          title: "No Items",
+          description: "No items found to save",
+          variant: "destructive",
+        })
+        setSaving(false)
+        return
+      }
 
       // Update each item with return quantities
       let savedCount = 0
+      let errorCount = 0
       for (const item of items) {
         console.log(`[ProcessReturn Save] Updating item ${item.id}:`, {
+          id: item.id,
           return_lost_damaged: item.lost_damaged || 0,
           return_used: item.used || 0,
           return_fresh: item.fresh || 0,
@@ -296,35 +313,49 @@ export function ProcessReturnDialog({
           .select()
 
         if (error) {
-          console.error(`[ProcessReturn Save] Failed to update item ${item.id}:`, error)
+          console.error(`[ProcessReturn Save] ❌ Failed to update item ${item.id}:`, error)
+          errorCount++
+          
+          // If column doesn't exist error
+          if (error.message?.includes('column') || error.message?.includes('syntax')) {
+            console.error('[ProcessReturn Save] ⚠️ Column error - you may need to run the SQL migration')
+          }
         } else {
-          console.log(`[ProcessReturn Save] Successfully updated item ${item.id}:`, data)
+          console.log(`[ProcessReturn Save] ✅ Successfully updated item ${item.id}:`, data)
           savedCount++
         }
       }
 
-      console.log(`[ProcessReturn Save] Saved ${savedCount}/${items.length} items`)
+      console.log(`[ProcessReturn Save] Summary: ${savedCount} saved, ${errorCount} failed out of ${items.length}`)
 
-      // Update delivery with return confirmation info
-      await fetch("/api/deliveries/update-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          delivery_id: delivery.id,
-          return_confirmation_name: clientName,
-          return_confirmation_phone: clientPhone,
-          return_notes: notes,
-          return_photo_url: photoUrl,
-        }),
-      })
+      if (errorCount > 0) {
+        toast({
+          title: "Partial Save",
+          description: `Saved ${savedCount}/${items.length} items. Some items failed to save. Check console for details.`,
+          variant: "destructive",
+        })
+      } else {
+        // Update delivery with return confirmation info
+        await fetch("/api/deliveries/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            delivery_id: delivery.id,
+            return_confirmation_name: clientName,
+            return_confirmation_phone: clientPhone,
+            return_notes: notes,
+            return_photo_url: photoUrl,
+          }),
+        })
 
-      toast({
-        title: "Saved",
-        description: `Return quantities saved for ${savedCount} items. You can process later.`,
-      })
-      onSuccess()
-      onClose()
+        toast({
+          title: "Saved ✅",
+          description: `Return quantities saved for ${savedCount} items. You can process later.`,
+        })
+        onSuccess()
+        onClose()
+      }
     } catch (err: any) {
       console.error("Save error:", err)
       toast({
