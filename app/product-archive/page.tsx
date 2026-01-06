@@ -411,6 +411,7 @@ export default function ProductArchivePage() {
                     <TableHead>Product</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Code/Barcode</TableHead>
+                    <TableHead className="text-center">Quantity</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Archived Date</TableHead>
                     <TableHead>Original Price</TableHead>
@@ -439,6 +440,7 @@ export default function ProductArchivePage() {
                           {item.barcode && <div className="text-muted-foreground">Barcode: {item.barcode}</div>}
                         </div>
                       </TableCell>
+                      <TableCell className="text-center font-medium">{item.quantity || 1}</TableCell>
                       <TableCell>{getReasonBadge(item.reason)}</TableCell>
                       <TableCell>{new Date(item.archived_at).toLocaleDateString()}</TableCell>
                       <TableCell>
