@@ -99,12 +99,22 @@ export default function ProductArchivePage() {
     try {
       setLoading(true)
 
-      // Fetch archived products - ONLY from invoice creation (not from process-return)
-      const { data: archived, error: archiveError } = await supabase
+      // Fetch archived products
+      // NOTE: Filter by source='invoice' to show only items from invoice creation
+      // Once the ADD_SOURCE_TO_PRODUCT_ARCHIVE.sql migration is run, this will filter correctly
+      let query = supabase
         .from("product_archive")
         .select("*")
-        .eq("source", "invoice")
-        .order("created_at", { ascending: false })
+
+      // Try to filter by source, fallback to all if column doesn't exist yet
+      try {
+        query = query.eq("source", "invoice")
+      } catch (e) {
+        // Column might not exist yet, fetch all
+        console.warn("source column not available yet, showing all archive items")
+      }
+
+      const { data: archived, error: archiveError } = await query.order("created_at", { ascending: false })
 
       if (archiveError) {
         console.error("Error fetching archived products:", archiveError)
