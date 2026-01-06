@@ -155,9 +155,12 @@ export function ProcessReturnDialog({
       const mappedItems: DeliveryItem[] = (data || []).map((item: any) => {
         const lost = item.return_lost_damaged || 0
         const used = item.return_used || 0
-        const fresh = (item.quantity || 1) - lost - used
+        // Use saved fresh value if it exists, otherwise calculate
+        const fresh = item.return_fresh !== null && item.return_fresh !== undefined 
+          ? item.return_fresh 
+          : (item.quantity || 1) - lost - used
         
-        console.log(`[ProcessReturn] Item ${item.id}: return_lost_damaged=${lost}, return_used=${used}, quantity=${item.quantity}, calculated_fresh=${fresh}`)
+        console.log(`[ProcessReturn] Item ${item.id}: return_lost_damaged=${lost}, return_used=${used}, return_fresh=${item.return_fresh}, loaded_fresh=${fresh}`)
         
         return {
           id: item.id,
