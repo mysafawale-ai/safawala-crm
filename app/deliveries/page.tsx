@@ -24,7 +24,7 @@ import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
+
 import { UnifiedHandoverDialog } from "@/components/deliveries/UnifiedHandoverDialog"
 import { MarkDeliveredDialog } from "@/components/deliveries/MarkDeliveredDialog"
 import { ProcessReturnDialog } from "@/components/deliveries/ProcessReturnDialog"
@@ -111,13 +111,10 @@ export default function DeliveriesPage() {
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false)
-  const [showReturnDialog, setShowReturnDialog] = useState(false)
   const [showHandoverDialog, setShowHandoverDialog] = useState(false)
   const [showMarkDeliveredDialog, setShowMarkDeliveredDialog] = useState(false)
   const [showProcessReturnDialog, setShowProcessReturnDialog] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
-  const [selectedReturn, setSelectedReturn] = useState<any>(null)
-  const [returns, setReturns] = useState<any[]>([])
   const [deliveryItems, setDeliveryItems] = useState<any[]>([])
   const [deliveryPackage, setDeliveryPackage] = useState<any>(null)
   const [loadingDeliveryItems, setLoadingDeliveryItems] = useState(false)
@@ -277,21 +274,6 @@ export default function DeliveriesPage() {
         console.warn("Error fetching deliveries:", e.message)
         setDeliveries([])
       }
-
-      // Fetch returns
-      try {
-        const returnsRes = await fetch("/api/returns?status=pending", { cache: "no-store" })
-        if (returnsRes.ok) {
-          const returnsJson = await returnsRes.json()
-          setReturns(returnsJson?.returns || [])
-        } else {
-          console.warn("Returns API not available yet")
-          setReturns([])
-        }
-      } catch (e: any) {
-        console.warn("Error fetching returns:", e.message)
-        setReturns([])
-      }
     } catch (error) {
       console.error("Error in fetchData:", error)
       toast({
@@ -417,7 +399,7 @@ export default function DeliveriesPage() {
   // Deep-link: apply URL params to UI state
   useEffect(() => {
     const tab = searchParams?.get("tab")
-    if (tab && (tab === "deliveries" || tab === "returns") && tab !== activeTab) {
+    if (tab && tab === "deliveries" && tab !== activeTab) {
       setActiveTab(tab)
     }
 
@@ -1468,14 +1450,10 @@ export default function DeliveriesPage() {
         }}
         className="space-y-4"
       >
-        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+        <TabsList className="grid w-full md:w-[400px] grid-cols-1">
           <TabsTrigger value="deliveries" className="flex items-center gap-2">
             <Truck className="h-4 w-4" />
             Deliveries
-          </TabsTrigger>
-          <TabsTrigger value="returns" className="flex items-center gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Returns
           </TabsTrigger>
         </TabsList>
 
@@ -1845,133 +1823,6 @@ export default function DeliveriesPage() {
           </CardContent>
         )}
       </Card>
-        </TabsContent>
-
-        {/* RETURNS TAB */}
-        <TabsContent value="returns" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>🔄 Returns Processing</CardTitle>
-              <CardDescription>Process returns and update inventory for damaged, lost, or stolen items</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {returns.length === 0 ? (
-                  <div className="text-center py-12">
-                    <PackageCheck className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Returns Pending</h3>
-                    <p className="text-sm text-gray-600 max-w-md mx-auto">
-                      Returns are automatically created when rental deliveries are marked as delivered. They will appear here for processing.
-                    </p>
-                  </div>
-                ) : (
-                  returns.map((returnItem) => {
-                    const plannedISO = returnItem.booking?.return_date || returnItem.return_date
-                    const returnDate = plannedISO ? new Date(plannedISO) : null
-                    const isOverdue = returnDate && returnDate < new Date()
-                    const isRescheduled = !!(returnItem.booking?.return_date && returnItem.booking.return_date !== returnItem.return_date)
-                    
-                    return (
-                      <div 
-                        key={returnItem.id} 
-                        className={`flex items-center justify-between p-4 border rounded-lg ${
-                          isOverdue ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-4 flex-1">
-                          <div className={`p-2 rounded-full ${isOverdue ? 'bg-red-100' : 'bg-blue-100'}`}>
-                            {isOverdue ? (
-                              <XCircle className="h-5 w-5 text-red-600" />
-                            ) : (
-                              <RotateCcw className="h-5 w-5 text-blue-600" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium">{returnItem.return_number}</p>
-                              {isOverdue && (
-                                <Badge variant="destructive" className="text-xs">⚠️ Overdue</Badge>
-                              )}
-                              {isRescheduled && (
-                                <Badge className="bg-blue-100 text-blue-800 text-xs">Rescheduled</Badge>
-                              )}
-                              <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                                {returnItem.status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              Delivery: {returnItem.delivery_number} • Customer: {returnItem.customer_name}
-                            </p>
-                            <div className="flex items-center gap-4 mt-2">
-                              <p className="text-xs text-muted-foreground">
-                                � {returnItem.total_items} item(s)
-                              </p>
-                              {returnDate && (
-                                <p className={`text-xs font-medium ${isOverdue ? 'text-red-700' : 'text-gray-700'}`}>
-                                  🔄 Return: {returnDate.toLocaleDateString()} at {returnDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {returnItem.booking_id && returnItem.booking_source && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                // Create a delivery-like object for the reschedule logic
-                                const deliveryLike = {
-                                  id: returnItem.delivery_id || returnItem.id,
-                                  booking_id: returnItem.booking_id,
-                                  booking_source: returnItem.booking_source,
-                                  rescheduled_return_at: returnItem.booking?.return_date || returnItem.return_date,
-                                }
-                                setSelectedDelivery(deliveryLike as any)
-
-                                // Pre-fill with current return date
-                                const currentISO = returnItem.booking?.return_date || returnItem.return_date
-                                let date = ""
-                                let time = "18:00"
-                                if (currentISO) {
-                                  const d = new Date(currentISO)
-                                  if (!Number.isNaN(d.getTime())) {
-                                    date = d.toISOString().slice(0, 10)
-                                    const hh = String(d.getHours()).padStart(2, "0")
-                                    const mm = String(d.getMinutes()).padStart(2, "0")
-                                    time = `${hh}:${mm}`
-                                  }
-                                }
-                                setRescheduleForm({ date, time })
-                                setShowRescheduleDialog(true)
-                                // Deep link into this reschedule view
-                                replaceQuery({ tab: "returns", action: "reschedule", return_id: returnItem.id })
-                              }}
-                            >
-                              <CalendarClock className="h-4 w-4 mr-1" />
-                              Reschedule Return
-                            </Button>
-                          )}
-                          <Button
-                            variant={isOverdue ? "destructive" : "default"}
-                            size="sm"
-                            onClick={() => {
-                              setSelectedReturn(returnItem)
-                              setShowReturnDialog(true)
-                              replaceQuery({ tab: "returns", action: "process", return_id: returnItem.id })
-                            }}
-                          >
-                            <PackageCheck className="h-4 w-4 mr-1" />
-                            Process Return
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
 
@@ -2704,28 +2555,6 @@ export default function DeliveriesPage() {
           await fetchData()
         }}
       />
-
-      {/* Return Processing Dialog */}
-      {selectedReturn && (
-        <ReturnProcessingDialog
-          open={showReturnDialog}
-          onClose={() => {
-            setShowReturnDialog(false)
-            setSelectedReturn(null)
-            clearActionParams()
-          }}
-          returnRecord={selectedReturn}
-          onSuccess={async () => {
-            setShowReturnDialog(false)
-            setSelectedReturn(null)
-            await fetchData()
-            toast({
-              title: "Success",
-              description: "Return processed successfully. Inventory has been updated.",
-            })
-          }}
-        />
-      )}
     </div>
   )
 }

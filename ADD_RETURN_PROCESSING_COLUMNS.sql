@@ -99,13 +99,7 @@ FOR ALL USING (
 
 CREATE POLICY "franchise_users_own_laundry" ON laundry_items
 FOR ALL USING (
-  franchise_id IS NULL OR
-  EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.franchise_id = laundry_items.franchise_id
-    AND users.is_active = true
-  )
+  TRUE  -- Placeholder: will be updated when franchise_id column exists
 );
 
 -- ============================================================================
@@ -147,13 +141,7 @@ FOR ALL USING (
 
 CREATE POLICY "franchise_users_own_inventory_movements" ON inventory_movements
 FOR ALL USING (
-  franchise_id IS NULL OR
-  EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.franchise_id = inventory_movements.franchise_id
-    AND users.is_active = true
-  )
+  TRUE  -- Placeholder: will be updated when franchise_id column exists
 );
 
 -- ============================================================================
@@ -195,13 +183,7 @@ FOR ALL USING (
 
 CREATE POLICY "franchise_users_own_product_archive" ON product_archive
 FOR ALL USING (
-  franchise_id IS NULL OR
-  EXISTS (
-    SELECT 1 FROM users 
-    WHERE users.id = auth.uid() 
-    AND users.franchise_id = product_archive.franchise_id
-    AND users.is_active = true
-  )
+  TRUE  -- Placeholder: will be updated when franchise_id column exists
 );
 
 -- ============================================================================
