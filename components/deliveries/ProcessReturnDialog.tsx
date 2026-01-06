@@ -19,7 +19,6 @@ import { toast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase"
 import {
   Package,
-  Save,
   CheckCircle2,
   AlertTriangle,
   Loader2,
@@ -71,7 +70,6 @@ export function ProcessReturnDialog({
 }: ProcessReturnDialogProps) {
   const [items, setItems] = useState<DeliveryItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [processing, setProcessing] = useState(false)
   
   // Client confirmation fields
@@ -308,112 +306,6 @@ export function ProcessReturnDialog({
     setShowCamera(false)
   }
 
-  // Save for later (just saves quantities, doesn't process)
-  const handleSave = async () => {
-    if (!delivery) return
-    
-    setSaving(true)
-    try {
-      const table = delivery.booking_source === "package_booking" 
-        ? "package_booking_product_items" 
-        : "product_order_items"
-      const foreignKey = delivery.booking_source === "package_booking"
-        ? "package_booking_id"
-        : "order_id"
-
-      console.log('[ProcessReturn Save] Saving items to table:', table)
-      console.log('[ProcessReturn Save] Booking ID:', delivery.booking_id)
-      console.log('[ProcessReturn Save] Items to save:', items)
-
-      // Verify items are not empty
-      if (items.length === 0) {
-        toast({
-          title: "No Items",
-          description: "No items found to save",
-          variant: "destructive",
-        })
-        setSaving(false)
-        return
-      }
-
-      // Update each item with return quantities
-      let savedCount = 0
-      let errorCount = 0
-      for (const item of items) {
-        console.log(`[ProcessReturn Save] Updating item ${item.id}:`, {
-          id: item.id,
-          return_lost_damaged: item.lost_damaged || 0,
-          return_used: item.used || 0,
-          return_fresh: item.fresh || 0,
-        })
-
-        const { data, error } = await supabase
-          .from(table)
-          .update({
-            return_lost_damaged: item.lost_damaged || 0,
-            return_used: item.used || 0,
-            return_fresh: item.fresh || 0,
-            return_notes: item.return_notes || "",
-            return_photo_url: item.return_photo_url || null,
-          })
-          .eq("id", item.id)
-          .select()
-
-        if (error) {
-          console.error(`[ProcessReturn Save] ❌ Failed to update item ${item.id}:`, error)
-          errorCount++
-          
-          // If column doesn't exist error
-          if (error.message?.includes('column') || error.message?.includes('syntax')) {
-            console.error('[ProcessReturn Save] ⚠️ Column error - you may need to run the SQL migration')
-          }
-        } else {
-          console.log(`[ProcessReturn Save] ✅ Successfully updated item ${item.id}:`, data)
-          savedCount++
-        }
-      }
-
-      console.log(`[ProcessReturn Save] Summary: ${savedCount} saved, ${errorCount} failed out of ${items.length}`)
-
-      if (errorCount > 0) {
-        toast({
-          title: "Partial Save",
-          description: `Saved ${savedCount}/${items.length} items. Some items failed to save. Check console for details.`,
-          variant: "destructive",
-        })
-      } else {
-        // Update delivery with return confirmation info
-        await fetch("/api/deliveries/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            delivery_id: delivery.id,
-            return_confirmation_name: clientName,
-            return_confirmation_phone: clientPhone,
-            return_notes: notes,
-            return_photo_url: photoUrl,
-          }),
-        })
-
-        toast({
-          title: "Saved ✅",
-          description: `Return quantities saved for ${savedCount} items. You can process later.`,
-        })
-        onSuccess()
-        onClose()
-      }
-    } catch (err: any) {
-      console.error("Save error:", err)
-      toast({
-        title: "Error",
-        description: err.message || "Failed to save",
-        variant: "destructive",
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
 
   // Process return (finalizes everything)
   const handleProcessReturn = async () => {
@@ -697,24 +589,12 @@ export function ProcessReturnDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={saving || processing}>
+          <Button variant="outline" onClick={onClose} disabled={processing}>
             Cancel
           </Button>
           <Button
-            variant="secondary"
-            onClick={handleSave}
-            disabled={saving || processing || items.length === 0}
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Save for Later
-          </Button>
-          <Button
             onClick={handleProcessReturn}
-            disabled={saving || processing || items.length === 0}
+            disabled={processing || items.length === 0}
             className="bg-green-600 hover:bg-green-700"
           >
             {processing ? (
