@@ -111,6 +111,20 @@ export async function PATCH(
     if (body.fuel_cost !== undefined) updateData.fuel_cost = parseFloat(body.fuel_cost)
     if (body.special_instructions !== undefined) updateData.special_instructions = body.special_instructions
 
+    // Delivery confirmation fields
+    if (body.delivery_confirmation_name !== undefined) updateData.delivery_confirmation_name = body.delivery_confirmation_name
+    if (body.delivery_confirmation_phone !== undefined) updateData.delivery_confirmation_phone = body.delivery_confirmation_phone
+    if (body.delivery_photo_url !== undefined) updateData.delivery_photo_url = body.delivery_photo_url
+    if (body.delivery_notes !== undefined) updateData.delivery_notes = body.delivery_notes
+    if (body.delivery_items_count !== undefined) updateData.delivery_items_count = body.delivery_items_count
+    if (body.delivered_at !== undefined) updateData.delivered_at = body.delivered_at
+    
+    // Return confirmation fields
+    if (body.return_confirmation_name !== undefined) updateData.return_confirmation_name = body.return_confirmation_name
+    if (body.return_confirmation_phone !== undefined) updateData.return_confirmation_phone = body.return_confirmation_phone
+    if (body.return_photo_url !== undefined) updateData.return_photo_url = body.return_photo_url
+    if (body.return_notes !== undefined) updateData.return_notes = body.return_notes
+
     const { data: delivery, error } = await supabaseServer
       .from("deliveries")
       .update(updateData)

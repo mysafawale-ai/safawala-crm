@@ -237,45 +237,62 @@ export function MarkDeliveredDialog({
 
     setLoading(true)
     try {
-      // Upload photo
-      let photoStoragePath = null
+      // Skip photo upload for now if it fails - use base64 instead
+      let photoStoragePath = photoUrl // Use the captured photo URL directly
+      
+      // Try to upload photo, but don't fail if it doesn't work
       if (photoFile) {
-        const photoFormData = new FormData()
-        photoFormData.append('file', photoFile)
-        photoFormData.append('delivery_id', delivery.id)
-        
-        const photoRes = await fetch('/api/deliveries/upload-photo', {
-          method: 'POST',
-          body: photoFormData,
-        })
-        if (photoRes.ok) {
-          const photoJson = await photoRes.json()
-          photoStoragePath = photoJson.url
+        try {
+          const photoFormData = new FormData()
+          photoFormData.append('file', photoFile)
+          photoFormData.append('delivery_id', delivery.id)
+          
+          const photoRes = await fetch('/api/deliveries/upload-photo', {
+            method: 'POST',
+            credentials: 'include',
+            body: photoFormData,
+          })
+          if (photoRes.ok) {
+            const photoJson = await photoRes.json()
+            photoStoragePath = photoJson.url || photoUrl
+          }
+        } catch (uploadErr) {
+          console.warn('Photo upload failed, using base64:', uploadErr)
+          // Continue with base64 photo URL
         }
       }
 
-      // Update delivery status with confirmation details
-      const res = await fetch(`/api/deliveries/${delivery.id}/mark-delivered`, {
-        method: 'POST',
+      // Update delivery status using existing PATCH endpoint
+      const res = await fetch(`/api/deliveries/${delivery.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          client_name: clientName,
-          client_phone: clientPhone,
-          photo_url: photoStoragePath || photoUrl,
-          notes: notes,
-          items_count: items.reduce((sum, item) => sum + item.quantity, 0),
+          status: 'delivered',
+          delivery_confirmation_name: clientName,
+          delivery_confirmation_phone: clientPhone,
+          delivery_photo_url: photoStoragePath,
+          delivery_notes: notes,
+          delivery_items_count: items.reduce((sum, item) => sum + item.quantity, 0),
+          delivered_at: new Date().toISOString(),
         }),
       })
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to mark as delivered')
+        const contentType = res.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const err = await res.json()
+          throw new Error(err.error || err.message || 'Failed to mark as delivered')
+        } else {
+          throw new Error(`Server error: ${res.status} ${res.statusText}`)
+        }
       }
 
       toast({ title: 'Success', description: 'Delivery marked as delivered!' })
       onSuccess()
       onClose()
     } catch (e: any) {
+      console.error('Mark delivered error:', e)
       toast({
         title: 'Error',
         description: e.message || 'Failed to mark as delivered',
