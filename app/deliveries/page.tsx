@@ -107,6 +107,7 @@ export default function DeliveriesPage() {
   const [selectedReturn, setSelectedReturn] = useState<any>(null)
   const [returns, setReturns] = useState<any[]>([])
   const [deliveryItems, setDeliveryItems] = useState<any[]>([])
+  const [deliveryPackage, setDeliveryPackage] = useState<any>(null)
   const [loadingDeliveryItems, setLoadingDeliveryItems] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set())
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
@@ -646,15 +647,41 @@ export default function DeliveriesPage() {
     }
   }
 
-  // Fetch items for the selected delivery
+  // Fetch items and package for the selected delivery
   const loadDeliveryItems = async (delivery: Delivery) => {
     if (!delivery.booking_id) {
       setDeliveryItems([])
+      setDeliveryPackage(null)
       return
     }
 
     setLoadingDeliveryItems(true)
     try {
+      // Fetch the order to get package/variant info
+      const { data: orderData, error: orderError } = await supabase
+        .from("product_orders")
+        .select("variant_id, selection_mode, custom_package_price")
+        .eq("id", delivery.booking_id)
+        .single()
+
+      if (!orderError && orderData?.variant_id) {
+        // Fetch package details
+        const { data: packageData, error: packageError } = await supabase
+          .from("package_variants")
+          .select("*")
+          .eq("id", orderData.variant_id)
+          .single()
+
+        if (!packageError && packageData) {
+          console.log("[DeliveryDetails] Loaded package:", packageData.name)
+          setDeliveryPackage(packageData)
+        } else {
+          setDeliveryPackage(null)
+        }
+      } else {
+        setDeliveryPackage(null)
+      }
+
       // Fetch items from product_order_items table using the booking_id
       const { data, error } = await supabase
         .from("product_order_items")
@@ -671,6 +698,7 @@ export default function DeliveriesPage() {
     } catch (err) {
       console.error("[DeliveryDetails] Exception fetching items:", err)
       setDeliveryItems([])
+      setDeliveryPackage(null)
     } finally {
       setLoadingDeliveryItems(false)
     }
@@ -1974,6 +2002,44 @@ export default function DeliveriesPage() {
                 <p className="text-sm">{selectedDelivery.special_instructions || "None"}</p>
               </div>
 
+              {/* Package Details Section */}
+              {deliveryPackage && (
+                <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-200 rounded-lg p-4 mt-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <Label className="text-sm font-bold text-orange-900 mb-1 block">📦 PACKAGE</Label>
+                      <h3 className="font-bold text-lg text-orange-900">{deliveryPackage.name}</h3>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <span className="text-orange-700 font-medium">Price:</span>
+                      <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.base_price || 0}</p>
+                    </div>
+                    <div>
+                      <span className="text-orange-700 font-medium">Deposit:</span>
+                      <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.security_deposit || 0}</p>
+                    </div>
+                    <div>
+                      <span className="text-orange-700 font-medium">Category:</span>
+                      <p className="font-semibold text-lg text-orange-900">{deliveryPackage.category_id || "N/A"}</p>
+                    </div>
+                  </div>
+                  {deliveryPackage.inclusions && deliveryPackage.inclusions.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-orange-200">
+                      <span className="text-orange-700 font-medium text-sm">Inclusions:</span>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {deliveryPackage.inclusions.map((item: string, idx: number) => (
+                          <span key={idx} className="text-xs bg-white px-2 py-1 rounded border border-orange-200 text-orange-900">
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Selected Products Section */}
               <div className="border-t pt-4 mt-2">
                 <Label className="text-sm font-medium mb-3 block">📦 Products to Deliver</Label>
@@ -2194,6 +2260,44 @@ export default function DeliveriesPage() {
                 onChange={(e) => setEditForm({ ...editForm, special_instructions: e.target.value })}
               />
             </div>
+
+            {/* Package Details Section in Edit Dialog */}
+            {deliveryPackage && (
+              <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-200 rounded-lg p-4 mt-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <Label className="text-sm font-bold text-orange-900 mb-1 block">📦 PACKAGE</Label>
+                    <h3 className="font-bold text-lg text-orange-900">{deliveryPackage.name}</h3>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span className="text-orange-700 font-medium">Price:</span>
+                    <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.base_price || 0}</p>
+                  </div>
+                  <div>
+                    <span className="text-orange-700 font-medium">Deposit:</span>
+                    <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.security_deposit || 0}</p>
+                  </div>
+                  <div>
+                    <span className="text-orange-700 font-medium">Category:</span>
+                    <p className="font-semibold text-lg text-orange-900">{deliveryPackage.category_id || "N/A"}</p>
+                  </div>
+                </div>
+                {deliveryPackage.inclusions && deliveryPackage.inclusions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-orange-200">
+                    <span className="text-orange-700 font-medium text-sm">Inclusions:</span>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {deliveryPackage.inclusions.map((item: string, idx: number) => (
+                        <span key={idx} className="text-xs bg-white px-2 py-1 rounded border border-orange-200 text-orange-900">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Products Section in Edit Dialog */}
             <div className="border-t pt-4 mt-2 space-y-2">
