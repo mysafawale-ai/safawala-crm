@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { authenticateRequest, canAccessFranchise } from "@/lib/auth-middleware"
 
 export const dynamic = "force-dynamic"
+export const runtime = 'nodejs'
 
 /**
  * PATCH /api/deliveries/[id]/status

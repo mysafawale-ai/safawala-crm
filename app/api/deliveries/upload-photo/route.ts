@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { authenticateRequest } from "@/lib/auth-middleware"
 
 export const dynamic = "force-dynamic"
+export const runtime = 'nodejs'
 
 /**
  * POST /api/deliveries/upload-photo
