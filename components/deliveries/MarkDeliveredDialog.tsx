@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Camera, CheckCircle2, Package, User, Phone, X, Image as ImageIcon } from 'lucide-react'
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface ProductItem {
   product_id: string
@@ -82,7 +83,7 @@ export function MarkDeliveredDialog({
     }
   }, [open, delivery])
 
-  // Load delivery items
+  // Load delivery items - directly from product_order_items table
   const loadDeliveryItems = async () => {
     if (!delivery?.booking_id) {
       console.log('[MarkDelivered] No booking_id, skipping item load')
@@ -92,63 +93,39 @@ export function MarkDeliveredDialog({
 
     setLoadingItems(true)
     try {
-      let productItems: any[] = []
-      const bookingSource = delivery.booking_source || 'product_order'
+      const supabase = createClientComponentClient()
       
-      console.log('[MarkDelivered] Loading items for booking:', delivery.booking_id, 'source:', bookingSource)
+      console.log('[MarkDelivered] Loading items for booking_id:', delivery.booking_id)
       
-      if (bookingSource === 'product_order') {
-        const res = await fetch(`/api/product-orders/${delivery.booking_id}`)
-        if (res.ok) {
-          const json = await res.json()
-          console.log('[MarkDelivered] Product order response:', json)
-          // Try multiple paths to find items
-          productItems = json.items || json.data?.items || []
-          
-          // If items have denormalized product info, use it directly
-          if (productItems.length > 0 && productItems[0].product_name) {
-            setItems(productItems.map((item: any) => ({
-              product_id: item.product_id,
-              product_name: item.product_name || 'Unknown Product',
-              quantity: item.quantity || 1,
-              barcode: item.barcode || '',
-              category: item.category || '',
-            })))
-            setLoadingItems(false)
-            return
-          }
-        }
-      } else if (bookingSource === 'package_booking') {
-        const res = await fetch(`/api/package-bookings/${delivery.booking_id}`)
-        if (res.ok) {
-          const json = await res.json()
-          productItems = json.items?.flatMap((it: any) => 
-            (it.selected_products || []).map((pid: string) => ({ 
-              product_id: pid, 
-              quantity: 1 
-            }))
-          ) || []
-        }
+      // Fetch items directly from product_order_items table (same as View dialog)
+      const { data, error } = await supabase
+        .from("product_order_items")
+        .select("*")
+        .eq("order_id", delivery.booking_id)
+
+      if (error) {
+        console.error("[MarkDelivered] Error fetching items:", error)
+        setItems([])
+        return
       }
 
-      // Fetch product details
-      const withDetails = await Promise.all(
-        productItems.map(async (pi: any) => {
-          const pr = await fetch(`/api/products/${pi.product_id}`)
-          const p = pr.ok ? await pr.json() : null
-          return {
-            product_id: pi.product_id,
-            product_name: p?.name || p?.data?.name || 'Unknown Product',
-            quantity: pi.quantity || 1,
-            barcode: p?.barcode,
-            category: p?.category,
-          }
-        })
-      )
-
-      setItems(withDetails)
+      console.log("[MarkDelivered] Loaded items:", data)
+      
+      if (data && data.length > 0) {
+        // Map items to our format - use denormalized product info
+        const mappedItems = data.map((item: any) => ({
+          product_id: item.product_id,
+          product_name: item.product_name || 'Unknown Product',
+          quantity: item.quantity || 1,
+          barcode: item.barcode || '',
+          category: item.category || '',
+        }))
+        setItems(mappedItems)
+      } else {
+        setItems([])
+      }
     } catch (e) {
-      console.error('Failed to load delivery items:', e)
+      console.error('[MarkDelivered] Exception loading items:', e)
       setItems([])
     } finally {
       setLoadingItems(false)
