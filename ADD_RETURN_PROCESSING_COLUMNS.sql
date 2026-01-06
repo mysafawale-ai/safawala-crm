@@ -44,10 +44,13 @@ ALTER TABLE package_bookings ADD COLUMN IF NOT EXISTS return_completed_at TIMEST
 -- PART 5: Create laundry_items table if not exists
 -- ============================================================================
 
+-- Drop existing table if needed to recreate with correct structure
+-- DROP TABLE IF EXISTS laundry_items CASCADE;
+
 CREATE TABLE IF NOT EXISTS laundry_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  variant_id UUID REFERENCES product_variants(id),
-  product_id UUID REFERENCES products(id),
+  variant_id UUID,
+  product_id UUID,
   product_name TEXT NOT NULL,
   variant_name TEXT,
   quantity INTEGER NOT NULL DEFAULT 1,
@@ -55,14 +58,27 @@ CREATE TABLE IF NOT EXISTS laundry_items (
   source TEXT, -- 'return', 'manual'
   source_id UUID, -- delivery_id or other reference
   booking_id UUID,
-  franchise_id UUID REFERENCES franchises(id),
-  created_by UUID REFERENCES users(id),
-  completed_by UUID REFERENCES users(id),
+  franchise_id UUID,
+  created_by UUID,
+  completed_by UUID,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
+
+-- Add foreign keys only if referenced tables exist
+DO $$
+BEGIN
+  -- Add franchise_id FK if not exists
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'laundry_items_franchise_id_fkey') THEN
+    BEGIN
+      ALTER TABLE laundry_items ADD CONSTRAINT laundry_items_franchise_id_fkey FOREIGN KEY (franchise_id) REFERENCES franchises(id);
+    EXCEPTION WHEN OTHERS THEN
+      RAISE NOTICE 'Could not add franchise_id foreign key: %', SQLERRM;
+    END;
+  END IF;
+END $$;
 
 -- Enable RLS
 ALTER TABLE laundry_items ENABLE ROW LEVEL SECURITY;
@@ -83,6 +99,7 @@ FOR ALL USING (
 
 CREATE POLICY "franchise_users_own_laundry" ON laundry_items
 FOR ALL USING (
+  franchise_id IS NULL OR
   EXISTS (
     SELECT 1 FROM users 
     WHERE users.id = auth.uid() 
@@ -97,8 +114,8 @@ FOR ALL USING (
 
 CREATE TABLE IF NOT EXISTS inventory_movements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  variant_id UUID REFERENCES product_variants(id),
-  product_id UUID REFERENCES products(id),
+  variant_id UUID,
+  product_id UUID,
   movement_type TEXT NOT NULL, -- 'return', 'sale', 'adjustment', 'purchase', 'transfer'
   quantity INTEGER NOT NULL,
   previous_stock INTEGER,
@@ -106,8 +123,8 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
   reference_type TEXT, -- 'delivery_return', 'booking', 'manual'
   reference_id UUID,
   notes TEXT,
-  franchise_id UUID REFERENCES franchises(id),
-  created_by UUID REFERENCES users(id),
+  franchise_id UUID,
+  created_by UUID,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -130,6 +147,7 @@ FOR ALL USING (
 
 CREATE POLICY "franchise_users_own_inventory_movements" ON inventory_movements
 FOR ALL USING (
+  franchise_id IS NULL OR
   EXISTS (
     SELECT 1 FROM users 
     WHERE users.id = auth.uid() 
@@ -144,8 +162,8 @@ FOR ALL USING (
 
 CREATE TABLE IF NOT EXISTS product_archive (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID REFERENCES products(id),
-  variant_id UUID REFERENCES product_variants(id),
+  product_id UUID,
+  variant_id UUID,
   product_name TEXT NOT NULL,
   variant_name TEXT,
   quantity INTEGER NOT NULL DEFAULT 1,
@@ -153,8 +171,8 @@ CREATE TABLE IF NOT EXISTS product_archive (
   source TEXT, -- 'delivery_return', 'manual', 'inventory_audit'
   source_id UUID,
   booking_id UUID,
-  franchise_id UUID REFERENCES franchises(id),
-  created_by UUID REFERENCES users(id),
+  franchise_id UUID,
+  created_by UUID,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -177,6 +195,7 @@ FOR ALL USING (
 
 CREATE POLICY "franchise_users_own_product_archive" ON product_archive
 FOR ALL USING (
+  franchise_id IS NULL OR
   EXISTS (
     SELECT 1 FROM users 
     WHERE users.id = auth.uid() 

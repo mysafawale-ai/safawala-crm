@@ -281,6 +281,8 @@ export function ProcessReturnDialog({
         title: "Saved",
         description: "Return quantities saved. You can process later.",
       })
+      onSuccess()
+      onClose()
     } catch (err: any) {
       console.error("Save error:", err)
       toast({
@@ -477,8 +479,8 @@ export function ProcessReturnDialog({
                 <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-2">
                   <div className="col-span-4">Product</div>
                   <div className="col-span-2 text-center">Total</div>
-                  <div className="col-span-2 text-center text-red-600">Lost/Damaged</div>
                   <div className="col-span-2 text-center text-orange-600">Used</div>
+                  <div className="col-span-2 text-center text-red-600">Lost/Damaged</div>
                   <div className="col-span-2 text-center text-green-600">Fresh</div>
                 </div>
 
@@ -500,11 +502,11 @@ export function ProcessReturnDialog({
                           type="number"
                           min={0}
                           max={item.quantity}
-                          value={item.lost_damaged || 0}
+                          value={item.used || 0}
                           onChange={(e) =>
-                            updateItemQuantity(item.id, "lost_damaged", parseInt(e.target.value) || 0)
+                            updateItemQuantity(item.id, "used", parseInt(e.target.value) || 0)
                           }
-                          className="h-8 text-center text-red-600 border-red-200"
+                          className="h-8 text-center text-orange-600 border-orange-200"
                         />
                       </div>
                       <div className="col-span-2">
@@ -512,11 +514,11 @@ export function ProcessReturnDialog({
                           type="number"
                           min={0}
                           max={item.quantity}
-                          value={item.used || 0}
+                          value={item.lost_damaged || 0}
                           onChange={(e) =>
-                            updateItemQuantity(item.id, "used", parseInt(e.target.value) || 0)
+                            updateItemQuantity(item.id, "lost_damaged", parseInt(e.target.value) || 0)
                           }
-                          className="h-8 text-center text-orange-600 border-orange-200"
+                          className="h-8 text-center text-red-600 border-red-200"
                         />
                       </div>
                       <div className="col-span-2 text-center">
@@ -533,8 +535,8 @@ export function ProcessReturnDialog({
                   <div className="grid grid-cols-12 gap-2 items-center font-semibold">
                     <div className="col-span-4">Totals</div>
                     <div className="col-span-2 text-center">{totals.total}</div>
-                    <div className="col-span-2 text-center text-red-600">{totals.lostDamaged}</div>
                     <div className="col-span-2 text-center text-orange-600">{totals.used}</div>
+                    <div className="col-span-2 text-center text-red-600">{totals.lostDamaged}</div>
                     <div className="col-span-2 text-center text-green-600">{totals.fresh}</div>
                   </div>
                 </Card>
