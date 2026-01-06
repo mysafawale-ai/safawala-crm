@@ -101,23 +101,31 @@ export function ProcessReturnDialog({
   }, [open, stream])
 
   const loadDeliveryItems = async () => {
-    if (!delivery?.booking_id) return
+    if (!delivery?.booking_id) {
+      console.log('[ProcessReturn] No booking_id')
+      return
+    }
     
     setLoading(true)
     try {
-      // Determine table based on booking source
+      console.log('[ProcessReturn] Loading items for booking_id:', delivery.booking_id, 'source:', delivery.booking_source)
+      
+      // Determine table and foreign key based on booking source
       const table = delivery.booking_source === "package_booking" 
         ? "package_booking_product_items" 
         : "product_order_items"
       
+      // The foreign key column name - check both possible names
       const foreignKey = delivery.booking_source === "package_booking"
         ? "package_booking_id"
-        : "product_order_id"
+        : "order_id"  // product_order_items uses 'order_id' not 'product_order_id'
 
       const { data, error } = await supabase
         .from(table)
         .select("*")
         .eq(foreignKey, delivery.booking_id)
+
+      console.log('[ProcessReturn] Query result:', { table, foreignKey, data, error })
 
       if (error) throw error
 
@@ -134,6 +142,7 @@ export function ProcessReturnDialog({
         fresh: (item.quantity || 1) - (item.return_lost_damaged || 0) - (item.return_used || 0),
       }))
 
+      console.log('[ProcessReturn] Mapped items:', mappedItems)
       setItems(mappedItems)
     } catch (err: any) {
       console.error("Error loading items:", err)

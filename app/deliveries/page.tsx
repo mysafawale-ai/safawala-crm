@@ -72,11 +72,19 @@ interface Delivery {
   total_amount: number
   special_instructions: string
   assigned_staff: string
+  assigned_staff_id?: string
   // Link to a booking, so we can show and reschedule return
   booking_id?: string
   booking_source?: "product_order" | "package_booking"
   // If rescheduled, store the new time (ISO string). If not, UI falls back to booking's return_date
   rescheduled_return_at?: string
+  // Confirmation fields
+  delivered_at?: string
+  delivery_confirmation_name?: string
+  delivery_confirmation_phone?: string
+  delivery_photo_url?: string
+  delivery_notes?: string
+  delivery_items_count?: number
 }
 
 interface Staff {
@@ -1693,18 +1701,6 @@ export default function DeliveriesPage() {
                           <RotateCcw className="h-4 w-4 mr-1" />
                           Process Return
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedDelivery(delivery)
-                            setShowHandoverDialog(true)
-                            replaceQuery({ tab: "deliveries", action: "handover", delivery_id: delivery.id })
-                          }}
-                        >
-                          <Package className="h-4 w-4 mr-1" />
-                          Capture Handover
-                        </Button>
                       </>
                     )}
                     <Button
@@ -2133,7 +2129,7 @@ export default function DeliveriesPage() {
               </div>
 
               {/* Delivery Confirmation Details */}
-              {(selectedDelivery.status === 'Delivered' || selectedDelivery.status === 'Completed') && (
+              {(selectedDelivery.status === 'delivered' || selectedDelivery.status === 'return_completed') && (
                 <div className="border-t pt-4 mt-4">
                   <Label className="text-sm font-bold text-green-700 mb-3 block">✅ Delivery Confirmation</Label>
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
@@ -2167,10 +2163,10 @@ export default function DeliveriesPage() {
                         />
                       </div>
                     )}
-                    {selectedDelivery.delivered_at && (
+                    {(selectedDelivery as any).delivered_at && (
                       <div>
                         <span className="text-sm text-green-700 font-medium">Delivered At:</span>
-                        <p className="font-semibold">{new Date(selectedDelivery.delivered_at).toLocaleString()}</p>
+                        <p className="font-semibold">{new Date((selectedDelivery as any).delivered_at).toLocaleString()}</p>
                       </div>
                     )}
                   </div>
@@ -2178,7 +2174,7 @@ export default function DeliveriesPage() {
               )}
 
               {/* Return Confirmation Details */}
-              {selectedDelivery.status === 'Completed' && (
+              {selectedDelivery.status === 'return_completed' && (
                 <div className="border-t pt-4 mt-4">
                   <Label className="text-sm font-bold text-blue-700 mb-3 block">🔄 Return Confirmation</Label>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
