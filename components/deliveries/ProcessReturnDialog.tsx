@@ -84,25 +84,34 @@ export function ProcessReturnDialog({
   // Load delivery items when dialog opens
   useEffect(() => {
     if (open && delivery?.booking_id) {
-      // Reset state for new delivery
+      // ALWAYS reset state when opening dialog, even if same delivery
+      console.log('[ProcessReturn] Dialog opened, resetting state')
       setItems([])
       setClientName(delivery.customer_name || "")
       setClientPhone(delivery.customer_phone || "")
       setNotes("")
       setPhotoUrl(null)
       setPhotoFile(null)
+      setShowCamera(false)
       // Then load items
       loadDeliveryItems()
-    } else if (!open) {
+    }
+  }, [open]) // Only trigger on open change, will reset every time dialog opens
+
+  // Additional cleanup when dialog closes
+  useEffect(() => {
+    if (!open) {
       // Clear state when dialog closes
+      console.log('[ProcessReturn] Dialog closed, cleared all state')
       setItems([])
       setClientName("")
       setClientPhone("")
       setNotes("")
       setPhotoUrl(null)
       setPhotoFile(null)
+      setShowCamera(false)
     }
-  }, [open, delivery?.id]) // Use delivery.id as dependency to reload on delivery change
+  }, [open])
 
   // Cleanup camera on close
   useEffect(() => {
