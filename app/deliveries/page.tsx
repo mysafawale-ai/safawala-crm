@@ -312,7 +312,7 @@ export default function DeliveriesPage() {
   const handleStartTransit = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
     try {
-      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+      const res = await fetch(`/api/deliveries/${deliveryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -355,22 +355,28 @@ export default function DeliveriesPage() {
   const handleMarkDelivered = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
     try {
-      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+      const res = await fetch(`/api/deliveries/${deliveryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ status: "delivered" }),
       })
 
       if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.message || "Failed to update status")
+        const contentType = res.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const error = await res.json()
+          throw new Error(error.error || error.message || "Failed to mark as delivered")
+        } else {
+          throw new Error(`Server error: ${res.status} ${res.statusText}`)
+        }
       }
 
       const data = await res.json()
 
       toast({
         title: "Success",
-        description: data.returnCreated
+        description: data.return_created
           ? "Delivery marked as delivered. Return automatically created."
           : "Delivery marked as delivered.",
       })
@@ -602,7 +608,7 @@ export default function DeliveriesPage() {
   const handleCancelDelivery = async (deliveryId: string) => {
     setUpdatingStatus((prev) => new Set(prev).add(deliveryId))
     try {
-      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+      const res = await fetch(`/api/deliveries/${deliveryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
