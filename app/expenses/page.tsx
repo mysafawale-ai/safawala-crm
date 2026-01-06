@@ -982,7 +982,7 @@ export default function ExpensesPage() {
           {/* Vendor search input removed as per request */}
           <Button variant="ghost" size="sm" onClick={resetFilters}>Reset</Button>
           <Button variant="secondary" size="sm" onClick={applyPendingFilters}>Apply Filters</Button>
-          <Button variant="outline" size="sm">+ Category</Button>
+          <Button variant="outline" size="sm" onClick={()=>setShowCategoryDialog(true)}>+ Category</Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
