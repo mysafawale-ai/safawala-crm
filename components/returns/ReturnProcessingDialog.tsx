@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,7 +26,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "@/hooks/use-toast"
-import { Loader2, Info, AlertTriangle, TrendingUp, TrendingDown, Package } from "lucide-react"
+import { Loader2, Info, AlertTriangle, TrendingUp, TrendingDown, Package, Camera, User, Phone, X, Image as ImageIcon, CheckCircle2, Save } from "lucide-react"
 
 interface ReturnItem {
   product_id: string
@@ -118,13 +118,39 @@ export function ReturnProcessingDialog({
   const [notes, setNotes] = useState("")
   const [processingNotes, setProcessingNotes] = useState("")
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [preview, setPreview] = useState<InventoryPreview[]>([])
   const [showPreview, setShowPreview] = useState(false)
+  
+  // Client Information
+  const [clientName, setClientName] = useState("")
+  const [clientPhone, setClientPhone] = useState("")
+  
+  // Photo capture
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [showCamera, setShowCamera] = useState(false)
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   useEffect(() => {
     if (open && returnRecord) {
       loadReturnItems()
+      // Pre-fill client info from return record's booking
+      setClientName(returnRecord.customer_name || returnRecord.booking?.customer_name || "")
+      setClientPhone(returnRecord.customer_phone || returnRecord.booking?.customer_phone || "")
+      setPhotoUrl(null)
+      setPhotoFile(null)
+      setShowCamera(false)
+    }
+    
+    // Cleanup camera stream when dialog closes
+    if (!open && stream) {
+      stream.getTracks().forEach(track => track.stop())
+      setStream(null)
     }
   }, [open, returnRecord])
 
@@ -383,6 +409,10 @@ export function ReturnProcessingDialog({
           send_to_laundry: sendToLaundry,
           notes,
           processing_notes: processingNotes,
+          // Add client info and photo
+          client_name: clientName,
+          client_phone: clientPhone,
+          photo_url: photoUrl,
         }),
       })
 
@@ -410,6 +440,157 @@ export function ReturnProcessingDialog({
     } finally {
       setLoading(false)
     }
+  }
+
+  // Save only (no processing - just save client info and item quantities)
+  const handleSaveOnly = async () => {
+    if (!clientName.trim()) {
+      toast({ title: 'Error', description: 'Client name is required', variant: 'destructive' })
+      return
+    }
+    if (!clientPhone.trim()) {
+      toast({ title: 'Error', description: 'Client phone is required', variant: 'destructive' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      // Upload photo if exists
+      let photoStoragePath = null
+      if (photoFile && returnRecord?.delivery_id) {
+        const photoFormData = new FormData()
+        photoFormData.append('file', photoFile)
+        photoFormData.append('delivery_id', returnRecord.delivery_id)
+        
+        const photoRes = await fetch('/api/deliveries/upload-photo', {
+          method: 'POST',
+          body: photoFormData,
+        })
+        if (photoRes.ok) {
+          const photoJson = await photoRes.json()
+          photoStoragePath = photoJson.url
+        }
+      }
+
+      const response = await fetch(`/api/returns/${returnRecord.id}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            product_id: item.product_id,
+            qty_delivered: item.qty_delivered,
+            qty_returned: item.qty_returned,
+            qty_not_used: item.qty_not_used,
+            qty_damaged: item.qty_damaged,
+            qty_lost: item.qty_lost,
+            qty_to_laundry: item.qty_to_laundry ?? 0,
+            damage_reason: item.damage_reason,
+            damage_description: item.damage_description,
+            damage_severity: item.damage_severity,
+            lost_reason: item.lost_reason,
+            lost_description: item.lost_description,
+            notes: item.notes,
+          })),
+          notes,
+          client_name: clientName,
+          client_phone: clientPhone,
+          photo_url: photoStoragePath || photoUrl,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to save return details")
+      }
+
+      toast({
+        title: "Saved",
+        description: "Return details saved successfully. No inventory changes made yet.",
+      })
+
+      onClose()
+    } catch (error: any) {
+      console.error("Error saving return:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save return details",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Camera functions
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false,
+      })
+      setStream(mediaStream)
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream
+      }
+      setShowCamera(true)
+    } catch (err) {
+      console.error('Camera access denied:', err)
+      toast({
+        title: 'Camera Error',
+        description: 'Could not access camera. Please allow camera permissions or use file upload.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return
+
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.drawImage(video, 0, 0)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+      setPhotoUrl(dataUrl)
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `return-${returnRecord?.id}-${Date.now()}.jpg`, { type: 'image/jpeg' })
+          setPhotoFile(file)
+        }
+      }, 'image/jpeg', 0.8)
+    }
+
+    stopCamera()
+  }
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop())
+      setStream(null)
+    }
+    setShowCamera(false)
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setPhotoFile(file)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setPhotoUrl(event.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removePhoto = () => {
+    setPhotoUrl(null)
+    setPhotoFile(null)
   }
 
   const totals = items.reduce(
@@ -448,6 +629,137 @@ export function ReturnProcessingDialog({
         ) : (
           <ScrollArea className="max-h-[60vh] pr-4">
             <div className="space-y-4">
+              {/* Client Information Section */}
+              <Card className="p-4 bg-blue-50 border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Client Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="return-client-name" className="text-sm font-medium">Client Name *</Label>
+                    <Input
+                      id="return-client-name"
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      placeholder="Enter client name"
+                      disabled={loading || saving}
+                      className="mt-1 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="return-client-phone" className="text-sm font-medium flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      Phone Number *
+                    </Label>
+                    <Input
+                      id="return-client-phone"
+                      type="tel"
+                      value={clientPhone}
+                      onChange={(e) => setClientPhone(e.target.value)}
+                      placeholder="Enter phone number"
+                      disabled={loading || saving}
+                      className="mt-1 bg-white"
+                    />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Photo Capture Section */}
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  Photo Proof (Optional)
+                </h3>
+                
+                {!photoUrl && !showCamera && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={startCamera}
+                      className="flex-1"
+                      disabled={loading || saving}
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Open Camera
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1"
+                      disabled={loading || saving}
+                    >
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      Upload File
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+
+                {showCamera && (
+                  <div className="space-y-3">
+                    <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={capturePhoto} className="flex-1" variant="default">
+                        <Camera className="h-4 w-4 mr-2" />
+                        Capture Photo
+                      </Button>
+                      <Button onClick={stopCamera} variant="outline">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {photoUrl && (
+                  <div className="space-y-2">
+                    <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden max-w-sm">
+                      <img src={photoUrl} alt="Return proof" className="w-full h-full object-cover" />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={removePhoto}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Photo captured successfully
+                    </p>
+                  </div>
+                )}
+
+                {/* Hidden canvas for photo capture */}
+                <canvas ref={canvasRef} className="hidden" />
+              </Card>
+
+              {/* Products Section Header */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Products - Set Quantities
+                </h3>
+              </div>
+
               {items.map((item, index) => (
                 <Card key={index} className="p-4">
                   <div className="flex items-start gap-4">
@@ -777,14 +1089,14 @@ export function ReturnProcessingDialog({
           </ScrollArea>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onClose} disabled={loading || saving}>
             Cancel
           </Button>
           <Button
             variant="secondary"
             onClick={loadPreview}
-            disabled={loading || loadingPreview}
+            disabled={loading || saving || loadingPreview}
           >
             {loadingPreview ? (
               <>
@@ -798,14 +1110,39 @@ export function ReturnProcessingDialog({
               </>
             )}
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
+          <Button 
+            variant="outline" 
+            onClick={handleSaveOnly} 
+            disabled={loading || saving}
+            className="border-blue-300 text-blue-700 hover:bg-blue-50"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save Only
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading || saving}
+            className="bg-green-600 hover:bg-green-700"
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </>
             ) : (
-              "Process Return"
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Process Return
+              </>
             )}
           </Button>
         </DialogFooter>

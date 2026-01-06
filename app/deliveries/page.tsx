@@ -26,6 +26,7 @@ import { Search, Plus, Truck, Package, Clock, CheckCircle, XCircle, Eye, Edit, A
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
 import { UnifiedHandoverDialog } from "@/components/deliveries/UnifiedHandoverDialog"
+import { MarkDeliveredDialog } from "@/components/deliveries/MarkDeliveredDialog"
 import { DialogFooter } from "@/components/ui/dialog"
 import { formatTime12Hour } from "@/lib/utils"
 
@@ -103,6 +104,7 @@ export default function DeliveriesPage() {
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false)
   const [showReturnDialog, setShowReturnDialog] = useState(false)
   const [showHandoverDialog, setShowHandoverDialog] = useState(false)
+  const [showMarkDeliveredDialog, setShowMarkDeliveredDialog] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
   const [selectedReturn, setSelectedReturn] = useState<any>(null)
   const [returns, setReturns] = useState<any[]>([])
@@ -1625,7 +1627,10 @@ export default function DeliveriesPage() {
                           variant="outline"
                           size="sm"
                           disabled={updatingStatus.has(delivery.id)}
-                          onClick={() => handleMarkDelivered(delivery.id)}
+                          onClick={() => {
+                            setSelectedDelivery(delivery)
+                            setShowMarkDeliveredDialog(true)
+                          }}
                         >
                           {updatingStatus.has(delivery.id) ? (
                             <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -2061,6 +2066,92 @@ export default function DeliveriesPage() {
                   <div className="text-sm text-muted-foreground italic">No products found for this delivery</div>
                 )}
               </div>
+
+              {/* Delivery Confirmation Details */}
+              {(selectedDelivery.status === 'Delivered' || selectedDelivery.status === 'Completed') && (
+                <div className="border-t pt-4 mt-4">
+                  <Label className="text-sm font-bold text-green-700 mb-3 block">✅ Delivery Confirmation</Label>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm text-green-700 font-medium">Received By:</span>
+                        <p className="font-semibold">{(selectedDelivery as any).delivery_confirmation_name || 'Not recorded'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-green-700 font-medium">Phone:</span>
+                        <p className="font-semibold">{(selectedDelivery as any).delivery_confirmation_phone || 'Not recorded'}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-sm text-green-700 font-medium">Items Count Verified:</span>
+                      <p className="font-semibold">{(selectedDelivery as any).delivery_items_count || 0} items</p>
+                    </div>
+                    {(selectedDelivery as any).delivery_notes && (
+                      <div>
+                        <span className="text-sm text-green-700 font-medium">Delivery Notes:</span>
+                        <p className="text-sm bg-white p-2 rounded border border-green-200 mt-1">{(selectedDelivery as any).delivery_notes}</p>
+                      </div>
+                    )}
+                    {(selectedDelivery as any).delivery_photo_url && (
+                      <div>
+                        <span className="text-sm text-green-700 font-medium">Proof Photo:</span>
+                        <img 
+                          src={(selectedDelivery as any).delivery_photo_url} 
+                          alt="Delivery proof" 
+                          className="mt-2 rounded-lg border border-green-200 max-h-48 object-cover"
+                        />
+                      </div>
+                    )}
+                    {selectedDelivery.delivered_at && (
+                      <div>
+                        <span className="text-sm text-green-700 font-medium">Delivered At:</span>
+                        <p className="font-semibold">{new Date(selectedDelivery.delivered_at).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Return Confirmation Details */}
+              {selectedDelivery.status === 'Completed' && (
+                <div className="border-t pt-4 mt-4">
+                  <Label className="text-sm font-bold text-blue-700 mb-3 block">🔄 Return Confirmation</Label>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm text-blue-700 font-medium">Returned By:</span>
+                        <p className="font-semibold">{(selectedDelivery as any).return_confirmation_name || 'Not recorded'}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-blue-700 font-medium">Phone:</span>
+                        <p className="font-semibold">{(selectedDelivery as any).return_confirmation_phone || 'Not recorded'}</p>
+                      </div>
+                    </div>
+                    {(selectedDelivery as any).return_notes && (
+                      <div>
+                        <span className="text-sm text-blue-700 font-medium">Return Notes:</span>
+                        <p className="text-sm bg-white p-2 rounded border border-blue-200 mt-1">{(selectedDelivery as any).return_notes}</p>
+                      </div>
+                    )}
+                    {(selectedDelivery as any).return_photo_url && (
+                      <div>
+                        <span className="text-sm text-blue-700 font-medium">Return Proof Photo:</span>
+                        <img 
+                          src={(selectedDelivery as any).return_photo_url} 
+                          alt="Return proof" 
+                          className="mt-2 rounded-lg border border-blue-200 max-h-48 object-cover"
+                        />
+                      </div>
+                    )}
+                    {selectedDelivery.returned_at && (
+                      <div>
+                        <span className="text-sm text-blue-700 font-medium">Returned At:</span>
+                        <p className="font-semibold">{new Date(selectedDelivery.returned_at).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -2515,6 +2606,21 @@ export default function DeliveriesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Mark Delivered Dialog */}
+      <MarkDeliveredDialog
+        open={showMarkDeliveredDialog}
+        onClose={() => {
+          setShowMarkDeliveredDialog(false)
+          setSelectedDelivery(null)
+        }}
+        delivery={selectedDelivery}
+        onSuccess={async () => {
+          setShowMarkDeliveredDialog(false)
+          setSelectedDelivery(null)
+          await fetchData()
+        }}
+      />
 
       {/* Return Processing Dialog */}
       {selectedReturn && (
