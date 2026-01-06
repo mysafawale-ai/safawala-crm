@@ -2011,15 +2011,7 @@ export default function DeliveriesPage() {
                       <h3 className="font-bold text-lg text-orange-900">{deliveryPackage.name}</h3>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <span className="text-orange-700 font-medium">Price:</span>
-                      <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.base_price || 0}</p>
-                    </div>
-                    <div>
-                      <span className="text-orange-700 font-medium">Deposit:</span>
-                      <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.security_deposit || 0}</p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-orange-700 font-medium">Category:</span>
                       <p className="font-semibold text-lg text-orange-900">{deliveryPackage.category_id || "N/A"}</p>
@@ -2056,7 +2048,6 @@ export default function DeliveriesPage() {
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-sm">Qty: <span className="text-lg text-blue-600">{item.quantity}</span></div>
-                          <div className="text-xs text-muted-foreground">₹{item.unit_price || 0} each</div>
                         </div>
                       </div>
                     ))}
@@ -2270,15 +2261,7 @@ export default function DeliveriesPage() {
                     <h3 className="font-bold text-lg text-orange-900">{deliveryPackage.name}</h3>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-sm">
-                  <div>
-                    <span className="text-orange-700 font-medium">Price:</span>
-                    <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.base_price || 0}</p>
-                  </div>
-                  <div>
-                    <span className="text-orange-700 font-medium">Deposit:</span>
-                    <p className="font-semibold text-lg text-orange-900">₹{deliveryPackage.security_deposit || 0}</p>
-                  </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-orange-700 font-medium">Category:</span>
                     <p className="font-semibold text-lg text-orange-900">{deliveryPackage.category_id || "N/A"}</p>
@@ -2315,7 +2298,6 @@ export default function DeliveriesPage() {
                       </div>
                       <div className="text-right">
                         <div className="font-semibold text-sm">Qty: <span className="text-lg text-blue-600">{item.quantity}</span></div>
-                        <div className="text-xs text-muted-foreground">₹{item.unit_price || 0}</div>
                       </div>
                     </div>
                   ))}
