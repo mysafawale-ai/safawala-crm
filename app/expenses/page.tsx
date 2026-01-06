@@ -1182,6 +1182,88 @@ export default function ExpensesPage() {
             </CardContent>
           )}
         </Card>
+
+        {/* Category Management Dialog - Top Level */}
+        <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Manage Categories</DialogTitle>
+              <DialogDescription>Add, view or remove categories.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 text-sm">
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick List</h4>
+                <div className="flex flex-wrap gap-2">
+                  {categories.slice(0,6).map(cat => (
+                    <span key={cat.id} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 bg-background">
+                      <span className="h-2 w-2 rounded-full" style={{ background: cat.color }} />
+                      {cat.name}
+                    </span>
+                  ))}
+                  {categories.length>6 && <span className="text-muted-foreground text-xs">+{categories.length-6} more</span>}
+                </div>
+                <Button variant="ghost" size="sm" className="mt-1" onClick={()=>setShowAllCats(v=>!v)}>
+                  {showAllCats? 'Hide Other Categories' : 'Show Other Categories'}
+                </Button>
+                {showAllCats && (
+                  <div className="max-h-60 overflow-auto rounded border divide-y mt-2">
+                    {categories.map(cat=> {
+                      const editing = editingCategoryId===cat.id
+                      return (
+                        <div key={cat.id} className="p-2 space-y-1">
+                          {!editing && (
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="h-3 w-3 rounded-full" style={{ background: cat.color }}></span>
+                                <span>{cat.name}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={()=>{ setEditingCategoryId(cat.id); setEditingCategoryForm({ name: cat.name, color: cat.color }); }}><Pencil className="h-3 w-3" /></Button>
+                                <Button variant="destructive" size="icon" className="h-7 w-7" onClick={()=> setDeleteCategoryTarget({ id:cat.id, name: cat.name })}><Trash2 className="h-3 w-3" /></Button>
+                              </div>
+                            </div>
+                          )}
+                          {editing && (
+                            <div className="space-y-2 rounded border p-2 bg-muted/30">
+                              <div className="flex items-center gap-2">
+                                <Input value={editingCategoryForm.name} onChange={e=>setEditingCategoryForm(f=>({...f,name:e.target.value}))} placeholder="Name" className="h-8" />
+                                <Input type="color" value={editingCategoryForm.color} onChange={e=>setEditingCategoryForm(f=>({...f,color:e.target.value}))} className="h-8 w-16 p-1" />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button variant="outline" size="sm" onClick={()=>{ setEditingCategoryId(null) }}>Cancel</Button>
+                                <Button size="sm" onClick={updateCategory}>Save</Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add New</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1 col-span-1">
+                    <Label htmlFor="cat-name">Name</Label>
+                    <Input id="cat-name" value={newCategory.name} onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1 col-span-1">
+                    <Label htmlFor="cat-color">Color</Label>
+                    <Input id="cat-color" type="color" value={newCategory.color} onChange={e => setNewCategory(c => ({ ...c, color: e.target.value }))} />
+                  </div>
+                  <div className="col-span-2 flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={()=>{ setNewCategory({ name:'', description:'', color:'#2563eb'}); }}>Clear</Button>
+                    <Button onClick={addCategory} disabled={!newCategory.name.trim()}>Add</Button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={()=>setShowCategoryDialog(false)}>Close</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )
