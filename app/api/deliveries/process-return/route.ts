@@ -272,11 +272,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Update delivery status to return_completed
+    // 5. Update delivery status to delivered (return processed)
+    // Note: Check constraint only allows: pending, in_transit, delivered, cancelled
     const { error: statusError } = await supabaseServer
       .from("deliveries")
       .update({
-        status: "return_completed",
+        status: "delivered",
+        return_status: "completed",
         updated_at: new Date().toISOString(),
       })
       .eq("id", delivery_id)
