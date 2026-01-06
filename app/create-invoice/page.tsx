@@ -1398,6 +1398,7 @@ export default function CreateInvoicePage() {
 
       const orderData = {
         order_number: invoiceData.invoice_number ? invoiceData.invoice_number.replace("ORD", "QTE").replace("INV", "QTE").replace("SAL", "QTE") : "QTE001", // Generate quote number from invoice number
+        invoice_date: invoiceData.invoice_date || new Date().toISOString().split('T')[0], // Save invoice date
         customer_id: selectedCustomer.id,
         franchise_id: currentFranchiseId,
         booking_type: invoiceData.invoice_type || 'rental',
@@ -1606,6 +1607,7 @@ export default function CreateInvoicePage() {
 
       const orderData = {
         order_number: orderNumber,
+        invoice_date: invoiceData.invoice_date || new Date().toISOString().split('T')[0], // Save invoice date
         customer_id: selectedCustomer.id,
         franchise_id: currentFranchiseId,
         booking_type: invoiceData.invoice_type || 'rental',
