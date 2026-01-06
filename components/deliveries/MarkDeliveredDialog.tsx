@@ -275,6 +275,7 @@ export function MarkDeliveredDialog({
           delivery_photo_url: photoStoragePath,
           delivery_notes: notes,
           delivery_items_count: items.reduce((sum, item) => sum + item.quantity, 0),
+          delivery_items_confirmed: allItemsVerified,
           delivered_at: new Date().toISOString(),
         }),
       })

@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
     if (body.delivery_photo_url !== undefined) updateData.delivery_photo_url = body.delivery_photo_url
     if (body.delivery_notes !== undefined) updateData.delivery_notes = body.delivery_notes
     if (body.delivery_items_count !== undefined) updateData.delivery_items_count = body.delivery_items_count
+    if (body.delivery_items_confirmed !== undefined) updateData.delivery_items_confirmed = body.delivery_items_confirmed
     if (body.delivered_at !== undefined) updateData.delivered_at = body.delivered_at
     
     // Return confirmation fields
