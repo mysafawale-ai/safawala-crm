@@ -84,7 +84,8 @@ export function MarkDeliveredDialog({
 
   // Load delivery items
   const loadDeliveryItems = async () => {
-    if (!delivery?.booking_id || !delivery?.booking_source) {
+    if (!delivery?.booking_id) {
+      console.log('[MarkDelivered] No booking_id, skipping item load')
       setItems([])
       return
     }
@@ -92,14 +93,32 @@ export function MarkDeliveredDialog({
     setLoadingItems(true)
     try {
       let productItems: any[] = []
+      const bookingSource = delivery.booking_source || 'product_order'
       
-      if (delivery.booking_source === 'product_order') {
+      console.log('[MarkDelivered] Loading items for booking:', delivery.booking_id, 'source:', bookingSource)
+      
+      if (bookingSource === 'product_order') {
         const res = await fetch(`/api/product-orders/${delivery.booking_id}`)
         if (res.ok) {
           const json = await res.json()
+          console.log('[MarkDelivered] Product order response:', json)
+          // Try multiple paths to find items
           productItems = json.items || json.data?.items || []
+          
+          // If items have denormalized product info, use it directly
+          if (productItems.length > 0 && productItems[0].product_name) {
+            setItems(productItems.map((item: any) => ({
+              product_id: item.product_id,
+              product_name: item.product_name || 'Unknown Product',
+              quantity: item.quantity || 1,
+              barcode: item.barcode || '',
+              category: item.category || '',
+            })))
+            setLoadingItems(false)
+            return
+          }
         }
-      } else if (delivery.booking_source === 'package_booking') {
+      } else if (bookingSource === 'package_booking') {
         const res = await fetch(`/api/package-bookings/${delivery.booking_id}`)
         if (res.ok) {
           const json = await res.json()

@@ -1997,10 +1997,36 @@ export default function DeliveriesPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Driver</Label>
-                  <p className="text-sm">{selectedDelivery.driver_name}</p>
+                  <p className="text-sm">{selectedDelivery.driver_name || 'Not assigned'}</p>
                   <p className="text-xs text-muted-foreground">{selectedDelivery.vehicle_number}</p>
                 </div>
               </div>
+              {/* Assigned Staff */}
+              {(selectedDelivery as any).delivery_staff && (selectedDelivery as any).delivery_staff.length > 0 && (
+                <div>
+                  <Label className="text-sm font-medium">Assigned Staff</Label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {(selectedDelivery as any).delivery_staff.map((ds: any, idx: number) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {ds.staff?.name || ds.name || 'Staff'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Show staff from assigned_staff_id if no delivery_staff */}
+              {(!(selectedDelivery as any).delivery_staff || (selectedDelivery as any).delivery_staff.length === 0) && selectedDelivery.assigned_staff_id && (
+                <div>
+                  <Label className="text-sm font-medium">Assigned Staff</Label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {staff.filter(s => s.id === selectedDelivery.assigned_staff_id).map((s, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {s.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <Label className="text-sm font-medium">Pickup Address</Label>
                 <p className="text-sm">{selectedDelivery.pickup_address}</p>
