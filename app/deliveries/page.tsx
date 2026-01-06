@@ -406,52 +406,6 @@ export default function DeliveriesPage() {
     const action = searchParams?.get("action")
     if (!action) return
 
-    // Handle returns actions
-    if (action === "reschedule") {
-      const rid = searchParams?.get("return_id")
-      if (rid && returns.length && !showRescheduleDialog) {
-        const r = returns.find((x: any) => x.id === rid)
-        if (r) {
-          // Simulate click handler logic
-          const deliveryLike = {
-            id: r.delivery_id || r.id,
-            booking_id: r.booking_id,
-            booking_source: r.booking_source,
-            rescheduled_return_at: r.booking?.return_date || r.return_date,
-          }
-          setSelectedDelivery(deliveryLike as any)
-
-          const currentISO = r.booking?.return_date || r.return_date
-          let date = ""
-          let time = "18:00"
-          if (currentISO) {
-            const d = new Date(currentISO)
-            if (!Number.isNaN(d.getTime())) {
-              date = d.toISOString().slice(0, 10)
-              const hh = String(d.getHours()).padStart(2, "0")
-              const mm = String(d.getMinutes()).padStart(2, "0")
-              time = `${hh}:${mm}`
-            }
-          }
-          setRescheduleForm({ date, time })
-          setShowRescheduleDialog(true)
-        }
-      }
-      return
-    }
-
-    if (action === "process") {
-      const rid = searchParams?.get("return_id")
-      if (rid && returns.length && !showReturnDialog) {
-        const r = returns.find((x: any) => x.id === rid)
-        if (r) {
-          setSelectedReturn(r)
-          setShowReturnDialog(true)
-        }
-      }
-      return
-    }
-
     // Handle delivery actions
     const did = searchParams?.get("delivery_id")
     if (did && deliveries.length) {
@@ -561,7 +515,7 @@ export default function DeliveriesPage() {
         setShowHandoverDialog(true)
       }
     }
-  }, [searchParams, returns, deliveries, bookings])
+  }, [searchParams, deliveries, bookings])
 
   // Load saved addresses when customer is selected in schedule form
   useEffect(() => {
@@ -2491,14 +2445,6 @@ export default function DeliveriesPage() {
                   setBookings((prev) =>
                     (prev || []).map((b: any) =>
                       b.id === selectedDelivery.booking_id ? { ...b, pickup_date: iso, return_date: iso } : b
-                    )
-                  )
-                  // Update returns list so the "Returns" tab reflects the new plan immediately
-                  setReturns((prev) =>
-                    (prev || []).map((r: any) =>
-                      r.booking_id === selectedDelivery.booking_id
-                        ? { ...r, booking: { ...(r.booking || {}), return_date: iso } }
-                        : r
                     )
                   )
                   toast({ title: "Return rescheduled", description: "Return date/time updated successfully." })

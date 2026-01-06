@@ -1,4 +1,4 @@
--- Migration: Add columns for return processing feature
+-- Simple Migration: Add columns for return processing feature
 -- Run this in Supabase SQL Editor
 
 -- ============================================================================
@@ -6,7 +6,7 @@
 -- ============================================================================
 
 ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS return_completed_at TIMESTAMPTZ;
-ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS return_processed_by UUID REFERENCES users(id);
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS return_processed_by UUID;
 
 -- ============================================================================
 -- PART 2: Add columns to product_order_items for return quantities
@@ -41,7 +41,7 @@ ALTER TABLE package_bookings ADD COLUMN IF NOT EXISTS return_status TEXT;
 ALTER TABLE package_bookings ADD COLUMN IF NOT EXISTS return_completed_at TIMESTAMPTZ;
 
 -- ============================================================================
--- PART 5: Create laundry_items table if not exists
+-- PART 5: Create laundry_items table
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS laundry_items (
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS laundry_items (
   product_name TEXT NOT NULL,
   variant_name TEXT,
   quantity INTEGER NOT NULL DEFAULT 1,
-  status TEXT NOT NULL DEFAULT 'pending',
+  status TEXT DEFAULT 'pending',
   source TEXT,
   source_id UUID,
   booking_id UUID,
@@ -64,15 +64,12 @@ CREATE TABLE IF NOT EXISTS laundry_items (
   completed_at TIMESTAMPTZ
 );
 
--- Enable RLS
 ALTER TABLE laundry_items ENABLE ROW LEVEL SECURITY;
-
--- Simple RLS policies - just allow access for now
 DROP POLICY IF EXISTS "laundry_allow_all" ON laundry_items;
 CREATE POLICY "laundry_allow_all" ON laundry_items FOR ALL USING (TRUE);
 
 -- ============================================================================
--- PART 6: Create inventory_movements table for tracking stock changes
+-- PART 6: Create inventory_movements table
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS inventory_movements (
@@ -91,15 +88,12 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE inventory_movements ENABLE ROW LEVEL SECURITY;
-
--- Simple RLS policies
 DROP POLICY IF EXISTS "inventory_movements_allow_all" ON inventory_movements;
 CREATE POLICY "inventory_movements_allow_all" ON inventory_movements FOR ALL USING (TRUE);
 
 -- ============================================================================
--- PART 7: Create product_archive table for lost/damaged tracking
+-- PART 7: Create product_archive table
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS product_archive (
@@ -119,28 +113,9 @@ CREATE TABLE IF NOT EXISTS product_archive (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE product_archive ENABLE ROW LEVEL SECURITY;
-
--- Simple RLS policies
 DROP POLICY IF EXISTS "product_archive_allow_all" ON product_archive;
 CREATE POLICY "product_archive_allow_all" ON product_archive FOR ALL USING (TRUE);
 
--- ============================================================================
--- PART 8: Create indexes for performance
--- ============================================================================
-
-CREATE INDEX IF NOT EXISTS idx_laundry_items_status ON laundry_items(status);
-CREATE INDEX IF NOT EXISTS idx_laundry_items_franchise ON laundry_items(franchise_id);
-CREATE INDEX IF NOT EXISTS idx_laundry_items_created_at ON laundry_items(created_at);
-
-CREATE INDEX IF NOT EXISTS idx_inventory_movements_variant ON inventory_movements(variant_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_movements_type ON inventory_movements(movement_type);
-CREATE INDEX IF NOT EXISTS idx_inventory_movements_franchise ON inventory_movements(franchise_id);
-
-CREATE INDEX IF NOT EXISTS idx_product_archive_reason ON product_archive(reason);
-CREATE INDEX IF NOT EXISTS idx_product_archive_franchise ON product_archive(franchise_id);
-CREATE INDEX IF NOT EXISTS idx_product_archive_created_at ON product_archive(created_at);
-
 -- Done!
-SELECT 'Return processing migration completed!' as message;
+SELECT 'Return processing migration completed successfully!' as message;
