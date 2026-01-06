@@ -5,6 +5,8 @@ import { authenticateRequest } from "@/lib/auth-middleware"
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+// API Version: 2026-01-06
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
