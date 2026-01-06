@@ -278,7 +278,6 @@ export async function POST(request: NextRequest) {
       .from("deliveries")
       .update({
         status: "delivered",
-        return_status: "completed",
         updated_at: new Date().toISOString(),
       })
       .eq("id", delivery_id)
