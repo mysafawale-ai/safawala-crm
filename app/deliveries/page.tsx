@@ -1788,13 +1788,13 @@ export default function DeliveriesPage() {
           if (!open) clearActionParams()
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Delivery Details</DialogTitle>
             <DialogDescription>View complete delivery information</DialogDescription>
           </DialogHeader>
           {selectedDelivery && (
-            <div className="space-y-4">
+            <div className="space-y-4 pr-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Delivery Number</Label>
@@ -1938,40 +1938,73 @@ export default function DeliveriesPage() {
                 <div className="border-t pt-4 mt-4">
                   <Label className="text-sm font-bold text-green-700 mb-3 block">✅ Delivery Confirmation</Label>
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-sm text-green-700 font-medium">Received By:</span>
-                        <p className="font-semibold">{(selectedDelivery as any).delivery_confirmation_name || 'Not recorded'}</p>
-                      </div>
-                      <div>
-                        <span className="text-sm text-green-700 font-medium">Phone:</span>
-                        <p className="font-semibold">{(selectedDelivery as any).delivery_confirmation_phone || 'Not recorded'}</p>
+                    {/* Client Information Section */}
+                    <div className="border-b pb-3 mb-3">
+                      <h4 className="font-semibold text-green-800 mb-2">👤 Client Information</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-sm text-green-700 font-medium">Received By:</span>
+                          <p className="font-semibold">{(selectedDelivery as any).delivery_confirmation_name || 'Not recorded'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-green-700 font-medium">Phone:</span>
+                          <p className="font-semibold">{(selectedDelivery as any).delivery_confirmation_phone || 'Not recorded'}</p>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <span className="text-sm text-green-700 font-medium">Items Count Verified:</span>
-                      <p className="font-semibold">{(selectedDelivery as any).delivery_items_count || 0} items</p>
-                    </div>
-                    {(selectedDelivery as any).delivery_notes && (
-                      <div>
-                        <span className="text-sm text-green-700 font-medium">Delivery Notes:</span>
-                        <p className="text-sm bg-white p-2 rounded border border-green-200 mt-1">{(selectedDelivery as any).delivery_notes}</p>
-                      </div>
-                    )}
+
+                    {/* Photo Proof Section */}
                     {(selectedDelivery as any).delivery_photo_url && (
-                      <div>
-                        <span className="text-sm text-green-700 font-medium">Proof Photo:</span>
+                      <div className="border-b pb-3 mb-3">
+                        <h4 className="font-semibold text-green-800 mb-2">📸 Photo Proof</h4>
                         <img 
                           src={(selectedDelivery as any).delivery_photo_url} 
                           alt="Delivery proof" 
-                          className="mt-2 rounded-lg border border-green-200 max-h-48 object-cover"
+                          className="rounded-lg border border-green-200 max-h-64 w-full object-cover"
                         />
                       </div>
                     )}
+                    {!(selectedDelivery as any).delivery_photo_url && (
+                      <div className="border-b pb-3 mb-3">
+                        <h4 className="font-semibold text-green-800 mb-2">📸 Photo Proof</h4>
+                        <p className="text-sm text-gray-500 italic">No photo recorded</p>
+                      </div>
+                    )}
+
+                    {/* Products Verification Section */}
+                    <div className="border-b pb-3 mb-3">
+                      <h4 className="font-semibold text-green-800 mb-2">📦 Products Verified</h4>
+                      <div className="bg-white rounded p-3 border border-green-100">
+                        <p className="text-sm">
+                          <span className="text-green-700 font-medium">Items Count Verified:</span>
+                          <span className="ml-2 font-semibold text-lg text-green-600">{(selectedDelivery as any).delivery_items_count || 0} items</span>
+                        </p>
+                        {(selectedDelivery as any).delivery_items_confirmed && (
+                          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                            ✓ All items confirmed as delivered
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Notes Section */}
+                    {(selectedDelivery as any).delivery_notes ? (
+                      <div className="border-b pb-3 mb-3">
+                        <h4 className="font-semibold text-green-800 mb-2">📝 Notes</h4>
+                        <p className="text-sm bg-white p-3 rounded border border-green-200">{(selectedDelivery as any).delivery_notes}</p>
+                      </div>
+                    ) : (
+                      <div className="border-b pb-3 mb-3">
+                        <h4 className="font-semibold text-green-800 mb-2">📝 Notes</h4>
+                        <p className="text-sm text-gray-500 italic">No additional notes</p>
+                      </div>
+                    )}
+
+                    {/* Delivery Timestamp */}
                     {(selectedDelivery as any).delivered_at && (
                       <div>
-                        <span className="text-sm text-green-700 font-medium">Delivered At:</span>
-                        <p className="font-semibold">{new Date((selectedDelivery as any).delivered_at).toLocaleString()}</p>
+                        <span className="text-sm text-green-700 font-medium">⏰ Delivered At:</span>
+                        <p className="font-semibold text-green-900">{new Date((selectedDelivery as any).delivered_at).toLocaleString()}</p>
                       </div>
                     )}
                   </div>
