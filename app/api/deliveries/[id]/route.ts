@@ -44,7 +44,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    console.log('[Deliveries API] PATCH request for delivery:', params.id)
+    console.log('[Deliveries API] PATCH request for delivery:', params.id, 'body:', JSON.stringify(body))
     const deliveryId = params.id
 
     // Build update object (only include fields that are provided)
@@ -52,7 +52,20 @@ export async function PATCH(
       updated_at: new Date().toISOString()
     }
 
-    if (body.status !== undefined) updateData.status = body.status
+    // Handle status update with timestamps
+    if (body.status !== undefined) {
+      updateData.status = body.status
+      
+      // Set timestamps based on status
+      if (body.status === 'in_transit') {
+        updateData.started_at = new Date().toISOString()
+      } else if (body.status === 'delivered') {
+        updateData.delivered_at = new Date().toISOString()
+      } else if (body.status === 'cancelled') {
+        updateData.cancelled_at = new Date().toISOString()
+      }
+    }
+    
     if (body.delivery_type !== undefined) updateData.delivery_type = body.delivery_type
     if (body.pickup_address !== undefined) updateData.pickup_address = body.pickup_address
     if (body.delivery_address !== undefined) updateData.delivery_address = body.delivery_address
