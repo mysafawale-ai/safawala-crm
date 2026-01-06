@@ -84,27 +84,48 @@ export function ProcessReturnDialog({
   // Load delivery items when dialog opens
   useEffect(() => {
     if (open && delivery?.booking_id) {
-      // ALWAYS reset state when opening dialog, even if same delivery
-      console.log('[ProcessReturn] Dialog opened, loading delivery data')
-      setItems([])
-      setClientName(delivery.customer_name || "")
-      setClientPhone(delivery.customer_phone || "")
-      
-      // Load saved notes and photo from delivery record (if they exist)
-      setNotes((delivery as any).return_notes || "")
-      setPhotoUrl((delivery as any).return_photo_url || null)
-      
-      console.log('[ProcessReturn] Loaded return data:', {
-        notes: (delivery as any).return_notes,
-        photo: (delivery as any).return_photo_url ? 'YES' : 'NO'
-      })
-      
-      setPhotoFile(null)
-      setShowCamera(false)
+      // Load delivery data directly from Supabase to get latest return_notes and return_photo_url
+      loadDeliveryData()
       // Then load items
       loadDeliveryItems()
     }
-  }, [open]) // Only trigger on open change, will reset every time dialog opens
+  }, [open, delivery?.id]) // Trigger on dialog open or delivery change
+
+  // Fetch latest delivery data to get saved notes/photo
+  const loadDeliveryData = async () => {
+    if (!delivery?.id) return
+    
+    try {
+      const { data, error } = await supabase
+        .from("deliveries")
+        .select("return_notes, return_photo_url, return_confirmation_name, return_confirmation_phone")
+        .eq("id", delivery.id)
+        .single()
+
+      if (error) {
+        console.warn('[ProcessReturn] Could not load delivery notes/photo:', error)
+        return
+      }
+
+      console.log('[ProcessReturn] Loaded delivery data from DB:', {
+        notes: data?.return_notes,
+        photo: data?.return_photo_url ? 'YES' : 'NO',
+        confirmation_name: data?.return_confirmation_name,
+        confirmation_phone: data?.return_confirmation_phone,
+      })
+
+      // Set the loaded values
+      setNotes(data?.return_notes || "")
+      setPhotoUrl(data?.return_photo_url || null)
+      setClientName(data?.return_confirmation_name || delivery.customer_name || "")
+      setClientPhone(data?.return_confirmation_phone || delivery.customer_phone || "")
+      setItems([])
+      setPhotoFile(null)
+      setShowCamera(false)
+    } catch (err) {
+      console.error('[ProcessReturn] Error loading delivery data:', err)
+    }
+  }
 
   // Additional cleanup when dialog closes
   useEffect(() => {
@@ -116,6 +137,10 @@ export function ProcessReturnDialog({
       setClientPhone("")
       setNotes("")
       setPhotoUrl(null)
+      setPhotoFile(null)
+      setShowCamera(false)
+    }
+  }, [open])
       setPhotoFile(null)
       setShowCamera(false)
     }
