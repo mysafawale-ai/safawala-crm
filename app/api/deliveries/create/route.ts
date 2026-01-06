@@ -117,25 +117,26 @@ export async function POST(request: NextRequest) {
     // ===================================================================
     // AUTO-CREATE EXPENSE when delivery/fuel charges are provided
     // ===================================================================
-    const totalExpense = deliveryCharge + fuelCost
-    if (totalExpense > 0) {
-      try {
-        await supabaseServer.from("expenses").insert({
-          franchise_id: auth.user?.franchise_id,
-          category: "Transportation",
-          description: `Delivery charges for ${deliveryNumber} - Delivery: ₹${deliveryCharge}, Fuel: ₹${fuelCost}`,
-          amount: totalExpense,
-          expense_date: new Date().toISOString().split('T')[0],
-          payment_method: "cash",
-          vendor_name: body.driver_name || "Delivery Staff",
-          notes: `Auto-generated for delivery ${deliveryNumber}`,
-          created_by: auth.user?.id,
-        })
-        console.log(`[Deliveries Create API] ✅ Created expense: ₹${totalExpense}`)
-      } catch (expenseErr) {
-        console.warn("[Deliveries Create API] Could not create expense:", expenseErr)
-      }
-    }
+    // TODO: Implement independent expense management - not auto-creating for now
+    // const totalExpense = deliveryCharge + fuelCost
+    // if (totalExpense > 0) {
+    //   try {
+    //     await supabaseServer.from("expenses").insert({
+    //       franchise_id: auth.user?.franchise_id,
+    //       category: "Transportation",
+    //       description: `Delivery charges for ${deliveryNumber} - Delivery: ₹${deliveryCharge}, Fuel: ₹${fuelCost}`,
+    //       amount: totalExpense,
+    //       expense_date: new Date().toISOString().split('T')[0],
+    //       payment_method: "cash",
+    //       vendor_name: body.driver_name || "Delivery Staff",
+    //       notes: `Auto-generated for delivery ${deliveryNumber}`,
+    //       created_by: auth.user?.id,
+    //     })
+    //     console.log(`[Deliveries Create API] ✅ Created expense: ₹${totalExpense}`)
+    //   } catch (expenseErr) {
+    //     console.warn("[Deliveries Create API] Could not create expense:", expenseErr)
+    //   }
+    // }
 
     console.log('[Deliveries Create API] Successfully created delivery:', delivery.id)
     return NextResponse.json({ success: true, data: delivery }, { status: 201 })
