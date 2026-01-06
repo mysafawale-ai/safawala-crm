@@ -99,11 +99,12 @@ export default function ProductArchivePage() {
     try {
       setLoading(true)
 
-      // Fetch archived products
+      // Fetch archived products - ONLY from invoice creation (not from process-return)
       const { data: archived, error: archiveError } = await supabase
         .from("product_archive")
         .select("*")
-        .order("archived_at", { ascending: false })
+        .eq("source", "invoice")
+        .order("created_at", { ascending: false })
 
       if (archiveError) {
         console.error("Error fetching archived products:", archiveError)
