@@ -1373,10 +1373,6 @@ export default function CreateInvoicePage() {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
       return
     }
-    if (!invoiceData.event_date) {
-      toast({ title: "Error", description: "Please select an event date", variant: "destructive" })
-      return
-    }
     // Items are optional - save skeleton quote first, add items later
 
     setSaving(true)
@@ -1536,10 +1532,6 @@ export default function CreateInvoicePage() {
   const handleCreateOrder = async () => {
     if (!selectedCustomer) {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
-      return
-    }
-    if (!invoiceData.event_date) {
-      toast({ title: "Error", description: "Please select an event date", variant: "destructive" })
       return
     }
 

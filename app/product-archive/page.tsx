@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/table"
 import { Search, Archive, RotateCcw, Eye, ArrowLeft, Loader2, AlertCircle, PackageX, Package } from "lucide-react"
 import { toast } from "sonner"
-import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
 
 interface ArchivedProduct {
@@ -43,6 +42,7 @@ interface ArchivedProduct {
   original_rental_price?: number
   original_sale_price?: number
   image_url?: string
+  quantity?: number
 }
 
 interface Product {
@@ -99,34 +99,22 @@ export default function ProductArchivePage() {
     try {
       setLoading(true)
 
-      // Fetch archived products - all for now (will filter by source after migration)
-      const { data: archived, error: archiveError } = await supabase
-        .from("product_archive")
-        .select("*")
-        .order("archived_at", { ascending: false })
+      const response = await fetch("/api/product-archive", {
+        method: "GET",
+        credentials: "include",
+      })
 
-      if (archiveError) {
-        console.error("Error fetching archived products:", archiveError)
-        toast.error("Failed to load archived products")
-      } else {
-        setArchivedProducts(archived || [])
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load data")
       }
 
-      // Fetch active products for archiving
-      const { data: products, error: productsError } = await supabase
-        .from("products")
-        .select("id, name, product_code, barcode, category, rental_price, sale_price, stock_available, image_url")
-        .gt("stock_available", 0)
-        .order("name")
-
-      if (productsError) {
-        console.error("Error fetching products:", productsError)
-      } else {
-        setActiveProducts(products || [])
-      }
-    } catch (error) {
+      setArchivedProducts(data.archived || [])
+      setActiveProducts(data.products || [])
+    } catch (error: any) {
       console.error("Error loading data:", error)
-      toast.error("Failed to load data")
+      toast.error(error.message || "Failed to load data")
     } finally {
       setLoading(false)
     }
@@ -146,14 +134,11 @@ export default function ProductArchivePage() {
     try {
       setArchiving(true)
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
-
-      // Insert into archive - only use columns that exist in the original table
-      // (quantity, source, source_id will be added in migration)
-      const { error: archiveError } = await supabase
-        .from("product_archive")
-        .insert({
+      const response = await fetch("/api/product-archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
           product_id: selectedProduct.id,
           product_name: selectedProduct.name,
           product_code: selectedProduct.product_code,
@@ -164,22 +149,14 @@ export default function ProductArchivePage() {
           original_rental_price: selectedProduct.rental_price,
           original_sale_price: selectedProduct.sale_price,
           image_url: selectedProduct.image_url,
-          archived_by: user?.id,
-        })
+          quantity: archiveForm.quantity,
+        }),
+      })
 
-      if (archiveError) {
-        throw archiveError
-      }
+      const data = await response.json()
 
-      // Reduce stock by the archived quantity
-      const newStockAvailable = Math.max(0, selectedProduct.stock_available - archiveForm.quantity)
-      const { error: updateError } = await supabase
-        .from("products")
-        .update({ stock_available: newStockAvailable })
-        .eq("id", selectedProduct.id)
-
-      if (updateError) {
-        throw updateError
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to archive product")
       }
 
       toast.success(`${archiveForm.quantity} unit(s) of ${selectedProduct.name} archived`)
@@ -187,9 +164,9 @@ export default function ProductArchivePage() {
       setArchiveForm({ product_id: "", reason: "lost", notes: "", quantity: 1 })
       setSelectedProduct(null)
       fetchData()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error archiving product:", error)
-      toast.error("Failed to archive product")
+      toast.error(error.message || "Failed to archive product")
     } finally {
       setArchiving(false)
     }
@@ -201,33 +178,24 @@ export default function ProductArchivePage() {
     try {
       setRestoring(true)
 
-      // Delete from archive
-      const { error: deleteError } = await supabase
-        .from("product_archive")
-        .delete()
-        .eq("id", selectedArchived.id)
+      const response = await fetch(`/api/product-archive?id=${selectedArchived.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
 
-      if (deleteError) {
-        throw deleteError
-      }
+      const data = await response.json()
 
-      // Restore stock (add 1 back)
-      const { error: updateError } = await supabase
-        .from("products")
-        .update({ stock_available: 1 })
-        .eq("id", selectedArchived.product_id)
-
-      if (updateError) {
-        throw updateError
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to restore product")
       }
 
       toast.success(`Product restored: ${selectedArchived.product_name}`)
       setShowRestoreDialog(false)
       setSelectedArchived(null)
       fetchData()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error restoring product:", error)
-      toast.error("Failed to restore product")
+      toast.error(error.message || "Failed to restore product")
     } finally {
       setRestoring(false)
     }

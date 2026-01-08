@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import {
@@ -38,7 +40,10 @@ import {
   CalendarRange,
   Edit,
   FileText,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface Vendor {
   id: string
@@ -124,9 +129,12 @@ export default function LaundryPage() {
   const [showEditBatch, setShowEditBatch] = useState(false)
   const [editBatchItems, setEditBatchItems] = useState<BatchItem[]>([])
   const [editSelectedProduct, setEditSelectedProduct] = useState("")
+  const [editProductSearchOpen, setEditProductSearchOpen] = useState(false)
+  const [editProductSearchTerm, setEditProductSearchTerm] = useState("")
   const [editItemQuantity, setEditItemQuantity] = useState(1)
   const [editItemCondition, setEditItemCondition] = useState("dirty")
   const [editItemNotes, setEditItemNotes] = useState("")
+  const [editItemCost, setEditItemCost] = useState("")
 
   // New batch form state
   const [newBatch, setNewBatch] = useState({
@@ -139,9 +147,12 @@ export default function LaundryPage() {
 
   const [newBatchItems, setNewBatchItems] = useState<NewBatchItem[]>([])
   const [selectedProduct, setSelectedProduct] = useState("")
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [productSearchTerm, setProductSearchTerm] = useState("")
   const [itemQuantity, setItemQuantity] = useState(1)
   const [itemCondition, setItemCondition] = useState("dirty")
   const [itemNotes, setItemNotes] = useState("")
+  const [itemCost, setItemCost] = useState("")
 
   const [newVendor, setNewVendor] = useState({
     name: "",
@@ -171,33 +182,41 @@ export default function LaundryPage() {
       let productsData: Product[] = []
       let hasErrors = false
 
-      // Try to fetch vendors
+      // Fetch vendors from API (handles RLS and authentication)
       try {
-        const { data: vendorsResult, error: vendorsError } = await supabase
-          .from("vendors")
-          .select("*")
-          .eq("is_active", true)
+        const vendorsResponse = await fetch("/api/vendors?status=active", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        })
 
-        if (vendorsError) {
-          console.error("Vendors error:", vendorsError)
-          hasErrors = true
+        if (vendorsResponse.ok) {
+          const vendorsResult = await vendorsResponse.json()
+          vendorsData = vendorsResult.vendors || []
+          console.log("Vendors loaded via API:", vendorsData.length)
         } else {
-          vendorsData = vendorsResult || []
+          console.error("Vendors API error:", vendorsResponse.status)
+          hasErrors = true
         }
       } catch (error) {
         console.error("Vendors fetch failed:", error)
         hasErrors = true
       }
 
-      // Try to fetch batches
+      // Try to fetch batches via API
       try {
-        const { data: batchesResult, error: batchesError } = await supabase.from("laundry_batch_summary").select("*")
+        const batchesResponse = await fetch("/api/laundry", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        })
 
-        if (batchesError) {
-          console.error("Batches error:", batchesError)
-          hasErrors = true
+        if (batchesResponse.ok) {
+          batchesData = await batchesResponse.json()
+          console.log("Batches loaded via API:", batchesData.length)
         } else {
-          batchesData = batchesResult || []
+          console.error("Batches API error:", batchesResponse.status)
+          hasErrors = true
         }
       } catch (error) {
         console.error("Batches fetch failed:", error)
@@ -258,9 +277,17 @@ export default function LaundryPage() {
 
   const fetchBatchItems = async (batchId: string) => {
     try {
-      const { data, error } = await supabase.from("laundry_batch_items").select("*").eq("batch_id", batchId)
+      const response = await fetch(`/api/laundry/items?batch_id=${batchId}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        throw new Error("Failed to fetch batch items")
+      }
+
+      const data = await response.json()
       setBatchItems(data || [])
     } catch (error) {
       console.error("Error fetching batch items:", error)
@@ -305,6 +332,15 @@ export default function LaundryPage() {
       return
     }
 
+    if (!editItemCost || Number.parseFloat(editItemCost) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter the laundry charge",
+        variant: "destructive",
+      })
+      return
+    }
+
     let productData
     if (showCustomProduct) {
       productData = {
@@ -319,16 +355,14 @@ export default function LaundryPage() {
     }
 
     if (!editingBatch) return
-    const vendor = vendors.find((v) => v.name === editingBatch.vendor_name)
-    const unitCost = vendor?.pricing_per_item || 0
-    const totalCost = unitCost * editItemQuantity
+    const totalCost = Number.parseFloat(editItemCost) || 0
 
     const newItem: BatchItem = {
       id: `temp-${Date.now()}`,
       product_name: productData.name,
       product_category: productData.category,
       quantity: editItemQuantity,
-      unit_cost: unitCost,
+      unit_cost: totalCost,
       total_cost: totalCost,
       condition_before: editItemCondition,
       condition_after: null,
@@ -339,11 +373,14 @@ export default function LaundryPage() {
 
     // Reset form
     setEditSelectedProduct("")
+    setEditProductSearchTerm("")
+    setEditProductSearchOpen(false)
     setCustomProductName("")
     setShowCustomProduct(false)
     setEditItemQuantity(1)
     setEditItemCondition("dirty")
     setEditItemNotes("")
+    setEditItemCost("")
   }
 
   const removeEditItemFromBatch = (index: number) => {
@@ -360,29 +397,8 @@ export default function LaundryPage() {
       const totalItems = editBatchItems.reduce((sum, item) => sum + item.quantity, 0)
       const totalCost = editBatchItems.reduce((sum, item) => sum + item.total_cost, 0)
 
-      // Update batch
-      const { error: batchError } = await supabase
-        .from("laundry_batches")
-        .update({
-          total_items: totalItems,
-          total_cost: totalCost,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", editingBatch.id)
-
-      if (batchError) throw batchError
-
-      // Delete existing items
-      const { error: deleteError } = await supabase
-        .from("laundry_batch_items")
-        .delete()
-        .eq("batch_id", editingBatch.id)
-
-      if (deleteError) throw deleteError
-
-      // Insert updated items
-      const itemsToInsert = editBatchItems.map((item) => ({
-        batch_id: editingBatch.id,
+      // Prepare items for API
+      const itemsToSave = editBatchItems.map((item) => ({
         product_id: item.id.startsWith("temp-") ? null : item.id,
         product_name: item.product_name,
         product_category: item.product_category,
@@ -393,9 +409,23 @@ export default function LaundryPage() {
         notes: item.notes,
       }))
 
-      const { error: insertError } = await supabase.from("laundry_batch_items").insert(itemsToInsert)
+      // Update via API
+      const response = await fetch("/api/laundry/items", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          batch_id: editingBatch.id,
+          items: itemsToSave,
+          total_items: totalItems,
+          total_cost: totalCost,
+        }),
+      })
 
-      if (insertError) throw insertError
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update batch")
+      }
 
       toast({
         title: "Batch updated",
@@ -410,7 +440,7 @@ export default function LaundryPage() {
       console.error("Error updating batch:", error)
       toast({
         title: "Error",
-        description: "Failed to update batch. Please try again.",
+        description: error.message || "Failed to update batch. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -443,6 +473,15 @@ export default function LaundryPage() {
       return
     }
 
+    if (!itemCost.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter laundry charge",
+        variant: "destructive",
+      })
+      return
+    }
+
     let productData
     if (showCustomProduct) {
       productData = {
@@ -456,16 +495,14 @@ export default function LaundryPage() {
       productData = product
     }
 
-    const selectedVendor = vendors.find((v) => v.id === newBatch.vendor_id)
-    const unitCost = selectedVendor?.pricing_per_item || 0
-    const totalCost = unitCost * itemQuantity
+    const totalCost = Number.parseFloat(itemCost) || 0
 
     const newItem: NewBatchItem = {
       product_id: productData.id,
       product_name: productData.name,
       product_category: productData.category,
       quantity: itemQuantity,
-      unit_cost: unitCost,
+      unit_cost: totalCost,
       total_cost: totalCost,
       condition_before: itemCondition,
       notes: itemNotes,
@@ -475,11 +512,14 @@ export default function LaundryPage() {
 
     // Reset form
     setSelectedProduct("")
+    setProductSearchOpen(false)
+    setProductSearchTerm("")
     setCustomProductName("")
     setShowCustomProduct(false)
     setItemQuantity(1)
     setItemCondition("dirty")
     setItemNotes("")
+    setItemCost("")
   }
 
   const removeItemFromBatch = (index: number) => {
@@ -509,22 +549,23 @@ export default function LaundryPage() {
     setItemQuantity(1)
     setItemCondition("dirty")
     setItemNotes("")
+    setItemCost("")
   }
 
   const handleCreateBatch = async () => {
-    if (!newBatch.vendor_id || !newBatch.sent_date || !newBatch.expected_return_date) {
+    if (newBatchItems.length === 0) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please add at least one item to the batch",
         variant: "destructive",
       })
       return
     }
 
-    if (newBatchItems.length === 0) {
+    if (!newBatch.vendor_id) {
       toast({
         title: "Error",
-        description: "Please add at least one item to the batch",
+        description: "Please select a vendor",
         variant: "destructive",
       })
       return
@@ -536,10 +577,9 @@ export default function LaundryPage() {
       const selectedVendor = vendors.find((v) => v.id === newBatch.vendor_id)
       const batchNumber = generateBatchNumber()
 
-      // Create the batch
-      const { data: batchData, error: batchError } = await supabase
-        .from("laundry_batches")
-        .insert({
+      // Create batch via API to avoid RLS issues
+      const batchPayload = {
+        batch: {
           batch_number: batchNumber,
           vendor_id: newBatch.vendor_id,
           vendor_name: selectedVendor?.name || "",
@@ -550,28 +590,30 @@ export default function LaundryPage() {
           special_instructions: newBatch.special_instructions,
           total_items: getTotalBatchItems(),
           total_cost: getTotalBatchCost(),
-        })
-        .select()
-        .single()
+        },
+        items: newBatchItems.map((item) => ({
+          product_id: item.product_id === null ? null : item.product_id,
+          product_name: item.product_name,
+          product_category: item.product_category,
+          quantity: item.quantity,
+          unit_cost: item.unit_cost,
+          total_cost: item.total_cost,
+          condition_before: item.condition_before,
+          notes: item.notes,
+        })),
+      }
 
-      if (batchError) throw batchError
+      const response = await fetch("/api/laundry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(batchPayload),
+      })
 
-      // Create batch items
-      const batchItemsToInsert = newBatchItems.map((item) => ({
-        batch_id: batchData.id,
-        product_id: item.product_id === null ? null : item.product_id,
-        product_name: item.product_name,
-        product_category: item.product_category,
-        quantity: item.quantity,
-        unit_cost: item.unit_cost,
-        total_cost: item.total_cost,
-        condition_before: item.condition_before,
-        notes: item.notes,
-      }))
-
-      const { error: itemsError } = await supabase.from("laundry_batch_items").insert(batchItemsToInsert)
-
-      if (itemsError) throw itemsError
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create batch")
+      }
 
       toast({
         title: "Batch created successfully",
@@ -585,7 +627,7 @@ export default function LaundryPage() {
       console.error("Error creating batch:", error)
       toast({
         title: "Error",
-        description: "Failed to create batch. Please try again.",
+        description: error.message || "Failed to create batch. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -598,14 +640,22 @@ export default function LaundryPage() {
       setCreating(true)
 
       const updateData = {
+        id: batch.id,
         status: newStatus,
-        updated_at: new Date().toISOString(),
         ...(newStatus === "cancelled" && { total_cost: 0 }),
       }
 
-      const { error } = await supabase.from("laundry_batches").update(updateData).eq("id", batch.id)
+      const response = await fetch("/api/laundry", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(updateData),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update status")
+      }
 
       if (newStatus === "returned") {
         toast({
@@ -630,7 +680,7 @@ export default function LaundryPage() {
       console.error("Error updating status:", error)
       toast({
         title: "Error",
-        description: "Failed to update status. Please try again.",
+        description: error.message || "Failed to update status. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -808,7 +858,7 @@ export default function LaundryPage() {
                 {/* Batch Details */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <Label htmlFor="vendor">Vendor *</Label>
+                    <Label htmlFor="vendor">Vendor</Label>
                     <Select
                       value={newBatch.vendor_id}
                       onValueChange={(value) => setNewBatch({ ...newBatch, vendor_id: value })}
@@ -856,7 +906,7 @@ export default function LaundryPage() {
                     })()}
                   </div>
                   <div>
-                    <Label htmlFor="sent_date">Sent Date *</Label>
+                    <Label htmlFor="sent_date">Sent Date</Label>
                     <Input
                       type="date"
                       value={newBatch.sent_date}
@@ -864,7 +914,7 @@ export default function LaundryPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="expected_return_date">Expected Return Date *</Label>
+                    <Label htmlFor="expected_return_date">Expected Return Date</Label>
                     <Input
                       type="date"
                       value={newBatch.expected_return_date}
@@ -917,18 +967,68 @@ export default function LaundryPage() {
                           className="w-full"
                         />
                       ) : (
-                        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name} - {product.category}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="relative">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              value={productSearchTerm}
+                              onChange={(e) => {
+                                setProductSearchTerm(e.target.value)
+                                setProductSearchOpen(true)
+                              }}
+                              onFocus={() => setProductSearchOpen(true)}
+                              placeholder={selectedProduct ? products.find(p => p.id === selectedProduct)?.name || "Search products..." : "Search products..."}
+                              className="pl-9"
+                            />
+                            {selectedProduct && !productSearchTerm && (
+                              <div className="absolute inset-0 flex items-center pl-9 pointer-events-none">
+                                <span className="text-sm">{products.find(p => p.id === selectedProduct)?.name}</span>
+                              </div>
+                            )}
+                          </div>
+                          {productSearchOpen && (
+                            <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg max-h-64 overflow-auto">
+                              {products
+                                .filter(p => 
+                                  !productSearchTerm || 
+                                  p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                                  (p.category && p.category.toLowerCase().includes(productSearchTerm.toLowerCase()))
+                                )
+                                .map((product) => (
+                                  <div
+                                    key={product.id}
+                                    className={cn(
+                                      "flex items-center px-3 py-2 cursor-pointer hover:bg-accent",
+                                      selectedProduct === product.id && "bg-accent"
+                                    )}
+                                    onClick={() => {
+                                      setSelectedProduct(product.id)
+                                      setProductSearchTerm("")
+                                      setProductSearchOpen(false)
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedProduct === product.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <span>{product.name}</span>
+                                    {product.category && (
+                                      <span className="ml-2 text-muted-foreground text-sm">- {product.category}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              {products.filter(p => 
+                                !productSearchTerm || 
+                                p.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+                                (p.category && p.category.toLowerCase().includes(productSearchTerm.toLowerCase()))
+                              ).length === 0 && (
+                                <div className="px-3 py-2 text-sm text-muted-foreground">No products found</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -960,19 +1060,15 @@ export default function LaundryPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="laundry_charge">Laundry Charge (₹)</Label>
+                      <Label htmlFor="laundry_charge">Laundry Charge (₹) - Total</Label>
                       <Input
                         type="number"
                         min="0"
                         step="0.01"
                         placeholder="0.00"
+                        value={itemCost}
                         className="placeholder:text-muted-foreground/30"
-                        onChange={(e) => {
-                          const selectedVendor = vendors.find((v) => v.id === newBatch.vendor_id)
-                          if (selectedVendor) {
-                            selectedVendor.pricing_per_item = Number.parseFloat(e.target.value) || 0
-                          }
-                        }}
+                        onChange={(e) => setItemCost(e.target.value)}
                       />
                     </div>
 
@@ -1006,8 +1102,7 @@ export default function LaundryPage() {
                             <TableHead>Category</TableHead>
                             <TableHead>Qty</TableHead>
                             <TableHead>Condition</TableHead>
-                            <TableHead>Unit Cost</TableHead>
-                            <TableHead>Total</TableHead>
+                            <TableHead>Charge (₹)</TableHead>
                             <TableHead>Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1020,8 +1115,7 @@ export default function LaundryPage() {
                               <TableCell>
                                 <Badge variant="outline">{item.condition_before}</Badge>
                               </TableCell>
-                              <TableCell>₹{item.unit_cost.toFixed(2)}</TableCell>
-                              <TableCell>₹{item.total_cost.toFixed(2)}</TableCell>
+                              <TableCell className="font-medium">₹{item.total_cost.toFixed(2)}</TableCell>
                               <TableCell>
                                 <Button variant="ghost" size="sm" onClick={() => removeItemFromBatch(index)}>
                                   <Trash2 className="h-4 w-4" />
@@ -1670,18 +1764,68 @@ export default function LaundryPage() {
                         placeholder="Enter product name"
                       />
                     ) : (
-                      <Select value={editSelectedProduct} onValueChange={setEditSelectedProduct}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products.map((product) => (
-                            <SelectItem key={product.id} value={product.id}>
-                              {product.name} - {product.category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="relative">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            value={editProductSearchTerm}
+                            onChange={(e) => {
+                              setEditProductSearchTerm(e.target.value)
+                              setEditProductSearchOpen(true)
+                            }}
+                            onFocus={() => setEditProductSearchOpen(true)}
+                            placeholder={editSelectedProduct ? products.find(p => p.id === editSelectedProduct)?.name || "Search products..." : "Search products..."}
+                            className="pl-9"
+                          />
+                          {editSelectedProduct && !editProductSearchTerm && (
+                            <div className="absolute inset-0 flex items-center pl-9 pointer-events-none">
+                              <span className="text-sm">{products.find(p => p.id === editSelectedProduct)?.name}</span>
+                            </div>
+                          )}
+                        </div>
+                        {editProductSearchOpen && (
+                          <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg max-h-64 overflow-auto">
+                            {products
+                              .filter(p => 
+                                !editProductSearchTerm || 
+                                p.name.toLowerCase().includes(editProductSearchTerm.toLowerCase()) ||
+                                (p.category && p.category.toLowerCase().includes(editProductSearchTerm.toLowerCase()))
+                              )
+                              .map((product) => (
+                                <div
+                                  key={product.id}
+                                  className={cn(
+                                    "flex items-center px-3 py-2 cursor-pointer hover:bg-accent",
+                                    editSelectedProduct === product.id && "bg-accent"
+                                  )}
+                                  onClick={() => {
+                                    setEditSelectedProduct(product.id)
+                                    setEditProductSearchTerm("")
+                                    setEditProductSearchOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      editSelectedProduct === product.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span>{product.name}</span>
+                                  {product.category && (
+                                    <span className="ml-2 text-muted-foreground text-sm">- {product.category}</span>
+                                  )}
+                                </div>
+                              ))}
+                            {products.filter(p => 
+                              !editProductSearchTerm || 
+                              p.name.toLowerCase().includes(editProductSearchTerm.toLowerCase()) ||
+                              (p.category && p.category.toLowerCase().includes(editProductSearchTerm.toLowerCase()))
+                            ).length === 0 && (
+                              <div className="px-3 py-2 text-sm text-muted-foreground">No products found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div>
@@ -1710,7 +1854,18 @@ export default function LaundryPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2">
+                  <div>
+                    <Label>Laundry Charge (₹) - Total</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={editItemCost}
+                      onChange={(e) => setEditItemCost(e.target.value)}
+                    />
+                  </div>
+                  <div>
                     <Label>Item Notes</Label>
                     <Input
                       placeholder="Notes about this item..."

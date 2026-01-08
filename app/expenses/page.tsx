@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, DollarSign, Upload, Calendar, TrendingUp, Filter, FileText, Eye, Pencil, Trash2, FolderOpen, Info } from 'lucide-react'
+import { Plus, Search, IndianRupee, Upload, Calendar, TrendingUp, Filter, FileText, Eye, Pencil, Trash2, FolderOpen, Info } from 'lucide-react'
 import { UploadProgress, useUploadProgress } from '@/components/ui/upload-progress'
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { supabase } from "@/lib/supabase"
@@ -43,11 +43,13 @@ interface Expense {
   receipt_url?: string
   expense_number: string
   created_by: string
-  subcategory?: string // Updated field
+  subcategory?: string // Category ID
+  booking_id?: string
+  booking_number?: string // For display
   status: "pending" | "approved" | "rejected"
   approved_by?: string
   approved_at?: string
-  category?: any
+  category?: ExpenseCategory
 }
 
 interface Vendor {
@@ -80,7 +82,6 @@ export default function ExpensesPage() {
   const [billPhoto, setBillPhoto] = useState<File | null>(null) // legacy single
   const [billFiles, setBillFiles] = useState<File[]>([])
   const { progress: uploadProgress, isUploading, track: trackUpload } = useUploadProgress()
-  const [customers, setCustomers] = useState<{id:string; name:string}[]>([])
   const [formData, setFormData] = useState<{description:string; amount:string; expense_date:string; receipt_number:string; vendor_name:string; vendor_id:string; notes:string; category_id:string; status: 'pending' | 'approved' | 'rejected';} >({
     description: "",
     amount: "",
@@ -115,22 +116,69 @@ export default function ExpensesPage() {
     setFilters({category:'',dateFrom:'',dateTo:'',vendor:''})
     setPendingFilters({category:'',dateFrom:'',dateTo:'',vendor:''})
   }
-  // Customer search typeahead
-  const [customerQuery, setCustomerQuery] = useState('')
-  const [customerResults, setCustomerResults] = useState<{id:string; name:string}[]>([])
-  const customerCacheRef = useState<Record<string,{id:string; name:string}[]>>({})[0]
-  let searchTimeout: any
-  const handleCustomerSearch = (val:string) => {
-    setCustomerQuery(val)
-    if(searchTimeout) clearTimeout(searchTimeout)
-    if(!val){ setCustomerResults([]); return }
-    searchTimeout = setTimeout(async ()=>{
-      if(customerCacheRef[val]){ setCustomerResults(customerCacheRef[val]); return }
-      try{
-        const { data, error } = await supabase.from('customers').select('id,name').ilike('name', `%${val}%`).limit(10)
-        if(!error){ customerCacheRef[val]=data||[]; setCustomerResults(data||[]) }
-      }catch(e){ console.error('customer search', e) }
-    }, 300)
+  // Booking search typeahead
+  const [bookingQuery, setBookingQuery] = useState('')
+  const [bookingResults, setBookingResults] = useState<{id:string; booking_number:string; customer_name?:string; event_date?:string; type?:string}[]>([])
+  const [allBookings, setAllBookings] = useState<{id:string; booking_number:string; customer_name?:string; event_date?:string; type?:string}[]>([])
+  const [showBookingDropdown, setShowBookingDropdown] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<{id:string; booking_number:string; customer_name?:string; type?:string}|null>(null)
+  const [bookingsLoading, setBookingsLoading] = useState(false)
+  
+  const fetchBookings = async () => {
+    if(bookingsLoading) return
+    setBookingsLoading(true)
+    try {
+      // Fetch from the bookings API which combines product_orders, package_bookings, and direct_sales
+      const res = await fetch('/api/bookings', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed to fetch bookings')
+      const { data } = await res.json()
+      
+      // Filter out quotes and map the bookings to a common format
+      const mappedBookings = (data || [])
+        .filter((b: any) => b.status !== 'quote' && !b.is_quote) // Exclude quotes
+        .map((b: any) => ({
+          id: b.id,
+          booking_number: b.booking_number || b.order_number || b.package_number || b.sale_number || 'N/A',
+          customer_name: b.customer?.name || b.customer_name || '',
+          event_date: b.event_date || b.delivery_date || b.sale_date || '',
+          type: b.source === 'package_bookings' ? 'Package' 
+              : b.source === 'direct_sales' ? 'Direct Sale' 
+              : b.type === 'sale' ? 'Sale' 
+              : 'Rental'
+        }))
+      
+      console.log('Fetched bookings:', mappedBookings.length, 'Total from API:', (data || []).length)
+      setAllBookings(mappedBookings)
+      setBookingResults(mappedBookings.slice(0, 10))
+    } catch(e) { console.error('fetch bookings', e) }
+    finally { setBookingsLoading(false) }
+  }
+  
+  // Load bookings when add dialog opens
+  useEffect(() => {
+    if(showAddDialog && allBookings.length === 0) {
+      fetchBookings()
+    }
+  }, [showAddDialog])
+  
+  const handleBookingSearch = (val:string) => {
+    setBookingQuery(val)
+    setShowBookingDropdown(true)
+    if(!val) {
+      setBookingResults(allBookings.slice(0, 10))
+      return
+    }
+    const filtered = allBookings.filter(b => 
+      b.booking_number?.toLowerCase().includes(val.toLowerCase()) ||
+      b.customer_name?.toLowerCase().includes(val.toLowerCase())
+    ).slice(0, 10)
+    setBookingResults(filtered)
+  }
+  
+  const handleBookingFocus = () => {
+    setShowBookingDropdown(true)
+    if(allBookings.length === 0) fetchBookings()
+    else setBookingResults(allBookings.slice(0, 10))
   }
 
   // Category creation
@@ -142,23 +190,28 @@ export default function ExpensesPage() {
   const [deleteCategoryTarget, setDeleteCategoryTarget] = useState<{id:string; name:string}|null>(null)
   const fetchCategories = async () => {
     try {
-      const { data, error } = await supabase.from('expense_categories').select('id,name,color,description,is_active').eq('is_active', true).order('name')
-      if(error) throw error
+      const res = await fetch('/api/expense-categories', { credentials: 'include' })
+      if (!res.ok) throw new Error('Failed to fetch categories')
+      const { data } = await res.json()
       if(data) setCategories(data as any)
     } catch(e){ console.error('Load categories failed', e) }
   }
   const addCategory = async () => {
     if(!newCategory.name.trim()) { toast.error('Name required'); return }
     try {
-      const { data, error } = await supabase.from('expense_categories').insert({ 
-        name: newCategory.name, 
-        description: newCategory.description || null, 
-        color: newCategory.color || '#2563eb',
-        is_active: true,
-        created_at: new Date().toISOString()
-      }).select('id,name,color,description,is_active')
-      if(error) throw error
-      if(data && data[0]) setCategories(prev=>[...prev, data[0] as any])
+      const res = await fetch('/api/expense-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: newCategory.name,
+          description: newCategory.description || null,
+          color: newCategory.color || '#2563eb'
+        })
+      })
+      if (!res.ok) throw new Error('Failed to add category')
+      const { data } = await res.json()
+      if(data) setCategories(prev=>[...prev, data as any])
       toast.success('Category added')
       setShowCategoryDialog(false)
       setNewCategory({ name:'', description:'', color:'#2563eb'})
@@ -168,22 +221,43 @@ export default function ExpensesPage() {
     if(!editingCategoryId) return
     if(!editingCategoryForm.name.trim()) { toast.error('Name required'); return }
     try {
-      const { data, error } = await supabase.from('expense_categories').update({ name: editingCategoryForm.name, color: editingCategoryForm.color, updated_at: new Date().toISOString() }).eq('id', editingCategoryId).select('id,name,color,description')
-      if(error) throw error
-      if(data && data[0]) setCategories(prev => prev.map(c => c.id===editingCategoryId ? { ...c, name:data[0].name, color:data[0].color } : c))
+      const res = await fetch('/api/expense-categories', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: editingCategoryId,
+          name: editingCategoryForm.name,
+          color: editingCategoryForm.color
+        })
+      })
+      if (!res.ok) throw new Error('Update failed')
+      const { data } = await res.json()
+      if(data) setCategories(prev => prev.map(c => c.id===editingCategoryId ? { ...c, name:data.name, color:data.color } : c))
       toast.success('Category updated')
       setEditingCategoryId(null)
     } catch(e){ console.error(e); toast.error('Update failed') }
   }
   const deleteCategory = async (id:string) => {
     try {
-      const { error } = await supabase.from('expense_categories').update({ is_active:false }).eq('id', id)
-      if(error) throw error
+      const res = await fetch(`/api/expense-categories?id=${id}`, { method: 'DELETE', credentials: 'include' })
+      if (!res.ok) throw new Error('Delete failed')
       setCategories(prev=>prev.filter(c=>c.id!==id))
       toast.success('Category deleted')
     } catch(e){ console.error(e); toast.error('Delete failed') }
   }
   useEffect(()=>{ fetchCategories() }, [])
+
+  // Re-fetch expenses when categories change (to properly map category names)
+  useEffect(() => {
+    if (categories.length > 0 && expenses.length > 0) {
+      // Re-map expenses with proper category data
+      setExpenses(prev => prev.map(expense => ({
+        ...expense,
+        category: categories.find((cat) => cat.id === expense.subcategory),
+      })))
+    }
+  }, [categories])
 
   // View / Edit / File dialogs
   const [viewExpense, setViewExpense] = useState<Expense|null>(null)
@@ -209,14 +283,10 @@ export default function ExpensesPage() {
 
   const fetchVendors = async () => {
     try {
-      const { data, error } = await supabase
-        .from("vendors")
-        .select("id, name, contact_person, phone, email")
-        .eq("is_active", true)
-        .order("name")
-
-      if (error) throw error
-      setVendors(data || [])
+      const res = await fetch('/api/vendors?status=active')
+      if (!res.ok) throw new Error('Failed to fetch vendors')
+      const { vendors } = await res.json()
+      setVendors(vendors || [])
     } catch (error) {
       console.error("Error fetching vendors:", error)
     }
@@ -224,11 +294,19 @@ export default function ExpensesPage() {
 
   const fetchExpenses = async () => {
     try {
-      const { data, error } = await supabase.from("expenses").select("*").order("expense_date", { ascending: false })
+      // Use API to fetch expenses (handles franchise filtering)
+      const res = await fetch('/api/expenses?pageSize=1000', {
+        credentials: 'include'
+      })
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch expenses')
+      }
+      
+      const result = await res.json()
+      const data = result.data || []
 
-      if (error) throw error
-
-      const enhancedExpenses = (data || []).map((expense: any) => ({
+      const enhancedExpenses = data.map((expense: any) => ({
         ...expense,
         category: categories.find((cat) => cat.id === expense.subcategory), // Updated field
         status: expense.status || "pending",
@@ -236,7 +314,7 @@ export default function ExpensesPage() {
 
       setExpenses(enhancedExpenses)
 
-      if (data && data.length > 0) {
+      if (data.length > 0) {
         toast.success(`Loaded ${data.length} expense records`)
       }
     } catch (error) {
@@ -250,14 +328,6 @@ export default function ExpensesPage() {
   }
 
     // Removed handleAddVendor (vendor creation disabled)
-
-    const fetchCustomers = async () => {
-      try {
-        const { data, error } = await supabase.from('customers').select('id,name').order('name')
-        if(error) throw error
-        setCustomers(data || [])
-      } catch(e){ console.error('Error fetching customers', e) }
-    }
 
   const uploadBillPhoto = async (file: File, onChunk?: (loaded:number,total:number)=>void): Promise<string | null> => {
     try {
@@ -273,8 +343,13 @@ export default function ExpensesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.description || !formData.amount || Number.parseFloat(formData.amount) <= 0) {
-      toast.error("Please fill in description and amount")
+    if (!formData.amount || Number.parseFloat(formData.amount) <= 0) {
+      toast.error("Please fill in amount")
+      return
+    }
+
+    if (!formData.category_id) {
+      toast.error("Please select a category")
       return
     }
 
@@ -282,111 +357,45 @@ export default function ExpensesPage() {
       toast.info("Adding expense...")
 
       let billPhotoUrl = null
-      if (billFiles.length>0) {
-        const uploaded = await trackUpload(billFiles, (file, onChunk)=> uploadBillPhoto(file, onChunk))
-        billPhotoUrl = uploaded.filter(Boolean).join('|')
-      } else if (billPhoto) { // backward compatibility if some code still sets billPhoto
-        const single = await uploadBillPhoto(billPhoto, ()=>{})
-        billPhotoUrl = single
-      }
-
-      let franchiseId = null
-      const { data: existingFranchises, error: franchiseError } = await supabase
-        .from("franchises")
-        .select("id")
-        .eq("is_active", true)
-        .limit(1)
-      useEffect(() => {
-        fetchExpenses()
-        fetchVendors()
-        fetchCustomers()
-      }, [])
-
-      if (!franchiseError && existingFranchises && existingFranchises.length > 0) {
-        franchiseId = existingFranchises[0].id
-      } else {
-        // Create a default franchise if none exists
-        const { data: newFranchise, error: createFranchiseError } = await supabase
-          .from("franchises")
-          .insert([
-            {
-              name: "Main Branch",
-              code: "MAIN001",
-              address: "Main Office",
-              city: "City",
-              state: "State",
-              pincode: "000000",
-              phone: "0000000000",
-              email: "main@safawala.com",
-              owner_name: "System Owner",
-              is_active: true,
-              created_at: new Date().toISOString(),
-            },
-          ])
-          .select("id")
-
-        if (!createFranchiseError && newFranchise && newFranchise[0]) {
-          franchiseId = newFranchise[0].id
+      // File upload is OPTIONAL - skip if no files selected
+      if (billFiles.length > 0) {
+        try {
+          const uploaded = await trackUpload(billFiles, (file, onChunk) => uploadBillPhoto(file, onChunk))
+          billPhotoUrl = uploaded.filter(Boolean).join('|')
+          console.log('[Expenses] Files uploaded:', billPhotoUrl)
+        } catch (uploadError) {
+          console.warn('[Expenses] File upload failed, continuing without files:', uploadError)
+          // Continue without files - they are optional
         }
       }
 
-      let systemUserId = null
-      const { data: existingUsers, error: userError } = await supabase.from("users").select("id").limit(1)
-
-      if (!userError && existingUsers && existingUsers.length > 0) {
-        systemUserId = existingUsers[0].id
-      } else if (franchiseId) {
-        const { data: newUser, error: createUserError } = await supabase
-          .from("users")
-          .insert([
-            {
-              name: "System User",
-              email: "system@safawala.com",
-              role: "admin",
-              is_active: true,
-              franchise_id: franchiseId,
-              created_at: new Date().toISOString(),
-            },
-          ])
-          .select("id")
-
-        if (!createUserError && newUser && newUser[0]) {
-          systemUserId = newUser[0].id
-        }
+      const expenseData = {
+        description: formData.description || `₹${Number.parseFloat(formData.amount).toLocaleString()} expense`,
+        amount: Number.parseFloat(formData.amount),
+        expense_date: formData.expense_date,
+        receipt_number: formData.receipt_number || null,
+        vendor_name: formData.vendor_name || null,
+        receipt_url: billPhotoUrl,
+        subcategory: formData.category_id || "other",
+        booking_id: selectedBooking?.id || null,
+        booking_number: selectedBooking?.booking_number || null,
+        status: 'approved', // All expenses are approved/paid
+        is_recurring: false,
+        recurring_frequency: null,
       }
 
-      if (!franchiseId) {
-        throw new Error("Unable to create or find a valid franchise")
+      // Use the API to add expense (which handles auth and RLS)
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(expenseData)
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to add expense')
       }
-
-      const expenseNumber = `EXP-${Date.now()}`
-
-      const { data, error } = await supabase
-        .from("expenses")
-        .insert([
-          {
-            description: formData.description,
-            amount: Number.parseFloat(formData.amount),
-            expense_date: formData.expense_date,
-            receipt_number: formData.receipt_number || null,
-            vendor_name: formData.vendor_name || null,
-            vendor_id: formData.vendor_id || null,
-            customer_id: (formData as any).customer_id || null,
-            receipt_url: billPhotoUrl,
-            expense_number: expenseNumber,
-            franchise_id: franchiseId,
-            created_by: systemUserId,
-            created_at: new Date().toISOString(),
-            subcategory: formData.category_id || "other",
-            status: formData.status,
-            category_id: null, // using subcategory string
-            is_recurring: false,
-            recurring_frequency: null,
-          },
-        ])
-        .select()
-
-      if (error) throw error
 
       toast.success("Expense added successfully!", {
         description: `₹${Number.parseFloat(formData.amount).toLocaleString()} expense recorded`,
@@ -403,12 +412,15 @@ export default function ExpensesPage() {
         category_id: "other",
         status: "pending",
       })
-      setBillPhoto(null); setBillFiles([])
+      setBillPhoto(null)
+      setBillFiles([])
+      setBookingQuery('')
+      setSelectedBooking(null)
       fetchExpenses()
     } catch (error) {
       console.error("Error adding expense:", error)
       toast.error("Failed to add expense", {
-        description: "Please check your data and try again",
+        description: error instanceof Error ? error.message : "Please check your data and try again",
       })
     }
   }
@@ -632,198 +644,6 @@ export default function ExpensesPage() {
                       />
                     </div>
 
-                      {/* Category Management Dialog */}
-                      <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
-                        <DialogContent className="max-w-lg">
-                          <DialogHeader>
-                            <DialogTitle>Manage Categories</DialogTitle>
-                            <DialogDescription>Add, view or remove categories.</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-6 text-sm">
-                            <div className="space-y-3">
-                              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick List</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {categories.slice(0,6).map(cat => (
-                                  <span key={cat.id} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 bg-background">
-                                    <span className="h-2 w-2 rounded-full" style={{ background: cat.color }} />
-                                    {cat.name}
-                                  </span>
-                                ))}
-                                {categories.length>6 && <span className="text-muted-foreground text-xs">+{categories.length-6} more</span>}
-                              </div>
-                              <Button variant="ghost" size="sm" className="mt-1" onClick={()=>setShowAllCats(v=>!v)}>
-                                {showAllCats? 'Hide Other Categories' : 'Show Other Categories'}
-                              </Button>
-                              {showAllCats && (
-                                <div className="max-h-60 overflow-auto rounded border divide-y mt-2">
-                                  {categories.map(cat=> {
-                                    const editing = editingCategoryId===cat.id
-                                    return (
-                                      <div key={cat.id} className="p-2 space-y-1">
-                                        {!editing && (
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                              <span className="h-3 w-3 rounded-full" style={{ background: cat.color }}></span>
-                                              <span>{cat.name}</span>
-                                            </div>
-                                            <div className="flex gap-1">
-                                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={()=>{ setEditingCategoryId(cat.id); setEditingCategoryForm({ name: cat.name, color: cat.color }); }}><Pencil className="h-3 w-3" /></Button>
-                                              <Button variant="destructive" size="icon" className="h-7 w-7" onClick={()=> setDeleteCategoryTarget({ id:cat.id, name: cat.name })}><Trash2 className="h-3 w-3" /></Button>
-                                            </div>
-                                          </div>
-                                        )}
-                                        {editing && (
-                                          <div className="space-y-2 rounded border p-2 bg-muted/30">
-                                            <div className="flex items-center gap-2">
-                                              <Input value={editingCategoryForm.name} onChange={e=>setEditingCategoryForm(f=>({...f,name:e.target.value}))} placeholder="Name" className="h-8" />
-                                              <Input type="color" value={editingCategoryForm.color} onChange={e=>setEditingCategoryForm(f=>({...f,color:e.target.value}))} className="h-8 w-16 p-1" />
-                                            </div>
-                                            <div className="flex justify-end gap-2">
-                                              <Button variant="outline" size="sm" onClick={()=>{ setEditingCategoryId(null) }}>Cancel</Button>
-                                              <Button size="sm" onClick={updateCategory}>Save</Button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                            <div className="space-y-3">
-                              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add New</h4>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1 col-span-1">
-                                  <Label htmlFor="cat-name">Name</Label>
-                                  <Input id="cat-name" value={newCategory.name} onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))} />
-                                </div>
-                                <div className="space-y-1 col-span-1">
-                                  <Label htmlFor="cat-color">Color</Label>
-                                  <Input id="cat-color" type="color" value={newCategory.color} onChange={e => setNewCategory(c => ({ ...c, color: e.target.value }))} />
-                                </div>
-                                <div className="col-span-2 flex justify-end gap-2">
-                                  <Button type="button" variant="outline" onClick={()=>{ setNewCategory({ name:'', description:'', color:'#2563eb'}); }}>Clear</Button>
-                                  <Button onClick={addCategory} disabled={!newCategory.name.trim()}>Add</Button>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex justify-end">
-                              <Button variant="outline" onClick={()=>setShowCategoryDialog(false)}>Close</Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* View Expense Dialog */}
-                      <Dialog open={!!viewExpense} onOpenChange={(o) => { if(!o) setViewExpense(null); }}>
-                        <DialogContent className="max-w-lg">
-                          <DialogHeader>
-                            <DialogTitle>Expense Details</DialogTitle>
-                          </DialogHeader>
-                          {viewExpense && (
-                            <div className="space-y-3 text-sm">
-                              <div><span className="font-medium">Description:</span> {viewExpense.description}</div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div><span className="font-medium">Amount:</span> ₹{Number(viewExpense.amount).toFixed(2)}</div>
-                                <div><span className="font-medium">Status:</span> {viewExpense.status}</div>
-                                <div><span className="font-medium">Date:</span> {format(new Date(viewExpense.expense_date), 'dd-MMM-yyyy')}</div>
-                                <div><span className="font-medium">Category:</span> {viewExpense.subcategory || '—'}</div>
-                                <div><span className="font-medium">Vendor:</span> {viewExpense.vendor_name || '-'}</div>
-                              </div>
-                              {viewExpense.receipt_url && (
-                                <Button variant="outline" onClick={() => { setFileViewer(viewExpense); setViewExpense(null); }}>View Receipt</Button>
-                              )}
-                            </div>
-                          )}
-                          <div className="flex justify-end">
-                            <Button onClick={() => setViewExpense(null)}>Close</Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* Edit Expense Dialog (fields limited to existing schema) */}
-                      <Dialog open={!!editExpense} onOpenChange={(o) => { if(!o) setEditExpense(null); }}>
-                        <DialogContent className="max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Edit Expense</DialogTitle>
-                          </DialogHeader>
-                          {editExpense && (
-                            <form onSubmit={(e)=>{ e.preventDefault(); submitEdit(); }} className="space-y-4 text-sm">
-                              <div className="space-y-1">
-                                <Label>Description</Label>
-                                <Input value={editForm.description} onChange={e=>setEditForm(f=>({...f, description:e.target.value}))} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label>Amount</Label>
-                                <Input type="number" step="0.01" value={editForm.amount} onChange={e=>setEditForm(f=>({...f, amount:e.target.value}))} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label>Date</Label>
-                                <Input type="date" value={editForm.expense_date} onChange={e=>setEditForm(f=>({...f, expense_date:e.target.value}))} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label>Status</Label>
-                                <Select value={editForm.status} onValueChange={v=>setEditForm(f=>({...f, status:v as Expense['status']}))}>
-                                  <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="approved">Approved</SelectItem>
-                                    <SelectItem value="rejected">Rejected</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-1">
-                                <Label>Category</Label>
-                                <Select value={editForm.category_id} onValueChange={v=>setEditForm(f=>({...f, category_id:v}))}>
-                                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                                  <SelectContent>
-                                    {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="flex justify-end gap-2 pt-2">
-                                <Button type="button" variant="outline" onClick={()=>setEditExpense(null)}>Cancel</Button>
-                                <Button type="submit">Save</Button>
-                              </div>
-                            </form>
-                          )}
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* File Viewer Dialog */}
-                      <Dialog open={!!fileViewer} onOpenChange={(o) => { if(!o) setFileViewer(null); }}>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Receipt File</DialogTitle>
-                          </DialogHeader>
-                          {fileViewer?.receipt_url ? (
-                            <div className="space-y-4">
-                              {fileViewer.receipt_url.split('|').map((url,i)=>{
-                                const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(url)
-                                const isPdf = /\.(pdf)$/i.test(url)
-                                return (
-                                  <div key={i} className="border rounded p-2">
-                                    <p className="text-xs mb-1 break-all">File {i+1}</p>
-                                    {isImg ? (
-                                      <img src={url} alt={`Receipt ${i+1}`} className="max-h-[40vh] w-auto mx-auto rounded border" />
-                                    ) : isPdf ? (
-                                      <iframe src={url} className="w-full h-[40vh] border rounded" />
-                                    ) : (
-                                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Open File</a>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-muted-foreground">No file available.</div>
-                          )}
-                          <div className="flex justify-end">
-                            <Button onClick={() => setFileViewer(null)}>Close</Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-
                     <div className="space-y-2">
                       <Label htmlFor="expense_date">Date *</Label>
                       <Input
@@ -886,21 +706,66 @@ export default function ExpensesPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="customer-search">Customer (optional)</Label>
+                      <Label htmlFor="booking-search">Booking (optional)</Label>
                       <div className="relative">
-                        <Input id="customer-search" placeholder="Search customer..." onChange={(e)=> handleCustomerSearch(e.target.value)} />
-                        {customerQuery && customerResults.length>0 && (
-                          <div className="absolute z-20 mt-1 w-full border bg-background rounded shadow-sm max-h-48 overflow-auto text-sm">
-                            {customerResults.map(c=> (
-                              <button type="button" key={c.id} className={`w-full text-left px-2 py-1 hover:bg-muted ${ (formData as any).customer_id===c.id ? 'bg-muted/60' : '' }`} onClick={()=>{ setFormData(prev=>({...prev, customer_id:c.id} as any)); setCustomerQuery(c.name); setCustomerResults([]) }}>
-                                {c.name}
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                              id="booking-search" 
+                              placeholder="Search by booking # or customer..." 
+                              value={bookingQuery} 
+                              onChange={(e) => handleBookingSearch(e.target.value)}
+                              onFocus={handleBookingFocus}
+                              onBlur={() => setTimeout(() => setShowBookingDropdown(false), 200)}
+                              className="pl-8"
+                            />
+                          </div>
+                          {selectedBooking && (
+                            <Button type="button" variant="ghost" size="icon" onClick={() => { setSelectedBooking(null); setBookingQuery(''); setFormData(prev => ({...prev, booking_id: undefined} as any)) }}>
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </div>
+                        {showBookingDropdown && bookingResults.length > 0 && (
+                          <div className="absolute z-20 mt-1 w-full border bg-background rounded-md shadow-lg max-h-60 overflow-auto">
+                            {bookingResults.map(b => (
+                              <button 
+                                type="button" 
+                                key={b.id} 
+                                className={`w-full text-left px-3 py-2 hover:bg-muted flex justify-between items-center border-b last:border-b-0 ${selectedBooking?.id === b.id ? 'bg-muted' : ''}`}
+                                onClick={() => { 
+                                  setSelectedBooking(b)
+                                  setFormData(prev => ({...prev, booking_id: b.id} as any))
+                                  setBookingQuery(`${b.booking_number}${b.customer_name ? ' - ' + b.customer_name : ''}`)
+                                  setShowBookingDropdown(false)
+                                }}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm">{b.booking_number}</span>
+                                    {b.type && <Badge variant="outline" className="text-[10px] px-1 py-0">{b.type}</Badge>}
+                                  </div>
+                                  {b.customer_name && <div className="text-xs text-muted-foreground">{b.customer_name}</div>}
+                                </div>
+                                {b.event_date && <span className="text-xs text-muted-foreground ml-2">{new Date(b.event_date).toLocaleDateString()}</span>}
                               </button>
                             ))}
                           </div>
                         )}
+                        {showBookingDropdown && bookingsLoading && (
+                          <div className="absolute z-20 mt-1 w-full border bg-background rounded-md shadow-lg p-3 text-sm text-muted-foreground">
+                            Loading bookings...
+                          </div>
+                        )}
+                        {showBookingDropdown && !bookingsLoading && bookingResults.length === 0 && (
+                          <div className="absolute z-20 mt-1 w-full border bg-background rounded-md shadow-lg p-3 text-sm text-muted-foreground">
+                            {bookingQuery ? 'No bookings found' : 'No bookings available'}
+                          </div>
+                        )}
                       </div>
-                      {(formData as any).customer_id && customerQuery && (
-                        <p className="text-xs text-muted-foreground">Selected: {customerQuery}</p>
+                      {selectedBooking && (
+                        <p className="text-xs text-muted-foreground">Selected: {selectedBooking.booking_number}{selectedBooking.customer_name ? ` - ${selectedBooking.customer_name}` : ''}</p>
                       )}
                     </div>
 
@@ -943,13 +808,12 @@ export default function ExpensesPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description *</Label>
+                    <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
                       value={formData.description}
                       onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                       placeholder="Describe the expense"
-                      required
                     />
                   </div>
 
@@ -996,7 +860,7 @@ export default function ExpensesPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <DollarSign className="h-5 w-5 text-blue-500" />
+                  <IndianRupee className="h-5 w-5 text-green-500" />
                   <div>
                     <div className="text-2xl font-bold">₹{totalExpenses.toLocaleString()}</div>
                     <div className="text-sm text-muted-foreground">Total Expenses</div>
@@ -1004,7 +868,7 @@ export default function ExpensesPage() {
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground">This Period</div>
-                  <div className="text-sm font-medium text-blue-600">{filteredExpenses.length} records</div>
+                  <div className="text-sm font-medium text-green-600">{expenses.length} records</div>
                 </div>
               </div>
             </CardContent>
@@ -1014,16 +878,24 @@ export default function ExpensesPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5 text-yellow-500" />
+                  <Calendar className="h-5 w-5 text-blue-500" />
                   <div>
-                    <div className="text-2xl font-bold">₹{pendingExpenses.toLocaleString()}</div>
-                    <div className="text-sm text-muted-foreground">Pending Approval</div>
+                    <div className="text-2xl font-bold">{expenses.filter(e => {
+                      const today = new Date()
+                      const expDate = new Date(e.expense_date)
+                      return expDate.getMonth() === today.getMonth() && expDate.getFullYear() === today.getFullYear()
+                    }).length}</div>
+                    <div className="text-sm text-muted-foreground">This Month</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Awaiting Review</div>
-                  <div className="text-sm font-medium text-yellow-600">
-                    {filteredExpenses.filter((e) => e.status === "pending").length} items
+                  <div className="text-xs text-muted-foreground">₹</div>
+                  <div className="text-sm font-medium text-blue-600">
+                    {expenses.filter(e => {
+                      const today = new Date()
+                      const expDate = new Date(e.expense_date)
+                      return expDate.getMonth() === today.getMonth() && expDate.getFullYear() === today.getFullYear()
+                    }).reduce((sum, e) => sum + e.amount, 0).toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -1034,17 +906,15 @@ export default function ExpensesPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
+                  <TrendingUp className="h-5 w-5 text-purple-500" />
                   <div>
-                    <div className="text-2xl font-bold">₹{approvedExpenses.toLocaleString()}</div>
-                    <div className="text-sm text-muted-foreground">Approved</div>
+                    <div className="text-2xl font-bold">₹{expenses.length > 0 ? Math.round(totalExpenses / expenses.length).toLocaleString() : 0}</div>
+                    <div className="text-sm text-muted-foreground">Avg. Expense</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Ready for Payment</div>
-                  <div className="text-sm font-medium text-green-600">
-                    {filteredExpenses.filter((e) => e.status === "approved").length} items
-                  </div>
+                  <div className="text-xs text-muted-foreground">Per Record</div>
+                  <div className="text-sm font-medium text-purple-600">Average</div>
                 </div>
               </div>
             </CardContent>
@@ -1054,16 +924,16 @@ export default function ExpensesPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Filter className="h-5 w-5 text-purple-500" />
+                  <Filter className="h-5 w-5 text-orange-500" />
                   <div>
                     <div className="text-2xl font-bold">{filteredExpenses.length}</div>
-                    <div className="text-sm text-muted-foreground">Filtered Records</div>
+                    <div className="text-sm text-muted-foreground">Filtered</div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground">of {expenses.length} total</div>
-                  <div className="text-sm font-medium text-purple-600">
-                    {((filteredExpenses.length / expenses.length) * 100).toFixed(0)}% shown
+                  <div className="text-sm font-medium text-orange-600">
+                    {expenses.length > 0 ? `${((filteredExpenses.length / expenses.length) * 100).toFixed(0)}%` : '0%'}
                   </div>
                 </div>
               </div>
@@ -1088,13 +958,13 @@ export default function ExpensesPage() {
                     <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('date')}>
                       Date {sort.field==='date' && (sort.dir==='asc'?'▲':'▼')}
                     </TableHead>
-                    <TableHead>Description</TableHead>
+                    <TableHead>Booking</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Vendor</TableHead>
                     <TableHead className="cursor-pointer select-none" onClick={()=>toggleSort('amount')}>
                       Amount {sort.field==='amount' && (sort.dir==='asc'?'▲':'▼')}
                     </TableHead>
-                    <TableHead>Receipt</TableHead>
+                    <TableHead>Receipt #</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1102,25 +972,30 @@ export default function ExpensesPage() {
                   {paginatedExpenses.map(expense => (
                     <TableRow key={expense.id}>
                       <TableCell>{expense.expense_date}</TableCell>
-                      <TableCell className="max-w-xs truncate" title={expense.description}>{expense.description}</TableCell>
-                      <TableCell>{expense.category?.name || expense.subcategory || '-'}</TableCell>
+                      <TableCell>
+                        {expense.booking_number ? (
+                          <span className="text-sm font-medium text-primary">{expense.booking_number}</span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {expense.category?.name || 'Uncategorized'}
+                        </span>
+                      </TableCell>
                       <TableCell>{expense.vendor_name || '-'}</TableCell>
                       <TableCell className="font-medium">₹{expense.amount.toLocaleString()}</TableCell>
                       <TableCell>{expense.receipt_number || '-'}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {expense.receipt_url && (
-                            <Button variant="outline" size="sm" onClick={() => setFileViewer(expense)}>
-                              <FolderOpen className="h-3 w-3" />
-                            </Button>
-                          )}
-                          <Button variant="outline" size="sm" onClick={() => setViewExpense(expense)}>
+                          <Button variant="outline" size="sm" onClick={() => setViewExpense(expense)} title="View">
                             <Eye className="h-3 w-3" />
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => openEdit(expense)}>
+                          <Button variant="outline" size="sm" onClick={() => openEdit(expense)} title="Edit">
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteExpense(expense)}>
+                          <Button variant="destructive" size="sm" onClick={() => handleDeleteExpense(expense)} title="Delete">
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
@@ -1189,84 +1064,261 @@ export default function ExpensesPage() {
           )}
         </Card>
 
-        {/* Category Management Dialog - Top Level */}
+        {/* Category Management Dialog */}
         <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Manage Categories</DialogTitle>
-              <DialogDescription>Add, view or remove categories.</DialogDescription>
+              <DialogTitle>Manage Expense Categories</DialogTitle>
+              <DialogDescription>Add or remove expense categories.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-6 text-sm">
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick List</h4>
-                <div className="flex flex-wrap gap-2">
-                  {categories.slice(0,6).map(cat => (
-                    <span key={cat.id} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 bg-background">
-                      <span className="h-2 w-2 rounded-full" style={{ background: cat.color }} />
-                      {cat.name}
-                    </span>
-                  ))}
-                  {categories.length>6 && <span className="text-muted-foreground text-xs">+{categories.length-6} more</span>}
-                </div>
-                <Button variant="ghost" size="sm" className="mt-1" onClick={()=>setShowAllCats(v=>!v)}>
-                  {showAllCats? 'Hide Other Categories' : 'Show Other Categories'}
-                </Button>
-                {showAllCats && (
-                  <div className="max-h-60 overflow-auto rounded border divide-y mt-2">
-                    {categories.map(cat=> {
-                      const editing = editingCategoryId===cat.id
+            
+            <div className="space-y-4">
+              {/* Existing Categories */}
+              {categories.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Existing Categories</Label>
+                  <div className="max-h-48 overflow-auto rounded-md border">
+                    {categories.map(cat => {
+                      const isEditing = editingCategoryId === cat.id
                       return (
-                        <div key={cat.id} className="p-2 space-y-1">
-                          {!editing && (
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="h-3 w-3 rounded-full" style={{ background: cat.color }}></span>
-                                <span>{cat.name}</span>
-                              </div>
+                        <div key={cat.id} className="flex items-center justify-between p-2 border-b last:border-b-0 hover:bg-muted/50">
+                          {!isEditing ? (
+                            <>
+                              <span className="text-sm">{cat.name}</span>
                               <div className="flex gap-1">
-                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={()=>{ setEditingCategoryId(cat.id); setEditingCategoryForm({ name: cat.name, color: cat.color }); }}><Pencil className="h-3 w-3" /></Button>
-                                <Button variant="destructive" size="icon" className="h-7 w-7" onClick={()=> setDeleteCategoryTarget({ id:cat.id, name: cat.name })}><Trash2 className="h-3 w-3" /></Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7" 
+                                  onClick={() => { 
+                                    setEditingCategoryId(cat.id)
+                                    setEditingCategoryForm({ name: cat.name, color: cat.color }) 
+                                  }}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-7 w-7 text-destructive hover:text-destructive" 
+                                  onClick={() => setDeleteCategoryTarget({ id: cat.id, name: cat.name })}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
-                            </div>
-                          )}
-                          {editing && (
-                            <div className="space-y-2 rounded border p-2 bg-muted/30">
-                              <div className="flex items-center gap-2">
-                                <Input value={editingCategoryForm.name} onChange={e=>setEditingCategoryForm(f=>({...f,name:e.target.value}))} placeholder="Name" className="h-8" />
-                                <Input type="color" value={editingCategoryForm.color} onChange={e=>setEditingCategoryForm(f=>({...f,color:e.target.value}))} className="h-8 w-16 p-1" />
-                              </div>
-                              <div className="flex justify-end gap-2">
-                                <Button variant="outline" size="sm" onClick={()=>{ setEditingCategoryId(null) }}>Cancel</Button>
-                                <Button size="sm" onClick={updateCategory}>Save</Button>
-                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-2 w-full">
+                              <Input 
+                                value={editingCategoryForm.name} 
+                                onChange={e => setEditingCategoryForm(f => ({ ...f, name: e.target.value }))} 
+                                placeholder="Category name" 
+                                className="h-8 flex-1" 
+                              />
+                              <Button variant="ghost" size="sm" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
+                              <Button size="sm" onClick={updateCategory}>Save</Button>
                             </div>
                           )}
                         </div>
                       )
                     })}
                   </div>
-                )}
-              </div>
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add New</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1 col-span-1">
-                    <Label htmlFor="cat-name">Name</Label>
-                    <Input id="cat-name" value={newCategory.name} onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1 col-span-1">
-                    <Label htmlFor="cat-color">Color</Label>
-                    <Input id="cat-color" type="color" value={newCategory.color} onChange={e => setNewCategory(c => ({ ...c, color: e.target.value }))} />
-                  </div>
-                  <div className="col-span-2 flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={()=>{ setNewCategory({ name:'', description:'', color:'#2563eb'}); }}>Clear</Button>
-                    <Button onClick={addCategory} disabled={!newCategory.name.trim()}>Add</Button>
-                  </div>
+                </div>
+              )}
+
+              {categories.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No categories yet. Add one below.</p>
+              )}
+
+              {/* Add New Category */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label htmlFor="new-cat-name" className="text-sm font-medium">Add New Category</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="new-cat-name" 
+                    placeholder="Enter category name" 
+                    value={newCategory.name} 
+                    onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))} 
+                    className="flex-1"
+                    onKeyDown={e => { if (e.key === 'Enter' && newCategory.name.trim()) addCategory() }}
+                  />
+                  <Button onClick={addCategory} disabled={!newCategory.name.trim()}>Add</Button>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={()=>setShowCategoryDialog(false)}>Close</Button>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>Close</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Expense Dialog */}
+        <Dialog open={!!viewExpense} onOpenChange={(o) => { if(!o) setViewExpense(null); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Expense Details</DialogTitle>
+              <DialogDescription>
+                {viewExpense?.expense_number && <span className="font-mono text-xs">{viewExpense.expense_number}</span>}
+              </DialogDescription>
+            </DialogHeader>
+            {viewExpense && (
+              <div className="space-y-4">
+                {/* Amount & Date Header */}
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <div className="text-2xl font-bold text-primary">₹{Number(viewExpense.amount).toLocaleString()}</div>
+                    <div className="text-sm text-muted-foreground">{format(new Date(viewExpense.expense_date), 'dd MMM yyyy')}</div>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Paid
+                    </span>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <div className="text-muted-foreground text-xs uppercase tracking-wide">Category</div>
+                    <div className="font-medium">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {viewExpense.category?.name || viewExpense.subcategory || 'Uncategorized'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-muted-foreground text-xs uppercase tracking-wide">Vendor</div>
+                    <div className="font-medium">{viewExpense.vendor_name || '-'}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-muted-foreground text-xs uppercase tracking-wide">Related Booking</div>
+                    <div className="font-medium">
+                      {viewExpense.booking_number ? (
+                        <span className="text-primary">{viewExpense.booking_number}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-muted-foreground text-xs uppercase tracking-wide">Receipt #</div>
+                    <div className="font-medium">{viewExpense.receipt_number || '-'}</div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {viewExpense.description && (
+                  <div className="space-y-1">
+                    <div className="text-muted-foreground text-xs uppercase tracking-wide">Description</div>
+                    <div className="text-sm p-3 bg-muted/50 rounded-md">{viewExpense.description}</div>
+                  </div>
+                )}
+
+                {/* Receipt Files */}
+                {viewExpense.receipt_url && (
+                  <div className="space-y-2">
+                    <div className="text-muted-foreground text-xs uppercase tracking-wide">Attachments</div>
+                    <Button variant="outline" size="sm" onClick={() => { setFileViewer(viewExpense); setViewExpense(null); }}>
+                      <Eye className="h-4 w-4 mr-2" /> View Receipt Files
+                    </Button>
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className="pt-3 border-t text-xs text-muted-foreground">
+                  <div>Created: {viewExpense.created_at ? format(new Date(viewExpense.created_at), 'dd MMM yyyy, hh:mm a') : '-'}</div>
+                </div>
               </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { if(viewExpense) openEdit(viewExpense); setViewExpense(null); }}>
+                <Pencil className="h-4 w-4 mr-2" /> Edit
+              </Button>
+              <Button onClick={() => setViewExpense(null)}>Close</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Expense Dialog */}
+        <Dialog open={!!editExpense} onOpenChange={(o) => { if(!o) setEditExpense(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Expense</DialogTitle>
+            </DialogHeader>
+            {editExpense && (
+              <form onSubmit={(e)=>{ e.preventDefault(); submitEdit(); }} className="space-y-4 text-sm">
+                <div className="space-y-1">
+                  <Label>Description</Label>
+                  <Input value={editForm.description} onChange={e=>setEditForm(f=>({...f, description:e.target.value}))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Amount</Label>
+                  <Input type="number" step="0.01" value={editForm.amount} onChange={e=>setEditForm(f=>({...f, amount:e.target.value}))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Date</Label>
+                  <Input type="date" value={editForm.expense_date} onChange={e=>setEditForm(f=>({...f, expense_date:e.target.value}))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Status</Label>
+                  <Select value={editForm.status} onValueChange={v=>setEditForm(f=>({...f, status:v as Expense['status']}))}>
+                    <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Category</Label>
+                  <Select value={editForm.category_id} onValueChange={v=>setEditForm(f=>({...f, category_id:v}))}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="outline" onClick={()=>setEditExpense(null)}>Cancel</Button>
+                  <Button type="submit">Save</Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* File Viewer Dialog */}
+        <Dialog open={!!fileViewer} onOpenChange={(o) => { if(!o) setFileViewer(null); }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Receipt File</DialogTitle>
+            </DialogHeader>
+            {fileViewer?.receipt_url ? (
+              <div className="space-y-4">
+                {fileViewer.receipt_url.split('|').map((url,i)=>{
+                  const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(url)
+                  const isPdf = /\.(pdf)$/i.test(url)
+                  return (
+                    <div key={i} className="border rounded p-2">
+                      <p className="text-xs mb-1 break-all">File {i+1}</p>
+                      {isImg ? (
+                        <img src={url} alt={`Receipt ${i+1}`} className="max-h-[40vh] w-auto mx-auto rounded border" />
+                      ) : isPdf ? (
+                        <iframe src={url} className="w-full h-[40vh] border rounded" />
+                      ) : (
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Open File</a>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No file available.</div>
+            )}
+            <div className="flex justify-end">
+              <Button onClick={() => setFileViewer(null)}>Close</Button>
             </div>
           </DialogContent>
         </Dialog>

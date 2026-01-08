@@ -23,6 +23,7 @@ interface BookingData {
   delivery_date: string
   return_date: string
   modification_date?: string
+  modification_time?: string
   modification_details?: string
   has_modifications?: boolean
   event_type: string
@@ -202,6 +203,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           delivery_date: toDateOnly(r.delivery_date),
           return_date: toDateOnly(r.pickup_date), // API field name
           modification_date: r.modification_date ? toDateOnly(r.modification_date) : undefined,
+          modification_time: r.modification_time || undefined,
           modification_details: r.modification_details || undefined,
           has_modifications: r.has_modifications || false,
           event_type: r.event_type,
@@ -703,6 +705,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               <div className="font-medium">
                                 {booking.modification_date ? format(new Date(booking.modification_date), "dd-MMM-yyyy") : "N/A"}
                               </div>
+                              {booking.modification_time && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {booking.modification_time}
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="border-muted px-4 py-3 text-sm text-foreground max-w-sm">

@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('[Upload API] File:', { name: file.name, size: file.size, type: file.type, folder })
+
     // File size validation (max 10MB)
     const maxSize = 10 * 1024 * 1024 // 10MB
     if (file.size > maxSize) {
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
     ]
 
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: "File type not allowed" }, { status: 400 })
+      return NextResponse.json({ error: `File type not allowed: ${file.type}` }, { status: 400 })
     }
 
     // Generate unique filename
@@ -43,8 +45,12 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = new Uint8Array(arrayBuffer)
 
-    // Upload file to Supabase Storage (bucket configurable via PRODUCT_IMAGES_BUCKET)
-    const bucketName = process.env.PRODUCT_IMAGES_BUCKET || 'product-images'
+    // Use product-images bucket or fall back to safawala-uploads
+    const bucketName = process.env.PRODUCT_IMAGES_BUCKET || process.env.STORAGE_BUCKET || 'product-images'
+    
+    console.log('[Upload API] Uploading to bucket:', bucketName, 'path:', filePath)
+
+    // Upload file to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucketName)
       .upload(filePath, buffer, {
@@ -53,9 +59,9 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError) {
-      console.error('Upload error:', uploadError)
+      console.error('[Upload API] Upload error:', uploadError)
       return NextResponse.json(
-        { error: "Failed to upload file" },
+        { error: `Failed to upload file: ${uploadError.message}` },
         { status: 500 }
       )
     }
@@ -64,6 +70,8 @@ export async function POST(request: NextRequest) {
     const { data: urlData } = supabase.storage
       .from(bucketName)
       .getPublicUrl(filePath)
+
+    console.log('[Upload API] Upload successful:', urlData.publicUrl)
 
     return NextResponse.json({
       success: true,
@@ -74,9 +82,9 @@ export async function POST(request: NextRequest) {
       type: file.type
     })
   } catch (error) {
-    console.error('Upload API error:', error)
+    console.error('[Upload API] Error:', error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     )
   }

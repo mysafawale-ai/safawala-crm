@@ -46,7 +46,12 @@ export async function GET(request: NextRequest) {
     const isSuperAdmin = authContext!.user.role === 'super_admin'
     const supabase = createClient()
 
-    console.log(`[Bookings API] Fetching bookings for franchise: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
+    console.log(`\n========== [BOOKINGS API] START ==========`)
+    console.log(`User: ${authContext!.user.email}`)
+    console.log(`Franchise ID: ${franchiseId}`)
+    console.log(`Franchise Name: ${authContext!.user.franchise_name}`)
+    console.log(`Role: ${authContext!.user.role}`)
+    console.log(`Is Super Admin: ${isSuperAdmin}`)
 
     // ============ PRODUCT ORDERS (RENTALS ONLY) ============
     let productQuery = supabase
@@ -111,19 +116,21 @@ export async function GET(request: NextRequest) {
     ])
 
     // Log results
-    console.log(`[Bookings API] Fetching for franchiseId: ${franchiseId}, isSuperAdmin: ${isSuperAdmin}`)
-    console.log(`[Bookings API] Product rentals: ${(productRes.data || []).length}, Error: ${productRes.error?.message || 'none'}`)
-    console.log(`[Bookings API] Product sales: ${(productSalesRes.data || []).length}, Error: ${productSalesRes.error?.message || 'none'}`)
-    if (productRes.data && productRes.data.length > 0) {
-      console.log(`[Bookings API] Product sample - first 3 franchise_ids:`, productRes.data.slice(0, 3).map((r: any) => r.franchise_id))
-    }
-    console.log(`[Bookings API] Package bookings: ${(packageRes.data || []).length}, Error: ${packageRes.error?.message || 'none'}`)
-    console.log(`[Bookings API] Direct sales (table): ${(directSalesRes.data || []).length}, Error: ${directSalesRes.error?.message || 'none'}`)
+    console.log(`\n--- QUERY RESULTS ---`)
+    console.log(`Product Rentals: ${(productRes.data || []).length} records`)
+    if (productRes.error) console.log(`  Error: ${productRes.error.message}`)
     
-    if (productRes.error) console.error(`[Bookings API] Product error details:`, productRes.error)
-    if (productSalesRes.error) console.error(`[Bookings API] Product sales error details:`, productSalesRes.error)
-    if (packageRes.error) console.error(`[Bookings API] Package error details:`, packageRes.error)
-    if (directSalesRes.error) console.error(`[Bookings API] Direct sales error details:`, directSalesRes.error)
+    console.log(`Product Sales: ${(productSalesRes.data || []).length} records`)
+    if (productSalesRes.error) console.log(`  Error: ${productSalesRes.error.message}`)
+    else if ((productSalesRes.data || []).length > 0) {
+      console.log(`  Sample sales:`, (productSalesRes.data || []).map((s: any) => `${s.order_number} (franchise: ${s.franchise_id})`).join(', '))
+    }
+    
+    console.log(`Direct Sales Orders: ${(directSalesRes.data || []).length} records`)
+    if (directSalesRes.error) console.log(`  Error: ${directSalesRes.error.message}`)
+    
+    console.log(`Package Bookings: ${(packageRes.data || []).length} records`)
+    if (packageRes.error) console.log(`  Error: ${packageRes.error.message}`)
 
     // Compute item quantity totals for each booking
     const productIds = [...(productRes.data || []).map((r: any) => r.id), ...(productSalesRes.data || []).map((r: any) => r.id)]
@@ -414,7 +421,21 @@ export async function GET(request: NextRequest) {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
 
-    console.log(`[Bookings API] Returning ${data.length} bookings (${productRows.length} product orders [rentals+sales], ${directSalesRows.length} direct sales table, ${packageRows.length} package)`)
+    console.log(`\n--- FINAL RESULT ---`)
+    console.log(`Total Bookings: ${data.length}`)
+    console.log(`  - Product Orders (rentals + sales): ${productRows.length}`)
+    console.log(`  - Direct Sales Orders: ${directSalesRows.length}`)
+    console.log(`  - Package Bookings: ${packageRows.length}`)
+    
+    // Show breakdown by type for product orders
+    const saleOrders = productRows.filter((r: any) => r.type === 'sale')
+    const rentalOrders = productRows.filter((r: any) => r.type === 'rental')
+    console.log(`  - Within Product Orders: ${rentalOrders.length} rentals + ${saleOrders.length} sales`)
+    if (saleOrders.length > 0) {
+      console.log(`    Sales orders:`, saleOrders.map((s: any) => s.booking_number).join(', '))
+    }
+    console.log(`========== [BOOKINGS API] END ==========\n`)
+    
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error("[Bookings API] Error:", error)
