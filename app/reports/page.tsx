@@ -2,1151 +2,1363 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DatePickerWithRange } from "@/components/ui/date-range-picker"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RevenueChart } from "@/components/charts/revenue-chart"
-import { InventoryChart } from "@/components/charts/inventory-chart"
-import { ExportDialog } from "@/components/reports/export-dialog"
-import { getCurrentUser, canViewReports, canViewFinancials, canManageFranchises } from "@/lib/auth"
+import { DatePickerWithRange } from "@/components/ui/date-range-picker"
+import { getCurrentUser, canViewReports, canViewFinancials } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
-import type { User, ChartData, ReportData } from "@/lib/types"
+import type { User } from "@/lib/types"
 import {
-  BarChart3,
   Download,
-  Filter,
-  TrendingUp,
-  Package,
-  DollarSign,
-  AlertTriangle,
-  Printer,
   RefreshCw,
   ArrowLeft,
-  Search,
-  Lock,
-  Shield,
+  IndianRupee,
+  Package,
+  ShoppingBag,
+  Users,
+  TrendingUp,
+  Box,
+  Clock,
+  AlertCircle,
+  Wallet,
+  PieChart,
+  BarChart3,
 } from "lucide-react"
 import type { DateRange } from "react-day-picker"
-import { subDays, format } from "date-fns"
+import { subDays, format, startOfMonth, endOfMonth, subMonths } from "date-fns"
 import { toast } from "@/hooks/use-toast"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from "recharts"
+import type { PieLabelRenderProps } from "recharts"
 
-interface AnalyticsSummary {
-  id: string
-  franchise_id: string
-  date: string
-  total_revenue: number
-  total_expenses: number
-  total_bookings: number
-  total_customers: number
-  rental_revenue: number
-  sales_revenue: number
-  franchises?: {
-    name: string
-  }
-}
+const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"]
 
-interface ExpenseData {
-  id: string
-  franchise_id: string
-  category_name: string
-  amount: number
-  description: string
-  expense_date: string
-  franchises?: {
-    name: string
-  }
+// Types for data
+interface BookingRecord { id: string; total_amount: number | null; amount_paid: number | null; booking_type?: string }
+interface ProductRecord { 
+  id: string; name: string; stock_total: number | null; stock_available: number | null; 
+  stock_booked: number | null; stock_damaged: number | null; reorder_level: number | null;
+  usage_count: number | null; rental_price: number | null; sale_price: number | null;
+  category_id: string | null; category?: { name: string } | null;
 }
-
-interface ProductAnalytics {
-  id: string
-  name: string
-  stock_total: number
-  stock_available: number
-  stock_damaged: number
-  franchise_id: string
+interface ExpenseRecord { 
+  id: string; subcategory: string | null; amount: number | null; 
+  expense_date: string | null; description: string | null; vendor_name: string | null;
+  category?: { name: string } | null 
 }
+interface PkgPendingRecord { id: string; package_number: string; total_amount: number | null; amount_paid: number | null; customer: { name: string; phone: string } | null }
+interface ProdPendingRecord { id: string; order_number: string; total_amount: number | null; amount_paid: number | null; customer: { name: string; phone: string } | null }
+interface StaffRecord { staff_name: string | null; base_salary: number | null; amount_paid: number | null }
+interface UserRecord { name: string | null; email: string }
+interface CustomerRecord { id: string; created_at: string }
+interface TrendRecord { total_amount: number | null; booking_type?: string }
+interface CategoryRecord { id: string; name: string }
+interface TopProduct { name: string; usage: number; stock: number; value: number }
+interface LowStockProduct { name: string; available: number; reorderLevel: number; status: string }
+interface CategoryStock { category: string; products: number; stock: number; value: number }
+interface ExpenseDetail { date: string; description: string; amount: number; vendor: string; category: string }
+interface MonthlyExpense { month: string; amount: number }
+interface VendorExpense { vendor: string; amount: number; count: number }
 
 export default function ReportsPage() {
   const [user, setUser] = useState<User | null>(null)
-  const [hasReportAccess, setHasReportAccess] = useState(false)
-  const [hasFinancialAccess, setHasFinancialAccess] = useState(false)
-  const [hasFranchiseAccess, setHasFranchiseAccess] = useState(false)
-  const [reportData, setReportData] = useState<ReportData>({
-    revenue: [],
-    expenses: [],
-    inventory: [],
-    damages: [],
-    salesVsRentals: [],
-    franchiseComparison: [],
-  })
-
-  // Separate state for filter inputs vs applied filters
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 365), // Last 12 months to show more data
-    to: new Date(),
-  })
-  const [franchiseFilter, setFranchiseFilter] = useState<string>("all")
-
-  // Applied filters state (what's actually being used for data fetching)
-  const [appliedDateRange, setAppliedDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 365),
-    to: new Date(),
-  })
-  const [appliedFranchiseFilter, setAppliedFranchiseFilter] = useState<string>("all")
-
-  const [franchises, setFranchises] = useState<Array<{ id: string; name: string }>>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
-  const [isExporting, setIsExporting] = useState(false)
-  const [usingFallbackData, setUsingFallbackData] = useState(false)
-  const [analyticsData, setAnalyticsData] = useState<{
-    totalRevenue: number
-    totalExpenses: number
-    totalBookings: number
-    totalCustomers: number
-    netProfit: number
-    profitMargin: number
-  }>({
-    totalRevenue: 0,
-    totalExpenses: 0,
-    totalBookings: 0,
-    totalCustomers: 0,
-    netProfit: 0,
-    profitMargin: 0,
-  })
   const router = useRouter()
 
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  })
+
+  // Stats
+  const [bookingStats, setBookingStats] = useState({
+    totalRentals: 0, rentalRevenue: 0, rentalCollected: 0, rentalPending: 0,
+    totalSales: 0, salesRevenue: 0, salesCollected: 0, salesPending: 0,
+  })
+
+  const [inventoryStats, setInventoryStats] = useState({
+    totalProducts: 0, totalStock: 0, available: 0, rented: 0, damaged: 0, lowStock: 0,
+    totalValue: 0, inLaundry: 0,
+  })
+
+  const [expenseStats, setExpenseStats] = useState<{ category: string; amount: number }[]>([])
+  const [pendingPayments, setPendingPayments] = useState<any[]>([])
+  const [staffSalary, setStaffSalary] = useState<{ name: string; salary: number; paid: number }[]>([])
+  const [monthlyTrend, setMonthlyTrend] = useState<{ month: string; rentals: number; sales: number }[]>([])
+  const [customerStats, setCustomerStats] = useState({ total: 0, new: 0, withBookings: 0 })
+
+  // Enhanced inventory reports
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([])
+  const [lowStockProducts, setLowStockProducts] = useState<LowStockProduct[]>([])
+  const [categoryStockData, setCategoryStockData] = useState<CategoryStock[]>([])
+
+  // Enhanced expense reports
+  const [expenseDetails, setExpenseDetails] = useState<ExpenseDetail[]>([])
+  const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([])
+  const [vendorExpenses, setVendorExpenses] = useState<VendorExpense[]>([])
+
   useEffect(() => {
-    const checkAuth = async () => {
-      const currentUser = await getCurrentUser()
-      if (!currentUser) {
-        router.push("/")
-        return
-      }
-
-      const reportAccess = canViewReports(currentUser.role)
-      const financialAccess = canViewFinancials(currentUser.role)
-      const franchiseAccess = canManageFranchises(currentUser.role)
-
-      if (!reportAccess) {
-        toast({
-          title: "Access Denied",
-          description: `Your role (${currentUser.role.replace("_", " ").toUpperCase()}) doesn't have permission to view reports and analytics.`,
-          variant: "destructive",
-        })
-        router.push("/dashboard")
-        return
-      }
-
-      console.log("[v0] Analytics access granted:", {
-        user: currentUser.name,
-        role: currentUser.role,
-        reportAccess,
-        financialAccess,
-        franchiseAccess,
-        franchise_id: currentUser.franchise_id,
-      })
-
-      setUser(currentUser)
-      setHasReportAccess(reportAccess)
-      setHasFinancialAccess(financialAccess)
-      setHasFranchiseAccess(franchiseAccess)
-
-      await loadFranchises(currentUser)
-      await loadReportData(currentUser)
-      setLoading(false)
-    }
-
     checkAuth()
-  }, [router])
+  }, [])
 
-  // Only trigger data loading when applied filters change
-  useEffect(() => {
-    if (user) {
-      loadReportData(user)
-    }
-  }, [appliedDateRange, appliedFranchiseFilter, user])
-
-  const loadFranchises = async (currentUser: User) => {
-    if (currentUser.role === "super_admin") {
-      try {
-        const { data, error } = await supabase.from("franchises").select("id, name").eq("is_active", true).order("name")
-
-        if (error) throw error
-        setFranchises(data || [])
-      } catch (error) {
-        console.error("Error loading franchises:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load franchises",
-          variant: "destructive",
-        })
-      }
-    }
+  const checkAuth = async () => {
+    const currentUser = await getCurrentUser()
+    console.log("[Reports] Current user from getCurrentUser:", currentUser)
+    if (!currentUser) { router.push("/"); return }
+    if (!canViewReports(currentUser.role)) { router.push("/dashboard"); return }
+    setUser(currentUser)
+    await loadAllData(currentUser)
+    setLoading(false)
   }
 
-  const loadReportData = async (currentUser: User) => {
+  const loadAllData = async (currentUser: User) => {
     setRefreshing(true)
-    setUsingFallbackData(false)
-
-    console.log("Loading analytics data from Supabase...")
-    console.log("[v0] User permissions check:", {
-      role: currentUser.role,
-      hasReportAccess: canViewReports(currentUser.role),
-      hasFinancialAccess: canViewFinancials(currentUser.role),
-      hasFranchiseAccess: canManageFranchises(currentUser.role),
-    })
+    const fromDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : format(subDays(new Date(), 30), "yyyy-MM-dd")
+    const toDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd")
+    // Super admins see all data (no franchise filter)
+    const franchiseId = currentUser.role === "super_admin" ? undefined : currentUser.franchise_id
+    
+    console.log("[Reports] Loading data for user:", currentUser.email, "role:", currentUser.role, "franchiseId:", franchiseId)
 
     try {
-      const fromDate = appliedDateRange?.from
-        ? format(appliedDateRange.from, "yyyy-MM-dd")
-        : format(subDays(new Date(), 365), "yyyy-MM-dd")
-      const toDate = appliedDateRange?.to ? format(appliedDateRange.to, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd")
-
-      console.log("Date range:", fromDate, "to", toDate)
-
-      // Try to load real data from Supabase
-      await loadRealData(currentUser, fromDate, toDate)
-
-      toast({
-        title: "Data Loaded Successfully",
-        description: "Loaded analytics data from Supabase database.",
-        variant: "default",
-      })
+      await Promise.all([
+        loadBookingStats(franchiseId, fromDate, toDate),
+        loadInventoryStats(franchiseId),
+        loadExpenseStats(franchiseId, fromDate, toDate),
+        loadPendingPayments(franchiseId),
+        loadStaffSalary(franchiseId),
+        loadMonthlyTrend(franchiseId),
+        loadCustomerStats(franchiseId, fromDate),
+        loadEnhancedInventoryData(franchiseId),
+        loadEnhancedExpenseData(franchiseId, fromDate, toDate),
+      ])
+      toast({ title: "Data Loaded", description: "All reports refreshed" })
     } catch (error) {
-      console.log("Real data loading failed, using fallback data")
-      console.error("Analytics error details:", error)
-
-      // Use fallback data on error
-      await processFallbackData()
-      setUsingFallbackData(true)
-
-      toast({
-        title: "Using Demo Data",
-        description:
-          "Analytics tables not found. Displaying sample data. Please run the SQL script to create analytics tables.",
-        variant: "default",
-      })
+      console.error("Error:", error)
+      toast({ title: "Error", description: "Failed to load some data", variant: "destructive" })
     } finally {
       setRefreshing(false)
     }
   }
 
-  const loadRealData = async (currentUser: User, fromDate: string, toDate: string) => {
-    console.log("Attempting to load real data from Supabase tables...")
-    console.log("[v0] Loading data with role-based restrictions:", {
-      role: currentUser.role,
-      franchise_id: currentUser.franchise_id,
-      appliedFranchiseFilter,
+  const loadBookingStats = async (franchiseId: string | undefined, fromDate: string, toDate: string) => {
+    // Package Bookings
+    let pkgQuery = supabase.from("package_bookings")
+      .select("id, total_amount, amount_paid")
+      .eq("is_quote", false).eq("is_archived", false)
+      .gte("created_at", fromDate).lte("created_at", toDate + "T23:59:59")
+    if (franchiseId) pkgQuery = pkgQuery.eq("franchise_id", franchiseId)
+    const { data: pkgData } = await pkgQuery
+
+    // Product Orders
+    let prodQuery = supabase.from("product_orders")
+      .select("id, total_amount, amount_paid, booking_type")
+      .or("is_quote.is.null,is_quote.eq.false").eq("is_archived", false)
+      .gte("created_at", fromDate).lte("created_at", toDate + "T23:59:59")
+    if (franchiseId) prodQuery = prodQuery.eq("franchise_id", franchiseId)
+    const { data: prodData } = await prodQuery
+
+    const pkgs = (pkgData || []) as BookingRecord[]
+    const rentals = ((prodData || []) as BookingRecord[]).filter(o => o.booking_type !== "sale")
+    const sales = ((prodData || []) as BookingRecord[]).filter(o => o.booking_type === "sale")
+
+    const rentalRevenue = pkgs.reduce((s: number, b) => s + (Number(b.total_amount) || 0), 0) + rentals.reduce((s: number, b) => s + (Number(b.total_amount) || 0), 0)
+    const rentalCollected = pkgs.reduce((s: number, b) => s + (Number(b.amount_paid) || 0), 0) + rentals.reduce((s: number, b) => s + (Number(b.amount_paid) || 0), 0)
+    const salesRevenue = sales.reduce((s: number, b) => s + (Number(b.total_amount) || 0), 0)
+    const salesCollected = sales.reduce((s: number, b) => s + (Number(b.amount_paid) || 0), 0)
+
+    setBookingStats({
+      totalRentals: pkgs.length + rentals.length, rentalRevenue, rentalCollected, rentalPending: rentalRevenue - rentalCollected,
+      totalSales: sales.length, salesRevenue, salesCollected, salesPending: salesRevenue - salesCollected,
     })
-
-    // Load analytics summary data
-    let analyticsQuery = supabase
-      .from("analytics_summary")
-      .select("*")
-      .gte("date", fromDate)
-      .lte("date", toDate)
-      .order("date", { ascending: true })
-
-    if (currentUser.role === "staff" || currentUser.role === "readonly") {
-      // Staff and readonly users can only see their own franchise data
-      if (currentUser.franchise_id) {
-        analyticsQuery = analyticsQuery.eq("franchise_id", currentUser.franchise_id)
-      } else {
-        throw new Error("No franchise access for staff user")
-      }
-    } else if (currentUser.role === "franchise_admin") {
-      // Franchise admins can only see their own franchise data
-      if (currentUser.franchise_id) {
-        analyticsQuery = analyticsQuery.eq("franchise_id", currentUser.franchise_id)
-      }
-    } else if (currentUser.role === "super_admin") {
-      // Super admins can see all data or filter by specific franchise
-      if (appliedFranchiseFilter !== "all") {
-        analyticsQuery = analyticsQuery.eq("franchise_id", appliedFranchiseFilter)
-      }
-    }
-
-    const { data: analyticsResult, error: analyticsError } = await analyticsQuery
-
-    if (analyticsError) {
-      console.error("Analytics query error:", analyticsError)
-      throw new Error(`Analytics table error: ${analyticsError.message}`)
-    }
-
-    // Get franchise names separately if needed
-    let franchiseNames: { [key: string]: string } = {}
-    if (analyticsResult && analyticsResult.length > 0) {
-      const franchiseIds = [...new Set(analyticsResult.map((item) => item.franchise_id))]
-      const { data: franchiseData } = await supabase.from("franchises").select("id, name").in("id", franchiseIds)
-
-      if (franchiseData) {
-        franchiseNames = franchiseData.reduce(
-          (acc, franchise) => {
-            acc[franchise.id] = franchise.name
-            return acc
-          },
-          {} as { [key: string]: string },
-        )
-      }
-    }
-
-    console.log("Analytics data loaded:", analyticsResult?.length, "records")
-
-    let expenseResult: ExpenseData[] = []
-    if (hasFinancialAccess) {
-      let expenseQuery = supabase
-        .from("expenses")
-        .select("*")
-        .gte("expense_date", fromDate)
-        .lte("expense_date", toDate)
-        .order("expense_date", { ascending: true })
-
-      // Apply same role-based filtering for expenses
-      if (currentUser.role === "staff" || currentUser.role === "readonly") {
-        if (currentUser.franchise_id) {
-          expenseQuery = expenseQuery.eq("franchise_id", currentUser.franchise_id)
-        }
-      } else if (currentUser.role === "franchise_admin") {
-        if (currentUser.franchise_id) {
-          expenseQuery = expenseQuery.eq("franchise_id", currentUser.franchise_id)
-        }
-      } else if (currentUser.role === "super_admin" && appliedFranchiseFilter !== "all") {
-        expenseQuery = expenseQuery.eq("franchise_id", appliedFranchiseFilter)
-      }
-
-      const { data: expenseData, error: expenseError } = await expenseQuery
-
-      if (expenseError) {
-        console.error("Expense query error:", expenseError)
-        // Don't throw error for expenses, use empty array
-      } else {
-        expenseResult = expenseData || []
-      }
-    }
-
-    console.log("Expense data loaded:", expenseResult?.length || 0, "records")
-
-    // Load product data for inventory analysis
-    let productQuery = supabase
-      .from("products")
-      .select(`
-        id,
-        name,
-        stock_total,
-        stock_available,
-        stock_damaged,
-        franchise_id
-      `)
-      .eq("is_active", true)
-
-    if (currentUser.role === "staff" || currentUser.role === "readonly") {
-      if (currentUser.franchise_id) {
-        productQuery = productQuery.eq("franchise_id", currentUser.franchise_id)
-      }
-    } else if (currentUser.role === "franchise_admin") {
-      if (currentUser.franchise_id) {
-        productQuery = productQuery.eq("franchise_id", currentUser.franchise_id)
-      }
-    } else if (currentUser.role === "super_admin" && appliedFranchiseFilter !== "all") {
-      productQuery = productQuery.eq("franchise_id", appliedFranchiseFilter)
-    }
-
-    const { data: productResult, error: productError } = await productQuery
-
-    if (productError) {
-      console.error("Product query error:", productError)
-      // Don't throw error for products, use empty array
-    }
-
-    console.log("Product data loaded:", productResult?.length || 0, "records")
-
-    // Process real data with franchise names
-    await processRealData(analyticsResult || [], expenseResult || [], productResult || [], franchiseNames)
   }
 
-  const processRealData = async (
-    analyticsData: AnalyticsSummary[],
-    expenseData: ExpenseData[],
-    productData: ProductAnalytics[],
-    franchiseNames: { [key: string]: string } = {},
-  ) => {
-    console.log("Processing real data from Supabase...")
+  const loadInventoryStats = async (franchiseId: string | undefined) => {
+    console.log("[Reports] Loading inventory directly from Supabase")
+    
+    try {
+      // Use same approach as inventory page - direct Supabase query
+      let query = supabase
+        .from("products")
+        .select("id, name, stock_total, stock_available, stock_booked, stock_damaged, stock_in_laundry, reorder_level, usage_count, rental_price, sale_price, category_id, is_active")
+        .order("created_at", { ascending: false })
+      
+      if (franchiseId) {
+        query = query.eq("franchise_id", franchiseId)
+      }
+      
+      const { data: products, error } = await query
+      
+      if (error) {
+        console.error("[Reports] Error loading products:", error)
+        return
+      }
+      
+      // Filter active products (is_active !== false) - same as inventory page
+      const activeProducts = (products || []).filter((p: any) => p.is_active !== false)
+      console.log("[Reports] Loaded products:", activeProducts.length)
+      
+      // Get categories
+      let catQuery = supabase.from("product_categories").select("id, name")
+      if (franchiseId) catQuery = catQuery.eq("franchise_id", franchiseId)
+      const { data: categories } = await catQuery
+      const categoryMap: Record<string, string> = {}
+      ;(categories || []).forEach((c: any) => { categoryMap[c.id] = c.name })
+      
+      // Calculate stats
+      const totalValue = activeProducts.reduce((s: number, p: any) => {
+        const price = Number(p.rental_price) || Number(p.sale_price) || 0
+        return s + (price * (Number(p.stock_total) || 0))
+      }, 0)
 
-    // Calculate summary metrics
-    const totalRevenue = analyticsData.reduce((sum, item) => sum + (Number(item.total_revenue) || 0), 0)
-    const totalExpenses = analyticsData.reduce((sum, item) => sum + (Number(item.total_expenses) || 0), 0)
-    const totalBookings = analyticsData.reduce((sum, item) => sum + (Number(item.total_bookings) || 0), 0)
-    const totalCustomers = Math.max(...analyticsData.map((item) => Number(item.total_customers) || 0), 0)
-    const netProfit = totalRevenue - totalExpenses
-    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
+      setInventoryStats({
+        totalProducts: activeProducts.length,
+        totalStock: activeProducts.reduce((s: number, p: any) => s + (Number(p.stock_total) || 0), 0),
+        available: activeProducts.reduce((s: number, p: any) => s + (Number(p.stock_available) || 0), 0),
+        rented: activeProducts.reduce((s: number, p: any) => s + (Number(p.stock_booked) || 0), 0),
+        damaged: activeProducts.reduce((s: number, p: any) => s + (Number(p.stock_damaged) || 0), 0),
+        lowStock: activeProducts.filter((p: any) => (Number(p.stock_available) || 0) <= (Number(p.reorder_level) || 5)).length,
+        totalValue,
+        inLaundry: activeProducts.reduce((s: number, p: any) => s + (Number(p.stock_in_laundry) || 0), 0),
+      })
+      
+      // Top products by usage
+      const topProds = activeProducts
+        .filter((p: any) => (Number(p.usage_count) || 0) > 0)
+        .sort((a: any, b: any) => (Number(b.usage_count) || 0) - (Number(a.usage_count) || 0))
+        .slice(0, 10)
+        .map((p: any) => ({
+          name: p.name,
+          usage: Number(p.usage_count) || 0,
+          stock: Number(p.stock_available) || 0,
+          value: (Number(p.rental_price) || Number(p.sale_price) || 0) * (Number(p.stock_total) || 0),
+        }))
+      setTopProducts(topProds)
 
-    setAnalyticsData({
-      totalRevenue,
-      totalExpenses,
-      totalBookings,
-      totalCustomers,
-      netProfit,
-      profitMargin,
-    })
-
-    // Process revenue data for charts
-    const revenueChartData: ChartData[] = analyticsData.map((item) => ({
-      name: format(new Date(item.date), "MMM yyyy"),
-      value: Number(item.total_revenue) || 0,
-    }))
-
-    // Process expense data for charts - group by category
-    const expenseByCategory = expenseData.reduce((acc: { [key: string]: number }, item) => {
-      const category = item.category_name || "MISCELLANEOUS"
-      acc[category] = (acc[category] || 0) + (Number(item.amount) || 0)
-      return acc
-    }, {})
-
-    const expenseChartData: ChartData[] = Object.entries(expenseByCategory).map(([category, amount]) => ({
-      name: category,
-      value: amount,
-    }))
-
-    // Process inventory data - group by category (use 'PRODUCTS' as default since category column doesn't exist)
-    const inventoryByCategory = productData.reduce((acc: { [key: string]: number }, item) => {
-      const category = "PRODUCTS" // Since category column doesn't exist, group all as 'PRODUCTS'
-      acc[category] = (acc[category] || 0) + (Number(item.stock_total) || 0)
-      return acc
-    }, {})
-
-    const inventoryChartData: ChartData[] = Object.entries(inventoryByCategory).map(([category, total]) => ({
-      name: category,
-      value: total,
-    }))
-
-    // Process damaged items data
-    const damagesChartData: ChartData[] = productData
-      .filter((item) => (Number(item.stock_damaged) || 0) > 0)
-      .map((item) => ({
-        name: item.name || "Unknown Product",
-        value: Number(item.stock_damaged) || 0,
-      }))
-
-    // Process sales vs rentals data
-    const totalRentalRevenue = analyticsData.reduce((sum, item) => sum + (Number(item.rental_revenue) || 0), 0)
-    const totalSalesRevenue = analyticsData.reduce((sum, item) => sum + (Number(item.sales_revenue) || 0), 0)
-
-    const salesVsRentalsData: ChartData[] = [
-      { name: "Rentals", value: totalRentalRevenue },
-      { name: "Sales", value: totalSalesRevenue },
-    ]
-
-    // Process franchise comparison (for super admin)
-    let franchiseComparisonData: ChartData[] = []
-    if (user?.role === "super_admin" && appliedFranchiseFilter === "all") {
-      const franchiseRevenue = analyticsData.reduce((acc: { [key: string]: number }, item) => {
-        const franchiseName = franchiseNames[item.franchise_id] || "Unknown Franchise"
-        acc[franchiseName] = (acc[franchiseName] || 0) + (Number(item.total_revenue) || 0)
-        return acc
-      }, {})
-
-      franchiseComparisonData = Object.entries(franchiseRevenue).map(([name, revenue]) => ({
-        name,
-        value: revenue,
-      }))
-    }
-
-    setReportData({
-      revenue: revenueChartData,
-      expenses: expenseChartData,
-      inventory: inventoryChartData,
-      damages: damagesChartData,
-      salesVsRentals: salesVsRentalsData,
-      franchiseComparison: franchiseComparisonData,
-    })
-
-    console.log("Real data processed successfully")
-  }
-
-  const processFallbackData = async () => {
-    console.log("Processing fallback demo data...")
-
-    // Mock analytics data for the last 6 months
-    const mockAnalyticsData = [
-      {
-        date: "2024-03-01",
-        total_revenue: 125000,
-        total_expenses: 43500,
-        total_bookings: 18,
-        total_customers: 12,
-        rental_revenue: 95000,
-        sales_revenue: 30000,
-      },
-      {
-        date: "2024-04-01",
-        total_revenue: 185000,
-        total_expenses: 55700,
-        total_bookings: 25,
-        total_customers: 18,
-        rental_revenue: 135000,
-        sales_revenue: 50000,
-      },
-      {
-        date: "2024-05-01",
-        total_revenue: 165000,
-        total_expenses: 55300,
-        total_bookings: 22,
-        total_customers: 16,
-        rental_revenue: 115000,
-        sales_revenue: 50000,
-      },
-      {
-        date: "2024-06-01",
-        total_revenue: 195000,
-        total_expenses: 51700,
-        total_bookings: 28,
-        total_customers: 20,
-        rental_revenue: 145000,
-        sales_revenue: 50000,
-      },
-      {
-        date: "2024-07-01",
-        total_revenue: 225000,
-        total_expenses: 79300,
-        total_bookings: 32,
-        total_customers: 24,
-        rental_revenue: 175000,
-        sales_revenue: 50000,
-      },
-      {
-        date: "2024-08-01",
-        total_revenue: 245000,
-        total_expenses: 85500,
-        total_bookings: 35,
-        total_customers: 28,
-        rental_revenue: 195000,
-        sales_revenue: 50000,
-      },
-    ]
-
-    const mockExpenseData = [
-      { category_name: "RENT", total_amount: 150000 },
-      { category_name: "UTILITIES", total_amount: 48000 },
-      { category_name: "MARKETING", total_amount: 90000 },
-      { category_name: "SUPPLIES", total_amount: 42000 },
-      { category_name: "MAINTENANCE", total_amount: 40700 },
-      { category_name: "STAFF", total_amount: 108000 },
-      { category_name: "TRANSPORT", total_amount: 41800 },
-    ]
-
-    const mockProductData = [
-      { name: "Royal Turban", category: "TURBAN", stock_total: 45, stock_damaged: 2 },
-      { name: "Golden Sehra", category: "SEHRA", stock_total: 23, stock_damaged: 0 },
-      { name: "Pearl Kalgi", category: "KALGI", stock_total: 18, stock_damaged: 1 },
-      { name: "Diamond Necklace", category: "NECKLACE", stock_total: 32, stock_damaged: 1 },
-      { name: "Wedding Shoes", category: "SHOES", stock_total: 28, stock_damaged: 0 },
-      { name: "Silk Dupatta", category: "DUPATTA", stock_total: 35, stock_damaged: 0 },
-      { name: "Gold Bracelet", category: "BRACELET", stock_total: 15, stock_damaged: 1 },
-    ]
-
-    // Process fallback data
-    const totalRevenue = mockAnalyticsData.reduce((sum, item) => sum + item.total_revenue, 0)
-    const totalExpenses = mockAnalyticsData.reduce((sum, item) => sum + item.total_expenses, 0)
-    const totalBookings = mockAnalyticsData.reduce((sum, item) => sum + item.total_bookings, 0)
-    const totalCustomers = Math.max(...mockAnalyticsData.map((item) => item.total_customers))
-    const netProfit = totalRevenue - totalExpenses
-    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
-
-    setAnalyticsData({
-      totalRevenue,
-      totalExpenses,
-      totalBookings,
-      totalCustomers,
-      netProfit,
-      profitMargin,
-    })
-
-    // Process revenue data for charts
-    const revenueChartData: ChartData[] = mockAnalyticsData.map((item) => ({
-      name: format(new Date(item.date), "MMM yyyy"),
-      value: item.total_revenue,
-    }))
-
-    // Process expense data for charts
-    const expenseChartData: ChartData[] = mockExpenseData.map((item) => ({
-      name: item.category_name,
-      value: item.total_amount,
-    }))
-
-    // Process inventory data
-    const inventoryChartData: ChartData[] = mockProductData.reduce((acc: ChartData[], item: any) => {
-      const existing = acc.find((x) => x.name === item.category)
-      if (existing) {
-        existing.value += item.stock_total
-      } else {
-        acc.push({
-          name: item.category,
-          value: item.stock_total,
+      // Low stock products
+      const lowStockProds = activeProducts
+        .filter((p: any) => {
+          const available = Number(p.stock_available) || 0
+          const reorderLevel = Number(p.reorder_level) || 5
+          return available <= reorderLevel
         })
-      }
-      return acc
-    }, [])
+        .sort((a: any, b: any) => (Number(a.stock_available) || 0) - (Number(b.stock_available) || 0))
+        .slice(0, 15)
+        .map((p: any) => {
+          const available = Number(p.stock_available) || 0
+          const reorderLevel = Number(p.reorder_level) || 5
+          let status = "Low"
+          if (available === 0) status = "Out of Stock"
+          else if (available <= reorderLevel / 2) status = "Critical"
+          return {
+            name: p.name,
+            available,
+            reorderLevel,
+            status,
+          }
+        })
+      setLowStockProducts(lowStockProds)
 
-    // Process damaged items data
-    const damagesChartData: ChartData[] = mockProductData
-      .filter((item) => item.stock_damaged > 0)
-      .map((item) => ({
-        name: item.name,
-        value: item.stock_damaged,
+      // Category-wise stock distribution
+      const categoryData: Record<string, { products: number; stock: number; value: number }> = {}
+      activeProducts.forEach((p: any) => {
+        const catName = categoryMap[p.category_id || ""] || "Uncategorized"
+        if (!categoryData[catName]) categoryData[catName] = { products: 0, stock: 0, value: 0 }
+        categoryData[catName].products += 1
+        categoryData[catName].stock += Number(p.stock_total) || 0
+        categoryData[catName].value += (Number(p.rental_price) || Number(p.sale_price) || 0) * (Number(p.stock_total) || 0)
+      })
+      setCategoryStockData(
+        Object.entries(categoryData)
+          .map(([category, data]) => ({ category, ...data }))
+          .sort((a, b) => b.value - a.value)
+      )
+      
+    } catch (error) {
+      console.error("[Reports] Error loading inventory:", error)
+    }
+  }
+
+  // Enhanced inventory data loading - now handled by loadInventoryStats API
+  const loadEnhancedInventoryData = async (franchiseId: string | undefined) => {
+    // Data is now loaded via the /api/reports/inventory endpoint in loadInventoryStats
+    // This function is kept for backward compatibility but does nothing
+  }
+
+  const loadExpenseStats = async (franchiseId: string | undefined, fromDate: string, toDate: string) => {
+    console.log("[Reports] Loading expenses via API")
+    
+    try {
+      // Use the same API as expenses page
+      const res = await fetch(`/api/expenses?pageSize=1000&dateFrom=${fromDate}&dateTo=${toDate}`, {
+        credentials: 'include'
+      })
+      
+      if (!res.ok) {
+        console.error("[Reports] API error:", res.status, res.statusText)
+        return
+      }
+      
+      const result = await res.json()
+      const data = result.data || []
+      console.log("[Reports] Expenses loaded:", data.length, data)
+      
+      // Group by category (subcategory field)
+      const expenseByCategory: Record<string, number> = {}
+      data.forEach((e: any) => {
+        const cat = e.subcategory || "Other"
+        expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (Number(e.amount) || 0)
+      })
+      
+      setExpenseStats(
+        Object.entries(expenseByCategory)
+          .map(([category, amount]) => ({ category, amount }))
+          .sort((a, b) => b.amount - a.amount)
+      )
+    } catch (error) {
+      console.error("[Reports] Error loading expenses:", error)
+    }
+  }
+
+  const loadPendingPayments = async (franchiseId: string | undefined) => {
+    // Get bookings with pending payments
+    let pkgQuery = supabase.from("package_bookings")
+      .select("id, package_number, total_amount, amount_paid, customer:customers(name, phone)")
+      .eq("is_quote", false).eq("is_archived", false)
+      .order("created_at", { ascending: false }).limit(20)
+    if (franchiseId) pkgQuery = pkgQuery.eq("franchise_id", franchiseId)
+    const { data: pkgData } = await pkgQuery
+
+    let prodQuery = supabase.from("product_orders")
+      .select("id, order_number, total_amount, amount_paid, customer:customers(name, phone)")
+      .or("is_quote.is.null,is_quote.eq.false").eq("is_archived", false)
+      .order("created_at", { ascending: false }).limit(20)
+    if (franchiseId) prodQuery = prodQuery.eq("franchise_id", franchiseId)
+    const { data: prodData } = await prodQuery
+
+    const pending = [
+      ...((pkgData || []) as PkgPendingRecord[]).filter(b => (Number(b.total_amount) || 0) > (Number(b.amount_paid) || 0)).map(b => ({
+        id: b.id, number: b.package_number, type: "Rental",
+        total: Number(b.total_amount) || 0, paid: Number(b.amount_paid) || 0,
+        pending: (Number(b.total_amount) || 0) - (Number(b.amount_paid) || 0),
+        customer: b.customer?.name || "N/A", phone: b.customer?.phone || "",
+      })),
+      ...((prodData || []) as ProdPendingRecord[]).filter(b => (Number(b.total_amount) || 0) > (Number(b.amount_paid) || 0)).map(b => ({
+        id: b.id, number: b.order_number, type: "Order",
+        total: Number(b.total_amount) || 0, paid: Number(b.amount_paid) || 0,
+        pending: (Number(b.total_amount) || 0) - (Number(b.amount_paid) || 0),
+        customer: b.customer?.name || "N/A", phone: b.customer?.phone || "",
+      })),
+    ].sort((a, b) => b.pending - a.pending).slice(0, 15)
+    
+    setPendingPayments(pending)
+  }
+
+  const loadStaffSalary = async (franchiseId: string | undefined) => {
+    // Try to load from payroll or staff_salaries table
+    let query = supabase.from("staff_salaries")
+      .select("staff_name, base_salary, amount_paid")
+      .order("staff_name")
+    if (franchiseId) query = query.eq("franchise_id", franchiseId)
+    const { data, error } = await query
+
+    if (!error && data && data.length > 0) {
+      setStaffSalary((data as StaffRecord[]).map(s => ({
+        name: s.staff_name || "Staff",
+        salary: Number(s.base_salary) || 0,
+        paid: Number(s.amount_paid) || 0,
+      })))
+    } else {
+      // Fallback: try users table
+      let userQuery = supabase.from("users")
+        .select("name, email")
+        .eq("is_active", true)
+        .neq("role", "super_admin")
+      if (franchiseId) userQuery = userQuery.eq("franchise_id", franchiseId)
+      const { data: users } = await userQuery
+      setStaffSalary(((users || []) as UserRecord[]).map(u => ({ name: u.name || u.email, salary: 0, paid: 0 })))
+    }
+  }
+
+  const loadMonthlyTrend = async (franchiseId: string | undefined) => {
+    const trend: { month: string; rentals: number; sales: number }[] = []
+    
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = startOfMonth(subMonths(new Date(), i))
+      const monthEnd = endOfMonth(subMonths(new Date(), i))
+      const from = format(monthStart, "yyyy-MM-dd")
+      const to = format(monthEnd, "yyyy-MM-dd")
+
+      // Package bookings
+      let pkgQuery = supabase.from("package_bookings")
+        .select("total_amount").eq("is_quote", false).eq("is_archived", false)
+        .gte("created_at", from).lte("created_at", to + "T23:59:59")
+      if (franchiseId) pkgQuery = pkgQuery.eq("franchise_id", franchiseId)
+      const { data: pkgData } = await pkgQuery
+
+      // Product orders
+      let prodQuery = supabase.from("product_orders")
+        .select("total_amount, booking_type")
+        .or("is_quote.is.null,is_quote.eq.false").eq("is_archived", false)
+        .gte("created_at", from).lte("created_at", to + "T23:59:59")
+      if (franchiseId) prodQuery = prodQuery.eq("franchise_id", franchiseId)
+      const { data: prodData } = await prodQuery
+
+      const rentals = ((pkgData || []) as TrendRecord[]).reduce((s: number, b) => s + (Number(b.total_amount) || 0), 0) +
+        ((prodData || []) as TrendRecord[]).filter(o => o.booking_type !== "sale").reduce((s: number, b) => s + (Number(b.total_amount) || 0), 0)
+      const sales = ((prodData || []) as TrendRecord[]).filter(o => o.booking_type === "sale").reduce((s: number, b) => s + (Number(b.total_amount) || 0), 0)
+
+      trend.push({ month: format(monthStart, "MMM"), rentals, sales })
+    }
+    setMonthlyTrend(trend)
+  }
+
+  const loadCustomerStats = async (franchiseId: string | undefined, fromDate: string) => {
+    let query = supabase.from("customers").select("id, created_at")
+    if (franchiseId) query = query.eq("franchise_id", franchiseId)
+    const { data } = await query
+
+    const customers = (data || []) as CustomerRecord[]
+    const newCustomers = customers.filter(c => new Date(c.created_at) >= new Date(fromDate)).length
+
+    setCustomerStats({
+      total: customers.length,
+      new: newCustomers,
+      withBookings: 0, // Would need join query
+    })
+  }
+
+  // Enhanced expense data loading
+  const loadEnhancedExpenseData = async (franchiseId: string | undefined, fromDate: string, toDate: string) => {
+    console.log("[Reports] Loading enhanced expense data via API")
+    
+    try {
+      // Use the same API as expenses page
+      const res = await fetch(`/api/expenses?pageSize=1000&dateFrom=${fromDate}&dateTo=${toDate}`, {
+        credentials: 'include'
+      })
+      
+      if (!res.ok) {
+        console.error("[Reports] Enhanced expense API error:", res.status)
+        return
+      }
+      
+      const result = await res.json()
+      const exps = result.data || []
+      console.log("[Reports] Enhanced expenses loaded:", exps.length)
+
+      // Expense details (top 20 recent expenses)
+      const details = exps.slice(0, 20).map((e: any) => ({
+        date: e.expense_date ? format(new Date(e.expense_date), "dd MMM yyyy") : "N/A",
+        description: e.description || "No description",
+        amount: Number(e.amount) || 0,
+        vendor: e.vendor_name || "N/A",
+        category: e.subcategory || "Other",
       }))
+      setExpenseDetails(details)
 
-    // Process sales vs rentals data
-    const totalRentalRevenue = mockAnalyticsData.reduce((sum, item) => sum + item.rental_revenue, 0)
-    const totalSalesRevenue = mockAnalyticsData.reduce((sum, item) => sum + item.sales_revenue, 0)
-
-    const salesVsRentalsData: ChartData[] = [
-      { name: "Rentals", value: totalRentalRevenue },
-      { name: "Sales", value: totalSalesRevenue },
-    ]
-
-    // Mock franchise comparison data
-    const franchiseComparisonData: ChartData[] = [
-      { name: "Mumbai Central", value: 450000 },
-      { name: "Delhi North", value: 380000 },
-      { name: "Bangalore South", value: 310000 },
-    ]
-
-    setReportData({
-      revenue: revenueChartData,
-      expenses: expenseChartData,
-      inventory: inventoryChartData,
-      damages: damagesChartData,
-      salesVsRentals: salesVsRentalsData,
-      franchiseComparison: franchiseComparisonData,
-    })
-
-    console.log("Fallback data processed successfully")
-  }
-
-  const handleApplyFilters = () => {
-    setAppliedDateRange(dateRange)
-    setAppliedFranchiseFilter(franchiseFilter)
-
-    toast({
-      title: "Filters Applied",
-      description: "Loading data with new filters...",
-      variant: "default",
-    })
-  }
-
-  const handleRefresh = () => {
-    if (user) {
-      loadReportData(user)
-    }
-  }
-
-  const handleExport = async (format: "csv" | "pdf" | "excel") => {
-    setIsExporting(true)
-
-    try {
-      const exportData = {
-        reportType: "Business Analytics Report",
-        dateRange: appliedDateRange,
-        franchiseFilter: appliedFranchiseFilter !== "all" ? appliedFranchiseFilter : null,
-        reportData,
-        ...analyticsData,
-        topProducts: [
-          { name: "Royal Turban Set", category: "Turban", bookings: 45, revenue: 225000 },
-          { name: "Golden Sehra", category: "Sehra", bookings: 32, revenue: 160000 },
-          { name: "Pearl Kalgi", category: "Kalgi", bookings: 28, revenue: 140000 },
-        ],
+      // Monthly expense trend (last 6 months)
+      const monthlyData: Record<string, number> = {}
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = startOfMonth(subMonths(new Date(), i))
+        const monthKey = format(monthStart, "MMM yyyy")
+        monthlyData[monthKey] = 0
       }
-
-      if (format === "csv") {
-        const csvContent = [
-          ["Safawala CRM - Business Report"],
-          ["Generated on:", new Date().toLocaleDateString()],
-          [
-            "Date Range:",
-            `${appliedDateRange?.from?.toLocaleDateString()} - ${appliedDateRange?.to?.toLocaleDateString()}`,
-          ],
-          ["Data Source:", usingFallbackData ? "Demo Data" : "Supabase Database"],
-          [""],
-          ["SUMMARY"],
-          ["Total Revenue", `₹${exportData.totalRevenue.toLocaleString()}`],
-          ["Total Expenses", `₹${exportData.totalExpenses.toLocaleString()}`],
-          ["Net Profit", `₹${exportData.netProfit.toLocaleString()}`],
-          ["Profit Margin", `${exportData.profitMargin.toFixed(2)}%`],
-          ["Total Bookings", exportData.totalBookings],
-          ["Total Customers", exportData.totalCustomers],
-          [""],
-          ["REVENUE BY MONTH"],
-          ["Month", "Revenue"],
-          ...reportData.revenue.map((item) => [item.name, `₹${item.value.toLocaleString()}`]),
-          [""],
-          ["EXPENSES BY CATEGORY"],
-          ["Category", "Amount"],
-          ...reportData.expenses.map((item) => [item.name, `₹${item.value.toLocaleString()}`]),
-          [""],
-          ["INVENTORY BY CATEGORY"],
-          ["Category", "Items"],
-          ...reportData.inventory.map((item) => [item.name, item.value]),
-        ]
-          .map((row) => row.join(","))
-          .join("\n")
-
-        const blob = new Blob([csvContent], { type: "text/csv" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `safawala-report-${new Date().toISOString().split("T")[0]}.csv`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-      }
-
-      toast({
-        title: "Export Successful",
-        description: `Report exported as ${format.toUpperCase()}`,
+      exps.forEach((e: any) => {
+        if (e.expense_date) {
+          const monthKey = format(new Date(e.expense_date), "MMM yyyy")
+          if (monthlyData[monthKey] !== undefined) {
+            monthlyData[monthKey] += Number(e.amount) || 0
+          }
+        }
       })
+      setMonthlyExpenses(Object.entries(monthlyData).map(([month, amount]) => ({ month, amount })))
+
+      // Vendor-wise expenses
+      const vendorData: Record<string, { amount: number; count: number }> = {}
+      exps.forEach((e: any) => {
+        const vendor = e.vendor_name || "Unknown"
+        if (!vendorData[vendor]) vendorData[vendor] = { amount: 0, count: 0 }
+        vendorData[vendor].amount += Number(e.amount) || 0
+        vendorData[vendor].count += 1
+      })
+      setVendorExpenses(
+        Object.entries(vendorData)
+          .map(([vendor, data]) => ({ vendor, ...data }))
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 10)
+      )
     } catch (error) {
-      console.error("Error exporting report:", error)
-      toast({
-        title: "Export Failed",
-        description: "Failed to export report",
-        variant: "destructive",
-      })
-    } finally {
-      setIsExporting(false)
+      console.error("[Reports] Error loading enhanced expenses:", error)
     }
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
+  const handleRefresh = () => { if (user) loadAllData(user) }
 
-  const handleInitializeAnalytics = async () => {
-    try {
-      toast({
-        title: "Analytics Setup Required",
-        description:
-          "Please run the 'create-analytics-dummy-data.sql' script in your Supabase SQL editor to create analytics tables with sample data.",
-        variant: "default",
-      })
-    } catch (error) {
-      console.error("Error initializing analytics:", error)
-      toast({
-        title: "Error",
-        description: "Failed to initialize analytics tables",
-        variant: "destructive",
-      })
-    }
-  }
+  const handleExport = () => {
+    const totalRevenue = bookingStats.rentalRevenue + bookingStats.salesRevenue
+    const totalCollected = bookingStats.rentalCollected + bookingStats.salesCollected
+    const totalExpenses = expenseStats.reduce((s, e) => s + e.amount, 0)
 
-  // Check if filters have changed from applied filters
-  const filtersChanged =
-    dateRange?.from?.getTime() !== appliedDateRange?.from?.getTime() ||
-    dateRange?.to?.getTime() !== appliedDateRange?.to?.getTime() ||
-    franchiseFilter !== appliedFranchiseFilter
+    const csv = [
+      ["SAFAWALA CRM - BUSINESS REPORT"],
+      ["Generated:", new Date().toLocaleString()],
+      ["Period:", `${dateRange?.from?.toLocaleDateString()} - ${dateRange?.to?.toLocaleDateString()}`],
+      [""],
+      ["=== BOOKINGS & REVENUE ==="],
+      ["", "Orders", "Revenue", "Collected", "Pending"],
+      ["Rentals", bookingStats.totalRentals, bookingStats.rentalRevenue, bookingStats.rentalCollected, bookingStats.rentalPending],
+      ["Sales", bookingStats.totalSales, bookingStats.salesRevenue, bookingStats.salesCollected, bookingStats.salesPending],
+      ["TOTAL", bookingStats.totalRentals + bookingStats.totalSales, totalRevenue, totalCollected, totalRevenue - totalCollected],
+      [""],
+      ["=== INVENTORY ==="],
+      ["Total Products", inventoryStats.totalProducts],
+      ["Total Stock", inventoryStats.totalStock],
+      ["Available", inventoryStats.available],
+      ["Rented Out", inventoryStats.rented],
+      ["Damaged", inventoryStats.damaged],
+      ["Low Stock Items", inventoryStats.lowStock],
+      [""],
+      ["=== EXPENSES BY CATEGORY ==="],
+      ...expenseStats.map(e => [e.category, e.amount]),
+      ["TOTAL EXPENSES", totalExpenses],
+      [""],
+      ["=== PROFIT SUMMARY ==="],
+      ["Total Collected", totalCollected],
+      ["Total Expenses", totalExpenses],
+      ["Net Profit", totalCollected - totalExpenses],
+    ].map(r => r.join(",")).join("\n")
+
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `business-report-${format(new Date(), "yyyy-MM-dd")}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: "Exported", description: "Report downloaded" })
+  }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     )
   }
 
-  if (!user) return null
+  const totalRevenue = bookingStats.rentalRevenue + bookingStats.salesRevenue
+  const totalCollected = bookingStats.rentalCollected + bookingStats.salesCollected
+  const totalPending = bookingStats.rentalPending + bookingStats.salesPending
+  const totalExpenses = expenseStats.reduce((s, e) => s + e.amount, 0)
+  const netProfit = totalCollected - totalExpenses
 
-  if (!hasReportAccess) {
-    return (
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <div className="flex items-center justify-between space-y-2">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <h2 className="text-3xl font-bold tracking-tight">Analytics & Reports</h2>
-          </div>
-        </div>
+  const revenueBreakdown = [
+    { name: "Rentals", value: bookingStats.rentalRevenue },
+    { name: "Sales", value: bookingStats.salesRevenue },
+  ]
 
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-red-800 flex items-center">
-              <Lock className="mr-2 h-5 w-5" />
-              Access Restricted
-            </CardTitle>
-            <CardDescription className="text-red-700">
-              You don't have permission to view analytics and reports. Please contact your administrator to request
-              access.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2 text-sm text-red-600">
-              <Shield className="h-4 w-4" />
-              <span>Current role: {user.role.replace("_", " ").toUpperCase()}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const inventoryBreakdown = [
+    { name: "Available", value: inventoryStats.available },
+    { name: "Rented", value: inventoryStats.rented },
+    { name: "Damaged", value: inventoryStats.damaged },
+  ]
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Analytics & Reports</h2>
-          {usingFallbackData && (
-            <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">Demo Data</div>
-          )}
-          <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-            {user.role.replace("_", " ").toUpperCase()}
-          </div>
+          <h1 className="text-2xl font-bold">Business Reports</h1>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
           <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Refreshing..." : "Refresh"}
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
           </Button>
-          <Button variant="outline" onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" />
-            Print
-          </Button>
-          <Button variant="outline" onClick={() => handleExport("csv")} disabled={isExporting}>
-            <Download className="mr-2 h-4 w-4" />
-            {isExporting ? "Exporting..." : "Export CSV"}
-          </Button>
-          {usingFallbackData && (
-            <Button variant="default" onClick={handleInitializeAnalytics}>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Setup Analytics
-            </Button>
-          )}
-          <Button onClick={() => setIsExportDialogOpen(true)}>
-            <Download className="mr-2 h-4 w-4" />
-            Advanced Export
+          <Button onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
           </Button>
         </div>
       </div>
 
-      {!hasFinancialAccess && (
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Financial data (expenses, profit margins) is restricted for your role. Contact your administrator for
-            access.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {usingFallbackData && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <CardTitle className="text-yellow-800 flex items-center">
-              <AlertTriangle className="mr-2 h-5 w-5" />
-              Using Demo Data
-            </CardTitle>
-            <CardDescription className="text-yellow-700">
-              Analytics tables are not set up in your database. The data shown below is for demonstration purposes only.
-              To view real analytics data, please run the SQL script to create the required tables with sample data.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Filter className="mr-2 h-5 w-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[300px]">
-              <label className="text-sm font-medium mb-2 block">Date Range</label>
-              <DatePickerWithRange
-                date={dateRange}
-                onDateChange={setDateRange}
-                placeholder="Select date range for report"
-              />
+      {/* Quick Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+              <IndianRupee className="h-4 w-4" /> Total Revenue
             </div>
-            {hasFranchiseAccess && (
-              <div className="min-w-[200px]">
-                <label className="text-sm font-medium mb-2 block">Franchise</label>
-                <Select value={franchiseFilter} onValueChange={setFranchiseFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Franchise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Franchises</SelectItem>
-                    {franchises.map((franchise) => (
-                      <SelectItem key={franchise.id} value={franchise.id}>
-                        {franchise.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <Button onClick={handleApplyFilters} disabled={!filtersChanged || refreshing} className="min-w-[120px]">
-              <Search className="mr-2 h-4 w-4" />
-              Apply Filters
-            </Button>
-          </div>
-
-          {filtersChanged && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-800">
-                <AlertTriangle className="inline mr-1 h-4 w-4" />
-                Filters have been modified. Click "Apply Filters" to update the data.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{analyticsData.totalRevenue.toLocaleString()}</div>
-            {hasFinancialAccess ? (
-              <p className="text-xs text-muted-foreground">Profit Margin: {analyticsData.profitMargin.toFixed(1)}%</p>
-            ) : (
-              <p className="text-xs text-muted-foreground text-red-600">
-                <Lock className="inline h-3 w-3 mr-1" />
-                Financial details restricted
-              </p>
-            )}
+            <p className="text-2xl font-bold text-green-800 mt-1">₹{totalRevenue.toLocaleString()}</p>
           </CardContent>
         </Card>
-
-        {hasFinancialAccess ? (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₹{analyticsData.totalExpenses.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                {((analyticsData.totalExpenses / Math.max(analyticsData.totalRevenue, 1)) * 100).toFixed(1)}% of revenue
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="opacity-50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center">
-                <Lock className="h-3 w-3 mr-1" />
-                Total Expenses
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-muted-foreground">Restricted</div>
-              <p className="text-xs text-red-600">Financial access required</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {hasFinancialAccess ? (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${analyticsData.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
-                ₹{analyticsData.netProfit.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">{analyticsData.totalBookings} total bookings</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="opacity-50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center">
-                <Lock className="h-3 w-3 mr-1" />
-                Net Profit
-              </CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-muted-foreground">Restricted</div>
-              <p className="text-xs text-red-600">Financial access required</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.totalCustomers}</div>
-            <p className="text-xs text-muted-foreground">Active customer base</p>
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-blue-700 text-sm font-medium">
+              <TrendingUp className="h-4 w-4" /> Collected
+            </div>
+            <p className="text-2xl font-bold text-blue-800 mt-1">₹{totalCollected.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-50 border-orange-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-orange-700 text-sm font-medium">
+              <Clock className="h-4 w-4" /> Pending
+            </div>
+            <p className="text-2xl font-bold text-orange-800 mt-1">₹{totalPending.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className={`${netProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"}`}>
+          <CardContent className="p-4">
+            <div className={`flex items-center gap-2 text-sm font-medium ${netProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+              <Wallet className="h-4 w-4" /> Net Profit
+            </div>
+            <p className={`text-2xl font-bold mt-1 ${netProfit >= 0 ? "text-emerald-800" : "text-red-800"}`}>
+              ₹{netProfit.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
-      <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          {hasFinancialAccess && <TabsTrigger value="expenses">Expenses</TabsTrigger>}
+      {/* Tabs */}
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
-          {hasFinancialAccess && <TabsTrigger value="comparison">Comparison</TabsTrigger>}
-          {hasFranchiseAccess && <TabsTrigger value="franchises">Franchises</TabsTrigger>}
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="pending">Pending</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="revenue" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <RevenueChart data={reportData.revenue} title="Revenue Trend" type="line" />
-            <RevenueChart data={reportData.salesVsRentals} title="Sales vs Rentals" type="pie" />
+        {/* OVERVIEW TAB */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Revenue Trend Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" /> Revenue Trend (Last 6 Months)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} />
+                    <Legend />
+                    <Bar dataKey="rentals" name="Rentals" fill="#3B82F6" />
+                    <Bar dataKey="sales" name="Sales" fill="#10B981" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pie Charts Row */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Revenue Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" /> Revenue: Rentals vs Sales
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RePieChart>
+                      <Pie data={revenueBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: PieLabelRenderProps) => `${props.name || ""}: ${((Number(props.percent) || 0) * 100).toFixed(0)}%`}>
+                        {revenueBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex justify-center gap-6 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span className="text-sm">Rentals: ₹{bookingStats.rentalRevenue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    <span className="text-sm">Sales: ₹{bookingStats.salesRevenue.toLocaleString()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Stats</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="flex items-center gap-2"><Users className="h-4 w-4 text-purple-500" /> Total Customers</span>
+                  <span className="font-bold text-lg">{customerStats.total}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="flex items-center gap-2"><Package className="h-4 w-4 text-blue-500" /> Total Rentals</span>
+                  <span className="font-bold text-lg">{bookingStats.totalRentals}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="flex items-center gap-2"><ShoppingBag className="h-4 w-4 text-emerald-500" /> Total Sales</span>
+                  <span className="font-bold text-lg">{bookingStats.totalSales}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="flex items-center gap-2"><Box className="h-4 w-4 text-orange-500" /> Products</span>
+                  <span className="font-bold text-lg">{inventoryStats.totalProducts}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="flex items-center gap-2"><Wallet className="h-4 w-4 text-red-500" /> Total Expenses</span>
+                  <span className="font-bold text-lg">₹{totalExpenses.toLocaleString()}</span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
-        {hasFinancialAccess && (
-          <TabsContent value="expenses" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <RevenueChart data={reportData.expenses} title="Expenses by Category" type="bar" />
-              <RevenueChart data={reportData.expenses} title="Expense Distribution" type="pie" />
-            </div>
-          </TabsContent>
-        )}
+        {/* BOOKINGS TAB */}
+        <TabsContent value="bookings" className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Rentals Card */}
+            <Card className="border-2 border-blue-200">
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="flex items-center gap-2 text-blue-800">
+                  <Package className="h-5 w-5" /> RENTALS
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between py-2 border-b">
+                    <span>Total Orders</span>
+                    <span className="font-bold text-xl">{bookingStats.totalRentals}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span>Revenue</span>
+                    <span className="font-bold text-xl text-green-600">₹{bookingStats.rentalRevenue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span>Collected</span>
+                    <span className="font-bold text-xl text-blue-600">₹{bookingStats.rentalCollected.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span>Pending</span>
+                    <span className="font-bold text-xl text-orange-600">₹{bookingStats.rentalPending.toLocaleString()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <TabsContent value="inventory" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <InventoryChart data={reportData.inventory} title="Inventory by Category" type="bar" />
-            {reportData.damages.length > 0 && (
-              <InventoryChart data={reportData.damages} title="Damaged Items" type="pie" />
-            )}
+            {/* Sales Card */}
+            <Card className="border-2 border-emerald-200">
+              <CardHeader className="bg-emerald-50">
+                <CardTitle className="flex items-center gap-2 text-emerald-800">
+                  <ShoppingBag className="h-5 w-5" /> SALES
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between py-2 border-b">
+                    <span>Total Orders</span>
+                    <span className="font-bold text-xl">{bookingStats.totalSales}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span>Revenue</span>
+                    <span className="font-bold text-xl text-green-600">₹{bookingStats.salesRevenue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span>Collected</span>
+                    <span className="font-bold text-xl text-blue-600">₹{bookingStats.salesCollected.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span>Pending</span>
+                    <span className="font-bold text-xl text-orange-600">₹{bookingStats.salesPending.toLocaleString()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {/* Summary Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Bookings Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left p-3">Type</th>
+                    <th className="text-right p-3">Orders</th>
+                    <th className="text-right p-3">Revenue</th>
+                    <th className="text-right p-3">Collected</th>
+                    <th className="text-right p-3">Pending</th>
+                    <th className="text-right p-3">Collection %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b hover:bg-blue-50">
+                    <td className="p-3 font-medium">📦 Rentals</td>
+                    <td className="p-3 text-right">{bookingStats.totalRentals}</td>
+                    <td className="p-3 text-right">₹{bookingStats.rentalRevenue.toLocaleString()}</td>
+                    <td className="p-3 text-right text-green-600">₹{bookingStats.rentalCollected.toLocaleString()}</td>
+                    <td className="p-3 text-right text-orange-600">₹{bookingStats.rentalPending.toLocaleString()}</td>
+                    <td className="p-3 text-right">{bookingStats.rentalRevenue > 0 ? ((bookingStats.rentalCollected / bookingStats.rentalRevenue) * 100).toFixed(0) : 0}%</td>
+                  </tr>
+                  <tr className="border-b hover:bg-emerald-50">
+                    <td className="p-3 font-medium">🛒 Sales</td>
+                    <td className="p-3 text-right">{bookingStats.totalSales}</td>
+                    <td className="p-3 text-right">₹{bookingStats.salesRevenue.toLocaleString()}</td>
+                    <td className="p-3 text-right text-green-600">₹{bookingStats.salesCollected.toLocaleString()}</td>
+                    <td className="p-3 text-right text-orange-600">₹{bookingStats.salesPending.toLocaleString()}</td>
+                    <td className="p-3 text-right">{bookingStats.salesRevenue > 0 ? ((bookingStats.salesCollected / bookingStats.salesRevenue) * 100).toFixed(0) : 0}%</td>
+                  </tr>
+                  <tr className="bg-gray-100 font-bold">
+                    <td className="p-3">TOTAL</td>
+                    <td className="p-3 text-right">{bookingStats.totalRentals + bookingStats.totalSales}</td>
+                    <td className="p-3 text-right">₹{totalRevenue.toLocaleString()}</td>
+                    <td className="p-3 text-right text-green-600">₹{totalCollected.toLocaleString()}</td>
+                    <td className="p-3 text-right text-orange-600">₹{totalPending.toLocaleString()}</td>
+                    <td className="p-3 text-right">{totalRevenue > 0 ? ((totalCollected / totalRevenue) * 100).toFixed(0) : 0}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {hasFinancialAccess && (
-          <TabsContent value="comparison" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue vs Expenses</CardTitle>
-                  <CardDescription>Financial performance comparison</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span>Revenue</span>
-                      <span className="font-bold text-green-600">₹{analyticsData.totalRevenue.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Expenses</span>
-                      <span className="font-bold text-red-600">₹{analyticsData.totalExpenses.toLocaleString()}</span>
-                    </div>
-                    <div className="border-t pt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Net Profit</span>
-                        <span
-                          className={`font-bold ${analyticsData.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
-                        >
-                          ₹{analyticsData.netProfit.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Profit Margin: {analyticsData.profitMargin.toFixed(1)}%
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* INVENTORY TAB */}
+        <TabsContent value="inventory" className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-blue-700">Total Products</p>
+                <p className="text-2xl font-bold text-blue-800">{inventoryStats.totalProducts}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-green-700">Total Stock</p>
+                <p className="text-2xl font-bold text-green-800">{inventoryStats.totalStock}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-50 border-purple-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-purple-700">Inventory Value</p>
+                <p className="text-2xl font-bold text-purple-800">₹{inventoryStats.totalValue.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-orange-50 border-orange-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-orange-700">Low Stock Items</p>
+                <p className="text-2xl font-bold text-orange-800">{inventoryStats.lowStock}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Business Metrics</CardTitle>
-                  <CardDescription>Key performance indicators</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span>Total Bookings</span>
-                      <span className="font-bold">{analyticsData.totalBookings}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Total Customers</span>
-                      <span className="font-bold">{analyticsData.totalCustomers}</span>
-                    </div>
-                    <div className="border-t pt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Avg Revenue per Booking</span>
-                        <span className="font-bold text-blue-600">
-                          ₹
-                          {analyticsData.totalBookings > 0
-                            ? Math.round(analyticsData.totalRevenue / analyticsData.totalBookings).toLocaleString()
-                            : 0}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Revenue per customer: ₹
-                      {analyticsData.totalCustomers > 0
-                        ? Math.round(analyticsData.totalRevenue / analyticsData.totalCustomers).toLocaleString()
-                        : 0}
-                    </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Inventory Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Box className="h-5 w-5" /> Inventory Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                    <span className="text-green-700">✅ Available</span>
+                    <span className="font-bold text-green-800">{inventoryStats.available}</span>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        )}
+                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                    <span className="text-blue-700">📦 Rented Out</span>
+                    <span className="font-bold text-blue-800">{inventoryStats.rented}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                    <span className="text-yellow-700">🧺 In Laundry</span>
+                    <span className="font-bold text-yellow-800">{inventoryStats.inLaundry}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                    <span className="text-red-700">⚠️ Damaged</span>
+                    <span className="font-bold text-red-800">{inventoryStats.damaged}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {hasFranchiseAccess && (
-          <TabsContent value="franchises" className="space-y-4">
-            {reportData.franchiseComparison.length > 0 ? (
-              <RevenueChart data={reportData.franchiseComparison} title="Franchise Performance Comparison" type="bar" />
-            ) : (
-              <Card>
-                <CardContent className="flex items-center justify-center h-64">
-                  <p className="text-muted-foreground">
-                    No franchise comparison data available for the selected period
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        )}
+            {/* Inventory Pie Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Stock Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RePieChart>
+                      <Pie data={inventoryBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(props: PieLabelRenderProps) => `${props.name || ""}: ${((Number(props.percent) || 0) * 100).toFixed(0)}%`}>
+                        <Cell fill="#10B981" />
+                        <Cell fill="#3B82F6" />
+                        <Cell fill="#EF4444" />
+                      </Pie>
+                      <Tooltip />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Products by Usage */}
+          {topProducts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" /> Top Products by Usage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topProducts} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(v: number) => v.toLocaleString()} />
+                      <Bar dataKey="usage" name="Usage Count" fill="#8B5CF6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Category-wise Stock Distribution */}
+          {categoryStockData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" /> Category-wise Stock
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3">Category</th>
+                        <th className="text-right p-3">Products</th>
+                        <th className="text-right p-3">Total Stock</th>
+                        <th className="text-right p-3">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {categoryStockData.map((cat, i) => (
+                        <tr key={i} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                              {cat.category}
+                            </div>
+                          </td>
+                          <td className="p-3 text-right">{cat.products}</td>
+                          <td className="p-3 text-right">{cat.stock.toLocaleString()}</td>
+                          <td className="p-3 text-right font-medium">₹{cat.value.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-100 font-bold">
+                        <td className="p-3">TOTAL</td>
+                        <td className="p-3 text-right">{categoryStockData.reduce((s, c) => s + c.products, 0)}</td>
+                        <td className="p-3 text-right">{categoryStockData.reduce((s, c) => s + c.stock, 0).toLocaleString()}</td>
+                        <td className="p-3 text-right">₹{categoryStockData.reduce((s, c) => s + c.value, 0).toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Low Stock Alert */}
+          {lowStockProducts.length > 0 && (
+            <Card className="border-orange-200">
+              <CardHeader className="bg-orange-50">
+                <CardTitle className="flex items-center gap-2 text-orange-800">
+                  <AlertCircle className="h-5 w-5" /> Low Stock Alert
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-orange-50">
+                        <th className="text-left p-3">Product</th>
+                        <th className="text-right p-3">Available</th>
+                        <th className="text-right p-3">Reorder Level</th>
+                        <th className="text-center p-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lowStockProducts.map((prod, i) => (
+                        <tr key={i} className="border-b hover:bg-orange-50/50">
+                          <td className="p-3 font-medium">{prod.name}</td>
+                          <td className="p-3 text-right font-bold">{prod.available}</td>
+                          <td className="p-3 text-right text-gray-600">{prod.reorderLevel}</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              prod.status === "Out of Stock" ? "bg-red-100 text-red-700" :
+                              prod.status === "Critical" ? "bg-orange-100 text-orange-700" :
+                              "bg-yellow-100 text-yellow-700"
+                            }`}>
+                              {prod.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* EXPENSES TAB */}
+        <TabsContent value="expenses" className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-red-50 border-red-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-red-700">Total Expenses</p>
+                <p className="text-2xl font-bold text-red-800">₹{totalExpenses.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-blue-700">Categories</p>
+                <p className="text-2xl font-bold text-blue-800">{expenseStats.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-50 border-purple-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-purple-700">Total Transactions</p>
+                <p className="text-2xl font-bold text-purple-800">{expenseDetails.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm text-green-700">Avg per Transaction</p>
+                <p className="text-2xl font-bold text-green-800">
+                  ₹{expenseDetails.length > 0 ? Math.round(totalExpenses / expenseDetails.length).toLocaleString() : 0}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Monthly Expense Trend */}
+          {monthlyExpenses.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" /> Monthly Expense Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyExpenses}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} />
+                      <Bar dataKey="amount" name="Expenses" fill="#EF4444" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Expense Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" /> Expenses by Category
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  {expenseStats.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RePieChart>
+                        <Pie data={expenseStats} dataKey="amount" nameKey="category" cx="50%" cy="50%" outerRadius={90} label={(props: PieLabelRenderProps) => `${props.name || ""}: ${((Number(props.percent) || 0) * 100).toFixed(0)}%`}>
+                          {expenseStats.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} />
+                      </RePieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-500">No expense data</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Expense List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Expense Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {expenseStats.length > 0 ? (
+                    <>
+                      {expenseStats.map((e, i) => (
+                        <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <span className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                            {e.category}
+                          </span>
+                          <span className="font-bold">₹{e.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg border-2 border-red-200">
+                        <span className="font-bold text-red-700">TOTAL EXPENSES</span>
+                        <span className="font-bold text-xl text-red-800">₹{totalExpenses.toLocaleString()}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center text-gray-500 py-8">No expenses recorded</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Vendor-wise Expenses */}
+          {vendorExpenses.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" /> Vendor-wise Expenses
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3">Vendor</th>
+                        <th className="text-right p-3">Transactions</th>
+                        <th className="text-right p-3">Total Amount</th>
+                        <th className="text-right p-3">% of Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vendorExpenses.map((v, i) => (
+                        <tr key={i} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-medium">{v.vendor}</td>
+                          <td className="p-3 text-right">{v.count}</td>
+                          <td className="p-3 text-right font-bold">₹{v.amount.toLocaleString()}</td>
+                          <td className="p-3 text-right text-gray-600">
+                            {totalExpenses > 0 ? ((v.amount / totalExpenses) * 100).toFixed(1) : 0}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent Expenses Table */}
+          {expenseDetails.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" /> Recent Expenses
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3">Date</th>
+                        <th className="text-left p-3">Description</th>
+                        <th className="text-left p-3">Category</th>
+                        <th className="text-left p-3">Vendor</th>
+                        <th className="text-right p-3">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expenseDetails.map((exp, i) => (
+                        <tr key={i} className="border-b hover:bg-gray-50">
+                          <td className="p-3 text-sm text-gray-600">{exp.date}</td>
+                          <td className="p-3">
+                            <div className="max-w-xs truncate" title={exp.description}>
+                              {exp.description}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">
+                              {exp.category}
+                            </span>
+                          </td>
+                          <td className="p-3 text-sm">{exp.vendor}</td>
+                          <td className="p-3 text-right font-bold">₹{exp.amount.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Staff Salary Section */}
+          {staffSalary.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" /> Staff & Salary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left p-3">Staff Name</th>
+                      <th className="text-right p-3">Salary</th>
+                      <th className="text-right p-3">Paid</th>
+                      <th className="text-right p-3">Pending</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {staffSalary.map((s, i) => (
+                      <tr key={i} className="border-b hover:bg-gray-50">
+                        <td className="p-3">{s.name}</td>
+                        <td className="p-3 text-right">₹{s.salary.toLocaleString()}</td>
+                        <td className="p-3 text-right text-green-600">₹{s.paid.toLocaleString()}</td>
+                        <td className="p-3 text-right text-orange-600">₹{(s.salary - s.paid).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* PENDING PAYMENTS TAB */}
+        <TabsContent value="pending" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-orange-500" /> Pending Payments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pendingPayments.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3">Order #</th>
+                        <th className="text-left p-3">Type</th>
+                        <th className="text-left p-3">Customer</th>
+                        <th className="text-right p-3">Total</th>
+                        <th className="text-right p-3">Paid</th>
+                        <th className="text-right p-3">Pending</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingPayments.map((p, i) => (
+                        <tr key={i} className="border-b hover:bg-orange-50">
+                          <td className="p-3 font-mono text-sm">{p.number}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded text-xs ${p.type === "Rental" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                              {p.type}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div>{p.customer}</div>
+                            <div className="text-xs text-gray-500">{p.phone}</div>
+                          </td>
+                          <td className="p-3 text-right">₹{p.total.toLocaleString()}</td>
+                          <td className="p-3 text-right text-green-600">₹{p.paid.toLocaleString()}</td>
+                          <td className="p-3 text-right font-bold text-orange-600">₹{p.pending.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-orange-100 font-bold">
+                        <td colSpan={5} className="p-3 text-right">Total Pending:</td>
+                        <td className="p-3 text-right text-orange-700">₹{pendingPayments.reduce((s, p) => s + p.pending, 0).toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                  <p className="text-lg">No pending payments! 🎉</p>
+                  <p className="text-sm">All payments are collected</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Payment Summary */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-6 text-center">
+                <p className="text-sm text-green-700">Total Collected</p>
+                <p className="text-2xl font-bold text-green-800">₹{totalCollected.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-orange-50 border-orange-200">
+              <CardContent className="p-6 text-center">
+                <p className="text-sm text-orange-700">Total Pending</p>
+                <p className="text-2xl font-bold text-orange-800">₹{totalPending.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-6 text-center">
+                <p className="text-sm text-blue-700">Collection Rate</p>
+                <p className="text-2xl font-bold text-blue-800">
+                  {totalRevenue > 0 ? ((totalCollected / totalRevenue) * 100).toFixed(0) : 0}%
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
-
-      {/* Export Dialog */}
-      <ExportDialog
-        isOpen={isExportDialogOpen}
-        onClose={() => setIsExportDialogOpen(false)}
-        reportData={{
-          ...analyticsData,
-          topProducts: [
-            { name: "Royal Turban Set", category: "Turban", bookings: 45, revenue: 225000 },
-            { name: "Golden Sehra", category: "Sehra", bookings: 32, revenue: 160000 },
-            { name: "Pearl Kalgi", category: "Kalgi", bookings: 28, revenue: 140000 },
-          ],
-        }}
-        dateRange={appliedDateRange}
-        selectedFranchise={appliedFranchiseFilter}
-        reportType="Business Analytics Report"
-      />
     </div>
   )
 }

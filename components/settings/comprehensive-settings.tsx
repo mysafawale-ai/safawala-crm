@@ -14,7 +14,8 @@ import {
   Lock,
   Settings,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  MessageSquare
 } from 'lucide-react'
 
 // Import our new section components
@@ -23,6 +24,7 @@ import { BrandingSection } from './branding-section-new'
 import { BankingSection } from './banking-section-new'
 import { ProfileSection } from './profile-section'
 import { ChangePasswordSection } from './change-password-section'
+import { WhatsAppSection } from './whatsapp-section'
 
 interface ComprehensiveSettingsProps {
   franchiseId?: string
@@ -34,7 +36,7 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
   const getInitialTab = () => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '')
-      if (['company', 'branding', 'banking', 'profile', 'security'].includes(hash)) {
+      if (['company', 'branding', 'banking', 'whatsapp', 'profile', 'security'].includes(hash)) {
         return hash
       }
     }
@@ -81,7 +83,7 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 bg-gray-100">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 bg-gray-100">
           <TabsTrigger value="company" className="flex items-center gap-2 data-[state=active]:bg-white">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Company</span>
@@ -93,6 +95,10 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
           <TabsTrigger value="banking" className="flex items-center gap-2 data-[state=active]:bg-white">
             <Zap className="h-4 w-4" />
             <span className="hidden sm:inline">Banking Details</span>
+          </TabsTrigger>
+          <TabsTrigger value="whatsapp" className="flex items-center gap-2 data-[state=active]:bg-white">
+            <MessageSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">WhatsApp</span>
           </TabsTrigger>
           <TabsTrigger value="profile" className="flex items-center gap-2 data-[state=active]:bg-white">
             <UserCog className="h-4 w-4" />
@@ -114,6 +120,10 @@ export default function ComprehensiveSettings({ franchiseId = defaultFranchiseId
 
         <TabsContent value="banking" className="space-y-6">
           <BankingSection franchiseId={franchiseId} />
+        </TabsContent>
+
+        <TabsContent value="whatsapp" className="space-y-6">
+          <WhatsAppSection franchiseId={franchiseId} />
         </TabsContent>
 
         <TabsContent value="profile" className="space-y-6">
