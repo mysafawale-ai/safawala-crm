@@ -92,6 +92,7 @@ function formatPhone(phone: string): string {
 
 /**
  * Send a text message via WATI
+ * Note: Session messages only work within 24-hour window after customer messages you
  */
 export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const config = await getWATIConfig()
@@ -103,36 +104,106 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
   const phone = formatPhone(params.phone)
 
   try {
+    // Try session message first
     const response = await fetch(`${config.base_url}/api/v1/sendSessionMessage/${phone}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.api_key}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json-patch+json',
       },
       body: JSON.stringify({
         messageText: params.message,
       }),
     })
 
-    const data: WATIResponse = await response.json()
+    const data = await response.json()
+    console.log("[WATI] sendSessionMessage response:", data)
 
-    if (!response.ok || !data.result) {
-      console.error("[WATI] Send message failed:", data)
-      return { success: false, error: data.info || "Failed to send message" }
+    if (response.ok && data.result === true) {
+      // Log the message
+      await logMessage({
+        phone,
+        type: 'text',
+        content: params.message,
+        status: 'sent',
+        messageId: data.messageId,
+      })
+      return { success: true, messageId: data.messageId }
     }
 
-    // Log the message
-    await logMessage({
-      phone,
-      type: 'text',
-      content: params.message,
-      status: 'sent',
-      messageId: data.messageId,
-    })
-
-    return { success: true, messageId: data.messageId }
+    // If session message fails, return the error
+    return { success: false, error: data.message || data.info || "Failed to send message. Customer may need to message you first (24-hour session window)." }
   } catch (error: any) {
     console.error("[WATI] Error sending message:", error)
+    return { success: false, error: error.message || "Network error" }
+  }
+}
+
+/**
+ * Send a test/interactive message via WATI (doesn't require session)
+ * Uses the sendInteractiveButtonsMessage or sendTemplateMessages endpoint
+ */
+export async function sendTestMessage(phone: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const config = await getWATIConfig()
+  
+  if (!config || !config.is_active) {
+    return { success: false, error: "WATI integration is not configured or inactive" }
+  }
+
+  const formattedPhone = formatPhone(phone)
+
+  try {
+    // Use sendTemplateMessages API for test (no session required)
+    const response = await fetch(`${config.base_url}/api/v1/sendTemplateMessages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.api_key}`,
+        'Content-Type': 'application/json-patch+json',
+      },
+      body: JSON.stringify({
+        broadcast_name: `test_${Date.now()}`,
+        template_name: 'hello_world', // Default WATI template
+        receivers: [
+          {
+            whatsappNumber: formattedPhone,
+          }
+        ]
+      }),
+    })
+
+    const data = await response.json()
+    console.log("[WATI] sendTemplateMessages response:", data)
+
+    if (response.ok && (data.result === true || data.result === 'true')) {
+      return { success: true, messageId: data.messageId || 'sent' }
+    }
+
+    // Try session message as fallback
+    console.log("[WATI] Template failed, trying session message...")
+    const sessionResponse = await fetch(`${config.base_url}/api/v1/sendSessionMessage/${formattedPhone}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.api_key}`,
+        'Content-Type': 'application/json-patch+json',
+      },
+      body: JSON.stringify({
+        messageText: '✅ Test message from Safawala CRM\n\nYour WhatsApp integration is working correctly!',
+      }),
+    })
+
+    const sessionData = await sessionResponse.json()
+    console.log("[WATI] sendSessionMessage response:", sessionData)
+
+    if (sessionResponse.ok && sessionData.result === true) {
+      return { success: true, messageId: sessionData.messageId }
+    }
+
+    return { 
+      success: false, 
+      error: data.message || sessionData.message || "Failed to send test message. You may need an approved template or the customer needs to message you first." 
+    }
+  } catch (error: any) {
+    console.error("[WATI] Error sending test message:", error)
     return { success: false, error: error.message || "Network error" }
   }
 }

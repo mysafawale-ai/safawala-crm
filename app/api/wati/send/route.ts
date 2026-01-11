@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
-import { sendMessage, sendTemplateMessage, sendMedia } from "@/lib/services/wati-service"
+import { sendMessage, sendTemplateMessage, sendMedia, sendTestMessage } from "@/lib/services/wati-service"
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +26,11 @@ export async function POST(req: NextRequest) {
     let result
 
     switch (type) {
+      case 'test':
+        // Special test message that tries multiple methods
+        result = await sendTestMessage(phone)
+        break
+
       case 'text':
         if (!message) {
           return NextResponse.json({ error: "Message is required for text type" }, { status: 400 })
@@ -57,7 +62,7 @@ export async function POST(req: NextRequest) {
         break
 
       default:
-        return NextResponse.json({ error: "Invalid message type. Use: text, template, or media" }, { status: 400 })
+        return NextResponse.json({ error: "Invalid message type. Use: test, text, template, or media" }, { status: 400 })
     }
 
     if (!result.success) {
