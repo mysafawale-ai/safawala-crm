@@ -162,7 +162,7 @@ export async function sendTestMessage(phone: string): Promise<{ success: boolean
       },
       body: JSON.stringify({
         broadcast_name: `test_${Date.now()}`,
-        template_name: 'hello_world', // Default WATI template
+        template_name: 'wedding_turban', // Approved template
         receivers: [
           {
             whatsappNumber: formattedPhone,
