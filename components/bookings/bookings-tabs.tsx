@@ -137,7 +137,7 @@ export function BookingsTabs({
               <TableHead>Amount</TableHead>
               <TableHead>Event Date</TableHead>
               <TableHead>Created At</TableHead>
-              {(activeTab === 'product-rental' || activeTab === 'package' || activeTab === 'direct-sale') && (
+              {(activeTab === 'all' || activeTab === 'product-rental' || activeTab === 'package' || activeTab === 'direct-sale') && (
                 <TableHead>Invoice</TableHead>
               )}
               <TableHead className="text-right">Actions</TableHead>
@@ -220,7 +220,7 @@ export function BookingsTabs({
                 <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                 
                 {/* Invoice column for all booking types */}
-                {(activeTab === 'product-rental' || activeTab === 'package' || activeTab === 'direct-sale') && (
+                {(activeTab === 'all' || activeTab === 'product-rental' || activeTab === 'package' || activeTab === 'direct-sale') && (
                   <TableCell>
                     <Badge 
                       variant="outline" 
