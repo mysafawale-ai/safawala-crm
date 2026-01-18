@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     // Use category from request body or from product, fallback to "Uncategorized"
     const finalCategory = category || product.category || "Uncategorized"
 
-    // Insert into archive
+    // Insert into archive - INCLUDE QUANTITY!
     const { data: archiveData, error: archiveError } = await supabase
       .from("product_archive")
       .insert({
@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
         original_rental_price,
         original_sale_price,
         image_url,
+        quantity: archiveQuantity, // FIX: Save the actual quantity being archived
         franchise_id: franchiseId,
       })
       .select()
