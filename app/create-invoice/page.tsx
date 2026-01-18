@@ -131,6 +131,36 @@ interface LostDamagedItem {
   notes?: string
 }
 
+// Helper function to safely parse dates from database to yyyy-MM-dd format for HTML date inputs
+const formatDateForInput = (dateValue: string | null | undefined): string => {
+  if (!dateValue) return ""
+  try {
+    // Handle various date formats from database
+    const date = new Date(dateValue)
+    if (isNaN(date.getTime())) return ""
+    // Return yyyy-MM-dd format for HTML date input
+    return date.toISOString().split('T')[0]
+  } catch {
+    return ""
+  }
+}
+
+// Helper function to safely parse time from database timestamp
+const formatTimeForInput = (dateValue: string | null | undefined, existingTime?: string): string => {
+  if (existingTime) return existingTime
+  if (!dateValue) return ""
+  try {
+    const date = new Date(dateValue)
+    if (isNaN(date.getTime())) return ""
+    // Extract HH:mm from the timestamp
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    return `${hours}:${minutes}`
+  } catch {
+    return ""
+  }
+}
+
 export default function CreateInvoicePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -748,16 +778,16 @@ export default function CreateInvoicePage() {
       // Auto-fill all invoice data from existing order
       setInvoiceData({
         invoice_number: order.order_number || "",
-        invoice_date: order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : format(new Date(), "yyyy-MM-dd"),
+        invoice_date: order.invoice_date ? formatDateForInput(order.invoice_date) : (order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : format(new Date(), "yyyy-MM-dd")),
         invoice_type: order.booking_type || "rental",
         event_type: order.event_type || "wedding",
         event_participant: order.event_participant || "both",
-        event_date: order.event_date || "",
-        event_time: order.event_time || "",
-        delivery_date: order.delivery_date || "",
-        delivery_time: order.delivery_time || "",
-        return_date: order.return_date || "",
-        return_time: order.return_time || "",
+        event_date: formatDateForInput(order.event_date),
+        event_time: order.event_time || formatTimeForInput(order.event_date),
+        delivery_date: formatDateForInput(order.delivery_date),
+        delivery_time: order.delivery_time || formatTimeForInput(order.delivery_date),
+        return_date: formatDateForInput(order.return_date),
+        return_time: order.return_time || formatTimeForInput(order.return_date),
         venue_address: order.venue_address || "",
         groom_name: order.groom_name || "",
         groom_whatsapp: order.groom_whatsapp || "",
@@ -884,7 +914,9 @@ export default function CreateInvoicePage() {
         }
       }
       
-      console.log("[EditOrder] Invoice data set - invoice_number:", order.order_number, "event_date:", order.event_date)
+      console.log("[EditOrder] Invoice data set - invoice_number:", order.order_number)
+      console.log("[EditOrder] Raw dates from DB - event_date:", order.event_date, "delivery_date:", order.delivery_date, "return_date:", order.return_date)
+      console.log("[EditOrder] Formatted dates - event_date:", formatDateForInput(order.event_date), "delivery_date:", formatDateForInput(order.delivery_date), "return_date:", formatDateForInput(order.return_date))
       
       // Map order items to invoice items (using denormalized columns directly)
       const items = (orderItems || []).map((item: any) => ({
