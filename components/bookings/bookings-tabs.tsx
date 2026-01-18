@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Eye, Edit, Archive, Plus, Package, RotateCcw, ChevronDown, ChevronUp } from "lucide-react"
+import { Eye, Edit, Archive, Plus, Package, RotateCcw, ChevronDown, ChevronUp, FileText } from "lucide-react"
 import Link from "next/link"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton } from "@/components/ui/skeleton-loader"
+import { InvoiceFormatDialog } from "@/components/invoices"
 
 interface BookingsTabsProps {
   bookings: Booking[]
@@ -70,6 +71,16 @@ export function BookingsTabs({
 }: BookingsTabsProps) {
   const [activeTab, setActiveTab] = useState("all")
   const [showArchived, setShowArchived] = useState(false)
+  
+  // Invoice dialog state
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
+  const [invoiceBooking, setInvoiceBooking] = useState<Booking | null>(null)
+
+  // Handler to open invoice for a booking
+  const handleViewInvoice = (booking: Booking) => {
+    setInvoiceBooking(booking)
+    setShowInvoiceDialog(true)
+  }
 
   // Filter bookings by type
   const allBookings = bookings
@@ -211,8 +222,13 @@ export function BookingsTabs({
                 {/* Invoice column for all booking types */}
                 {(activeTab === 'product-rental' || activeTab === 'package' || activeTab === 'direct-sale') && (
                   <TableCell>
-                    <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">
-                      📄 View
+                    <Badge 
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+                      onClick={() => handleViewInvoice(booking)}
+                    >
+                      <FileText className="h-3 w-3 mr-1" />
+                      View
                     </Badge>
                   </TableCell>
                 )}
@@ -383,6 +399,16 @@ export function BookingsTabs({
         </Card>
       )}
     </div>
+
+    {/* Invoice Dialog */}
+    {invoiceBooking && (
+      <InvoiceFormatDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+        booking={invoiceBooking}
+        bookingItems={(invoiceBooking as any).bookingItems || []}
+      />
+    )}
     </>
   )
 }
