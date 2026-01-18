@@ -368,6 +368,19 @@ export default function BookingsPage() {
           return
         }
         const json = await res.json()
+        
+        // Log warnings if there are any (helps with debugging is_archived column issues)
+        if (json.warnings && json.warnings.length > 0) {
+          console.warn('[Bookings] Archived API warnings:', json.warnings)
+          // Show toast for missing columns (likely need migration)
+          const missingColumnWarnings = json.warnings.filter((w: any) => 
+            w.error?.includes('is_archived') || w.error?.includes('column')
+          )
+          if (missingColumnWarnings.length > 0) {
+            console.error('[Bookings] Archive feature may need migration. Run ADD_ARCHIVE_TO_PRODUCT_ORDERS.sql')
+          }
+        }
+        
         let archived = (json.data || []) as any[]
 
         // Fallback hydration: if no customer object but we have basic fields on row
@@ -862,7 +875,11 @@ export default function BookingsPage() {
           // Map source to correct API type
           const type = source === 'package_bookings' ? 'package_booking' 
             : source === 'direct_sales_orders' || source === 'direct_sales' ? 'direct_sales'
-            : 'product_order'
+            : source === 'bookings' ? 'unified'
+            : source === 'product_orders' ? 'product_order'
+            : 'unified'  // Default to unified for unknown sources
+          
+          console.log('[Archive] Sending request with type:', type)
           
           const response = await fetch('/api/bookings/archive', {
             method: 'POST',
@@ -871,10 +888,14 @@ export default function BookingsPage() {
           })
           
           const result = await response.json()
-          console.log('[Archive] Response:', result)
+          console.log('[Archive] Response:', response.status, result)
           
           if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Failed to archive')
+            // Check if it's a database migration issue
+            if (result.details?.includes('is_archived') || result.message?.includes('migration')) {
+              throw new Error('Archive feature needs database update. Please run ADD_ARCHIVE_TO_ALL_TABLES.sql')
+            }
+            throw new Error(result.error || result.message || 'Failed to archive')
           }
           
           toast({ title: 'Archived', description: 'Booking archived successfully' })
@@ -887,6 +908,7 @@ export default function BookingsPage() {
           if (archivedRes.ok) {
             const archivedJson = await archivedRes.json()
             setArchivedBookings(archivedJson.data || [])
+            console.log('[Archive] Refreshed archived list, count:', archivedJson.data?.length || 0)
           }
           
         } catch (error: any) {
@@ -902,7 +924,8 @@ export default function BookingsPage() {
       // Normalize source to singular form for API
       const normalized = source === 'package_bookings' ? 'package_booking'
         : source === 'product_orders' ? 'product_order'
-        : source === 'direct_sales' ? 'direct_sales'
+        : source === 'direct_sales' || source === 'direct_sales_orders' ? 'direct_sales'
+        : source === 'bookings' ? 'unified'
         : 'unified'
       const endpoint = `/api/bookings/restore`
       console.log('[Bookings] Restoring', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)
@@ -921,8 +944,9 @@ export default function BookingsPage() {
         const supabase = createClient()
         const tableName = source === 'package_bookings' ? 'package_bookings'
           : source === 'product_orders' ? 'product_orders'
-          : source === 'direct_sales_orders' ? 'direct_sales_orders'
-          : 'package_bookings' // fallback
+          : source === 'direct_sales_orders' || source === 'direct_sales' ? 'direct_sales_orders'
+          : source === 'bookings' ? 'bookings'
+          : 'bookings' // fallback to unified bookings table
         
         const { data: restoredBooking, error } = await supabase
           .from(tableName)
@@ -963,7 +987,8 @@ export default function BookingsPage() {
           // Normalize source to singular form for API
           const normalized = source === 'package_bookings' ? 'package_booking'
             : source === 'product_orders' ? 'product_order'
-            : source === 'direct_sales' ? 'direct_sales'
+            : source === 'direct_sales' || source === 'direct_sales_orders' ? 'direct_sales'
+            : source === 'bookings' ? 'unified'
             : 'unified'
           const endpoint = `/api/bookings/${bookingId}${source ? `?type=${normalized}` : ''}`
           console.log('[Bookings] Deleting', bookingId, 'source:', source, 'normalized:', normalized, 'endpoint:', endpoint)

@@ -59,12 +59,15 @@ async function handleArchiveRequest(request: NextRequest) {
 
     if (findError) {
       console.error('[Bookings ARCHIVE] Find error:', findError)
-      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+      return NextResponse.json({ error: 'Database error', details: findError.message }, { status: 500 })
     }
 
     if (!existing) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      console.error('[Bookings ARCHIVE] Booking not found in table:', tableName, 'ID:', id)
+      return NextResponse.json({ error: 'Booking not found', table: tableName, id }, { status: 404 })
     }
+
+    console.log('[Bookings ARCHIVE] Found booking in', tableName, '- franchise:', existing.franchise_id)
 
     // Franchise ownership check
     if (!isSuperAdmin && existing.franchise_id && existing.franchise_id !== franchiseId) {
@@ -72,31 +75,35 @@ async function handleArchiveRequest(request: NextRequest) {
     }
 
     // Try to archive
-    const { error: archiveError } = await supabase
+    console.log('[Bookings ARCHIVE] Attempting to set is_archived=true on', tableName)
+    const { data: updateResult, error: archiveError } = await supabase
       .from(tableName)
       .update({ is_archived: true })
       .eq('id', id)
+      .select('id, is_archived')
 
     if (archiveError) {
-      console.error('[Bookings ARCHIVE] Archive error:', archiveError)
+      console.error('[Bookings ARCHIVE] Archive error:', archiveError.message, archiveError.code)
 
       // Check if column doesn't exist
       if (archiveError.message?.includes('is_archived') || archiveError.code === '42703') {
         return NextResponse.json({
+          success: false,
           error: 'Archive functionality not available',
-          message: 'Database needs update. Please contact admin.',
-          details: 'Run ADD_ARCHIVE_TO_BOOKINGS.sql migration'
+          message: 'Database needs update. Run ADD_ARCHIVE_TO_ALL_TABLES.sql migration.',
+          details: `The is_archived column does not exist on ${tableName} table`
         }, { status: 400 })
       }
 
-      return NextResponse.json({ error: archiveError.message }, { status: 400 })
+      return NextResponse.json({ success: false, error: archiveError.message }, { status: 400 })
     }
 
-    console.log('[Bookings ARCHIVE] Successfully archived booking:', id)
+    console.log('[Bookings ARCHIVE] Successfully archived booking:', id, 'Result:', updateResult)
     return NextResponse.json({
       success: true,
       message: 'Booking archived successfully',
-      bookingId: id
+      bookingId: id,
+      table: tableName
     })
 
   } catch (error: any) {
