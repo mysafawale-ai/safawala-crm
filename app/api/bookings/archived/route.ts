@@ -15,7 +15,10 @@ export async function GET(request: NextRequest) {
     }
     const { authContext } = authResult
     const franchiseId = authContext!.user.franchise_id
-    const isSuperAdmin = authContext!.user.role === 'super_admin'
+    // Check both role and is_super_admin flag
+    const isSuperAdmin = authContext!.user.role === 'super_admin' || authContext!.user.is_super_admin === true
+    
+    console.log('[ArchivedBookingsAPI] User franchise:', franchiseId, 'isSuperAdmin:', isSuperAdmin)
 
     const supabase = createClient()
 
