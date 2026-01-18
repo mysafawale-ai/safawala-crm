@@ -9,8 +9,9 @@ import {
   sendPaymentReceived,
   sendDeliveryReminder,
   sendReturnReminder,
+  sendPaymentReminder,
 } from "@/lib/services/wati-service"
-import { format } from "date-fns"
+import { format, differenceInDays } from "date-fns"
 
 interface NotificationSettings {
   booking_confirmation: boolean
@@ -299,6 +300,138 @@ export async function processDeliveryReminders(): Promise<{ processed: number; s
       } else {
         errors.push(`${booking.package_number}: ${result.error}`)
       }
+    }
+  } catch (error: any) {
+    errors.push(error.message)
+  }
+
+  return { processed, sent, errors }
+}
+
+/**
+ * Trigger: Payment reminder due (called by cron job)
+ */
+export async function onPaymentReminderDue(params: {
+  bookingId: string
+  bookingNumber: string
+  customerPhone: string
+  customerName: string
+  pendingAmount: number
+  eventDate: string
+  daysUntilEvent: number
+  franchiseId: string
+}): Promise<{ sent: boolean; error?: string }> {
+  try {
+    const settings = await getNotificationSettings(params.franchiseId)
+    if (!settings?.payment_reminder) {
+      return { sent: false, error: "Payment reminder notifications disabled" }
+    }
+
+    const result = await sendPaymentReminder({
+      phone: params.customerPhone,
+      customerName: params.customerName,
+      bookingNumber: params.bookingNumber,
+      pendingAmount: params.pendingAmount,
+      eventDate: format(new Date(params.eventDate), "dd MMM yyyy"),
+      daysUntilEvent: params.daysUntilEvent,
+    })
+
+    if (result.success && result.messageId) {
+      await supabase.from("whatsapp_messages")
+        .update({ booking_id: params.bookingId, franchise_id: params.franchiseId })
+        .eq("wati_message_id", result.messageId)
+    }
+
+    return { sent: result.success, error: result.error }
+  } catch (error: any) {
+    console.error("[WhatsApp Triggers] onPaymentReminderDue error:", error)
+    return { sent: false, error: error.message }
+  }
+}
+
+/**
+ * Process payment reminders for bookings with pending payments
+ * Sends daily reminders starting 10 days before event date
+ */
+export async function processPaymentReminders(): Promise<{ processed: number; sent: number; errors: string[] }> {
+  const errors: string[] = []
+  let processed = 0
+  let sent = 0
+
+  try {
+    const today = new Date()
+    const todayStr = format(today, "yyyy-MM-dd")
+    
+    // Calculate the date 10 days from now
+    const maxDate = new Date()
+    maxDate.setDate(maxDate.getDate() + 10)
+    const maxDateStr = format(maxDate, "yyyy-MM-dd")
+
+    // Get bookings with:
+    // - Event date within next 10 days
+    // - Pending amount > 0 (not fully paid)
+    // - Not archived
+    // - Not already sent payment reminder today
+    const { data: bookings, error } = await supabase
+      .from("package_bookings")
+      .select(`
+        id, package_number, event_date, total_amount, advance_amount, 
+        pending_amount, franchise_id, payment_reminder_last_sent,
+        customer:customers(name, phone)
+      `)
+      .gte("event_date", todayStr)
+      .lte("event_date", maxDateStr)
+      .gt("pending_amount", 0)
+      .eq("is_archived", false)
+
+    if (error) {
+      console.error("[WhatsApp Triggers] Error fetching bookings for payment reminders:", error)
+      return { processed: 0, sent: 0, errors: [error.message] }
+    }
+
+    for (const booking of bookings || []) {
+      // Skip if already sent today
+      if (booking.payment_reminder_last_sent) {
+        const lastSentDate = format(new Date(booking.payment_reminder_last_sent), "yyyy-MM-dd")
+        if (lastSentDate === todayStr) {
+          continue
+        }
+      }
+
+      processed++
+      
+      if (!booking.customer?.phone) {
+        errors.push(`${booking.package_number}: No phone number`)
+        continue
+      }
+
+      // Calculate days until event
+      const eventDate = new Date(booking.event_date)
+      const daysUntilEvent = differenceInDays(eventDate, today)
+
+      const result = await onPaymentReminderDue({
+        bookingId: booking.id,
+        bookingNumber: booking.package_number,
+        customerPhone: booking.customer.phone,
+        customerName: booking.customer.name || "Customer",
+        pendingAmount: booking.pending_amount || (booking.total_amount - (booking.advance_amount || 0)),
+        eventDate: booking.event_date,
+        daysUntilEvent,
+        franchiseId: booking.franchise_id,
+      })
+
+      if (result.sent) {
+        sent++
+        // Mark last sent date
+        await supabase.from("package_bookings")
+          .update({ payment_reminder_last_sent: new Date().toISOString() })
+          .eq("id", booking.id)
+      } else {
+        errors.push(`${booking.package_number}: ${result.error}`)
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500))
     }
   } catch (error: any) {
     errors.push(error.message)

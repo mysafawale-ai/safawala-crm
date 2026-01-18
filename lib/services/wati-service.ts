@@ -565,3 +565,27 @@ export async function sendBulkPromotion(params: {
 
   return { success: failed === 0, sent, failed, errors }
 }
+
+/**
+ * Send payment reminder to customer
+ */
+export async function sendPaymentReminder(params: {
+  phone: string
+  customerName: string
+  bookingNumber: string
+  pendingAmount: number
+  eventDate: string
+  daysUntilEvent: number
+}): Promise<{ success: boolean; error?: string }> {
+  return sendTemplateMessage({
+    phone: params.phone,
+    templateName: 'payment_reminder', // You'll need to create this template in WATI
+    parameters: [
+      params.customerName,
+      params.bookingNumber,
+      `₹${params.pendingAmount.toLocaleString()}`,
+      params.eventDate,
+      params.daysUntilEvent.toString(),
+    ],
+  })
+}

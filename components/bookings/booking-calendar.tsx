@@ -415,10 +415,10 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const dayClassNames = {
     // Past dates → grey
     past: "!bg-gray-300 !text-gray-600 !opacity-60 !cursor-not-allowed hover:!bg-gray-300 dark:!bg-gray-700 dark:!text-gray-400",
-  // 0 bookings → blue (as requested)
-  zero: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm font-semibold",
-  // 1-19 bookings → green
-  low: "!bg-green-500/90 !text-white hover:!bg-green-600 !cursor-pointer !border !border-green-600/30 shadow-sm font-semibold",
+  // 0 bookings → green
+  zero: "!bg-green-500/90 !text-white hover:!bg-green-600 !cursor-pointer !border !border-green-600/30 shadow-sm font-semibold",
+  // 1-19 bookings → blue
+  low: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm font-semibold",
     // 20+ bookings → red
     high: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm font-semibold",
   }
@@ -434,11 +434,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           {!compact && (
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm bg-blue-500 border border-blue-600/30 shadow-sm" />
+                <span className="inline-block w-3 h-3 rounded-sm bg-green-500 border border-green-600/30 shadow-sm" />
                 <span className="text-muted-foreground font-medium">0 Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm bg-green-500 border border-green-600/30 shadow-sm" />
+                <span className="inline-block w-3 h-3 rounded-sm bg-blue-500 border border-blue-600/30 shadow-sm" />
                 <span className="text-muted-foreground font-medium">1-20 Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
