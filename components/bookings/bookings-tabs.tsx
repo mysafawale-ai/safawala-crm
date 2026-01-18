@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,7 +12,6 @@ import { Eye, Edit, Archive, Plus, Package, RotateCcw, ChevronDown, ChevronUp, F
 import Link from "next/link"
 import type { Booking } from "@/lib/types"
 import { TableSkeleton } from "@/components/ui/skeleton-loader"
-import { InvoiceFormatDialog } from "@/components/invoices"
 
 interface BookingsTabsProps {
   bookings: Booking[]
@@ -69,17 +69,14 @@ export function BookingsTabs({
   handleRestoreBooking,
   onTabChange 
 }: BookingsTabsProps) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("all")
   const [showArchived, setShowArchived] = useState(false)
-  
-  // Invoice dialog state
-  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false)
-  const [invoiceBooking, setInvoiceBooking] = useState<Booking | null>(null)
 
-  // Handler to open invoice for a booking
+  // Handler to open invoice for a booking - navigate to create-invoice page in edit mode
   const handleViewInvoice = (booking: Booking) => {
-    setInvoiceBooking(booking)
-    setShowInvoiceDialog(true)
+    // Navigate to create-invoice page with the booking ID for edit mode (A4 view)
+    router.push(`/create-invoice?mode=edit&id=${booking.id}`)
   }
 
   // Filter bookings by type
@@ -399,16 +396,6 @@ export function BookingsTabs({
         </Card>
       )}
     </div>
-
-    {/* Invoice Dialog */}
-    {invoiceBooking && (
-      <InvoiceFormatDialog
-        open={showInvoiceDialog}
-        onOpenChange={setShowInvoiceDialog}
-        booking={invoiceBooking}
-        bookingItems={(invoiceBooking as any).bookingItems || []}
-      />
-    )}
     </>
   )
 }
