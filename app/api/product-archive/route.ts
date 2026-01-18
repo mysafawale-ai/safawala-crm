@@ -204,10 +204,26 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 })
     }
 
-    // Restore stock (add 1 back)
+    // Get the quantity that was archived (default to 1 for old records)
+    const restoredQuantity = archiveRecord.quantity || 1
+
+    // Get current stock to add the restored quantity
+    const { data: product, error: productError } = await supabase
+      .from("products")
+      .select("stock_available")
+      .eq("id", archiveRecord.product_id)
+      .single()
+
+    if (productError || !product) {
+      console.error("[Product Archive DELETE] Product not found:", productError)
+      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
+
+    // Restore stock by ADDING the archived quantity back (not setting to 1)
+    const newStockAvailable = (product.stock_available || 0) + restoredQuantity
     const { error: updateError } = await supabase
       .from("products")
-      .update({ stock_available: 1 })
+      .update({ stock_available: newStockAvailable })
       .eq("id", archiveRecord.product_id)
 
     if (updateError) {
@@ -215,10 +231,10 @@ export async function DELETE(request: NextRequest) {
       // The archive record is already deleted, just log the error
     }
 
-    console.log("[Product Archive DELETE] Successfully restored product:", archiveRecord.product_id)
+    console.log("[Product Archive DELETE] Successfully restored product:", archiveRecord.product_id, "quantity:", restoredQuantity)
     return NextResponse.json({
       success: true,
-      message: "Product restored successfully",
+      message: `Product restored successfully (${restoredQuantity} unit${restoredQuantity > 1 ? 's' : ''})`,
     })
   } catch (error: any) {
     console.error("[Product Archive DELETE] Error:", error)
