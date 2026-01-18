@@ -54,7 +54,10 @@ export async function GET(request: NextRequest) {
 
         // Apply franchise filter ONLY for non-super admins
         if (!isSuperAdmin && franchiseId) {
+          console.log(`[ArchivedBookingsAPI] Filtering ${spec.table} by franchise_id: ${franchiseId}`)
           query = query.eq('franchise_id', franchiseId)
+        } else {
+          console.log(`[ArchivedBookingsAPI] No franchise filter for ${spec.table} (isSuperAdmin: ${isSuperAdmin})`)
         }
         
         // Add ordering and limit
@@ -84,8 +87,17 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5)
 
-    // Include errors in response for debugging (only if there are errors)
-    const response: any = { success: true, data: sorted, count: sorted.length }
+    // Include debug info in response
+    const response: any = { 
+      success: true, 
+      data: sorted, 
+      count: sorted.length,
+      _debug: {
+        userFranchiseId: franchiseId,
+        isSuperAdmin,
+        totalFound: results.length
+      }
+    }
     if (errors.length > 0) {
       response.warnings = errors
       console.warn('[ArchivedBookingsAPI] Completed with warnings:', errors)
