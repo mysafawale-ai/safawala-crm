@@ -161,6 +161,9 @@ const formatTimeForInput = (dateValue: string | null | undefined, existingTime?:
   }
 }
 
+// Default Safawala logo URL for invoices
+const DEFAULT_LOGO_URL = 'https://xplnyaxkusvuajtmorss.supabase.co/storage/v1/object/public/settings-uploads/1a518dde-85b7-44ef-8bc4-092f53ddfd99/logo-1761570887109.png'
+
 export default function CreateInvoicePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -2040,13 +2043,11 @@ export default function CreateInvoicePage() {
           <div className="flex justify-between items-start">
             {/* Company Logo & Details */}
             <div className="flex items-start gap-4">
-              {companySettings?.logo_url ? (
-                <img src={companySettings.logo_url} alt="Logo" className="h-16 w-16 object-contain" />
-              ) : (
-                <div className="h-16 w-16 bg-amber-500 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">S</span>
-                </div>
-              )}
+              <img 
+                src={companySettings?.logo_url || DEFAULT_LOGO_URL} 
+                alt="Logo" 
+                className="h-16 w-16 object-contain" 
+              />
               <div>
                 <h1 className="text-2xl font-bold text-amber-800">{companySettings?.company_name || "SAFAWALA"}</h1>
                 <p className="text-sm text-gray-600">Premium Wedding Turbans & Accessories</p>
@@ -2195,17 +2196,11 @@ export default function CreateInvoicePage() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
             {/* Logo & Company Name */}
             <div className="flex items-center gap-3">
-              {companySettings?.logo_url ? (
-                <img 
-                  src={companySettings.logo_url} 
-                  alt="Logo" 
-                  className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" 
-                />
-              ) : (
-                <div className="h-10 w-10 md:h-12 md:w-12 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
-                  <span className="text-lg md:text-xl font-bold text-white">S</span>
-                </div>
-              )}
+              <img 
+                src={companySettings?.logo_url || DEFAULT_LOGO_URL} 
+                alt="Logo" 
+                className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" 
+              />
               <div>
                 <div className="font-bold text-base md:text-lg text-gray-800">
                   {companySettings?.company_name || "SAFAWALA"}
