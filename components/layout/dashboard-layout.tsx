@@ -9,7 +9,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { getCurrentUser, signOut } from "@/lib/auth"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { LogOut, Plus, ClipboardList, Bell } from "lucide-react"
+import { LogOut, Plus, Bell } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase"
@@ -33,7 +32,6 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const [user, setUser] = useState<User | null>(null)
-  const [showAssignTask, setShowAssignTask] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [profilePhoto, setProfilePhoto] = useState<string>("")
   const router = useRouter()
@@ -132,7 +130,6 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     router.push("/")
   }
 
-  const canAssignTasks = user?.role === "super_admin" || user?.role === "franchise_admin"
   const unreadNotifications = notifications.filter((n) => !n.read).length
 
   if (!user) {
@@ -180,19 +177,6 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {canAssignTasks && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="btn-heritage-outline gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9 bg-transparent"
-                onClick={() => setShowAssignTask(true)}
-              >
-                <ClipboardList className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Assign Task</span>
-                <span className="sm:hidden">Task</span>
-              </Button>
-            )}
-
             {/* New Notification Bell Component */}
             <NotificationBell />
 
@@ -232,10 +216,6 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         </header>
 
         <main className="heritage-container flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">{children}</main>
-
-        {canAssignTasks && (
-          <AssignTaskDialog open={showAssignTask} onOpenChange={setShowAssignTask} currentUser={user} />
-        )}
       </SidebarInset>
     </SidebarProvider>
   )
