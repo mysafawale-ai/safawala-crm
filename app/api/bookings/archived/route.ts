@@ -29,11 +29,12 @@ export async function GET(request: NextRequest) {
       franchiseColumn?: string
     }
 
+    // Only query tables that are known to have is_archived column
+    // The 'bookings' unified table may not exist in all deployments
     const tables: TableSpec[] = [
-      { table: 'package_bookings', numberColumn: 'package_number' },
       { table: 'product_orders', numberColumn: 'order_number' },
+      { table: 'package_bookings', numberColumn: 'package_number' },
       { table: 'direct_sales_orders', numberColumn: 'order_number' },
-      { table: 'bookings', numberColumn: 'booking_number' },
     ]
 
     const results: any[] = []

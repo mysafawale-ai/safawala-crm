@@ -369,16 +369,14 @@ export default function BookingsPage() {
         }
         const json = await res.json()
         
-        // Log warnings if there are any (helps with debugging is_archived column issues)
+        // Log debug info
+        if (json._debug) {
+          console.log('[Bookings] Archived API debug:', json._debug)
+        }
+        
+        // Log warnings if there are any (helps with debugging)
         if (json.warnings && json.warnings.length > 0) {
           console.warn('[Bookings] Archived API warnings:', json.warnings)
-          // Show toast for missing columns (likely need migration)
-          const missingColumnWarnings = json.warnings.filter((w: any) => 
-            w.error?.includes('is_archived') || w.error?.includes('column')
-          )
-          if (missingColumnWarnings.length > 0) {
-            console.error('[Bookings] Archive feature may need migration. Run ADD_ARCHIVE_TO_PRODUCT_ORDERS.sql')
-          }
         }
         
         let archived = (json.data || []) as any[]
