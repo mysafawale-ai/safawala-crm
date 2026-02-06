@@ -58,12 +58,11 @@ export async function GET(request: NextRequest) {
       .from("product_orders")
       .select(`
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
-        event_type, venue_address, total_amount, amount_paid, notes, created_at,
+        event_type, venue_address, total_amount, amount_paid, notes, created_at, is_archived,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('franchise_id', franchiseId)
       .eq('booking_type', 'rental')
-      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     // ============ PRODUCT ORDERS (SALES ONLY) ============
@@ -72,12 +71,11 @@ export async function GET(request: NextRequest) {
       .from("product_orders")
       .select(`
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
-        event_type, venue_address, total_amount, amount_paid, notes, created_at, has_modifications, modifications_details, modification_date,
+        event_type, venue_address, total_amount, amount_paid, notes, created_at, has_modifications, modifications_details, modification_date, is_archived,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('franchise_id', franchiseId)
       .eq('booking_type', 'sale')
-      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     // ============ DIRECT SALES ORDERS (FROM DIRECT_SALES_ORDERS TABLE) ============
@@ -87,11 +85,10 @@ export async function GET(request: NextRequest) {
       .select(`
         id, sale_number, customer_id, franchise_id, status, sale_date, delivery_date, venue_address,
         total_amount, amount_paid, notes, created_at,
-        subtotal_amount, discount_amount, coupon_code, coupon_discount, tax_amount,
+        subtotal_amount, discount_amount, coupon_code, coupon_discount, tax_amount, is_archived,
         customer:customers(name, phone, email)
       `)
       .eq('franchise_id', franchiseId)
-      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     // ============ PACKAGE BOOKINGS ============
@@ -102,11 +99,10 @@ export async function GET(request: NextRequest) {
         event_type, venue_address, venue_name, total_amount, amount_paid, notes, created_at, from_quote_id,
         groom_name, groom_address, groom_whatsapp, bride_name, bride_address, bride_whatsapp, event_participant,
         subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, 
-        tax_amount, gst_percentage, security_deposit, event_time,
+        tax_amount, gst_percentage, security_deposit, event_time, is_archived,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('franchise_id', franchiseId)
-      .eq('is_archived', false)
       .order("created_at", { ascending: false })
 
     // Execute all four queries in parallel
@@ -290,6 +286,7 @@ export async function GET(request: NextRequest) {
       booking_kind: 'package' as const,
       total_safas: packageTotals[r.id] || 0,
       has_items: (packageTotals[r.id] || 0) > 0,
+      is_archived: r.is_archived || false,
       // Add package details
       package_details: packageDetails,
       variant_name: variantName,
@@ -343,6 +340,7 @@ export async function GET(request: NextRequest) {
       booking_kind: 'product' as const,
       total_safas: productTotals[r.id] || 0,
       has_items: (productTotals[r.id] || 0) > 0,
+      is_archived: r.is_archived || false,
     }))
 
     // Compute item totals for direct sales
@@ -417,6 +415,7 @@ export async function GET(request: NextRequest) {
       booking_kind: 'product' as const,
       total_safas: directSalesTotals[r.id] || 0,
       has_items: (directSalesTotals[r.id] || 0) > 0,
+      is_archived: r.is_archived || false,
     }))
 
     const data = [...productRows, ...directSalesRows, ...packageRows].sort(

@@ -128,8 +128,7 @@ export default function BookingsPage() {
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
   const [showComprehensiveDialog, setShowComprehensiveDialog] = useState(false)
 
-  // Archived bookings state
-  const [archivedBookings, setArchivedBookings] = useState<Booking[]>([])
+  // Archived section visibility state
   const [showArchivedSection, setShowArchivedSection] = useState(false)
 
   // Auto-refresh when returning from booking creation
@@ -358,91 +357,44 @@ export default function BookingsPage() {
     fetchBookingItems()
   }, [bookings, toast])
 
-  // Fetch archived bookings
-  useEffect(() => {
-    const fetchArchivedBookings = async () => {
-      try {
-        const res = await fetch('/api/bookings/archived', { cache: 'no-store' })
-        if (!res.ok) {
-          console.warn('[Bookings] Archived API error:', res.status, await res.text().catch(()=>''))
-          return
-        }
-        const json = await res.json()
-        
-        // Log debug info
-        if (json._debug) {
-          console.log('[Bookings] Archived API debug:', json._debug)
-        }
-        
-        // Log warnings if there are any (helps with debugging)
-        if (json.warnings && json.warnings.length > 0) {
-          console.warn('[Bookings] Archived API warnings:', json.warnings)
-        }
-        
-        let archived = (json.data || []) as any[]
-
-        // Fallback hydration: if no customer object but we have basic fields on row
-        archived = archived.map(b => {
-          if (!b.customer && (b.customer_name || b.customer_phone)) {
-            b.customer = {
-              id: b.customer_id,
-              name: b.customer_name || null,
-              phone: b.customer_phone || null,
-              email: b.customer_email || null,
-              address: b.customer_address || null,
-              city: b.customer_city || null,
-              state: b.customer_state || null,
-              pincode: b.customer_pincode || null,
-            }
-          }
-          return b
-        })
-
-        setArchivedBookings(archived as any)
-        console.log(`[Bookings] Loaded ${archived.length} archived bookings (API)`)
-      } catch (error) {
-        console.error('[Bookings] Error fetching archived bookings:', error)
-      }
-    }
-    
-    if (currentUser) {
-      fetchArchivedBookings()
-    }
-  }, [currentUser])
+  // Derive archived bookings from bookings data (client-side filter)
+  // This is simpler and more reliable than a separate API call
+  const archivedBookings = (bookings || []).filter((b: any) => b.is_archived === true)
+  const activeBookings = (bookings || []).filter((b: any) => !b.is_archived)
 
   const { data: statsData } = useData<any>("booking-stats")
   const stats = statsData || {}
 
-  // Calculate smart stats based on business logic
+  // Calculate smart stats based on business logic (using only active bookings)
   const smartStats = {
-    total: (bookings || []).length,
+    total: activeBookings.length,
     // Pending Selection: bookings without items (matching table logic)
-    pendingSelection: (bookings || []).filter(b => !(b as any).has_items).length,
-    pendingProductRental: (bookings || []).filter(b => !(b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'rental').length,
-    pendingProductSale: (bookings || []).filter(b => !(b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'sale').length,
-    pendingPackage: (bookings || []).filter(b => !(b as any).has_items && (b as any).source === 'package_bookings').length,
+    pendingSelection: activeBookings.filter(b => !(b as any).has_items).length,
+    pendingProductRental: activeBookings.filter(b => !(b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'rental').length,
+    pendingProductSale: activeBookings.filter(b => !(b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'sale').length,
+    pendingPackage: activeBookings.filter(b => !(b as any).has_items && (b as any).source === 'package_bookings').length,
     // Confirmed with Items Selected: bookings that have items selected (regardless of status)
-    confirmed: (bookings || []).filter(b => (b as any).has_items).length,
-    confirmedProductRental: (bookings || []).filter(b => (b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'rental').length,
-    confirmedProductSale: (bookings || []).filter(b => (b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'sale').length,
-    confirmedPackage: (bookings || []).filter(b => (b as any).has_items && (b as any).source === 'package_bookings').length,
-    delivered: (bookings || []).filter(b => {
+    confirmed: activeBookings.filter(b => (b as any).has_items).length,
+    confirmedProductRental: activeBookings.filter(b => (b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'rental').length,
+    confirmedProductSale: activeBookings.filter(b => (b as any).has_items && (b as any).source === 'product_orders' && (b as any).type === 'sale').length,
+    confirmedPackage: activeBookings.filter(b => (b as any).has_items && (b as any).source === 'package_bookings').length,
+    delivered: activeBookings.filter(b => {
       // For SALES: Delivered is FINAL
       // For RENTAL: Delivered is intermediate step
       const isSale = (b as any).type === 'sale'
       return b.status === 'delivered' || (isSale && b.status === 'order_complete')
     }).length,
-    returned: (bookings || []).filter(b => {
+    returned: activeBookings.filter(b => {
       // For RENTAL: Returned is FINAL
       const isRental = (b as any).type === 'rental' || (b as any).type === 'package'
       return isRental && b.status === 'returned'
     }).length,
-    revenue: (bookings || []).reduce((sum, b) => sum + (b.total_amount || 0), 0),
+    revenue: activeBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0),
     // Additional insights
-    rentalCount: (bookings || []).filter(b => (b as any).type === 'rental' || (b as any).type === 'package').length,
-    saleCount: (bookings || []).filter(b => (b as any).type === 'sale').length,
-    productCount: (bookings || []).filter(b => (b as any).source === 'product_orders').length,
-    packageCount: (bookings || []).filter(b => (b as any).source === 'package_bookings').length,
+    rentalCount: activeBookings.filter(b => (b as any).type === 'rental' || (b as any).type === 'package').length,
+    saleCount: activeBookings.filter(b => (b as any).type === 'sale').length,
+    productCount: activeBookings.filter(b => (b as any).source === 'product_orders').length,
+    packageCount: activeBookings.filter(b => (b as any).source === 'package_bookings').length,
   }
 
   // Save selected items to local state (no API call needed)
@@ -688,7 +640,7 @@ export default function BookingsPage() {
     }
   }
 
-  const filteredBookings = (bookings || []).filter((booking) => {
+  const filteredBookings = activeBookings.filter((booking) => {
     const searchLower = searchTerm.toLowerCase()
     const matchesSearch =
       !searchTerm ||
@@ -898,16 +850,8 @@ export default function BookingsPage() {
           
           toast({ title: 'Archived', description: 'Booking archived successfully' })
           
-          // Refresh both active and archived lists
+          // Refresh the bookings list - archived bookings are now filtered client-side
           await refresh()
-          
-          // Also refresh archived bookings
-          const archivedRes = await fetch('/api/bookings/archived', { cache: 'no-store' })
-          if (archivedRes.ok) {
-            const archivedJson = await archivedRes.json()
-            setArchivedBookings(archivedJson.data || [])
-            console.log('[Archive] Refreshed archived list, count:', archivedJson.data?.length || 0)
-          }
           
         } catch (error: any) {
           console.error('[Archive] Error:', error)
@@ -937,37 +881,9 @@ export default function BookingsPage() {
       
       toast({ title: 'Restored', description: 'Booking restored successfully' })
       
-      // Fetch the restored booking data from Supabase to ensure we have complete information
-      try {
-        const supabase = createClient()
-        const tableName = source === 'package_bookings' ? 'package_bookings'
-          : source === 'product_orders' ? 'product_orders'
-          : source === 'direct_sales_orders' || source === 'direct_sales' ? 'direct_sales_orders'
-          : source === 'bookings' ? 'bookings'
-          : 'bookings' // fallback to unified bookings table
-        
-        const { data: restoredBooking, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .eq('id', bookingId)
-          .eq('is_archived', false) // Ensure it's not archived
-          .maybeSingle()
-        
-        if (!error && restoredBooking) {
-          console.log('[Bookings] Fetched restored booking data:', restoredBooking)
-          // The booking should now appear in the active list after refresh
-        } else {
-          console.warn('[Bookings] Could not fetch restored booking data:', error)
-        }
-      } catch (fetchError) {
-        console.warn('[Bookings] Error fetching restored booking:', fetchError)
-      }
-      
-      // Refresh both active and archived bookings
+      // Refresh bookings - archived bookings are now filtered client-side
       await refresh()
       
-      // Remove from archived bookings list
-      setArchivedBookings(prev => prev.filter(b => b.id !== bookingId))
     } catch (error: any) {
       console.error('[Bookings] Restore error:', error)
       toast({ title: 'Error', description: error.message || 'Failed to restore booking', variant: 'destructive' })
