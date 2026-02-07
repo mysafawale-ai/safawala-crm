@@ -234,7 +234,7 @@ export function WhatsAppSection({ franchiseId }: WhatsAppSectionProps) {
         </CardContent>
       </Card>
 
-      {/* Template Status */}
+      {/* Template Status & Content */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -242,17 +242,19 @@ export function WhatsAppSection({ franchiseId }: WhatsAppSectionProps) {
             Message Templates
           </CardTitle>
           <CardDescription>
-            Status of your approved WhatsApp templates
+            Copy these templates to create them in your WATI dashboard. Use exact template names.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="space-y-4">
+          {/* Template Status Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
             {[
               { name: 'booking_confirmation', label: 'Booking Confirmation' },
               { name: 'payment_received', label: 'Payment Received' },
               { name: 'delivery_reminder', label: 'Delivery Reminder' },
               { name: 'return_reminder', label: 'Return Reminder' },
               { name: 'invoice_sent', label: 'Invoice Sent' },
+              { name: 'payment_reminder', label: 'Payment Reminder' },
             ].map((template) => (
               <div key={template.name} className="flex items-center justify-between p-3 border rounded-lg">
                 <span className="text-sm font-medium">{template.label}</span>
@@ -260,9 +262,225 @@ export function WhatsAppSection({ franchiseId }: WhatsAppSectionProps) {
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-4">
-            * Templates must be approved by WhatsApp before they can be used. Create templates in your WATI dashboard.
-          </p>
+
+          <Separator />
+
+          {/* Template Content to Copy */}
+          <div className="space-y-4">
+            <h4 className="font-semibold text-lg">📋 Templates to Create in WATI</h4>
+            <p className="text-sm text-gray-600">
+              Go to WATI Dashboard → Templates → Create New Template. Use these exact names and content.
+            </p>
+
+            {/* Template 1: booking_confirmation */}
+            <div className="border rounded-lg p-4 space-y-3 bg-green-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-semibold">1. booking_confirmation</h5>
+                  <span className="text-xs text-gray-500">Category: UTILITY | Language: English</span>
+                </div>
+                <Badge variant="outline" className="bg-white">Required</Badge>
+              </div>
+              <div className="bg-white p-3 rounded border text-sm font-mono whitespace-pre-wrap">
+{`Dear {{1}},
+
+Your booking has been confirmed! 🎉
+
+📋 *Booking Details:*
+• Booking ID: {{2}}
+• Event Date: {{3}}
+• Items: {{4}}
+
+💰 *Payment:*
+• Total: ₹{{5}}
+• Status: {{6}}
+
+📞 Contact: +91 97252 95692
+
+Thank you for choosing Safawala! 🙏`}
+              </div>
+              <div className="text-xs text-gray-600">
+                <strong>Parameters:</strong> {'{'}{'{'} 1 {'}'}{'}'}=Customer Name, {'{'}{'{'} 2 {'}'}{'}'}=Booking ID, {'{'}{'{'} 3 {'}'}{'}'}=Event Date, {'{'}{'{'} 4 {'}'}{'}'}=Items, {'{'}{'{'} 5 {'}'}{'}'}=Total Amount, {'{'}{'{'} 6 {'}'}{'}'}=Payment Status
+              </div>
+            </div>
+
+            {/* Template 2: payment_received */}
+            <div className="border rounded-lg p-4 space-y-3 bg-green-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-semibold">2. payment_received</h5>
+                  <span className="text-xs text-gray-500">Category: UTILITY | Language: English</span>
+                </div>
+                <Badge variant="outline" className="bg-white">Required</Badge>
+              </div>
+              <div className="bg-white p-3 rounded border text-sm font-mono whitespace-pre-wrap">
+{`Dear {{1}},
+
+Thank you! Your payment has been received. ✅
+
+💳 *Payment Details:*
+• Amount: ₹{{2}}
+• Booking ID: {{3}}
+• Payment Date: {{4}}
+• Method: {{5}}
+
+📄 *Balance: ₹{{6}}*
+
+Receipt will be shared separately.
+
+📞 Contact: +91 97252 95692`}
+              </div>
+              <div className="text-xs text-gray-600">
+                <strong>Parameters:</strong> {'{'}{'{'} 1 {'}'}{'}'}=Customer Name, {'{'}{'{'} 2 {'}'}{'}'}=Amount Paid, {'{'}{'{'} 3 {'}'}{'}'}=Booking ID, {'{'}{'{'} 4 {'}'}{'}'}=Payment Date, {'{'}{'{'} 5 {'}'}{'}'}=Payment Method, {'{'}{'{'} 6 {'}'}{'}'}=Balance Amount
+              </div>
+            </div>
+
+            {/* Template 3: delivery_reminder */}
+            <div className="border rounded-lg p-4 space-y-3 bg-blue-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-semibold">3. delivery_reminder</h5>
+                  <span className="text-xs text-gray-500">Category: UTILITY | Language: English</span>
+                </div>
+                <Badge variant="outline" className="bg-white">Required</Badge>
+              </div>
+              <div className="bg-white p-3 rounded border text-sm font-mono whitespace-pre-wrap">
+{`Dear {{1}},
+
+Reminder: Your items are scheduled for delivery! 📦
+
+📋 *Delivery Details:*
+• Booking ID: {{2}}
+• Delivery Date: {{3}}
+• Delivery Time: {{4}}
+• Address: {{5}}
+
+📦 *Items:*
+{{6}}
+
+Please ensure someone is available to receive.
+
+📞 Contact: +91 97252 95692`}
+              </div>
+              <div className="text-xs text-gray-600">
+                <strong>Parameters:</strong> {'{'}{'{'} 1 {'}'}{'}'}=Customer Name, {'{'}{'{'} 2 {'}'}{'}'}=Booking ID, {'{'}{'{'} 3 {'}'}{'}'}=Delivery Date, {'{'}{'{'} 4 {'}'}{'}'}=Delivery Time, {'{'}{'{'} 5 {'}'}{'}'}=Delivery Address, {'{'}{'{'} 6 {'}'}{'}'}=Items List
+              </div>
+            </div>
+
+            {/* Template 4: return_reminder */}
+            <div className="border rounded-lg p-4 space-y-3 bg-orange-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-semibold">4. return_reminder</h5>
+                  <span className="text-xs text-gray-500">Category: UTILITY | Language: English</span>
+                </div>
+                <Badge variant="outline" className="bg-white">Required</Badge>
+              </div>
+              <div className="bg-white p-3 rounded border text-sm font-mono whitespace-pre-wrap">
+{`Dear {{1}},
+
+Reminder: Your items are due for return! 🔄
+
+📋 *Return Details:*
+• Booking ID: {{2}}
+• Return Date: {{3}}
+• Return Time: {{4}}
+
+📦 *Items to Return:*
+{{5}}
+
+Please return items in good condition.
+Late returns may incur additional charges.
+
+📞 Contact: +91 97252 95692`}
+              </div>
+              <div className="text-xs text-gray-600">
+                <strong>Parameters:</strong> {'{'}{'{'} 1 {'}'}{'}'}=Customer Name, {'{'}{'{'} 2 {'}'}{'}'}=Booking ID, {'{'}{'{'} 3 {'}'}{'}'}=Return Date, {'{'}{'{'} 4 {'}'}{'}'}=Return Time, {'{'}{'{'} 5 {'}'}{'}'}=Items List
+              </div>
+            </div>
+
+            {/* Template 5: invoice_sent */}
+            <div className="border rounded-lg p-4 space-y-3 bg-purple-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-semibold">5. invoice_sent</h5>
+                  <span className="text-xs text-gray-500">Category: UTILITY | Language: English</span>
+                </div>
+                <Badge variant="outline" className="bg-white">Required</Badge>
+              </div>
+              <div className="bg-white p-3 rounded border text-sm font-mono whitespace-pre-wrap">
+{`Dear {{1}},
+
+Your invoice has been generated! 📄
+
+📄 *Invoice Details:*
+• Invoice No: {{2}}
+• Date: {{3}}
+• Amount: ₹{{4}}
+• Due Date: {{5}}
+
+💳 *Payment Options:*
+• UPI: safawala@paytm
+• Bank Transfer Available
+
+📎 Invoice PDF attached.
+
+📞 Contact: +91 97252 95692`}
+              </div>
+              <div className="text-xs text-gray-600">
+                <strong>Parameters:</strong> {'{'}{'{'} 1 {'}'}{'}'}=Customer Name, {'{'}{'{'} 2 {'}'}{'}'}=Invoice Number, {'{'}{'{'} 3 {'}'}{'}'}=Invoice Date, {'{'}{'{'} 4 {'}'}{'}'}=Total Amount, {'{'}{'{'} 5 {'}'}{'}'}=Due Date
+              </div>
+            </div>
+
+            {/* Template 6: payment_reminder */}
+            <div className="border rounded-lg p-4 space-y-3 bg-red-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-semibold">6. payment_reminder</h5>
+                  <span className="text-xs text-gray-500">Category: UTILITY | Language: English</span>
+                </div>
+                <Badge variant="outline" className="bg-white">Required</Badge>
+              </div>
+              <div className="bg-white p-3 rounded border text-sm font-mono whitespace-pre-wrap">
+{`Dear {{1}},
+
+Friendly reminder about your pending payment! 💳
+
+📋 *Booking Details:*
+• Booking ID: {{2}}
+• Event Date: {{3}}
+• Days Until Event: {{4}}
+
+💰 *Payment Due:*
+• Total Amount: ₹{{5}}
+• Paid: ₹{{6}}
+• Balance Due: ₹{{7}}
+
+Please clear the balance before the event.
+
+💳 *Payment Options:*
+• UPI: safawala@paytm
+• Bank Transfer Available
+
+📞 Contact: +91 97252 95692`}
+              </div>
+              <div className="text-xs text-gray-600">
+                <strong>Parameters:</strong> {'{'}{'{'} 1 {'}'}{'}'}=Customer Name, {'{'}{'{'} 2 {'}'}{'}'}=Booking ID, {'{'}{'{'} 3 {'}'}{'}'}=Event Date, {'{'}{'{'} 4 {'}'}{'}'}=Days Until Event, {'{'}{'{'} 5 {'}'}{'}'}=Total Amount, {'{'}{'{'} 6 {'}'}{'}'}=Amount Paid, {'{'}{'{'} 7 {'}'}{'}'}=Balance Due
+              </div>
+            </div>
+
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+            <h5 className="font-semibold text-yellow-800 mb-2">⚠️ Important Notes:</h5>
+            <ul className="text-sm text-yellow-700 space-y-1 list-disc list-inside">
+              <li>Use EXACT template names shown above (lowercase with underscores)</li>
+              <li>Select "UTILITY" as the category for all templates</li>
+              <li>WhatsApp takes 24-48 hours to approve templates</li>
+              <li>Parameters must be in order: {`{{1}}, {{2}}, {{3}}`} etc.</li>
+              <li>After approval, click "Refresh" above to update status</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
 
