@@ -1268,30 +1268,35 @@ export default function BookingsPage() {
       </div>
 
       <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "table" | "calendar")}>
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="table" className="flex items-center gap-2">
-              <List className="h-4 w-4" />
-              Table View
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Calendar View
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col gap-4">
+          {/* Top row: View tabs and search */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="table" className="flex items-center gap-2">
+                <List className="h-4 w-4" />
+                Table View
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Calendar View
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="flex items-center space-x-2">
-            <div className="relative">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search bookings..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-64"
+                className="pl-8 w-full"
               />
             </div>
+          </div>
+          
+          {/* Filter row - wraps on smaller screens */}
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={pendingFilters.status} onValueChange={(v)=>setPendingFilters(p=>({...p,status:v}))}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-36">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1307,7 +1312,7 @@ export default function BookingsPage() {
             </Select>
             {/* Optional Type filter placeholder if type exists */}
             <Select value={pendingFilters.type} onValueChange={(v)=>setPendingFilters(p=>({...p,type:v}))}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-32">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
@@ -1318,7 +1323,7 @@ export default function BookingsPage() {
               </SelectContent>
             </Select>
             <Select value={pendingFilters.products} onValueChange={(v)=>setPendingFilters(p=>({...p,products:v}))}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="Product Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1328,27 +1333,29 @@ export default function BookingsPage() {
               </SelectContent>
             </Select>
             <Select value={pendingFilters.safaSort} onValueChange={(v)=>setPendingFilters(p=>({...p,safaSort:v}))}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-40">
                 <SelectValue placeholder="Safa Quantity" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Safa Quantities</SelectItem>
-                <SelectItem value="low-to-high">Safa: Low to High</SelectItem>
-                <SelectItem value="high-to-low">Safa: High to Low</SelectItem>
+                <SelectItem value="all">All Safa Qty</SelectItem>
+                <SelectItem value="low-to-high">Safa: Low→High</SelectItem>
+                <SelectItem value="high-to-low">Safa: High→Low</SelectItem>
               </SelectContent>
             </Select>
             <Select value={pendingFilters.distanceSort} onValueChange={(v)=>setPendingFilters(p=>({...p,distanceSort:v}))}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Distance (Pincode)" />
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Distance" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Distances</SelectItem>
-                <SelectItem value="low-to-high">Distance: Low to High</SelectItem>
-                <SelectItem value="high-to-low">Distance: High to Low</SelectItem>
+                <SelectItem value="low-to-high">Near→Far</SelectItem>
+                <SelectItem value="high-to-low">Far→Near</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="secondary" size="sm" onClick={applyFilters}>Apply</Button>
-            <Button variant="ghost" size="sm" onClick={resetFilters}>Reset</Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={applyFilters}>Apply</Button>
+              <Button variant="ghost" size="sm" onClick={resetFilters}>Reset</Button>
+            </div>
           </div>
         </div>
 

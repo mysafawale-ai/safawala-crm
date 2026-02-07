@@ -22,6 +22,25 @@ import { Input } from "@/components/ui/input"
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+interface PaymentReminderItem {
+  id: string
+  bookingNumber: string
+  eventDate: string
+  daysUntilEvent: number
+  totalAmount: number
+  amountPaid: number
+  pendingAmount: number
+  status: string
+}
+
+interface DeliveryReminderItem {
+  id: string
+  bookingNumber: string
+  deliveryDate: string
+  daysUntilDelivery: number
+  status: string
+}
+
 interface DashboardStats {
   totalBookings: number
   activeBookings: number
@@ -41,6 +60,22 @@ interface DashboardStats {
     deliveries: number
     returns: number
     overdue: number
+  }
+  paymentReminders?: {
+    urgent: number
+    soon: number
+    upcoming: number
+    later: number
+    total: number
+    totalPendingAmount: number
+    list: PaymentReminderItem[]
+  }
+  deliveryReminders?: {
+    today: number
+    tomorrow: number
+    thisWeek: number
+    total: number
+    list: DeliveryReminderItem[]
   }
 }
 
@@ -278,8 +313,121 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Pending Actions Alert */}
-        {stats?.pendingActions && (stats.pendingActions.payments > 0 || stats.pendingActions.deliveries > 0 || stats.pendingActions.returns > 0) && (
+        {/* Pending Actions Alert - Enhanced with payment and delivery reminders */}
+        {(stats?.paymentReminders?.total || 0) > 0 || (stats?.deliveryReminders?.total || 0) > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Pending Payments Card */}
+            {(stats?.paymentReminders?.total || 0) > 0 && (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-orange-900 flex items-center gap-2 text-lg">
+                    <DollarSign className="h-5 w-5" />
+                    Pending Payments
+                  </CardTitle>
+                  <CardDescription className="text-orange-800">
+                    {stats?.paymentReminders?.total} bookings with ₹{(stats?.paymentReminders?.totalPendingAmount || 0).toLocaleString()} pending
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(stats?.paymentReminders?.urgent || 0) > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        🔴 {stats?.paymentReminders?.urgent} due in 1 day
+                      </Badge>
+                    )}
+                    {(stats?.paymentReminders?.soon || 0) > 0 && (
+                      <Badge className="bg-orange-500 text-xs">
+                        🟠 {stats?.paymentReminders?.soon} due in 2-3 days
+                      </Badge>
+                    )}
+                    {(stats?.paymentReminders?.upcoming || 0) > 0 && (
+                      <Badge className="bg-yellow-500 text-white text-xs">
+                        🟡 {stats?.paymentReminders?.upcoming} due in 4-7 days
+                      </Badge>
+                    )}
+                    {(stats?.paymentReminders?.later || 0) > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        ⚪ {stats?.paymentReminders?.later} due in 8-10 days
+                      </Badge>
+                    )}
+                  </div>
+                  {stats?.paymentReminders?.list && stats.paymentReminders.list.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {stats.paymentReminders.list.slice(0, 5).map((item) => (
+                        <Link 
+                          key={item.id} 
+                          href={`/bookings?search=${item.bookingNumber}`}
+                          className="flex items-center justify-between text-sm p-2 rounded bg-white hover:bg-orange-100 transition-colors"
+                        >
+                          <span className="font-medium">{item.bookingNumber}</span>
+                          <span className="text-orange-700">
+                            ₹{item.pendingAmount.toLocaleString()} • {item.daysUntilEvent === 0 ? 'Today' : item.daysUntilEvent === 1 ? 'Tomorrow' : `${item.daysUntilEvent} days`}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  <Link href="/bookings?status=pending_payment" className="text-orange-700 hover:underline text-sm mt-2 block">
+                    View all pending payments →
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pending Deliveries Card */}
+            {(stats?.deliveryReminders?.total || 0) > 0 && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-blue-900 flex items-center gap-2 text-lg">
+                    <Truck className="h-5 w-5" />
+                    Upcoming Deliveries
+                  </CardTitle>
+                  <CardDescription className="text-blue-800">
+                    {stats?.deliveryReminders?.total} deliveries scheduled
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(stats?.deliveryReminders?.today || 0) > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        🚚 {stats?.deliveryReminders?.today} Today
+                      </Badge>
+                    )}
+                    {(stats?.deliveryReminders?.tomorrow || 0) > 0 && (
+                      <Badge className="bg-orange-500 text-xs">
+                        📦 {stats?.deliveryReminders?.tomorrow} Tomorrow
+                      </Badge>
+                    )}
+                    {(stats?.deliveryReminders?.thisWeek || 0) > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        📅 {stats?.deliveryReminders?.thisWeek} This Week
+                      </Badge>
+                    )}
+                  </div>
+                  {stats?.deliveryReminders?.list && stats.deliveryReminders.list.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {stats.deliveryReminders.list.slice(0, 5).map((item) => (
+                        <Link 
+                          key={item.id} 
+                          href={`/bookings?search=${item.bookingNumber}`}
+                          className="flex items-center justify-between text-sm p-2 rounded bg-white hover:bg-blue-100 transition-colors"
+                        >
+                          <span className="font-medium">{item.bookingNumber}</span>
+                          <span className="text-blue-700">
+                            {item.daysUntilDelivery === 0 ? 'Today' : item.daysUntilDelivery === 1 ? 'Tomorrow' : `${item.daysUntilDelivery} days`}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  <Link href="/deliveries" className="text-blue-700 hover:underline text-sm mt-2 block">
+                    View all deliveries →
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : stats?.pendingActions && (stats.pendingActions.payments > 0 || stats.pendingActions.deliveries > 0 || stats.pendingActions.returns > 0) ? (
           <Alert className="border-orange-200 bg-orange-50">
             <AlertCircle className="h-4 w-4 text-orange-600" />
             <AlertTitle className="text-orange-900">Pending Actions Require Attention</AlertTitle>
@@ -306,7 +454,7 @@ export default function DashboardPage() {
               </div>
             </AlertDescription>
           </Alert>
-        )}
+        ) : null}
 
         {/* Booking Calendar - Only show if user has bookings permission */}
         {user?.permissions?.bookings && (

@@ -26,14 +26,14 @@ export async function GET(request: NextRequest) {
     // Fetch from BOTH package_bookings and product_orders (the actual booking sources)
     let packageQuery = supabase
       .from("package_bookings")
-      .select("id, status, total_amount, created_at", { count: 'exact' })
+      .select("id, status, total_amount, amount_paid, created_at, event_date, delivery_date, package_number", { count: 'exact' })
       .eq('is_quote', false)
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
 
     let productQuery = supabase
       .from("product_orders")
-      .select("id, status, total_amount, created_at, booking_type", { count: 'exact' })
+      .select("id, status, total_amount, amount_paid, created_at, event_date, delivery_date, order_number, booking_type", { count: 'exact' })
       .or('is_quote.is.null,is_quote.eq.false')
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
@@ -137,6 +137,72 @@ export async function GET(request: NextRequest) {
     const pendingReturns = bookings.filter((b: any) => b.status === 'delivered').length
     const overdueTasks = 0 // Can be enhanced with actual due date logic
 
+    // Calculate payment reminders (bookings with pending balance and upcoming events)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const bookingsWithPendingPayments = bookings
+      .filter((b: any) => {
+        const totalAmount = Number(b.total_amount) || 0
+        const amountPaid = Number(b.amount_paid) || 0
+        const pendingAmount = totalAmount - amountPaid
+        return pendingAmount > 0 && b.event_date
+      })
+      .map((b: any) => {
+        const eventDate = new Date(b.event_date)
+        eventDate.setHours(0, 0, 0, 0)
+        const daysUntilEvent = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        return {
+          id: b.id,
+          bookingNumber: b.package_number || b.order_number,
+          eventDate: b.event_date,
+          daysUntilEvent,
+          totalAmount: Number(b.total_amount) || 0,
+          amountPaid: Number(b.amount_paid) || 0,
+          pendingAmount: (Number(b.total_amount) || 0) - (Number(b.amount_paid) || 0),
+          status: b.status
+        }
+      })
+      .filter((b: any) => b.daysUntilEvent >= 0 && b.daysUntilEvent <= 30) // Next 30 days
+      .sort((a: any, b: any) => a.daysUntilEvent - b.daysUntilEvent)
+
+    // Group payment reminders by urgency
+    const paymentReminders = {
+      urgent: bookingsWithPendingPayments.filter((b: any) => b.daysUntilEvent <= 1).length,   // 1 day or less
+      soon: bookingsWithPendingPayments.filter((b: any) => b.daysUntilEvent > 1 && b.daysUntilEvent <= 3).length,   // 2-3 days
+      upcoming: bookingsWithPendingPayments.filter((b: any) => b.daysUntilEvent > 3 && b.daysUntilEvent <= 7).length, // 4-7 days
+      later: bookingsWithPendingPayments.filter((b: any) => b.daysUntilEvent > 7 && b.daysUntilEvent <= 10).length,  // 8-10 days
+      total: bookingsWithPendingPayments.length,
+      totalPendingAmount: bookingsWithPendingPayments.reduce((sum: number, b: any) => sum + b.pendingAmount, 0),
+      list: bookingsWithPendingPayments.slice(0, 10) // Top 10 most urgent
+    }
+
+    // Upcoming deliveries (confirmed bookings with delivery dates)
+    const upcomingDeliveries = bookings
+      .filter((b: any) => b.status === 'confirmed' && b.delivery_date)
+      .map((b: any) => {
+        const deliveryDate = new Date(b.delivery_date)
+        deliveryDate.setHours(0, 0, 0, 0)
+        const daysUntilDelivery = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+        return {
+          id: b.id,
+          bookingNumber: b.package_number || b.order_number,
+          deliveryDate: b.delivery_date,
+          daysUntilDelivery,
+          status: b.status
+        }
+      })
+      .filter((b: any) => b.daysUntilDelivery >= 0 && b.daysUntilDelivery <= 14) // Next 14 days
+      .sort((a: any, b: any) => a.daysUntilDelivery - b.daysUntilDelivery)
+
+    const deliveryReminders = {
+      today: upcomingDeliveries.filter((b: any) => b.daysUntilDelivery === 0).length,
+      tomorrow: upcomingDeliveries.filter((b: any) => b.daysUntilDelivery === 1).length,
+      thisWeek: upcomingDeliveries.filter((b: any) => b.daysUntilDelivery > 1 && b.daysUntilDelivery <= 7).length,
+      total: upcomingDeliveries.length,
+      list: upcomingDeliveries.slice(0, 10) // Top 10 most urgent
+    }
+
     const stats = {
       totalBookings: bookingsCount,
       activeBookings,
@@ -153,7 +219,9 @@ export async function GET(request: NextRequest) {
         deliveries: pendingDeliveries,
         returns: pendingReturns,
         overdue: overdueTasks
-      }
+      },
+      paymentReminders,
+      deliveryReminders
     }
 
     console.log(`[Dashboard Stats API] Returning stats:`, stats)
