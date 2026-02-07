@@ -24,7 +24,7 @@ interface BookingData {
   return_date: string
   modification_date?: string
   modification_time?: string
-  modification_details?: string
+  modifications_details?: string
   has_modifications?: boolean
   event_type: string
   venue_name: string
@@ -204,7 +204,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           return_date: toDateOnly(r.pickup_date), // API field name
           modification_date: r.modification_date ? toDateOnly(r.modification_date) : undefined,
           modification_time: r.modification_time || undefined,
-          modification_details: r.modification_details || undefined,
+          modifications_details: r.modifications_details || undefined,
           has_modifications: r.has_modifications || false,
           event_type: r.event_type,
           venue_name,
@@ -446,6 +446,10 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                 <span className="text-muted-foreground font-medium">20+ Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm bg-amber-400 border border-amber-500/30 shadow-sm flex items-center justify-center text-[8px]">🔧</span>
+                <span className="text-muted-foreground font-medium">Modifications</span>
+              </div>
+              <div className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-gray-400 border border-gray-500/30 shadow-sm" />
                 <span className="text-muted-foreground font-medium">Past Date</span>
               </div>
@@ -466,9 +470,22 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             }}
             modifiers={dayModifiers}
             modifiersClassNames={dayClassNames}
-            renderDayBadge={(date)=>{
+            renderDayBadge={(date) => {
               const count = getBookingsForDate(date).length
-              return count>0 ? count : null
+              const modifications = getModificationsForDate(date).length
+              
+              // Show both booking count and modification indicator
+              if (count > 0 || modifications > 0) {
+                return (
+                  <div className="flex items-center gap-0.5">
+                    {count > 0 && <span>{count}</span>}
+                    {modifications > 0 && (
+                      <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-amber-400 text-[8px] font-bold text-amber-900">🔧</span>
+                    )}
+                  </div>
+                )
+              }
+              return null
             }}
             squareCells={false}
             className={`rounded-lg border-2 border-border/50 w-full bg-background/50 ${compact ? (mini ? '[--cell-size:1.5rem]' : '[--cell-size:2rem]') : '[--cell-size:3.5rem] md:[--cell-size:4rem]'}`}
@@ -714,7 +731,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           </td>
                           <td className="border-muted px-4 py-3 text-sm text-foreground max-w-sm">
                             <div className="text-xs bg-amber-50 p-2 rounded border border-amber-200 text-amber-900">
-                              {booking.modification_details || "No details provided"}
+                              {booking.modifications_details || "No details provided"}
                             </div>
                           </td>
                         </tr>
