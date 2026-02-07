@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       .from("product_orders")
       .select(`
         id, order_number, customer_id, franchise_id, status, event_date, delivery_date, delivery_time, return_date, booking_type,
-        event_type, venue_address, total_amount, amount_paid, notes, created_at, is_archived,
+        event_type, venue_address, total_amount, amount_paid, notes, created_at, has_modifications, modifications_details, modification_date, is_archived,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('franchise_id', franchiseId)
@@ -341,6 +341,10 @@ export async function GET(request: NextRequest) {
       total_safas: productTotals[r.id] || 0,
       has_items: (productTotals[r.id] || 0) > 0,
       is_archived: r.is_archived || false,
+      // Modification fields for calendar tab
+      has_modifications: r.has_modifications || false,
+      modifications_details: r.modifications_details || null,
+      modification_date: r.modification_date || null,
     }))
 
     // Compute item totals for direct sales
