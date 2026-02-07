@@ -138,13 +138,59 @@ export async function GET(request: NextRequest) {
     let packageTotals: Record<string, number> = {}
 
     if (productIds.length > 0) {
+      // Fetch items with product details to identify Safa products
       const { data: poItems } = await supabase
         .from('product_order_items')
-        .select('order_id, quantity')
+        .select(`
+          order_id, 
+          quantity,
+          product_id
+        `)
         .in('order_id', productIds)
-      for (const row of poItems || []) {
-        productTotals[row.order_id] = (productTotals[row.order_id] || 0) + (Number(row.quantity) || 0)
+      
+      // Get all unique product IDs
+      const productItemIds = [...new Set(poItems?.map(i => i.product_id).filter(Boolean) || [])]
+      
+      // Fetch product details with category info
+      let productCategoryMap: Record<string, string> = {}
+      if (productItemIds.length > 0) {
+        const { data: products } = await supabase
+          .from('products')
+          .select('id, category_id')
+          .in('id', productItemIds)
+        
+        // Get category IDs
+        const categoryIds = [...new Set(products?.map(p => p.category_id).filter(Boolean) || [])]
+        
+        // Fetch category names
+        if (categoryIds.length > 0) {
+          const { data: cats } = await supabase
+            .from('categories')
+            .select('id, name')
+            .in('id', categoryIds)
+          
+          // Build product -> category name map
+          const catIdToName: Record<string, string> = {}
+          for (const cat of cats || []) {
+            catIdToName[cat.id] = cat.name
+          }
+          
+          for (const product of products || []) {
+            productCategoryMap[product.id] = catIdToName[product.category_id] || ''
+          }
+        }
       }
+      
+      // Count only Safa products (category name contains "SAFA")
+      for (const row of poItems || []) {
+        const categoryName = productCategoryMap[row.product_id] || ''
+        const isSafa = categoryName.toUpperCase().includes('SAFA')
+        if (isSafa) {
+          productTotals[row.order_id] = (productTotals[row.order_id] || 0) + (Number(row.quantity) || 0)
+        }
+      }
+      
+      console.log(`[Bookings API] Safa totals calculated for ${Object.keys(productTotals).length} orders`)
     }
 
     // Initialize package data variables
@@ -347,29 +393,71 @@ export async function GET(request: NextRequest) {
       modification_date: r.modification_date || null,
     }))
 
-    // Compute item totals for direct sales
+    // Compute item totals for direct sales (only Safa products)
     const directSalesIds = (directSalesRes.data || []).map((r: any) => r.id)
     let directSalesTotals: Record<string, number> = {}
 
     if (directSalesIds.length > 0) {
-      // Fetch from both direct_sales_items and product_order_items for combined view
+      // Fetch from direct_sales_items with product_id
       const { data: dsiItems } = await supabase
         .from('direct_sales_items')
-        .select('sale_id, quantity')
+        .select('sale_id, quantity, product_id')
         .in('sale_id', directSalesIds)
       
       // Also check product_order_items for orders that came from product_orders table with booking_type='sale'
       const { data: poiItems } = await supabase
         .from('product_order_items')
-        .select('order_id, quantity')
+        .select('order_id, quantity, product_id')
         .in('order_id', directSalesIds)
       
-      // Combine both results
+      // Collect all product IDs from both sources
+      const allProductIds = [
+        ...(dsiItems?.map(i => i.product_id).filter(Boolean) || []),
+        ...(poiItems?.map(i => i.product_id).filter(Boolean) || [])
+      ]
+      const uniqueProductIds = [...new Set(allProductIds)]
+      
+      // Fetch product details with category info
+      let dsCategoryMap: Record<string, string> = {}
+      if (uniqueProductIds.length > 0) {
+        const { data: products } = await supabase
+          .from('products')
+          .select('id, category_id')
+          .in('id', uniqueProductIds)
+        
+        const categoryIds = [...new Set(products?.map(p => p.category_id).filter(Boolean) || [])]
+        
+        if (categoryIds.length > 0) {
+          const { data: cats } = await supabase
+            .from('categories')
+            .select('id, name')
+            .in('id', categoryIds)
+          
+          const catIdToName: Record<string, string> = {}
+          for (const cat of cats || []) {
+            catIdToName[cat.id] = cat.name
+          }
+          
+          for (const product of products || []) {
+            dsCategoryMap[product.id] = catIdToName[product.category_id] || ''
+          }
+        }
+      }
+      
+      // Count only Safa products
       for (const row of dsiItems || []) {
-        directSalesTotals[row.sale_id] = (directSalesTotals[row.sale_id] || 0) + (Number(row.quantity) || 0)
+        const categoryName = dsCategoryMap[row.product_id] || ''
+        const isSafa = categoryName.toUpperCase().includes('SAFA')
+        if (isSafa) {
+          directSalesTotals[row.sale_id] = (directSalesTotals[row.sale_id] || 0) + (Number(row.quantity) || 0)
+        }
       }
       for (const row of poiItems || []) {
-        directSalesTotals[row.order_id] = (directSalesTotals[row.order_id] || 0) + (Number(row.quantity) || 0)
+        const categoryName = dsCategoryMap[row.product_id] || ''
+        const isSafa = categoryName.toUpperCase().includes('SAFA')
+        if (isSafa) {
+          directSalesTotals[row.order_id] = (directSalesTotals[row.order_id] || 0) + (Number(row.quantity) || 0)
+        }
       }
     }
 

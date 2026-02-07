@@ -615,11 +615,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                                 )
                               }
                               
-                              // For product rentals: show total quantity
+                              // For product rentals/sales: show Safa count only
                               return (
                                 <>
                                   <div className="text-2xl font-bold text-primary">{totalSafas}</div>
-                                  <div className="text-xs text-gray-500 mt-1">Total Quantity</div>
+                                  <div className="text-xs text-gray-500 mt-1">Safas</div>
                                 </>
                               )
                             })()}
