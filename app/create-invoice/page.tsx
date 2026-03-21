@@ -1953,7 +1953,20 @@ export default function CreateInvoicePage() {
 
   // Print/Download
   const handlePrint = () => {
+    const originalTitle = document.title
+    const eventDateStr = invoiceData.event_date
+      ? format(new Date(invoiceData.event_date), "dd/MM/yyyy")
+      : ""
+    const parts = [
+      invoiceData.invoice_number,
+      selectedCustomer?.name,
+      eventDateStr,
+    ].filter(Boolean)
+    if (parts.length > 0) {
+      document.title = parts.join(" | ")
+    }
     window.print()
+    document.title = originalTitle
   }
 
   // Format currency
