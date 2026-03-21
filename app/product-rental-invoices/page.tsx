@@ -49,6 +49,15 @@ interface InvoiceStats {
   pending_amount: number
 }
 
+const formatTime12h = (time: string): string => {
+  if (!time) return ""
+  const [h, m] = time.split(":").map(Number)
+  if (isNaN(h) || isNaN(m)) return time
+  const period = h >= 12 ? "PM" : "AM"
+  const hour12 = h % 12 || 12
+  return `${hour12}:${m.toString().padStart(2, "0")} ${period}`
+}
+
 export default function ProductRentalInvoicesPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -497,7 +506,7 @@ function ProductRentalInvoicesContent() {
                           </p>
                           {(invoice as any).delivery_time && (
                             <p className="text-xs text-gray-500">
-                              {(invoice as any).delivery_time}
+                              {formatTime12h((invoice as any).delivery_time)}
                             </p>
                           )}
                         </div>
@@ -511,7 +520,7 @@ function ProductRentalInvoicesContent() {
                           </p>
                           {(invoice as any).return_time && (
                             <p className="text-xs text-gray-500">
-                              {(invoice as any).return_time}
+                              {formatTime12h((invoice as any).return_time)}
                             </p>
                           )}
                         </div>

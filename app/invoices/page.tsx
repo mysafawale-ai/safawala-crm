@@ -54,6 +54,15 @@ interface InvoiceStats {
   total_revenue: number
 }
 
+const formatTime12h = (time: string): string => {
+  if (!time) return ""
+  const [h, m] = time.split(":").map(Number)
+  if (isNaN(h) || isNaN(m)) return time
+  const period = h >= 12 ? "PM" : "AM"
+  const hour12 = h % 12 || 12
+  return `${hour12}:${m.toString().padStart(2, "0")} ${period}`
+}
+
 export default function InvoicesPage() {
   return (
     <DashboardLayout>
@@ -827,7 +836,7 @@ function InvoicesPageContent() {
                     </div>
                     {selectedInvoice.event_time && (
                       <div>
-                        <span className="font-medium">Event Time:</span> {selectedInvoice.event_time}
+                        <span className="font-medium">Event Time:</span> {formatTime12h(selectedInvoice.event_time)}
                       </div>
                     )}
                     {selectedInvoice.groom_name && (
@@ -938,7 +947,7 @@ function InvoicesPageContent() {
                     </div>
                     <div>
                       <span className="font-medium">Delivery Time:</span>{" "}
-                      {(selectedInvoice as any).delivery_time || (selectedInvoice.delivery_date ? new Date(selectedInvoice.delivery_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A")}
+                      {(selectedInvoice as any).delivery_time ? formatTime12h((selectedInvoice as any).delivery_time) : (selectedInvoice.delivery_date ? new Date(selectedInvoice.delivery_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A")}
                     </div>
                     <div>
                       <span className="font-medium">Return Date:</span>{" "}
@@ -946,7 +955,7 @@ function InvoicesPageContent() {
                     </div>
                     <div>
                       <span className="font-medium">Return Time:</span>{" "}
-                      {(selectedInvoice as any).return_time || (selectedInvoice.return_date ? new Date(selectedInvoice.return_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A")}
+                      {(selectedInvoice as any).return_time ? formatTime12h((selectedInvoice as any).return_time) : (selectedInvoice.return_date ? new Date(selectedInvoice.return_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : "N/A")}
                     </div>
                     {(selectedInvoice as any).special_instructions && (
                       <div>
