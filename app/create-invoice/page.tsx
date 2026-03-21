@@ -3973,9 +3973,9 @@ export default function CreateInvoicePage() {
           </div>
 
           {/* Terms & Conditions - Print */}
-          <div className="mt-2 px-2 py-1.5 bg-gray-50 rounded">
-            <div className="text-[9px] text-amber-700 font-semibold mb-0.5 uppercase tracking-wide">Terms & Conditions</div>
-            <div className="text-[8px] text-gray-600">
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">Terms & Conditions</div>
+            <div className="text-[9px] text-gray-600">
               {companySettings?.terms_conditions ? (
                 <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
               ) : (
