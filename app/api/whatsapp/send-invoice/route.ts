@@ -89,8 +89,15 @@ export async function POST(req: NextRequest) {
     // 6. Upload to Supabase Storage
     const invoiceNumber =
       orderData.order_number || orderData.package_number || orderData.sale_number || orderId
+    const customerName = customer.name || "Customer"
+    const eventDate = orderData.event_date
+      ? format(new Date(orderData.event_date), "dd-MMM-yyyy")
+      : ""
+    const customerPhone = customer.whatsapp || customer.phone || ""
+    const invoiceLabel = [invoiceNumber, customerName, eventDate].filter(Boolean).join(" | ")
+    const safeFileName = [invoiceNumber, customerName.replace(/[^a-zA-Z0-9]/g, "_"), eventDate?.replace(/[^a-zA-Z0-9-]/g, "")].filter(Boolean).join("_")
     const bucket = process.env.NEXT_PUBLIC_INVOICES_BUCKET || "uploads"
-    const filePath = `invoices/whatsapp/${invoiceNumber}_${Date.now()}.pdf`
+    const filePath = `invoices/whatsapp/${safeFileName}_${Date.now()}.pdf`
 
     const { error: uploadErr } = await supabase.storage
       .from(bucket)
@@ -119,7 +126,6 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Send via WhatsApp (try template first, then session message + PDF)
-    const customerName = customer.name || "Customer"
     let sendResult: { success: boolean; error?: string }
 
     // Try sending template message first (works outside 24hr window)
@@ -134,7 +140,7 @@ export async function POST(req: NextRequest) {
       sendResult = await sendMedia({
         phone,
         mediaUrl: publicUrl,
-        caption: `Invoice ${invoiceNumber} - ${companySettings?.company_name || "Safawala"}`,
+        caption: `${invoiceLabel} - ${companySettings?.company_name || "Safawala"}`,
         mediaType: "document",
       })
     } else {
@@ -147,6 +153,8 @@ export async function POST(req: NextRequest) {
         `Dear ${customerName},`,
         "",
         `Your invoice *${invoiceNumber}* is ready.`,
+        eventDate ? `📅 Event Date: ${eventDate}` : "",
+        customerPhone ? `📱 Customer: ${customerPhone}` : "",
         "",
         `💰 Total: ₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`,
         orderData.amount_paid
@@ -167,7 +175,7 @@ export async function POST(req: NextRequest) {
       const mediaResult = await sendMedia({
         phone,
         mediaUrl: publicUrl,
-        caption: `Invoice ${invoiceNumber}`,
+        caption: invoiceLabel,
         mediaType: "document",
       })
 
@@ -195,7 +203,7 @@ export async function POST(req: NextRequest) {
       await supabase.from("whatsapp_messages").insert({
         phone: phone.replace(/\D/g, ""),
         message_type: "invoice",
-        content: `Invoice ${invoiceNumber} sent`,
+        content: `${invoiceLabel} sent`,
         status: "sent",
         booking_id: orderId,
         franchise_id: franchiseId,
@@ -213,7 +221,7 @@ export async function POST(req: NextRequest) {
             await sendMedia({
               phone: extraPhone,
               mediaUrl: publicUrl,
-              caption: `Invoice ${invoiceNumber} - ${companySettings?.company_name || "Safawala"} - Customer: ${customerName}`,
+              caption: `${invoiceLabel} - ${companySettings?.company_name || "Safawala"}`,
               mediaType: "document",
             })
           } catch (e) {
@@ -225,7 +233,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Invoice ${invoiceNumber} sent to ${phone} via WhatsApp`,
+      message: `${invoiceLabel} sent to ${phone} via WhatsApp`,
       pdfUrl: publicUrl,
     })
   } catch (error: any) {
