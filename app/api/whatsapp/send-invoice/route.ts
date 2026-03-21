@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       orderData.order_number || orderData.package_number || orderData.sale_number || orderId
     const customerName = customer.name || "Customer"
     const eventDate = orderData.event_date
-      ? format(new Date(orderData.event_date), "dd-MMM-yyyy")
+      ? format(new Date(orderData.event_date), "dd/MM/yy")
       : ""
     const customerPhone = customer.whatsapp || customer.phone || ""
     const invoiceLabel = [invoiceNumber, customerName, eventDate].filter(Boolean).join(" | ")
