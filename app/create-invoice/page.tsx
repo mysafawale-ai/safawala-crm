@@ -227,6 +227,7 @@ export default function CreateInvoicePage() {
   const [bypassSafaLimit, setBypassSafaLimit] = useState(false)
   const [safaLimit, setSafaLimit] = useState<number | null>(null)
   const [sendWhatsAppInvoice, setSendWhatsAppInvoice] = useState(true)
+  const [applyGst, setApplyGst] = useState(false)
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -823,6 +824,11 @@ export default function CreateInvoicePage() {
         console.log("[EditOrder] Editing a QUOTE - will show 'Convert to Booking' button")
       }
 
+      // Restore GST toggle state from saved data
+      if (order.gst_amount > 0) {
+        setApplyGst(true)
+      }
+
       // Load package selection state (NEW)
       if (order.selection_mode) {
         setSelectionMode(order.selection_mode as "products" | "package")
@@ -1000,14 +1006,17 @@ export default function CreateInvoicePage() {
     ? (subtotal * invoiceData.discount_amount / 100)
     : invoiceData.discount_amount
   const afterDiscount = subtotal - discountAmount
-  const gstAmount = (afterDiscount * invoiceData.gst_percentage) / 100
+  // GST: When applyGst is ON, GST is inclusive (price already contains GST). When OFF, no GST.
+  const gstAmount = applyGst ? afterDiscount - (afterDiscount / (1 + invoiceData.gst_percentage / 100)) : 0
+  const baseAmountBeforeGst = applyGst ? afterDiscount - gstAmount : afterDiscount
   const lostDamagedTotal = lostDamagedItems.reduce((sum, item) => sum + item.total_charge, 0)
   // Security Deposit: The field value IS the total deposit (auto-filled with package deposit, but can be increased by user)
   const securityDeposit = invoiceData.invoice_type === "rental" 
     ? (invoiceData.security_deposit || 0)
     : 0
   const depositRefundAmount = isDepositRefunded && invoiceData.invoice_type === "rental" ? securityDeposit : 0
-  const grandTotal = (afterDiscount + gstAmount + securityDeposit + lostDamagedTotal) - depositRefundAmount
+  // GST inclusive: total stays same as afterDiscount (GST doesn't add to price)
+  const grandTotal = (afterDiscount + securityDeposit + lostDamagedTotal) - depositRefundAmount
   const pendingAmount = grandTotal - invoiceData.amount_paid
 
   // Filter customers - show all if no search term, otherwise filter
@@ -3613,6 +3622,23 @@ export default function CreateInvoicePage() {
                   </Select>
                 </div>
 
+                {/* Apply GST Toggle */}
+                <div className="border-t pt-3 mt-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="applyGst"
+                      checked={applyGst}
+                      onCheckedChange={(checked) => setApplyGst(checked === true)}
+                    />
+                    <Label htmlFor="applyGst" className="text-sm font-medium cursor-pointer">
+                      Apply GST ({invoiceData.gst_percentage}%) — Inclusive
+                    </Label>
+                  </div>
+                  {applyGst && (
+                    <p className="text-xs text-gray-500 mt-1 ml-6">Price includes GST. Breakdown: Base ₹{Math.round(baseAmountBeforeGst).toLocaleString('en-IN')} + GST ₹{Math.round(gstAmount).toLocaleString('en-IN')}</p>
+                  )}
+                </div>
+
                 {/* WhatsApp Invoice Toggle */}
                 <div className="border-t pt-3 mt-3">
                   <div className="flex items-center gap-2">
@@ -3669,10 +3695,12 @@ export default function CreateInvoicePage() {
                     <span>-{formatCurrency(discountAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-gray-600">GST ({invoiceData.gst_percentage}%)</span>
-                  <span>{formatCurrency(gstAmount)}</span>
-                </div>
+                {applyGst && (
+                  <div className="flex justify-between text-gray-500 text-xs">
+                    <span>Inclusive GST ({invoiceData.gst_percentage}%)</span>
+                    <span>₹{Math.round(gstAmount).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 {invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
                   <div className="space-y-2 p-2 bg-blue-50 rounded">
                     <div className="flex justify-between">
@@ -3914,10 +3942,12 @@ export default function CreateInvoicePage() {
                     <span>-{formatCurrency(discountAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-gray-600">GST ({invoiceData.gst_percentage}%)</span>
-                  <span className="font-medium">{formatCurrency(gstAmount)}</span>
-                </div>
+                {applyGst && (
+                  <div className="flex justify-between text-[9px] text-gray-500">
+                    <span>Inclusive GST ({invoiceData.gst_percentage}%)</span>
+                    <span>₹{Math.round(gstAmount).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 {invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Security Deposit</span>
