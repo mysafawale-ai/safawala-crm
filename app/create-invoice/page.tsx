@@ -3797,6 +3797,7 @@ export default function CreateInvoicePage() {
               <table className="w-full text-[10px] border border-gray-200 rounded">
                 <thead className="bg-amber-50">
                   <tr>
+                    <th className="text-left px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-8"></th>
                     <th className="text-left px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200">Item</th>
                     <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-16">Qty</th>
                   </tr>
@@ -3804,6 +3805,15 @@ export default function CreateInvoicePage() {
                 <tbody>
                   {invoiceItems.map((item) => (
                     <tr key={item.id} className="border-b border-gray-100">
+                      <td className="px-1 py-0.5">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt="" className="h-7 w-7 object-cover rounded" />
+                        ) : (
+                          <div className="h-7 w-7 bg-gray-100 rounded flex items-center justify-center">
+                            <Package className="h-3.5 w-3.5 text-gray-400" />
+                          </div>
+                        )}
+                      </td>
                       <td className="px-1.5 py-0.5">
                         <span className="font-medium text-gray-900">{item.product_name}</span>
                         {item.barcode && <span className="text-[8px] text-gray-400 ml-1">#{item.barcode}</span>}
