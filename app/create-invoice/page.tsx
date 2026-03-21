@@ -146,6 +146,16 @@ const formatDateForInput = (dateValue: string | null | undefined): string => {
   }
 }
 
+// Helper to convert HH:mm to 12-hour AM/PM format
+const formatTime12h = (time: string): string => {
+  if (!time) return ""
+  const [h, m] = time.split(":").map(Number)
+  if (isNaN(h) || isNaN(m)) return time
+  const period = h >= 12 ? "PM" : "AM"
+  const hour12 = h % 12 || 12
+  return `${hour12}:${m.toString().padStart(2, "0")} ${period}`
+}
+
 // Helper function to safely parse time from database timestamp
 const formatTimeForInput = (dateValue: string | null | undefined, existingTime?: string): string => {
   if (existingTime) return existingTime
@@ -2154,14 +2164,14 @@ export default function CreateInvoicePage() {
                   <div><span className="text-gray-500">Event:</span> <span className="font-medium capitalize">{invoiceData.event_type}</span></div>
                   <div><span className="text-gray-500">For:</span> <span className="font-medium capitalize">{invoiceData.event_participant}</span></div>
                   {invoiceData.event_date && <div><span className="text-gray-500">Event Date:</span> <span className="font-medium">{format(new Date(invoiceData.event_date), "dd MMM yyyy")}</span></div>}
-                  {invoiceData.event_time && <div><span className="text-gray-500">Event Time:</span> <span className="font-medium">{invoiceData.event_time}</span></div>}
+                  {invoiceData.event_time && <div><span className="text-gray-500">Event Time:</span> <span className="font-medium">{formatTime12h(invoiceData.event_time)}</span></div>}
                 </div>
               </div>
               <div className="bg-gray-50 px-2 py-1.5 rounded">
                 <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Delivery & Return</div>
                 <div className="space-y-0.5 text-[10px]">
-                  {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {invoiceData.delivery_time}</span></div>}
-                  {invoiceData.return_date && <div><span className="text-gray-500">Return:</span> <span className="font-medium">{format(new Date(invoiceData.return_date), "dd MMM yyyy")} {invoiceData.return_time}</span></div>}
+                  {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {formatTime12h(invoiceData.delivery_time)}</span></div>}
+                  {invoiceData.return_date && <div><span className="text-gray-500">Return:</span> <span className="font-medium">{format(new Date(invoiceData.return_date), "dd MMM yyyy")} {formatTime12h(invoiceData.return_time)}</span></div>}
                   {invoiceData.venue_address && <div><span className="text-gray-500">Venue:</span> <span className="font-medium">{invoiceData.venue_address}</span></div>}
                 </div>
               </div>
@@ -2173,7 +2183,7 @@ export default function CreateInvoicePage() {
             <div className="bg-gray-50 px-2 py-1.5 rounded">
               <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Delivery Details</div>
               <div className="text-[10px]">
-                {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {invoiceData.delivery_time}</span></div>}
+                {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {formatTime12h(invoiceData.delivery_time)}</span></div>}
               </div>
             </div>
           )}
