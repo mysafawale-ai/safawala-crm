@@ -9,6 +9,7 @@ export type OrderType = "product_order" | "package_booking" | "direct_sale"
 interface SendInvoiceWhatsAppParams {
   orderId: string
   orderType: OrderType
+  extraPhones?: string[]
 }
 
 /**

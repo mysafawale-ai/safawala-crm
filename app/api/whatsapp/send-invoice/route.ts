@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { orderId, orderType } = body
+    const { orderId, orderType, extraPhones } = body
 
     if (!orderId || !orderType) {
       return NextResponse.json(
@@ -203,6 +203,24 @@ export async function POST(req: NextRequest) {
       })
     } catch (logErr) {
       console.warn("[WhatsApp Invoice] Failed to log message:", logErr)
+    }
+
+    // Also send to extra phone numbers (e.g. business owner)
+    if (Array.isArray(extraPhones) && extraPhones.length > 0) {
+      for (const extraPhone of extraPhones) {
+        if (extraPhone && extraPhone.replace(/\D/g, "") !== phone.replace(/\D/g, "")) {
+          try {
+            await sendMedia({
+              phone: extraPhone,
+              mediaUrl: publicUrl,
+              caption: `Invoice ${invoiceNumber} - ${companySettings?.company_name || "Safawala"} - Customer: ${customerName}`,
+              mediaType: "document",
+            })
+          } catch (e) {
+            console.warn(`[WhatsApp Invoice] Failed to send to extra phone ${extraPhone}:`, e)
+          }
+        }
+      }
     }
 
     return NextResponse.json({

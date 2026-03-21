@@ -226,6 +226,7 @@ export default function CreateInvoicePage() {
   const [packagesLoading, setPackagesLoading] = useState(false)
   const [bypassSafaLimit, setBypassSafaLimit] = useState(false)
   const [safaLimit, setSafaLimit] = useState<number | null>(null)
+  const [sendWhatsAppInvoice, setSendWhatsAppInvoice] = useState(true)
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -1884,12 +1885,9 @@ export default function CreateInvoicePage() {
       
       toast({ title: isUpdate ? "Booking Updated" : "Booking Created", description: message })
 
-      // Auto-send invoice via WhatsApp (fire & forget, only for new orders / quote conversions)
-      if (order?.id && !isUpdate) {
-        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order" })
-          .then(r => r.success && toast({ title: "WhatsApp", description: "Invoice sent on WhatsApp!" }))
-      } else if (order?.id && isConvertFromQuote) {
-        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order" })
+      // Auto-send invoice via WhatsApp (fire & forget, only when checkbox is ON)
+      if (order?.id && sendWhatsAppInvoice && (!isUpdate || isConvertFromQuote)) {
+        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order", extraPhones: ["919725295691"] })
           .then(r => r.success && toast({ title: "WhatsApp", description: "Invoice sent on WhatsApp!" }))
       }
 
@@ -3613,6 +3611,23 @@ export default function CreateInvoicePage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* WhatsApp Invoice Toggle */}
+                <div className="border-t pt-3 mt-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="sendWhatsAppInvoice"
+                      checked={sendWhatsAppInvoice}
+                      onCheckedChange={(checked) => setSendWhatsAppInvoice(checked === true)}
+                    />
+                    <Label htmlFor="sendWhatsAppInvoice" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <Send className="h-3.5 w-3.5 text-green-600" /> Send bill on WhatsApp (WATI)
+                    </Label>
+                  </div>
+                  {sendWhatsAppInvoice && (
+                    <p className="text-xs text-green-600 mt-1.5 ml-6">Invoice will be auto-sent to customer + owner on WhatsApp</p>
+                  )}
                 </div>
               </div>
             </Card>
