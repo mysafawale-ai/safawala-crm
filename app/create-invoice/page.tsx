@@ -3964,8 +3964,23 @@ export default function CreateInvoicePage() {
             </div>
           </div>
 
+          {/* Signatures - Print */}
+          <div className="mt-4 px-2 flex justify-between items-end">
+            <div className="text-center w-[40%]">
+              <div className="border-t border-gray-400 pt-1 mt-10">
+                <p className="text-[10px] font-semibold text-gray-700">Customer Signature</p>
+              </div>
+            </div>
+            <div className="text-center w-[40%]">
+              <div className="border-t border-gray-400 pt-1 mt-10">
+                <p className="text-[10px] font-semibold text-gray-700">Authorized Signature</p>
+                <p className="text-[8px] text-gray-500">{companySettings?.company_name || 'Safawala'}</p>
+              </div>
+            </div>
+          </div>
+
           {/* Footer - Print */}
-          <div className="mt-1 pt-1 border-t border-amber-200 text-center">
+          <div className="mt-2 pt-1 border-t border-amber-200 text-center">
             <p className="text-[10px] font-semibold text-amber-700">Thank you for choosing Safawala!</p>
             <p className="text-[8px] text-gray-500">For queries: {companySettings?.phone || ''} | {companySettings?.email || ''}</p>
           </div>
