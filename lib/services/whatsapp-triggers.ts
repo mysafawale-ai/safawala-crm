@@ -245,6 +245,54 @@ export async function onReturnDue(params: {
 }
 
 /**
+ * Trigger: Invoice/Order created — auto-send invoice on WhatsApp
+ */
+export async function onInvoiceCreated(params: {
+  orderId: string
+  orderType: "product_order" | "package_booking" | "direct_sale"
+  orderNumber: string
+  customerPhone: string
+  customerName: string
+  totalAmount: number
+  franchiseId: string
+}): Promise<{ sent: boolean; error?: string }> {
+  try {
+    const settings = await getNotificationSettings(params.franchiseId)
+    if (!settings?.invoice_sent) {
+      return { sent: false, error: "Invoice WhatsApp notifications disabled" }
+    }
+
+    if (!isWithinBusinessHours(settings)) {
+      console.log("[WhatsApp Triggers] Outside business hours, skipping invoice notification")
+      return { sent: false, error: "Outside business hours" }
+    }
+
+    // Call the server-side API to generate PDF & send via WhatsApp
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const response = await fetch(`${baseUrl}/api/whatsapp/send-invoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: params.orderId,
+        orderType: params.orderType,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok || !result.success) {
+      console.error("[WhatsApp Triggers] Invoice send failed:", result.error)
+      return { sent: false, error: result.error || "Failed to send invoice" }
+    }
+
+    return { sent: true }
+  } catch (error: any) {
+    console.error("[WhatsApp Triggers] onInvoiceCreated error:", error)
+    return { sent: false, error: error.message }
+  }
+}
+
+/**
  * Process delivery reminders for bookings due tomorrow
  */
 export async function processDeliveryReminders(): Promise<{ processed: number; sent: number; errors: string[] }> {

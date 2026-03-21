@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -1882,6 +1883,16 @@ export default function CreateInvoicePage() {
       }
       
       toast({ title: isUpdate ? "Booking Updated" : "Booking Created", description: message })
+
+      // Auto-send invoice via WhatsApp (fire & forget, only for new orders / quote conversions)
+      if (order?.id && !isUpdate) {
+        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order" })
+          .then(r => r.success && toast({ title: "WhatsApp", description: "Invoice sent on WhatsApp!" }))
+      } else if (order?.id && isConvertFromQuote) {
+        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order" })
+          .then(r => r.success && toast({ title: "WhatsApp", description: "Invoice sent on WhatsApp!" }))
+      }
+
       router.push("/bookings?refresh=" + Date.now())
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
@@ -1967,10 +1978,11 @@ export default function CreateInvoicePage() {
             margin: 0;
             padding: 0;
             height: auto;
+            font-size: 11px;
           }
           /* Remove browser print headers/footers */
           @page {
-            margin: 10mm;
+            margin: 6mm;
             @bottom-left { content: none; }
             @bottom-center { content: none; }
             @bottom-right { content: none; }
@@ -2039,34 +2051,34 @@ export default function CreateInvoicePage() {
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:rounded-none print:max-w-full">
         
         {/* ========== PRINT-ONLY HEADER ========== */}
-        <div className="hidden print:block bg-amber-50 border-b-4 border-amber-500 p-4">
-          <div className="flex justify-between items-start">
+        <div className="hidden print:block bg-amber-50 border-b-2 border-amber-500 px-3 py-2">
+          <div className="flex justify-between items-center">
             {/* Company Logo & Details */}
-            <div className="flex items-start gap-4">
+            <div className="flex items-center gap-2">
               <img 
                 src={companySettings?.logo_url || DEFAULT_LOGO_URL} 
                 alt="Logo" 
-                className="h-16 w-16 object-contain" 
+                className="h-10 w-10 object-contain" 
               />
               <div>
-                <h1 className="text-2xl font-bold text-amber-800">{companySettings?.company_name || "SAFAWALA"}</h1>
-                <p className="text-sm text-gray-600">Premium Wedding Turbans & Accessories</p>
-                <div className="mt-1 text-xs text-gray-500 space-y-0.5">
-                  {companySettings?.phone && <div>📞 {companySettings.phone}</div>}
-                  {companySettings?.email && <div>✉️ {companySettings.email}</div>}
-                  {companySettings?.website && <div>🌐 {companySettings.website}</div>}
-                  {companySettings?.address && <div>📍 {companySettings.address}{companySettings?.city ? `, ${companySettings.city}` : ''}</div>}
+                <h1 className="text-base font-bold text-amber-800">{companySettings?.company_name || "SAFAWALA"}</h1>
+                <p className="text-[9px] text-gray-600">Premium Wedding Turbans & Accessories</p>
+                <div className="text-[8px] text-gray-500 flex flex-wrap gap-x-3">
+                  {companySettings?.phone && <span>📞 {companySettings.phone}</span>}
+                  {companySettings?.email && <span>✉️ {companySettings.email}</span>}
+                  {companySettings?.website && <span>🌐 {companySettings.website}</span>}
                 </div>
+                {companySettings?.address && <div className="text-[8px] text-gray-500">📍 {companySettings.address}{companySettings?.city ? `, ${companySettings.city}` : ''}</div>}
               </div>
             </div>
             {/* Invoice Info */}
             <div className="text-right">
-              <div className="text-xl font-bold text-amber-700 uppercase">
+              <div className="text-sm font-bold text-amber-700 uppercase">
                 {mode === "final-bill" ? "Final Bill" : invoiceData.invoice_type === "rental" ? "Rental Invoice" : "Sale Invoice"}
               </div>
-              <div className="mt-2 text-sm">
+              <div className="text-[10px] mt-0.5">
                 <div><span className="text-gray-500">Invoice #:</span> <strong>{invoiceData.invoice_number}</strong></div>
-                <div><span className="text-gray-500">Date:</span> <strong>{format(new Date(), "dd MMM yyyy")}</strong></div>
+                <div><span className="text-gray-500">Date:</span> <strong>{invoiceData.invoice_date ? format(new Date(invoiceData.invoice_date), "dd MMM yyyy") : format(new Date(), "dd MMM yyyy")}</strong></div>
               </div>
             </div>
           </div>
@@ -2102,48 +2114,31 @@ export default function CreateInvoicePage() {
         </div>
 
         {/* ================= PRINT-ONLY COMPREHENSIVE SECTION ================= */}
-        <div className="hidden print:block p-6 space-y-4 border-b-2 border-amber-200">
-          {/* Invoice Info Row */}
-          <div className="flex justify-between items-start border-b border-amber-100 pb-3">
-            <div>
-              <div className="text-xs text-amber-700 font-medium">Invoice Number</div>
-              <div className="font-mono font-bold text-lg text-gray-900">{invoiceData.invoice_number}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-amber-700 font-medium">Date</div>
-              <div className="font-semibold text-gray-900">{invoiceData.invoice_date ? format(new Date(invoiceData.invoice_date), "dd MMM yyyy") : format(new Date(), "dd MMM yyyy")}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-amber-700 font-medium">Type</div>
-              <div className="font-semibold text-amber-600 uppercase">{mode === "final-bill" ? "Final Bill" : invoiceData.invoice_type === "rental" ? "Rental" : "Sale"}</div>
-            </div>
-          </div>
-
+        <div className="hidden print:block px-3 py-2 space-y-2 border-b border-amber-200">
           {/* Customer Info */}
           {selectedCustomer && (
-            <div className="bg-amber-50 p-3 rounded-lg">
-              <div className="text-xs text-amber-700 font-medium mb-1">Customer</div>
-              <div className="font-semibold text-gray-900">{selectedCustomer.name}</div>
-              <div className="text-sm text-gray-600">{selectedCustomer.phone}</div>
-              {selectedCustomer.email && <div className="text-sm text-gray-600">{selectedCustomer.email}</div>}
+            <div className="bg-amber-50 px-2 py-1.5 rounded">
+              <div className="text-[9px] text-amber-700 font-medium">Customer</div>
+              <div className="font-semibold text-xs text-gray-900">{selectedCustomer.name}</div>
+              <div className="text-[10px] text-gray-600">{selectedCustomer.phone}{selectedCustomer.email ? ` | ${selectedCustomer.email}` : ''}</div>
             </div>
           )}
 
           {/* Event Details - Rental Only */}
           {invoiceData.invoice_type === "rental" && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-xs text-amber-700 font-medium mb-2 border-b border-amber-200 pb-1">Event Details</div>
-                <div className="space-y-1 text-sm">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-gray-50 px-2 py-1.5 rounded">
+                <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Event Details</div>
+                <div className="space-y-0.5 text-[10px]">
                   <div><span className="text-gray-500">Event:</span> <span className="font-medium capitalize">{invoiceData.event_type}</span></div>
                   <div><span className="text-gray-500">For:</span> <span className="font-medium capitalize">{invoiceData.event_participant}</span></div>
                   {invoiceData.event_date && <div><span className="text-gray-500">Event Date:</span> <span className="font-medium">{format(new Date(invoiceData.event_date), "dd MMM yyyy")}</span></div>}
                   {invoiceData.event_time && <div><span className="text-gray-500">Event Time:</span> <span className="font-medium">{invoiceData.event_time}</span></div>}
                 </div>
               </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="text-xs text-amber-700 font-medium mb-2 border-b border-amber-200 pb-1">Delivery & Return</div>
-                <div className="space-y-1 text-sm">
+              <div className="bg-gray-50 px-2 py-1.5 rounded">
+                <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Delivery & Return</div>
+                <div className="space-y-0.5 text-[10px]">
                   {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {invoiceData.delivery_time}</span></div>}
                   {invoiceData.return_date && <div><span className="text-gray-500">Return:</span> <span className="font-medium">{format(new Date(invoiceData.return_date), "dd MMM yyyy")} {invoiceData.return_time}</span></div>}
                   {invoiceData.venue_address && <div><span className="text-gray-500">Venue:</span> <span className="font-medium">{invoiceData.venue_address}</span></div>}
@@ -2154,9 +2149,9 @@ export default function CreateInvoicePage() {
 
           {/* Sale Details */}
           {invoiceData.invoice_type === "sale" && (
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="text-xs text-amber-700 font-medium mb-2 border-b border-amber-200 pb-1">Delivery Details</div>
-              <div className="space-y-1 text-sm">
+            <div className="bg-gray-50 px-2 py-1.5 rounded">
+              <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Delivery Details</div>
+              <div className="text-[10px]">
                 {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {invoiceData.delivery_time}</span></div>}
               </div>
             </div>
@@ -2164,11 +2159,11 @@ export default function CreateInvoicePage() {
 
           {/* Groom & Bride Details - Rental Only */}
           {invoiceData.invoice_type === "rental" && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2">
               {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && invoiceData.groom_name && (
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <div className="text-xs text-blue-700 font-medium mb-2 border-b border-blue-200 pb-1">Groom Details</div>
-                  <div className="space-y-1 text-sm">
+                <div className="bg-blue-50 px-2 py-1.5 rounded">
+                  <div className="text-[9px] text-blue-700 font-medium mb-0.5 border-b border-blue-200 pb-0.5">Groom Details</div>
+                  <div className="space-y-0.5 text-[10px]">
                     <div className="font-semibold text-gray-900">{invoiceData.groom_name}</div>
                     {invoiceData.groom_whatsapp && <div className="text-gray-600">📱 {invoiceData.groom_whatsapp}</div>}
                     {invoiceData.groom_address && <div className="text-gray-600">📍 {invoiceData.groom_address}</div>}
@@ -2176,9 +2171,9 @@ export default function CreateInvoicePage() {
                 </div>
               )}
               {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && invoiceData.bride_name && (
-                <div className="bg-pink-50 p-3 rounded-lg">
-                  <div className="text-xs text-pink-700 font-medium mb-2 border-b border-pink-200 pb-1">Bride Details</div>
-                  <div className="space-y-1 text-sm">
+                <div className="bg-pink-50 px-2 py-1.5 rounded">
+                  <div className="text-[9px] text-pink-700 font-medium mb-0.5 border-b border-pink-200 pb-0.5">Bride Details</div>
+                  <div className="space-y-0.5 text-[10px]">
                     <div className="font-semibold text-gray-900">{invoiceData.bride_name}</div>
                     {invoiceData.bride_whatsapp && <div className="text-gray-600">📱 {invoiceData.bride_whatsapp}</div>}
                     {invoiceData.bride_address && <div className="text-gray-600">📍 {invoiceData.bride_address}</div>}
@@ -3749,16 +3744,16 @@ export default function CreateInvoicePage() {
         {/* ================= END WEB-ONLY CONTENT ================= */}
 
         {/* ================= PRINT-ONLY ITEMS & SUMMARY SECTION ================= */}
-        <div className="hidden print:block p-6 space-y-4">
+        <div className="hidden print:block px-3 py-2 space-y-2">
           {/* Package Details - Print Only */}
           {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-              <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">Package Selected</div>
+            <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mb-2">
+              <div className="text-[9px] text-amber-700 font-semibold uppercase tracking-wide">Package Selected</div>
               <div className="flex justify-between items-center">
                 <div>
-                  <div className="font-bold text-lg text-gray-900">{selectedPackage.name || selectedPackage.variant_name}</div>
+                  <div className="font-bold text-xs text-gray-900">{selectedPackage.name || selectedPackage.variant_name}</div>
                   {selectedPackage.inclusions && (
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="text-[9px] text-gray-600">
                       Includes: {(Array.isArray(selectedPackage.inclusions) 
                         ? selectedPackage.inclusions.join(', ') 
                         : typeof selectedPackage.inclusions === 'string' 
@@ -3769,9 +3764,9 @@ export default function CreateInvoicePage() {
                   )}
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-amber-700">₹{packagePrice.toLocaleString()}</div>
+                  <div className="text-xs font-bold text-amber-700">₹{packagePrice.toLocaleString()}</div>
                   {selectedPackage.security_deposit > 0 && (
-                    <div className="text-xs text-gray-500">Deposit: ₹{selectedPackage.security_deposit.toLocaleString()}</div>
+                    <div className="text-[9px] text-gray-500">Deposit: ₹{selectedPackage.security_deposit.toLocaleString()}</div>
                   )}
                 </div>
               </div>
@@ -3781,24 +3776,24 @@ export default function CreateInvoicePage() {
           {/* Items Table - Print Optimized */}
           {invoiceItems.length > 0 && (
             <div>
-              <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">
+              <div className="text-[9px] text-amber-700 font-semibold mb-1 uppercase tracking-wide">
                 {selectionMode === "package" && selectedPackage ? "Additional Products" : "Products"}
               </div>
-              <table className="w-full text-sm border border-gray-200 rounded">
+              <table className="w-full text-[10px] border border-gray-200 rounded">
                 <thead className="bg-amber-50">
                   <tr>
-                    <th className="text-left p-2 text-xs font-semibold text-amber-800 border-b border-amber-200">Item</th>
-                    <th className="text-center p-2 text-xs font-semibold text-amber-800 border-b border-amber-200 w-20">Qty</th>
+                    <th className="text-left px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200">Item</th>
+                    <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-16">Qty</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoiceItems.map((item) => (
                     <tr key={item.id} className="border-b border-gray-100">
-                      <td className="p-2">
-                        <div className="font-medium text-gray-900">{item.product_name}</div>
-                        {item.barcode && <div className="text-xs text-gray-500">#{item.barcode}</div>}
+                      <td className="px-1.5 py-0.5">
+                        <span className="font-medium text-gray-900">{item.product_name}</span>
+                        {item.barcode && <span className="text-[8px] text-gray-400 ml-1">#{item.barcode}</span>}
                       </td>
-                      <td className="p-2 text-center font-medium">{item.quantity}</td>
+                      <td className="px-1.5 py-0.5 text-center font-medium">{item.quantity}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3808,24 +3803,24 @@ export default function CreateInvoicePage() {
 
           {/* Lost/Damaged Items - Print Only */}
           {lostDamagedItems.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs text-red-700 font-semibold mb-2 uppercase tracking-wide">Additional Products</div>
-              <table className="w-full text-sm border border-red-200 rounded">
+            <div className="mt-2">
+              <div className="text-[9px] text-red-700 font-semibold mb-1 uppercase tracking-wide">Additional Products</div>
+              <table className="w-full text-[10px] border border-red-200 rounded">
                 <thead className="bg-red-50">
                   <tr>
-                    <th className="text-left p-2 text-xs font-semibold text-red-800 border-b border-red-200">Item</th>
-                    <th className="text-center p-2 text-xs font-semibold text-red-800 border-b border-red-200 w-20">Type</th>
-                    <th className="text-center p-2 text-xs font-semibold text-red-800 border-b border-red-200 w-16">Qty</th>
-                    <th className="text-right p-2 text-xs font-semibold text-red-800 border-b border-red-200 w-24">Charge</th>
+                    <th className="text-left px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200">Item</th>
+                    <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200 w-16">Type</th>
+                    <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200 w-12">Qty</th>
+                    <th className="text-right px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200 w-20">Charge</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lostDamagedItems.map((item) => (
                     <tr key={item.id} className="border-b border-red-100">
-                      <td className="p-2 font-medium text-gray-900">{item.product_name}</td>
-                      <td className="p-2 text-center capitalize">{item.type}</td>
-                      <td className="p-2 text-center">{item.quantity}</td>
-                      <td className="p-2 text-right text-red-600 font-medium">{formatCurrency(item.total_charge)}</td>
+                      <td className="px-1.5 py-0.5 font-medium text-gray-900">{item.product_name}</td>
+                      <td className="px-1.5 py-0.5 text-center capitalize">{item.type}</td>
+                      <td className="px-1.5 py-0.5 text-center">{item.quantity}</td>
+                      <td className="px-1.5 py-0.5 text-right text-red-600 font-medium">{formatCurrency(item.total_charge)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3835,19 +3830,19 @@ export default function CreateInvoicePage() {
 
           {/* Notes - Print */}
           {invoiceData.notes && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-amber-700 font-semibold mb-1 uppercase tracking-wide">Notes</div>
-              <div className="text-sm text-gray-700">{invoiceData.notes}</div>
+            <div className="mt-1 px-2 py-1 bg-gray-50 rounded">
+              <div className="text-[9px] text-amber-700 font-semibold uppercase tracking-wide">Notes</div>
+              <div className="text-[10px] text-gray-700">{invoiceData.notes}</div>
             </div>
           )}
 
           {/* Payment Info & Summary - Print Only */}
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-2 gap-2 mt-2">
             {/* Payment Info (Only show if user has permission) */}
             {userPermissions?.invoice_payment_access !== false && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-xs text-amber-700 font-semibold mb-3 uppercase tracking-wide">Payment Information</div>
-              <div className="space-y-2 text-sm">
+            <div className="bg-gray-50 px-2 py-1.5 rounded">
+              <div className="text-[9px] text-amber-700 font-semibold mb-1 uppercase tracking-wide">Payment Information</div>
+              <div className="space-y-0.5 text-[10px]">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Method:</span>
                   <span className="font-medium">{invoiceData.payment_method}</span>
@@ -3869,9 +3864,9 @@ export default function CreateInvoicePage() {
             )}
 
             {/* Financial Summary */}
-            <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-              <div className="text-xs text-amber-700 font-semibold mb-3 uppercase tracking-wide">Summary</div>
-              <div className="space-y-1.5 text-sm">
+            <div className="bg-amber-50 px-2 py-1.5 rounded border border-amber-200">
+              <div className="text-[9px] text-amber-700 font-semibold mb-1 uppercase tracking-wide">Summary</div>
+              <div className="space-y-0.5 text-[10px]">
                 {selectionMode === "package" && selectedPackage && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Package</span>
@@ -3904,16 +3899,16 @@ export default function CreateInvoicePage() {
                     <span className="font-medium">{formatCurrency(securityDeposit)}</span>
                   </div>
                 )}
-                <div className="border-t border-amber-300 pt-2 mt-2">
-                  <div className="flex justify-between font-bold text-lg">
+                <div className="border-t border-amber-300 pt-1 mt-1">
+                  <div className="flex justify-between font-bold text-sm">
                     <span>Total</span>
                     <span className="text-amber-700">{formatCurrency(grandTotal)}</span>
                   </div>
-                  <div className="flex justify-between text-green-600 mt-1">
+                  <div className="flex justify-between text-green-600">
                     <span>Paid</span>
                     <span>{formatCurrency(invoiceData.amount_paid)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-red-600 mt-1">
+                  <div className="flex justify-between font-bold text-red-600">
                     <span>Balance Due</span>
                     <span>{formatCurrency(pendingAmount)}</span>
                   </div>
@@ -3923,14 +3918,14 @@ export default function CreateInvoicePage() {
           </div>
 
           {/* Terms & Conditions - Print */}
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">Terms & Conditions</div>
-            <div className="text-[9px] text-gray-600">
+          <div className="mt-2 px-2 py-1.5 bg-gray-50 rounded">
+            <div className="text-[9px] text-amber-700 font-semibold mb-0.5 uppercase tracking-wide">Terms & Conditions</div>
+            <div className="text-[8px] text-gray-600">
               {companySettings?.terms_conditions ? (
                 <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
               ) : (
                 invoiceData.invoice_type === "rental" ? (
-                  <ul className="list-disc list-inside space-y-0.5 columns-2">
+                  <ul className="list-disc list-inside columns-2 leading-tight">
                     <li>Items must be returned by agreed return date</li>
                     <li>Late returns incur additional charges</li>
                     <li>Return items in original condition</li>
@@ -3941,7 +3936,7 @@ export default function CreateInvoicePage() {
                     <li>ID proof required at delivery</li>
                   </ul>
                 ) : (
-                  <ul className="list-disc list-inside space-y-0.5 columns-2">
+                  <ul className="list-disc list-inside columns-2 leading-tight">
                     <li>All sales are final, no returns</li>
                     <li>Check items before leaving</li>
                     <li>Warranty as per product terms</li>
@@ -3955,9 +3950,9 @@ export default function CreateInvoicePage() {
           </div>
 
           {/* Footer - Print */}
-          <div className="mt-4 pt-3 border-t border-amber-200 text-center">
-            <p className="text-sm font-semibold text-amber-700">Thank you for choosing Safawala!</p>
-            <p className="text-xs text-gray-500 mt-1">For queries: {companySettings?.phone || ''} | {companySettings?.email || ''}</p>
+          <div className="mt-1 pt-1 border-t border-amber-200 text-center">
+            <p className="text-[10px] font-semibold text-amber-700">Thank you for choosing Safawala!</p>
+            <p className="text-[8px] text-gray-500">For queries: {companySettings?.phone || ''} | {companySettings?.email || ''}</p>
           </div>
         </div>
         {/* ================= END PRINT-ONLY ITEMS & SUMMARY ================= */}

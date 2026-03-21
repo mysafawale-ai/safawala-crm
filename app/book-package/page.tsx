@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -1435,6 +1436,12 @@ export default function BookPackageWizard() {
       // If you need analytics, consider implementing server-side logging or re-adding a coupon_usage table.
 
   toast.success(asQuote ? "Quote created!" : "Order created!")
+
+  // Auto-send invoice via WhatsApp (fire & forget, only for orders not quotes)
+  if (!asQuote && booking?.id) {
+    sendInvoiceViaWhatsApp({ orderId: booking.id, orderType: "package_booking" })
+      .then(r => r.success && toast.success("Invoice sent on WhatsApp!"))
+  }
   
   // Add timestamp to force page reload and refetch
   const redirectPath = asQuote ? "/quotes" : "/bookings"

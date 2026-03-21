@@ -14,6 +14,7 @@ import Link from "next/link"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { fetchProductsWithBarcodes, findProductByAnyBarcode } from "@/lib/product-barcode-service"
+import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1057,6 +1058,13 @@ export default function CreateProductOrderPage() {
         console.log('[Create Product Order] ✅ Direct sale created via API:', result)
 
         toast.success("Direct sale created successfully")
+
+        // Auto-send invoice via WhatsApp (fire & forget)
+        if (result?.id) {
+          sendInvoiceViaWhatsApp({ orderId: result.id, orderType: "direct_sale" })
+            .then(r => r.success && toast.success("Invoice sent on WhatsApp!"))
+        }
+
         router.push(`/bookings?refresh=${Date.now()}`)
         router.refresh()
         return
@@ -1199,6 +1207,12 @@ export default function CreateProductOrderPage() {
         ? `Quote ${orderNumber} created successfully` 
         : `Order ${orderNumber} created successfully`
       toast.success(successMsg)
+
+      // Auto-send invoice via WhatsApp (fire & forget, only for orders not quotes)
+      if (!isQuote && order?.id) {
+        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order" })
+          .then(r => r.success && toast.success("Invoice sent on WhatsApp!"))
+      }
       
       // Redirect to quotes page if quote, bookings page if order
       // Add timestamp to force page reload and refetch

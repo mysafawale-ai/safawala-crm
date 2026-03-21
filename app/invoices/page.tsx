@@ -37,9 +37,11 @@ import {
   Trash2,
   Archive,
   RotateCcw,
+  MessageCircle,
 } from "lucide-react"
 import { InvoiceService } from "@/lib/services/invoice-service"
 import { useToast } from "@/hooks/use-toast"
+import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
 import type { Invoice } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { archiveInvoice, restoreInvoice } from "@/lib/invoices"
@@ -88,6 +90,7 @@ function InvoicesPageContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false)
   const [archivedInvoices, setArchivedInvoices] = useState<Invoice[]>([])
   const [showArchivedSection, setShowArchivedSection] = useState(false)
 
@@ -563,6 +566,25 @@ function InvoicesPageContent() {
                             title="View"
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              toast({ title: "Sending...", description: "Sending invoice on WhatsApp" })
+                              const result = await sendInvoiceViaWhatsApp({
+                                orderId: invoice.id,
+                                orderType: invoice.invoice_type === "package_booking" ? "package_booking" : "product_order",
+                              })
+                              if (result.success) {
+                                toast({ title: "Sent!", description: "Invoice sent on WhatsApp" })
+                              } else {
+                                toast({ title: "Error", description: result.error || "Could not send", variant: "destructive" })
+                              }
+                            }}
+                            title="Send on WhatsApp"
+                          >
+                            <MessageCircle className="h-4 w-4 text-green-600" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -1143,6 +1165,28 @@ function InvoicesPageContent() {
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={sendingWhatsApp}
+                    onClick={async () => {
+                      if (!selectedInvoice) return
+                      setSendingWhatsApp(true)
+                      const result = await sendInvoiceViaWhatsApp({
+                        orderId: selectedInvoice.id,
+                        orderType: selectedInvoice.invoice_type === "package_booking" ? "package_booking" : "product_order",
+                      })
+                      setSendingWhatsApp(false)
+                      if (result.success) {
+                        toast({ title: "Sent!", description: `Invoice sent on WhatsApp to customer` })
+                      } else {
+                        toast({ title: "WhatsApp Error", description: result.error || "Could not send invoice", variant: "destructive" })
+                      }
+                    }}
+                    className="text-green-700 border-green-300 hover:bg-green-50"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    {sendingWhatsApp ? "Sending..." : "Send on WhatsApp"}
                   </Button>
                   <Button
                     variant="outline"
