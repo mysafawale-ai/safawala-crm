@@ -3754,27 +3754,20 @@ export default function CreateInvoicePage() {
               {companySettings?.terms_conditions ? (
                 <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
               ) : (
-                invoiceData.invoice_type === "rental" ? (
-                  <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
-                    <li>Items must be returned by agreed return date</li>
-                    <li>Late returns incur additional charges</li>
-                    <li>Return items in original condition</li>
-                    <li>Customer responsible during rental period</li>
-                    <li>Damage/loss: Repair or replacement cost charged</li>
-                    <li>Security deposit covers damages</li>
-                    <li>Advance payment required for confirmation</li>
-                    <li>ID proof required at delivery</li>
-                  </ul>
-                ) : (
-                  <ul className="list-disc list-inside space-y-0.5 columns-2 print:columns-2">
-                    <li>All sales are final, no returns</li>
-                    <li>Check items before leaving</li>
-                    <li>Warranty as per product terms</li>
-                    <li>Receipt required for any claims</li>
-                    <li>Prices inclusive of applicable taxes</li>
-                    <li>Management decision final in disputes</li>
-                  </ul>
-                )
+                <ol className="list-decimal list-inside space-y-0.5">
+                  <li>Sold products will not be returned or exchanged.</li>
+                  <li>Please book the Safa Wale service at least 1 month in advance.</li>
+                  <li>We will not allow any last-minute changes in placed orders.</li>
+                  <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
+                  <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
+                  <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
+                  <li>Our staff team will not ask guests to return safas (as per company reputation & policies).</li>
+                  <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
+                  <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
+                  <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
+                  <li>I hereby declare that all the above products are selected and checked by me.</li>
+                  <li>Subject to Vadodara jurisdiction.</li>
+                </ol>
               )}
             </div>
           </Card>
@@ -3979,27 +3972,20 @@ export default function CreateInvoicePage() {
               {companySettings?.terms_conditions ? (
                 <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
               ) : (
-                invoiceData.invoice_type === "rental" ? (
-                  <ul className="list-disc list-inside columns-2 leading-tight">
-                    <li>Items must be returned by agreed return date</li>
-                    <li>Late returns incur additional charges</li>
-                    <li>Return items in original condition</li>
-                    <li>Customer responsible during rental period</li>
-                    <li>Damage/loss: Repair or replacement cost charged</li>
-                    <li>Security deposit covers damages</li>
-                    <li>Advance payment required for confirmation</li>
-                    <li>ID proof required at delivery</li>
-                  </ul>
-                ) : (
-                  <ul className="list-disc list-inside columns-2 leading-tight">
-                    <li>All sales are final, no returns</li>
-                    <li>Check items before leaving</li>
-                    <li>Warranty as per product terms</li>
-                    <li>Receipt required for any claims</li>
-                    <li>Prices inclusive of applicable taxes</li>
-                    <li>Management decision final in disputes</li>
-                  </ul>
-                )
+                <ol className="list-decimal list-inside space-y-0.5 leading-tight">
+                  <li>Sold products will not be returned or exchanged.</li>
+                  <li>Please book the Safa Wale service at least 1 month in advance.</li>
+                  <li>We will not allow any last-minute changes in placed orders.</li>
+                  <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
+                  <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
+                  <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
+                  <li>Our staff team will not ask guests to return safas (as per company reputation &amp; policies).</li>
+                  <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
+                  <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
+                  <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
+                  <li>I hereby declare that all the above products are selected and checked by me.</li>
+                  <li>Subject to Vadodara jurisdiction.</li>
+                </ol>
               )}
             </div>
           </div>
