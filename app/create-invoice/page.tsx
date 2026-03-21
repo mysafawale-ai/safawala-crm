@@ -1955,11 +1955,12 @@ export default function CreateInvoicePage() {
   const handlePrint = () => {
     const originalTitle = document.title
     const eventDateStr = invoiceData.event_date
-      ? format(new Date(invoiceData.event_date), "dd/MM/yyyy")
+      ? format(new Date(invoiceData.event_date), "dd/MM/yy")
       : ""
+    const custName = selectedCustomer?.name || invoiceData.groom_name || ""
     const parts = [
       invoiceData.invoice_number,
-      selectedCustomer?.name,
+      custName,
       eventDateStr,
     ].filter(Boolean)
     if (parts.length > 0) {
