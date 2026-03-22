@@ -109,22 +109,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid phone number (min 10 digits) is required' }, { status: 400 })
     }
 
-    // Check for duplicate phone
-    const { data: existing } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('phone', body.phone.trim())
-      .eq('franchise_id', franchiseId)
-      .eq('is_active', true)
-      .single()
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Customer with this phone number already exists' },
-        { status: 409 }
-      )
-    }
-
     // Create customer
     const customerData: any = {
       name: body.name.trim(),
@@ -205,23 +189,6 @@ export async function PUT(request: NextRequest) {
     // Franchise isolation
     if (!isSuperAdmin && existing.franchise_id !== franchiseId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
-
-    // Check for duplicate phone (excluding current customer)
-    const { data: duplicate } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('phone', body.phone.trim())
-      .neq('id', customerId)
-      .eq('franchise_id', franchiseId)
-      .eq('is_active', true)
-      .single()
-
-    if (duplicate) {
-      return NextResponse.json(
-        { error: 'Phone number already in use by another customer' },
-        { status: 409 }
-      )
     }
 
     // Update customer

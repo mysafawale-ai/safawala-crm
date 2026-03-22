@@ -280,23 +280,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Check for duplicate phone number (excluding current customer)
-    if (phone && phone !== existingCustomer.phone) {
-      const { data: existingByPhone } = await supabaseServer
-        .from("customers")
-        .select("id, name")
-        .eq("phone", phone.trim())
-        .neq("id", id)
-        .single()
-
-      if (existingByPhone) {
-        return NextResponse.json(
-          ApiResponseBuilder.conflictError(`Phone number ${phone} is already used by another customer: ${existingByPhone.name}`),
-          { status: 409 }
-        )
-      }
-    }
-
     // Check for duplicate email (excluding current customer)
     if (email && email !== existingCustomer.email) {
       const { data: existingByEmail } = await supabaseServer

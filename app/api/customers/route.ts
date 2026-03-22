@@ -170,18 +170,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid phone number is required" }, { status: 400 })
     }
 
-    // Check for duplicate phone in same franchise
-    const { data: existing } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("phone", phone.trim())
-      .eq("franchise_id", franchiseId)
-      .single()
-
-    if (existing) {
-      return NextResponse.json({ error: "Customer with this phone number already exists in your franchise" }, { status: 409 })
-    }
-
     // Insert new customer with franchise_id
     // Build insert payload conditionally to avoid referencing dropped columns (e.g., notes)
     const insertPayload: any = {
