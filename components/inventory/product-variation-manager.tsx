@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon } from "lucide-react"
+import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon, Camera } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { generateBarcode, generateBarcodeLabel, generateQRCode } from "@/lib/barcode-generator"
@@ -83,6 +83,8 @@ export function ProductVariationManager({
   const [formData, setFormData] = useState<VariationData>({ ...emptyVariation })
   const [barcodeImages, setBarcodeImages] = useState<Record<string, string>>({})
   const [uploadingImage, setUploadingImage] = useState(false)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isLocalMode = !productId
 
@@ -741,26 +743,53 @@ export function ProductVariationManager({
                     </button>
                   </div>
                 ) : (
-                  <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-4 cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors">
+                  <div className="space-y-2">
+                    {uploadingImage ? (
+                      <div className="flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-4">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                        <span className="text-sm text-muted-foreground">Uploading...</span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => cameraInputRef.current?.click()}
+                          disabled={uploadingImage}
+                        >
+                          <Camera className="w-4 h-4 mr-2" />
+                          Take Photo
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingImage}
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload
+                        </Button>
+                      </div>
+                    )}
+                    {/* Hidden file inputs */}
                     <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <input
+                      ref={fileInputRef}
                       type="file"
                       accept="image/*"
                       onChange={handleImageUpload}
                       className="hidden"
-                      disabled={uploadingImage}
                     />
-                    {uploadingImage ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-                        <span className="text-sm text-muted-foreground">Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">Upload variation image</span>
-                      </>
-                    )}
-                  </label>
+                  </div>
                 )}
               </div>
 
