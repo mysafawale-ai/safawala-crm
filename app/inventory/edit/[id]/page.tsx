@@ -15,6 +15,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { generateBarcodesForProduct, getNextSequenceNumber } from "@/lib/barcode-utils"
+import { ProductVariationManager } from "@/components/inventory/product-variation-manager"
 
 interface ProductFormData {
   name: string
@@ -865,6 +866,14 @@ export default function EditProductPage() {
                   />
                 </div>
               </div>
+
+              {/* Product Variations */}
+              <ProductVariationManager
+                productId={productId}
+                franchiseId={franchiseId}
+                productName={formData.name}
+                productPrice={Number(formData.price) || undefined}
+              />
 
               <div className="flex justify-end space-x-4">
                 <Button variant="outline" onClick={() => router.back()}>

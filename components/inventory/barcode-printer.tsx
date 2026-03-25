@@ -18,6 +18,7 @@ interface BarcodePrinterProps {
   onOpenChange: (open: boolean) => void
   productCode: string
   productName: string
+  productPrice?: number
 }
 
 export function BarcodePrinter({
@@ -25,6 +26,7 @@ export function BarcodePrinter({
   onOpenChange,
   productCode,
   productName,
+  productPrice,
 }: BarcodePrinterProps) {
   const [quantity, setQuantity] = useState(10)
   const [isPrinting, setIsPrinting] = useState(false)
@@ -61,9 +63,11 @@ export function BarcodePrinter({
             
             labelsHTML += `
               <div class="label">
+                <div class="name">${productName}</div>
+                <div class="website">safawala.com</div>
+                ${productPrice !== undefined ? `<div class="mrp">MRP - ₹${productPrice}/-</div>` : ''}
                 <img src="${barcodeImg}" class="barcode" />
                 <div class="code">${productCode}</div>
-                <div class="name">${productName}</div>
               </div>
             `
           } else {
@@ -132,7 +136,7 @@ export function BarcodePrinter({
     }
     
     .name {
-      font-size: 6pt;
+      font-size: 7pt;
       font-weight: bold;
       color: #000;
       text-align: center;
@@ -140,6 +144,21 @@ export function BarcodePrinter({
       line-height: 1.2;
       word-wrap: break-word;
       overflow-wrap: break-word;
+    }
+    
+    .website {
+      font-size: 5pt;
+      color: #555;
+      text-align: center;
+      margin-top: 0.3mm;
+    }
+    
+    .mrp {
+      font-size: 6pt;
+      font-weight: bold;
+      color: #000;
+      text-align: center;
+      margin-top: 0.3mm;
     }
     
     @media print {

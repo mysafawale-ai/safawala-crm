@@ -16,11 +16,13 @@ import {
   FileText,
   ImageIcon,
   Settings,
+  Layers,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
-import { generateBarcode } from "@/lib/barcode-generator"
+import { generateBarcode, generateBarcodeLabel } from "@/lib/barcode-generator"
 import { BarcodePrinter } from "@/components/inventory/barcode-printer"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 // Fixed import path for ProductItemService
 import { ProductItemService } from "@/lib/services/product-item-service"
 
@@ -77,19 +79,58 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   >([])
   const [loadingItems, setLoadingItems] = useState(false)
   const [showAllBarcodes, setShowAllBarcodes] = useState(false)
+  const [variations, setVariations] = useState<any[]>([])
+  const [loadingVariations, setLoadingVariations] = useState(false)
+  const [variationBarcodeImages, setVariationBarcodeImages] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (open && product) {
       loadItemBarcodes()
+      loadVariations()
     }
   }, [open, product])
 
   if (!product) return null
 
+  const loadVariations = async () => {
+    if (!product) return
+    setLoadingVariations(true)
+    try {
+      const { data, error } = await supabase
+        .from("product_variations")
+        .select("*")
+        .eq("product_id", product.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+
+      if (error) throw error
+      setVariations(data || [])
+
+      // Generate barcode images
+      const images: Record<string, string> = {}
+      for (const v of (data || [])) {
+        if (v.barcode) {
+          try {
+            images[v.barcode] = generateBarcode(v.barcode)
+          } catch { /* ignore */ }
+        }
+      }
+      setVariationBarcodeImages(images)
+    } catch (error) {
+      console.error("Error loading variations:", error)
+    } finally {
+      setLoadingVariations(false)
+    }
+  }
+
   const handlePrintBarcode = async () => {
     setPrinting(true)
     try {
-      const barcodeToUse = generatedBarcode || generateBarcode(product.barcode || "")
+      const labelImage = generateBarcodeLabel({
+        barcodeText: product.barcode || "",
+        variationName: product.name,
+        mrp: product.price,
+      })
 
       const printWindow = window.open("", "_blank")
       if (printWindow) {
@@ -97,54 +138,14 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
         <html>
           <head>
             <title>Print Barcode - ${product.name}</title>
-            <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
             <style>
-              /* Using Cinzel for printed barcode labels. For offline use, download Cinzel to /public/fonts and add @font-face fallback. */
-              body { 
-                font-family: Arial, sans-serif; 
-                text-align: center; 
-                padding: 20px;
-                margin: 0;
-              }
-              .barcode-container {
-                border: 1px solid #ccc;
-                padding: 20px;
-                margin: 20px auto;
-                width: fit-content;
-                background: white;
-              }
-              .product-info {
-                margin-bottom: 15px;
-              }
-              .product-name {
-                font-family: 'Cinzel', serif;
-                font-size: 16px;
-                font-weight: 700;
-                margin-bottom: 5px;
-              }
-              .product-code {
-                font-family: 'Cinzel', serif;
-                font-size: 14px;
-                color: #666;
-              }
-              img {
-                max-width: 100%;
-                height: auto;
-              }
-              @media print {
-                body { margin: 0; padding: 10px; }
-                .barcode-container { border: none; margin: 0; }
-              }
+              body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; }
+              img { max-width: 100%; height: auto; }
+              @media print { body { margin: 0; padding: 10px; } }
             </style>
           </head>
           <body>
-            <div class="barcode-container">
-              <img src="${barcodeToUse}" alt="Barcode for ${product.name}" />
-              <div class="product-info">
-                <div class="product-code">${product.barcode ?? ""}</div>
-                <div class="product-name">${product.name}</div>
-              </div>
-            </div>
+            <img src="${labelImage}" alt="Barcode Label" />
           </body>
         </html>
       `)
@@ -171,11 +172,15 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const handleDownloadBarcode = async () => {
     setDownloading(true)
     try {
-      const barcodeDataURL = generatedBarcode || generateBarcode(product.barcode || "")
+      const labelImage = generateBarcodeLabel({
+        barcodeText: product.barcode || "",
+        variationName: product.name,
+        mrp: product.price,
+      })
 
       const link = document.createElement("a")
-      link.href = barcodeDataURL
-  link.download = `barcode-${product.name.replace(/[^a-zA-Z0-9]/g, "_")}-${product.barcode ?? ""}.png`
+      link.href = labelImage
+      link.download = `barcode-${product.name.replace(/[^a-zA-Z0-9]/g, "_")}-${product.barcode ?? ""}.png`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -284,11 +289,12 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
 
       pdf.setFontSize(10)
       pdf.setFont("helvetica", "normal")
-  pdf.text(`Barcode: ${product.barcode ?? ""}`, margin, margin + 18)
-      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, margin + 25)
+      pdf.text(`Barcode: ${product.barcode ?? ""}`, margin, margin + 18)
+      pdf.text(`safawala.com  |  MRP - \u20B9${product.price}/-`, margin, margin + 25)
+      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, margin + 32)
 
       let currentPage = 1
-      let yPosition = margin + 35
+      let yPosition = margin + 42
 
       for (let i = 0; i < itemBarcodes.length; i++) {
         const item = itemBarcodes[i]
@@ -488,6 +494,106 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                 </div>
               </CardContent>
             </Card>
+
+            {/* Product Variations */}
+            {(loadingVariations || variations.length > 0) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center space-x-2">
+                    <Layers className="h-4 w-4" />
+                    <span>Variations</span>
+                    {variations.length > 0 && (
+                      <Badge variant="secondary">{variations.length}</Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>Product color, design, and material variations with individual barcodes</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingVariations ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                      <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Variation Quantity Summary */}
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="rounded-lg border p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground uppercase">Total</p>
+                          <p className="text-base font-bold">{variations.reduce((s, v) => s + (v.stock_total || 0), 0)}</p>
+                        </div>
+                        <div className="rounded-lg border p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground uppercase">Available</p>
+                          <p className="text-base font-bold text-green-600">{variations.reduce((s, v) => s + (v.stock_available || 0), 0)}</p>
+                        </div>
+                        <div className="rounded-lg border p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground uppercase">Booked</p>
+                          <p className="text-base font-bold text-blue-600">{variations.reduce((s, v) => s + (v.stock_booked || 0), 0)}</p>
+                        </div>
+                        <div className="rounded-lg border p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground uppercase">Damaged</p>
+                          <p className="text-base font-bold text-red-600">{variations.reduce((s, v) => s + (v.stock_damaged || 0), 0)}</p>
+                        </div>
+                      </div>
+
+                      {/* Variations Table */}
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Variation</TableHead>
+                              <TableHead className="text-center">Total</TableHead>
+                              <TableHead className="text-center">Avail.</TableHead>
+                              <TableHead className="text-center">Booked</TableHead>
+                              <TableHead className="text-center">Dmg.</TableHead>
+                              <TableHead>Barcode</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {variations.map((v) => (
+                              <TableRow key={v.id}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    {v.color && (
+                                      <div
+                                        className="w-3 h-3 rounded-full border flex-shrink-0"
+                                        style={{ backgroundColor: v.color.toLowerCase() }}
+                                      />
+                                    )}
+                                    <div>
+                                      <p className="text-sm font-medium">{v.variation_name}</p>
+                                      <p className="text-[11px] text-muted-foreground">
+                                        {[v.color, v.design, v.material, v.size].filter(Boolean).join(" · ")}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center font-medium">{v.stock_total || 0}</TableCell>
+                                <TableCell className="text-center text-green-600 font-medium">{v.stock_available || 0}</TableCell>
+                                <TableCell className="text-center text-blue-600 font-medium">{v.stock_booked || 0}</TableCell>
+                                <TableCell className="text-center text-red-600 font-medium">{v.stock_damaged || 0}</TableCell>
+                                <TableCell>
+                                  {v.barcode ? (
+                                    <div className="flex items-center gap-1">
+                                      {variationBarcodeImages[v.barcode] && (
+                                        <img src={variationBarcodeImages[v.barcode]} alt="" className="h-6 w-auto max-w-[60px]" />
+                                      )}
+                                      <span className="text-[10px] font-mono text-muted-foreground">{v.barcode}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Barcode & QR Code */}
@@ -552,6 +658,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
           onOpenChange={setBarcodePrinterOpen}
           productCode={product.barcode || product.product_code || ""}
           productName={product.name}
+          productPrice={product.price}
         />
       )}
     </Dialog>

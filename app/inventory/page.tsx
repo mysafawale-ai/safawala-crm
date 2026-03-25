@@ -183,6 +183,31 @@ export default function InventoryPage() {
         name: p.name || 'Unnamed Product',
         is_custom: p.is_custom === true,
       }))
+
+      // Fetch variation counts for all products (best-effort)
+      try {
+        const productIds = normalized.map(p => p.id)
+        if (productIds.length > 0) {
+          const { data: varCounts } = await supabase
+            .from("product_variations")
+            .select("product_id")
+            .in("product_id", productIds)
+            .eq("is_active", true)
+
+          if (varCounts) {
+            const countMap: Record<string, number> = {}
+            for (const row of varCounts) {
+              countMap[row.product_id] = (countMap[row.product_id] || 0) + 1
+            }
+            for (const p of normalized) {
+              (p as any)._variation_count = countMap[p.id] || 0
+            }
+          }
+        }
+      } catch (varErr) {
+        console.debug("Could not fetch variation counts:", varErr)
+      }
+
       setProducts(normalized)
     } catch (error) {
       console.error("Error fetching products:", error)
@@ -923,6 +948,11 @@ export default function InventoryPage() {
                                     {product.brand && <div className="text-sm text-muted-foreground">{product.brand}</div>}
                                     {product.is_custom && (
                                       <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-50 border-amber-300 text-amber-700">Custom</Badge>
+                                    )}
+                                    {(product as any)._variation_count > 0 && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 border-purple-300 text-purple-700">
+                                        {(product as any)._variation_count} variant{(product as any)._variation_count > 1 ? 's' : ''}
+                                      </Badge>
                                     )}
                                   </div>
                               </div>

@@ -108,6 +108,31 @@ export interface Franchise {
   updated_at: string
 }
 
+// Product Variation Types
+export interface ProductVariation {
+  id: string
+  product_id: string
+  franchise_id: string
+  variation_name: string
+  color?: string
+  design?: string
+  material?: string
+  size?: string
+  sku?: string
+  price_adjustment: number
+  rental_price_adjustment: number
+  stock_total: number
+  stock_available: number
+  stock_booked: number
+  stock_damaged: number
+  barcode?: string
+  qr_code?: string
+  image_url?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 // Product Types
 export interface Product {
   id: string

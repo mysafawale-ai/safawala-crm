@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { generateBarcode } from "@/lib/barcode-generator"
 import { generateBarcodesForProduct } from "@/lib/barcode-utils"
+import { ProductVariationManager, VariationData } from "@/components/inventory/product-variation-manager"
 import Link from "next/link"
 
 interface Category {
@@ -68,6 +69,9 @@ export default function AddProductPage() {
   const [draggedImageId, setDraggedImageId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  const [localVariations, setLocalVariations] = useState<VariationData[]>([])
+  const [userFranchiseId, setUserFranchiseId] = useState<string>("")
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -348,6 +352,7 @@ export default function AddProductPage() {
       if (!user.franchise_id) {
         throw new Error("No franchise found for your account. Please contact support.")
       }
+      setUserFranchiseId(user.franchise_id)
 
       const productData = {
         product_code: productCode.substring(0, 50),
@@ -399,6 +404,41 @@ export default function AddProductPage() {
           toast.error("Product created but barcode generation failed")
         } else {
           toast.success(`Product created with ${formData.stock_total} unique barcodes!`)
+        }
+      }
+
+      // Persist variations (if any) into product_variations table
+      if (localVariations.length > 0 && data && data[0]) {
+        const productIdForVariations = data[0].id
+        try {
+          const variationRows = localVariations.map((v) => ({
+            product_id: productIdForVariations,
+            franchise_id: user.franchise_id,
+            variation_name: v.variation_name.trim(),
+            color: v.color?.trim() || null,
+            design: v.design?.trim() || null,
+            material: v.material?.trim() || null,
+            size: v.size?.trim() || null,
+            sku: v.sku?.trim() || null,
+            price_adjustment: Number(v.price_adjustment) || 0,
+            rental_price_adjustment: Number(v.rental_price_adjustment) || 0,
+            stock_total: v.stock_total || 0,
+            stock_available: v.stock_available || 0,
+            stock_booked: v.stock_booked || 0,
+            stock_damaged: v.stock_damaged || 0,
+            image_url: v.image_url || null,
+            is_active: true,
+          }))
+
+          const { error: varError } = await supabase.from("product_variations").insert(variationRows)
+          if (varError) {
+            console.error("Failed to save variations:", varError)
+            toast.error("Product created but some variations failed to save")
+          } else {
+            toast.success(`${localVariations.length} variation(s) saved with unique barcodes!`)
+          }
+        } catch (varErr) {
+          console.error("Error saving variations:", varErr)
         }
       }
 
@@ -878,6 +918,16 @@ export default function AddProductPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Product Variations */}
+              <ProductVariationManager
+                productId={null}
+                franchiseId={userFranchiseId}
+                productName={formData.name}
+                productPrice={Number(formData.price) || undefined}
+                localVariations={localVariations}
+                onLocalVariationsChange={setLocalVariations}
+              />
             </div>
 
             <div className="lg:col-span-1">
