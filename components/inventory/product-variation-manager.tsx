@@ -16,7 +16,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon, Camera } from "lucide-react"
-import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { generateBarcode, generateBarcodeLabel, generateQRCode } from "@/lib/barcode-generator"
 
@@ -122,14 +121,12 @@ export function ProductVariationManager({
     if (!productId) return
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from("product_variations")
-        .select("*")
-        .eq("product_id", productId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-
-      if (error) throw error
+      const res = await fetch(`/api/products/${productId}/variations`)
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to fetch variations")
+      }
+      const { data } = await res.json()
       setVariations(
         (data || []).map((v: any) => ({
           id: v.id,
@@ -191,12 +188,14 @@ export function ProductVariationManager({
         onLocalVariationsChange?.(updated)
         toast.success(editingIndex !== null ? "Variation updated" : "Variation added")
       } else {
-        // DB mode: save to Supabase
+        // DB mode: save via API
         if (editingIndex !== null && variations[editingIndex].id) {
           // Update existing
-          const { error } = await supabase
-            .from("product_variations")
-            .update({
+          const res = await fetch(`/api/products/${productId}/variations`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              variation_id: variations[editingIndex].id,
               variation_name: formData.variation_name.trim(),
               color: formData.color.trim() || null,
               design: formData.design.trim() || null,
@@ -210,18 +209,19 @@ export function ProductVariationManager({
               stock_booked: formData.stock_booked,
               stock_damaged: formData.stock_damaged,
               image_url: formData.image_url || null,
-            })
-            .eq("id", variations[editingIndex].id)
-
-          if (error) throw error
+            }),
+          })
+          if (!res.ok) {
+            const err = await res.json()
+            throw new Error(err.error || "Failed to update variation")
+          }
           toast.success("Variation updated")
         } else {
           // Create new
-          const { error } = await supabase
-            .from("product_variations")
-            .insert([{
-              product_id: productId,
-              franchise_id: franchiseId,
+          const res = await fetch(`/api/products/${productId}/variations`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
               variation_name: formData.variation_name.trim(),
               color: formData.color.trim() || null,
               design: formData.design.trim() || null,
@@ -235,10 +235,12 @@ export function ProductVariationManager({
               stock_booked: formData.stock_booked,
               stock_damaged: formData.stock_damaged,
               image_url: formData.image_url || null,
-              is_active: true,
-            }])
-
-          if (error) throw error
+            }),
+          })
+          if (!res.ok) {
+            const err = await res.json()
+            throw new Error(err.error || "Failed to create variation")
+          }
           toast.success("Variation added with unique barcode")
         }
         await fetchVariations()
@@ -266,12 +268,13 @@ export function ProductVariationManager({
     if (!variation.id) return
 
     try {
-      const { error } = await supabase
-        .from("product_variations")
-        .update({ is_active: false })
-        .eq("id", variation.id)
-
-      if (error) throw error
+      const res = await fetch(`/api/products/${productId}/variations?variation_id=${variation.id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to delete variation")
+      }
       toast.success("Variation deleted")
       await fetchVariations()
     } catch (error: any) {

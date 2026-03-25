@@ -71,6 +71,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       price_adjustment = 0,
       rental_price_adjustment = 0,
       stock_total = 0,
+      stock_available,
+      stock_booked = 0,
+      stock_damaged = 0,
       image_url,
     } = body
 
@@ -110,9 +113,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         price_adjustment: Number(price_adjustment) || 0,
         rental_price_adjustment: Number(rental_price_adjustment) || 0,
         stock_total: Math.max(0, Number(stock_total) || 0),
-        stock_available: Math.max(0, Number(stock_total) || 0),
-        stock_booked: 0,
-        stock_damaged: 0,
+        stock_available: Math.max(0, Number(stock_available ?? stock_total) || 0),
+        stock_booked: Math.max(0, Number(stock_booked) || 0),
+        stock_damaged: Math.max(0, Number(stock_damaged) || 0),
         image_url: image_url || null,
         is_active: true,
       }])
