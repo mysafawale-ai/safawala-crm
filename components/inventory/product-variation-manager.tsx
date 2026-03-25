@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers } from "lucide-react"
+import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { generateBarcode, generateBarcodeLabel, generateQRCode } from "@/lib/barcode-generator"
@@ -82,6 +82,7 @@ export function ProductVariationManager({
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [formData, setFormData] = useState<VariationData>({ ...emptyVariation })
   const [barcodeImages, setBarcodeImages] = useState<Record<string, string>>({})
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const isLocalMode = !productId
 
@@ -322,6 +323,35 @@ export function ProductVariationManager({
     document.body.removeChild(link)
   }
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB")
+      return
+    }
+    setUploadingImage(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("folder", "variations")
+      const res = await fetch("/api/upload", { method: "POST", body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Upload failed")
+      setFormData((prev) => ({ ...prev, image_url: data.url }))
+      toast.success("Image uploaded")
+    } catch (error: any) {
+      console.error("Image upload error:", error)
+      toast.error(`Upload failed: ${error.message}`)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   const handleFormChange = (field: keyof VariationData, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
@@ -386,13 +416,19 @@ export function ProductVariationManager({
                   <TableRow key={v.id || index}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {v.color && (
+                        {v.image_url ? (
+                          <img
+                            src={v.image_url}
+                            alt={v.variation_name}
+                            className="w-8 h-8 object-cover rounded border flex-shrink-0"
+                          />
+                        ) : v.color ? (
                           <div
-                            className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0"
+                            className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: v.color.toLowerCase() }}
                             title={v.color}
                           />
-                        )}
+                        ) : null}
                         <div>
                           <p className="font-medium text-sm">{v.variation_name}</p>
                           {v.material && <p className="text-xs text-muted-foreground">{v.material}</p>}
@@ -684,6 +720,48 @@ export function ProductVariationManager({
                     min="0"
                   />
                 </div>
+              </div>
+
+              {/* Variation Image */}
+              <div className="space-y-2">
+                <Label>Variation Image</Label>
+                {formData.image_url ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={formData.image_url}
+                      alt="Variation"
+                      className="h-24 w-24 object-cover rounded-lg border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, image_url: "" }))}
+                      className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-0.5 hover:bg-destructive/80"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-4 cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={uploadingImage}
+                    />
+                    {uploadingImage ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                        <span className="text-sm text-muted-foreground">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Upload variation image</span>
+                      </>
+                    )}
+                  </label>
+                )}
               </div>
 
               {editingIndex !== null && formData.barcode && (

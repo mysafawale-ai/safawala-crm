@@ -37,27 +37,43 @@ ALTER TABLE product_variations ENABLE ROW LEVEL SECURITY;
 -- RLS policies for franchise isolation
 CREATE POLICY "Users can view their franchise variations"
   ON product_variations FOR SELECT
-  USING (franchise_id = auth.uid()::text::uuid OR EXISTS (
-    SELECT 1 FROM users WHERE id = auth.uid() AND role = 'super_admin'
-  ));
+  USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND (u.role = 'super_admin' OR u.franchise_id = product_variations.franchise_id)
+    )
+  );
 
 CREATE POLICY "Users can insert their franchise variations"
   ON product_variations FOR INSERT
-  WITH CHECK (franchise_id = auth.uid()::text::uuid OR EXISTS (
-    SELECT 1 FROM users WHERE id = auth.uid() AND role = 'super_admin'
-  ));
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND (u.role = 'super_admin' OR u.franchise_id = product_variations.franchise_id)
+    )
+  );
 
 CREATE POLICY "Users can update their franchise variations"
   ON product_variations FOR UPDATE
-  USING (franchise_id = auth.uid()::text::uuid OR EXISTS (
-    SELECT 1 FROM users WHERE id = auth.uid() AND role = 'super_admin'
-  ));
+  USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND (u.role = 'super_admin' OR u.franchise_id = product_variations.franchise_id)
+    )
+  );
 
 CREATE POLICY "Users can delete their franchise variations"
   ON product_variations FOR DELETE
-  USING (franchise_id = auth.uid()::text::uuid OR EXISTS (
-    SELECT 1 FROM users WHERE id = auth.uid() AND role = 'super_admin'
-  ));
+  USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND (u.role = 'super_admin' OR u.franchise_id = product_variations.franchise_id)
+    )
+  );
 
 -- Auto-generate unique barcode for variations via trigger
 CREATE OR REPLACE FUNCTION generate_variation_barcode()
