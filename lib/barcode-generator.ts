@@ -99,7 +99,7 @@ export const generateBarcodeLabel = (options: BarcodeLabelOptions): string => {
     ctx.fillStyle = '#555555'
     ctx.font = '10px Arial, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('safawala.com', labelWidth / 2, y + 10)
+    ctx.fillText('www.safawala.com', labelWidth / 2, y + 10)
     y += smallLineHeight
 
     // 3. MRP

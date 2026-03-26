@@ -290,7 +290,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
       pdf.setFontSize(10)
       pdf.setFont("helvetica", "normal")
       pdf.text(`Barcode: ${product.barcode ?? ""}`, margin, margin + 18)
-      pdf.text(`safawala.com  |  MRP - \u20B9${product.price}/-`, margin, margin + 25)
+      pdf.text(`www.safawala.com  |  MRP - \u20B9${product.price}/-`, margin, margin + 25)
       pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, margin + 32)
 
       let currentPage = 1

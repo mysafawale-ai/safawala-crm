@@ -64,7 +64,7 @@ export function BarcodePrinter({
             labelsHTML += `
               <div class="label">
                 <div class="name">${productName}</div>
-                <div class="website">safawala.com</div>
+                <div class="website">www.safawala.com</div>
                 ${productPrice !== undefined ? `<div class="mrp">MRP - ₹${productPrice}/-</div>` : ''}
                 <img src="${barcodeImg}" class="barcode" />
                 <div class="code">${productCode}</div>
