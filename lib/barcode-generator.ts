@@ -23,7 +23,7 @@ export const generateBarcode = (text: string): string => {
     const canvas = document.createElement('canvas')
     JsBarcode(canvas, 'www.safawala.com', {
       format: 'CODE128',
-      width: 2,
+      width: 3,
       height: 100,
       displayValue: false, // Updated to prevent the product code from being rendered twice
       fontSize: 14,
@@ -55,7 +55,7 @@ export const generateBarcodeLabel = (options: BarcodeLabelOptions): string => {
     const barcodeCanvas = document.createElement('canvas')
     JsBarcode(barcodeCanvas, 'www.safawala.com', {
       format: 'CODE128',
-      width: 2,
+      width: 3,
       height: 70,
       displayValue: false,
       margin: 0,
@@ -95,9 +95,9 @@ export const generateBarcodeLabel = (options: BarcodeLabelOptions): string => {
       y += lineHeight
     }
 
-    // 2. safawala.com (small)
-    ctx.fillStyle = '#555555'
-    ctx.font = '10px Arial, sans-serif'
+    // 2. www.safawala.com (bold)
+    ctx.fillStyle = '#000000'
+    ctx.font = 'bold 10px Arial, sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText('www.safawala.com', labelWidth / 2, y + 10)
     y += smallLineHeight

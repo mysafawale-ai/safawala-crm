@@ -40,7 +40,7 @@ export default function Barcode2x5PrintPage() {
           canvas.height = 200
           JsBarcode(canvas, 'www.safawala.com', {
             format: 'CODE128',
-            width: 2,
+            width: 3,
             height: 50,
             displayValue: false,
             margin: 0,
@@ -220,7 +220,7 @@ export default function Barcode2x5PrintPage() {
 
           JsBarcode(canvas, 'www.safawala.com', {
             format: 'CODE128',
-            width: 2,
+            width: 3,
             height: 40,
             displayValue: false,
             margin: 0,

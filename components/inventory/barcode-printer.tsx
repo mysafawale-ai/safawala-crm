@@ -54,7 +54,7 @@ export function BarcodePrinter({
             const canvas = document.createElement("canvas")
             JsBarcode(canvas, "www.safawala.com", {
               format: "CODE128",
-              width: 2,
+              width: 3,
               height: 50,
               displayValue: false,
               margin: 0,
@@ -148,7 +148,8 @@ export function BarcodePrinter({
     
     .website {
       font-size: 5pt;
-      color: #555;
+      font-weight: bold;
+      color: #000;
       text-align: center;
       margin-top: 0.3mm;
     }
