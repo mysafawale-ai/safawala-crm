@@ -52,7 +52,7 @@ export function BarcodePrinter({
           const idx = row * 2 + col
           if (idx < quantity) {
             const canvas = document.createElement("canvas")
-            JsBarcode(canvas, productCode, {
+            JsBarcode(canvas, "www.safawala.com", {
               format: "CODE128",
               width: 2,
               height: 50,

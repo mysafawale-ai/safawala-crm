@@ -21,7 +21,7 @@ export const generateQRCode = async (text: string): Promise<string> => {
 export const generateBarcode = (text: string): string => {
   try {
     const canvas = document.createElement('canvas')
-    JsBarcode(canvas, text, {
+    JsBarcode(canvas, 'www.safawala.com', {
       format: 'CODE128',
       width: 2,
       height: 100,
@@ -53,7 +53,7 @@ export const generateBarcodeLabel = (options: BarcodeLabelOptions): string => {
   try {
     // First generate the raw barcode on a temp canvas
     const barcodeCanvas = document.createElement('canvas')
-    JsBarcode(barcodeCanvas, options.barcodeText, {
+    JsBarcode(barcodeCanvas, 'www.safawala.com', {
       format: 'CODE128',
       width: 2,
       height: 70,

@@ -38,7 +38,7 @@ export default function Barcode2x5PrintPage() {
           const canvas = document.createElement('canvas')
           canvas.width = 800
           canvas.height = 200
-          JsBarcode(canvas, barcodes[i].code, {
+          JsBarcode(canvas, 'www.safawala.com', {
             format: 'CODE128',
             width: 2,
             height: 50,
@@ -218,7 +218,7 @@ export default function Barcode2x5PrintPage() {
             ctx.scale(scale, scale)
           }
 
-          JsBarcode(canvas, barcode.code, {
+          JsBarcode(canvas, 'www.safawala.com', {
             format: 'CODE128',
             width: 2,
             height: 40,
