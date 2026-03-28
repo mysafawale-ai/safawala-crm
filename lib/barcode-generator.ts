@@ -23,13 +23,14 @@ export const generateBarcode = (text: string): string => {
     const canvas = document.createElement('canvas')
     JsBarcode(canvas, 'www.safawala.com', {
       format: 'CODE128',
-      width: 3,
-      height: 100,
-      displayValue: false, // Updated to prevent the product code from being rendered twice
+      width: 5,
+      height: 120,
+      displayValue: false,
       fontSize: 14,
-      textMargin: 5
+      textMargin: 5,
+      margin: 10,
     })
-    return canvas.toDataURL()
+    return canvas.toDataURL('image/png')
   } catch (error) {
     console.error('Error generating barcode:', error)
     return ''
@@ -55,10 +56,10 @@ export const generateBarcodeLabel = (options: BarcodeLabelOptions): string => {
     const barcodeCanvas = document.createElement('canvas')
     JsBarcode(barcodeCanvas, 'www.safawala.com', {
       format: 'CODE128',
-      width: 3,
-      height: 70,
+      width: 5,
+      height: 90,
       displayValue: false,
-      margin: 0,
+      margin: 4,
     })
 
     const padding = 16

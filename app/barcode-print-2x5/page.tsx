@@ -36,14 +36,14 @@ export default function Barcode2x5PrintPage() {
       for (let i = 0; i < barcodes.length; i++) {
         if (barcodes[i].code.trim()) {
           const canvas = document.createElement('canvas')
-          canvas.width = 800
-          canvas.height = 200
+          canvas.width = 1200
+          canvas.height = 400
           JsBarcode(canvas, 'www.safawala.com', {
             format: 'CODE128',
-            width: 3,
-            height: 50,
+            width: 5,
+            height: 80,
             displayValue: false,
-            margin: 0,
+            margin: 10,
           })
           barcodeImages[i] = canvas.toDataURL('image/png')
         } else {
@@ -102,11 +102,14 @@ export default function Barcode2x5PrintPage() {
                   border-right: none;
                 }
                 .barcode-image {
-                  width: 80%;
+                  width: 85%;
                   height: auto;
-                  max-height: 40%;
+                  max-height: 50%;
                   display: block;
                   margin-bottom: 4px;
+                  image-rendering: -webkit-optimize-contrast;
+                  image-rendering: pixelated;
+                  image-rendering: crisp-edges;
                 }
                 .barcode-code {
                   font-family: 'Courier New', monospace;
@@ -210,9 +213,9 @@ export default function Barcode2x5PrintPage() {
 
           // Generate barcode
           const canvas = document.createElement('canvas')
-          const scale = 2
-          canvas.width = 400 * scale
-          canvas.height = 100 * scale
+          const scale = 3
+          canvas.width = 600 * scale
+          canvas.height = 200 * scale
           const ctx = canvas.getContext('2d')
           if (ctx) {
             ctx.scale(scale, scale)
@@ -220,10 +223,10 @@ export default function Barcode2x5PrintPage() {
 
           JsBarcode(canvas, 'www.safawala.com', {
             format: 'CODE128',
-            width: 3,
-            height: 40,
+            width: 5,
+            height: 70,
             displayValue: false,
-            margin: 0,
+            margin: 8,
           })
 
           // Add barcode to PDF

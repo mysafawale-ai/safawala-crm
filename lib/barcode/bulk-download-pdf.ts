@@ -35,10 +35,10 @@ function generateBarcodeDataURL(code: string): string {
   
   JsBarcode(canvas, code, {
     format: 'CODE128',
-    width: 2,
-    height: 50,
+    width: 4,
+    height: 80,
     displayValue: false,
-    margin: 0,
+    margin: 8,
   })
   
   return canvas.toDataURL('image/png')

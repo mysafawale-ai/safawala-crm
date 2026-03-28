@@ -25,15 +25,15 @@ export async function generateBarcodeImage(code: string): Promise<string> {
   try {
     const JsBarcode = (await import("jsbarcode")).default
     const canvas = document.createElement("canvas")
-    canvas.width = 400
-    canvas.height = 150
+    canvas.width = 800
+    canvas.height = 300
 
     JsBarcode(canvas, code, {
       format: "CODE128",
-      width: 2,
-      height: 40,
+      width: 4,
+      height: 80,
       displayValue: false,
-      margin: 0,
+      margin: 10,
     })
 
     return canvas.toDataURL("image/png")
@@ -163,7 +163,10 @@ export function createPrintHTML(config: PrintConfig): string {
           height: ${IMAGE_HEIGHT_MM}mm;
           margin-bottom: 1mm;
           display: block;
+          image-rendering: -webkit-optimize-contrast;
           image-rendering: pixelated;
+          image-rendering: crisp-edges;
+          -ms-interpolation-mode: nearest-neighbor;
         }
         
         .barcode-code {

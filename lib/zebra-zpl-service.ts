@@ -109,7 +109,7 @@ function generate2ColumnLabelZPL(
 ^LL${labelHeightDots}
 ^CF0,18
 
-^BY2,2.5,${barcodeHeight}
+^BY3,3.0,${barcodeHeight}
 ^FO${barcodeX1},${barcodeY}^BCN,${barcodeHeight},N,N,N^FD${item1.code}^FS
 ^FO${barcodeX1},${codeTextY}^A0N,22,22^FD${item1.code}^FS
 ^FO${barcodeX1},${nameTextY}^A0N,16,16^FD${displayName1}^FS
