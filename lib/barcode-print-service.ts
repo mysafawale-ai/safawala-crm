@@ -25,13 +25,13 @@ export async function generateBarcodeImage(code: string): Promise<string> {
   try {
     const JsBarcode = (await import("jsbarcode")).default
     const canvas = document.createElement("canvas")
-    canvas.width = 1200
-    canvas.height = 400
+    canvas.width = 2400
+    canvas.height = 800
 
     JsBarcode(canvas, code, {
       format: "CODE128",
-      width: 5,
-      height: 120,
+      width: 10,
+      height: 240,
       displayValue: false,
       margin: 10,
     })
@@ -89,7 +89,7 @@ export function createPrintHTML(config: PrintConfig): string {
 
   // Base image dimensions (for 50mm × 25mm barcode)
   const BASE_IMAGE_WIDTH_MM = 48
-  const BASE_IMAGE_HEIGHT_MM = 14
+  const BASE_IMAGE_HEIGHT_MM = 20
   const IMAGE_WIDTH_MM = BASE_IMAGE_WIDTH_MM * barcodeScale
   const IMAGE_HEIGHT_MM = BASE_IMAGE_HEIGHT_MM * barcodeScale
 
@@ -171,7 +171,7 @@ export function createPrintHTML(config: PrintConfig): string {
         
         .barcode-code {
           font-family: 'Courier New', monospace;
-          font-size: ${5 * 2.2 * barcodeScale}px;
+          font-size: ${10 * 2.2 * barcodeScale}px;
           font-weight: bold;
           letter-spacing: 0.3px;
           white-space: nowrap;
@@ -181,11 +181,12 @@ export function createPrintHTML(config: PrintConfig): string {
           margin-bottom: 0.2mm;
           line-height: 1;
         }
-        
+
         .product-name {
           font-family: Arial, sans-serif;
-          font-size: ${4 * 1.7 * barcodeScale}px;
-          color: #333;
+          font-size: ${8 * 1.7 * barcodeScale}px;
+          font-weight: bold;
+          color: #000;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
