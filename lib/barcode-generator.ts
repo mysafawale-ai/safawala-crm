@@ -1,36 +1,33 @@
 import QRCode from 'qrcode'
-import JsBarcode from 'jsbarcode'
 
 export const generateQRCode = async (text: string): Promise<string> => {
   try {
-    const qrCodeDataURL = await QRCode.toDataURL(text, {
-      width: 200,
+    return await QRCode.toDataURL(text, {
+      width: 300,
       margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
+      color: { dark: '#000000', light: '#FFFFFF' },
     })
-    return qrCodeDataURL
   } catch (error) {
     console.error('Error generating QR code:', error)
     return ''
   }
 }
 
-export const generateBarcode = (text: string): string => {
+// Returns inline SVG string — sharp at any printer DPI
+export const generateBarcode = async (text: string): Promise<string> => {
   try {
-    const canvas = document.createElement('canvas')
-    JsBarcode(canvas, 'www.safawala.com', {
+    const JsBarcode = (await import('jsbarcode')).default
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    JsBarcode(svg, text, {
       format: 'CODE128',
-      width: 5,
-      height: 120,
+      width: 3,
+      height: 80,
       displayValue: false,
-      fontSize: 14,
-      textMargin: 5,
-      margin: 10,
+      margin: 0,
+      background: '#FFFFFF',
+      lineColor: '#000000',
     })
-    return canvas.toDataURL('image/png')
+    return svg.outerHTML
   } catch (error) {
     console.error('Error generating barcode:', error)
     return ''
@@ -38,98 +35,24 @@ export const generateBarcode = (text: string): string => {
 }
 
 export interface BarcodeLabelOptions {
-  barcodeText: string       // The barcode value (e.g., VAR-12345678)
-  variationName?: string    // e.g., "Duppata Red"
-  mrp?: number              // Selling price / MRP
+  barcodeText: string
+  variationName?: string
+  mrp?: number
 }
 
-/**
- * Generates a barcode label image with:
- * 1. Variation / product name
- * 2. safawala.com (small text)
- * 3. MRP - ₹{price}/-
- * 4. Barcode image
- */
-export const generateBarcodeLabel = (options: BarcodeLabelOptions): string => {
-  try {
-    // First generate the raw barcode on a temp canvas
-    const barcodeCanvas = document.createElement('canvas')
-    JsBarcode(barcodeCanvas, 'www.safawala.com', {
-      format: 'CODE128',
-      width: 5,
-      height: 90,
-      displayValue: false,
-      margin: 4,
-    })
+// Builds a full label as a self-contained HTML string (for embedding in print pages)
+export const generateBarcodeLabelHTML = (options: BarcodeLabelOptions, barcodeSVG: string): string => {
+  const name = options.variationName
+    ? `<div style="font-family:Arial Black,Arial,sans-serif;font-size:9pt;font-weight:900;text-align:center;color:#000;line-height:1.1;">${options.variationName}</div>`
+    : ''
+  const web = `<div style="font-family:Arial,sans-serif;font-size:6.5pt;font-weight:bold;text-align:center;color:#000;">www.safawala.com</div>`
+  const mrp = options.mrp !== undefined
+    ? `<div style="font-family:Arial,sans-serif;font-size:7.5pt;font-weight:900;text-align:center;color:#000;">MRP &#8377;${options.mrp}/-</div>`
+    : ''
+  const bc = `<div style="width:46mm;height:9.5mm;display:flex;align-items:center;justify-content:center;overflow:hidden;">${barcodeSVG.replace(/width="[^"]*"/, 'width="46mm"').replace(/height="[^"]*"/, 'height="9.5mm"')}</div>`
+  const code = `<div style="font-family:'Courier New',monospace;font-size:7pt;font-weight:bold;text-align:center;color:#000;">${options.barcodeText}</div>`
 
-    const padding = 16
-    const labelWidth = Math.max(barcodeCanvas.width + padding * 2, 280)
-    const lineHeight = 18
-    const smallLineHeight = 14
-
-    // Calculate heights for text lines
-    let textBlockHeight = 0
-    if (options.variationName) textBlockHeight += lineHeight
-    textBlockHeight += smallLineHeight // safawala.com
-    if (options.mrp !== undefined) textBlockHeight += lineHeight
-    textBlockHeight += 6 // spacing before barcode
-
-    const labelHeight = padding + textBlockHeight + barcodeCanvas.height + smallLineHeight + padding
-
-    const canvas = document.createElement('canvas')
-    canvas.width = labelWidth
-    canvas.height = labelHeight
-    const ctx = canvas.getContext('2d')!
-    
-    // White background
-    ctx.fillStyle = '#FFFFFF'
-    ctx.fillRect(0, 0, labelWidth, labelHeight)
-
-    let y = padding
-
-    // 1. Variation / product name (bold)
-    if (options.variationName) {
-      ctx.fillStyle = '#000000'
-      ctx.font = 'bold 14px Arial, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(options.variationName, labelWidth / 2, y + 12)
-      y += lineHeight
-    }
-
-    // 2. www.safawala.com (bold)
-    ctx.fillStyle = '#000000'
-    ctx.font = 'bold 10px Arial, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('www.safawala.com', labelWidth / 2, y + 10)
-    y += smallLineHeight
-
-    // 3. MRP
-    if (options.mrp !== undefined) {
-      ctx.fillStyle = '#000000'
-      ctx.font = 'bold 13px Arial, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(`MRP - ₹${options.mrp}/-`, labelWidth / 2, y + 12)
-      y += lineHeight
-    }
-
-    y += 6 // spacing
-
-    // 4. Barcode image centered
-    const barcodeX = (labelWidth - barcodeCanvas.width) / 2
-    ctx.drawImage(barcodeCanvas, barcodeX, y)
-    y += barcodeCanvas.height + 2
-
-    // 5. Barcode number (small mono)
-    ctx.fillStyle = '#666666'
-    ctx.font = '10px monospace'
-    ctx.textAlign = 'center'
-    ctx.fillText(options.barcodeText, labelWidth / 2, y + 10)
-
-    return canvas.toDataURL()
-  } catch (error) {
-    console.error('Error generating barcode label:', error)
-    return ''
-  }
+  return `<div style="width:50mm;height:25mm;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1mm;gap:0.4mm;overflow:hidden;box-sizing:border-box;">${name}${web}${mrp}${bc}${code}</div>`
 }
 
 export const downloadQRCode = (dataURL: string, filename: string) => {
@@ -142,32 +65,10 @@ export const downloadQRCode = (dataURL: string, filename: string) => {
 }
 
 export const printQRCode = (dataURL: string) => {
-  const printWindow = window.open('', '_blank')
-  if (printWindow) {
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Print QR Code</title>
-          <style>
-            body { 
-              display: flex; 
-              justify-content: center; 
-              align-items: center; 
-              height: 100vh; 
-              margin: 0; 
-            }
-            img { 
-              max-width: 100%; 
-              height: auto; 
-            }
-          </style>
-        </head>
-        <body>
-          <img src="${dataURL}" alt="QR Code" />
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
-    printWindow.print()
+  const win = window.open('', '_blank')
+  if (win) {
+    win.document.write(`<html><head><title>QR Code</title><style>body{display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}img{max-width:100%;height:auto;}</style></head><body><img src="${dataURL}" /></body></html>`)
+    win.document.close()
+    win.print()
   }
 }
