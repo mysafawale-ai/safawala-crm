@@ -1,4 +1,5 @@
 import QRCode from 'qrcode'
+import JsBarcode from 'jsbarcode'
 
 export const generateQRCode = async (text: string): Promise<string> => {
   try {
@@ -13,21 +14,22 @@ export const generateQRCode = async (text: string): Promise<string> => {
   }
 }
 
-// Returns inline SVG string — sharp at any printer DPI
-export const generateBarcode = async (text: string): Promise<string> => {
+// Synchronous — returns canvas PNG data URL for display in <img> tags
+export const generateBarcode = (text: string): string => {
   try {
-    const JsBarcode = (await import('jsbarcode')).default
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    JsBarcode(svg, text, {
+    const canvas = document.createElement('canvas')
+    canvas.width = 800
+    canvas.height = 200
+    JsBarcode(canvas, text || 'www.safawala.com', {
       format: 'CODE128',
-      width: 3,
-      height: 80,
+      width: 4,
+      height: 120,
       displayValue: false,
-      margin: 0,
+      margin: 8,
       background: '#FFFFFF',
       lineColor: '#000000',
     })
-    return svg.outerHTML
+    return canvas.toDataURL('image/png')
   } catch (error) {
     console.error('Error generating barcode:', error)
     return ''
@@ -40,19 +42,81 @@ export interface BarcodeLabelOptions {
   mrp?: number
 }
 
-// Builds a full label as a self-contained HTML string (for embedding in print pages)
-export const generateBarcodeLabelHTML = (options: BarcodeLabelOptions, barcodeSVG: string): string => {
-  const name = options.variationName
-    ? `<div style="font-family:Arial Black,Arial,sans-serif;font-size:9pt;font-weight:900;text-align:center;color:#000;line-height:1.1;">${options.variationName}</div>`
-    : ''
-  const web = `<div style="font-family:Arial,sans-serif;font-size:6.5pt;font-weight:bold;text-align:center;color:#000;">www.safawala.com</div>`
-  const mrp = options.mrp !== undefined
-    ? `<div style="font-family:Arial,sans-serif;font-size:7.5pt;font-weight:900;text-align:center;color:#000;">MRP &#8377;${options.mrp}/-</div>`
-    : ''
-  const bc = `<div style="width:46mm;height:9.5mm;display:flex;align-items:center;justify-content:center;overflow:hidden;">${barcodeSVG.replace(/width="[^"]*"/, 'width="46mm"').replace(/height="[^"]*"/, 'height="9.5mm"')}</div>`
-  const code = `<div style="font-family:'Courier New',monospace;font-size:7pt;font-weight:bold;text-align:center;color:#000;">${options.barcodeText}</div>`
+// Synchronous — returns canvas PNG for download / legacy print
+export const generateBarcodeLabel = (options: BarcodeLabelOptions): string => {
+  try {
+    const barcodeCanvas = document.createElement('canvas')
+    barcodeCanvas.width = 800
+    barcodeCanvas.height = 200
+    JsBarcode(barcodeCanvas, options.barcodeText || 'www.safawala.com', {
+      format: 'CODE128',
+      width: 4,
+      height: 120,
+      displayValue: false,
+      margin: 8,
+      background: '#FFFFFF',
+      lineColor: '#000000',
+    })
 
-  return `<div style="width:50mm;height:25mm;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1mm;gap:0.4mm;overflow:hidden;box-sizing:border-box;">${name}${web}${mrp}${bc}${code}</div>`
+    const padding = 20
+    const labelWidth = Math.max(barcodeCanvas.width + padding * 2, 320)
+    const lineH = 24
+    const smallH = 18
+
+    let textH = 0
+    if (options.variationName) textH += lineH
+    textH += smallH
+    if (options.mrp !== undefined) textH += lineH
+    textH += 10
+
+    const labelHeight = padding + textH + barcodeCanvas.height + smallH + padding
+
+    const canvas = document.createElement('canvas')
+    canvas.width = labelWidth
+    canvas.height = labelHeight
+    const ctx = canvas.getContext('2d')!
+
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, labelWidth, labelHeight)
+
+    let y = padding
+
+    if (options.variationName) {
+      ctx.fillStyle = '#000000'
+      ctx.font = 'bold 18px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText(options.variationName, labelWidth / 2, y + 16)
+      y += lineH
+    }
+
+    ctx.fillStyle = '#000000'
+    ctx.font = 'bold 14px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('www.safawala.com', labelWidth / 2, y + 13)
+    y += smallH
+
+    if (options.mrp !== undefined) {
+      ctx.fillStyle = '#000000'
+      ctx.font = 'bold 16px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText(`MRP - ₹${options.mrp}/-`, labelWidth / 2, y + 14)
+      y += lineH
+    }
+
+    y += 10
+    ctx.drawImage(barcodeCanvas, (labelWidth - barcodeCanvas.width) / 2, y)
+    y += barcodeCanvas.height + 4
+
+    ctx.fillStyle = '#444444'
+    ctx.font = '13px monospace'
+    ctx.textAlign = 'center'
+    ctx.fillText(options.barcodeText, labelWidth / 2, y + 12)
+
+    return canvas.toDataURL('image/png')
+  } catch (error) {
+    console.error('Error generating barcode label:', error)
+    return ''
+  }
 }
 
 export const downloadQRCode = (dataURL: string, filename: string) => {
@@ -67,7 +131,7 @@ export const downloadQRCode = (dataURL: string, filename: string) => {
 export const printQRCode = (dataURL: string) => {
   const win = window.open('', '_blank')
   if (win) {
-    win.document.write(`<html><head><title>QR Code</title><style>body{display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}img{max-width:100%;height:auto;}</style></head><body><img src="${dataURL}" /></body></html>`)
+    win.document.write(`<html><head><title>QR Code</title><style>body{display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}img{max-width:100%;height:auto;}</style></head><body><img src="${dataURL}"/></body></html>`)
     win.document.close()
     win.print()
   }
