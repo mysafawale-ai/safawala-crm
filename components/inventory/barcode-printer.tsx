@@ -16,20 +16,53 @@ interface BarcodePrinterProps {
   productPrice?: number
 }
 
-// Generate barcode as inline SVG string using JsBarcode
-async function makeSVGBarcode(value: string): Promise<string> {
+// High-res canvas PNG — reliable across all browsers and print drivers
+async function makeBarcodeDataURL(value: string): Promise<string> {
   const JsBarcode = (await import("jsbarcode")).default
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-  JsBarcode(svg, value, {
+  const canvas = document.createElement("canvas")
+  // Generate at 4× printer resolution for sharp output on ZD230-203dpi
+  // 44mm × 8dpmm × 4 = 1408px wide, 10mm × 8dpmm × 4 = 320px tall
+  canvas.width = 1400
+  canvas.height = 320
+  JsBarcode(canvas, value, {
     format: "CODE128",
-    width: 3,
-    height: 72,
+    width: 5,
+    height: 260,
     displayValue: false,
-    margin: 0,
+    margin: 10,
     background: "#FFFFFF",
     lineColor: "#000000",
   })
-  return svg.outerHTML
+  return canvas.toDataURL("image/png")
+}
+
+// Print via hidden iframe — no popup, no race condition, works everywhere
+function printViaIframe(html: string): void {
+  const iframe = document.createElement("iframe")
+  iframe.style.cssText = "position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px;"
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentDocument || iframe.contentWindow?.document
+  if (!doc) {
+    document.body.removeChild(iframe)
+    return
+  }
+
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  // Wait for images to load before printing
+  iframe.contentWindow?.focus()
+  setTimeout(() => {
+    iframe.contentWindow?.print()
+    // Clean up after print dialog closes
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe)
+      }
+    }, 3000)
+  }, 800)
 }
 
 export function BarcodePrinter({
@@ -49,11 +82,10 @@ export function BarcodePrinter({
     }
     setIsPrinting(true)
     try {
-      // SVG barcode — vector, prints sharp at any DPI
-      const barcodeSVG = await makeSVGBarcode("www.safawala.com")
+      const barcodeDataURL = await makeBarcodeDataURL("www.safawala.com")
 
-      const name = productName.length > 24
-        ? productName.substring(0, 22) + ".."
+      const name = productName.length > 22
+        ? productName.substring(0, 20) + ".."
         : productName
 
       const mrpLine = productPrice !== undefined
@@ -65,11 +97,9 @@ export function BarcodePrinter({
           <div class="name">${name}</div>
           <div class="web">www.safawala.com</div>
           ${mrpLine}
-          <div class="bc">${barcodeSVG}</div>
+          <img class="bc" src="${barcodeDataURL}" alt="barcode" />
           <div class="code">${productCode}</div>
         </div>`
-
-      const emptyLabel = `<div class="label"></div>`
 
       let rows = ""
       const totalRows = Math.ceil(quantity / 2)
@@ -77,8 +107,8 @@ export function BarcodePrinter({
         const a = r * 2
         const b = r * 2 + 1
         rows += `<div class="row">
-          ${a < quantity ? labelHTML : emptyLabel}
-          ${b < quantity ? labelHTML : emptyLabel}
+          ${a < quantity ? labelHTML : '<div class="label"></div>'}
+          ${b < quantity ? labelHTML : '<div class="label"></div>'}
         </div>`
       }
 
@@ -98,11 +128,13 @@ export function BarcodePrinter({
     background: #fff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    color-adjust: exact;
   }
   .row {
     width: 100mm;
     height: 25mm;
     display: flex;
+    flex-direction: row;
     page-break-after: always;
     page-break-inside: avoid;
     overflow: hidden;
@@ -115,15 +147,15 @@ export function BarcodePrinter({
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1mm 1mm;
-    gap: 0.4mm;
+    padding: 1mm;
+    gap: 0.3mm;
     overflow: hidden;
   }
   .name {
     font-family: Arial Black, Arial, sans-serif;
     font-size: 9pt;
     font-weight: 900;
-    color: #000;
+    color: #000 !important;
     text-align: center;
     line-height: 1.1;
     max-width: 48mm;
@@ -131,55 +163,49 @@ export function BarcodePrinter({
   }
   .web {
     font-family: Arial, sans-serif;
-    font-size: 6.5pt;
+    font-size: 6pt;
     font-weight: bold;
-    color: #000;
+    color: #000 !important;
     text-align: center;
   }
   .mrp {
     font-family: Arial, sans-serif;
-    font-size: 7.5pt;
+    font-size: 7pt;
     font-weight: 900;
-    color: #000;
+    color: #000 !important;
     text-align: center;
   }
   .bc {
     width: 46mm;
-    height: 9.5mm;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-  .bc svg {
-    width: 46mm !important;
-    height: 9.5mm !important;
+    height: 9mm;
     display: block;
+    object-fit: fill;
+    image-rendering: pixelated;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
   }
   .code {
     font-family: 'Courier New', monospace;
-    font-size: 7pt;
+    font-size: 6.5pt;
     font-weight: bold;
-    color: #000;
+    color: #000 !important;
     text-align: center;
-    letter-spacing: 0.2px;
+  }
+  @media print {
+    html, body { width: 100mm; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   }
 </style>
 </head>
 <body>${rows}</body>
 </html>`
 
-      const win = window.open("", "_blank", "width=500,height=400")
-      if (!win) { toast.error("Allow popups to print"); return }
-      win.document.write(html)
-      win.document.close()
-      win.onload = () => setTimeout(() => { win.focus(); win.print() }, 250)
-
+      printViaIframe(html)
       toast.success(`Printing ${quantity} labels`)
       onOpenChange(false)
     } catch (err) {
       console.error(err)
-      toast.error("Print failed")
+      toast.error("Print failed — check browser console")
     } finally {
       setIsPrinting(false)
     }
@@ -228,7 +254,7 @@ export function BarcodePrinter({
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-1.5">
-              {quantity} labels → {Math.ceil(quantity / 2)} rows (2 labels per row)
+              {quantity} labels → {Math.ceil(quantity / 2)} rows · 2 per row
             </p>
           </div>
 
@@ -238,12 +264,12 @@ export function BarcodePrinter({
             className="w-full h-10 bg-green-600 hover:bg-green-700 text-white font-semibold"
           >
             <Printer className="w-4 h-4 mr-2" />
-            {isPrinting ? "Opening print dialog..." : `Print ${quantity} Labels`}
+            {isPrinting ? "Preparing labels..." : `Print ${quantity} Labels`}
           </Button>
 
-          <div className="text-[10px] text-gray-400 text-center leading-relaxed">
-            Printer settings: Paper 100mm × 25mm · Margins: None · Scale: 100%
-          </div>
+          <p className="text-[10px] text-gray-400 text-center">
+            Printer: 100mm × 25mm · Margins: None · Scale: 100%
+          </p>
         </div>
       </DialogContent>
     </Dialog>
