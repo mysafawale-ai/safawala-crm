@@ -62,7 +62,7 @@ function generateSingleLabelZPL(
 ^PW${labelWidthDots}
 ^LL${labelHeightDots}
 ^CF0,20
-^BY2,3,${mmToDots(10)}
+^BY4,3,${mmToDots(10)}
 ^FO${barcodeX},${barcodeY}^BC,${mmToDots(10)},N,N,N^FD${item.code}^FS
 ^FO${barcodeX},${codeTextY}^A0N,24,24^FD${item.code}^FS
 ^FO${barcodeX},${nameTextY}^A0N,18,18^FD${displayName}^FS
@@ -109,7 +109,7 @@ function generate2ColumnLabelZPL(
 ^LL${labelHeightDots}
 ^CF0,18
 
-^BY3,3.0,${barcodeHeight}
+^BY4,3.0,${barcodeHeight}
 ^FO${barcodeX1},${barcodeY}^BCN,${barcodeHeight},N,N,N^FD${item1.code}^FS
 ^FO${barcodeX1},${codeTextY}^A0N,22,22^FD${item1.code}^FS
 ^FO${barcodeX1},${nameTextY}^A0N,16,16^FD${displayName1}^FS
@@ -142,8 +142,8 @@ export function generateZPL(config: ZebraPrintConfig): string {
     labelWidthMM = 50,
     labelHeightMM = 25,
     columns = 2,
-    printDensity = 10,
-    printSpeed = 4,
+    printDensity = 15,
+    printSpeed = 2,
   } = config
 
   if (barcodes.length === 0) {
@@ -383,13 +383,13 @@ export async function printThermalLabels(config: ZebraPrintConfig): Promise<void
   
   for (const item of barcodes) {
     const canvas = document.createElement('canvas')
-    canvas.width = 300
-    canvas.height = 100
-    
+    canvas.width = 600
+    canvas.height = 200
+
     JsBarcode(canvas, item.code, {
       format: 'CODE128',
-      width: 2,
-      height: 50,
+      width: 3,
+      height: 120,
       displayValue: false,
       margin: 0,
     })

@@ -25,13 +25,13 @@ export async function generateBarcodeImage(code: string): Promise<string> {
   try {
     const JsBarcode = (await import("jsbarcode")).default
     const canvas = document.createElement("canvas")
-    canvas.width = 800
-    canvas.height = 300
+    canvas.width = 1200
+    canvas.height = 400
 
     JsBarcode(canvas, code, {
       format: "CODE128",
-      width: 4,
-      height: 80,
+      width: 5,
+      height: 120,
       displayValue: false,
       margin: 10,
     })
