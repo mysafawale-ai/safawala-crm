@@ -57,7 +57,7 @@ export default function InventoryDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all")
-  const [categoryFilter, setCategoryFilter] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("all")
   const [user, setUser] = useState<User | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -293,7 +293,7 @@ export default function InventoryDashboard() {
 
       if (!matchesSearch) return false
 
-      if (categoryFilter && product.category_id !== categoryFilter) return false
+      if (categoryFilter !== "all" && product.category_id !== categoryFilter) return false
 
       if (stockFilter !== "all") {
         if (stockFilter === "in_stock" && product.stock_available <= product.reorder_level) return false
@@ -435,7 +435,7 @@ export default function InventoryDashboard() {
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
               {categories.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
