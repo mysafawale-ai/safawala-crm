@@ -85,42 +85,27 @@ export default function InventoryDashboard() {
       const currentUser: User = await userRes.json()
       setUser(currentUser)
 
-      // Fetch categories - try categories table first, fallback to product categories
+      // Fetch categories from product_categories table
       try {
-        let catQuery = supabase.from("categories").select("id, name").eq("is_active", true)
+        let catQuery = supabase
+          .from("product_categories")
+          .select("id, name")
+          .eq("is_active", true)
+          .is("parent_id", null) // Only main categories, not subcategories
+          .order("name", { ascending: true })
+
+        // Apply franchise isolation for non-super-admins
         if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
-          catQuery = catQuery.eq("franchise_id", currentUser.franchise_id)
+          catQuery = catQuery.or(`franchise_id.eq.${currentUser.franchise_id},franchise_id.is.null`)
         }
+
         const { data: catData, error: catError } = await catQuery
-        if (catError || !catData || catData.length === 0) {
-          console.log("Categories table empty or error, extracting from products")
-          // Extract unique categories from products
-          let prodQuery = supabase
-            .from("products")
-            .select("category_id, category_name")
-            .not("category_id", "is", null)
 
-          if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
-            prodQuery = prodQuery.eq("franchise_id", currentUser.franchise_id)
-          }
-
-          const { data: prodData } = await prodQuery
-          const uniqueCats = new Map<string, { id: string; name: string }>()
-
-          if (prodData) {
-            for (const prod of prodData) {
-              if (prod.category_id && prod.category_name && !uniqueCats.has(prod.category_id)) {
-                uniqueCats.set(prod.category_id, {
-                  id: prod.category_id,
-                  name: prod.category_name,
-                })
-              }
-            }
-          }
-
-          setCategories(Array.from(uniqueCats.values()))
+        if (!catError && catData && catData.length > 0) {
+          setCategories(catData)
         } else {
-          setCategories(catData || [])
+          console.log("No categories found in product_categories table")
+          setCategories([])
         }
       } catch (catErr) {
         console.error("Categories fetch error:", catErr)
