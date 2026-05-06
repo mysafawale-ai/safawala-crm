@@ -386,6 +386,13 @@ export function ProductEditorModal({
               variants={variants}
               onVariantsChange={setVariants}
               productName={formData.name}
+              onPrintBarcode={(variant) => {
+                if (variant.barcode) {
+                  toast.info(`Variant barcode: ${variant.barcode}`)
+                } else {
+                  toast.error("No barcode for this variant")
+                }
+              }}
             />
           </TabsContent>
 

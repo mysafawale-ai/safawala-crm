@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { X, Plus, Edit2, Trash2, Copy } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { X, Plus, Edit2, Trash2, Copy, Image, Barcode, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 
 export interface ProductVariant {
@@ -31,10 +32,12 @@ interface VariantManagerProps {
   onVariantsChange: (variants: ProductVariant[]) => void
   disabled?: boolean
   productName?: string
+  onPrintBarcode?: (variant: ProductVariant) => void
 }
 
-export function VariantManager({ variants, onVariantsChange, disabled, productName }: VariantManagerProps) {
+export function VariantManager({ variants, onVariantsChange, disabled, productName, onPrintBarcode }: VariantManagerProps) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [formData, setFormData] = useState<ProductVariant>({
     variation_name: "",
     color: "",
@@ -46,6 +49,7 @@ export function VariantManager({ variants, onVariantsChange, disabled, productNa
     rental_price_adjustment: 0,
     stock_total: 0,
     stock_available: 0,
+    image_url: "",
   })
 
   const openNewForm = () => {
@@ -60,8 +64,36 @@ export function VariantManager({ variants, onVariantsChange, disabled, productNa
       rental_price_adjustment: 0,
       stock_total: 0,
       stock_available: 0,
+      image_url: "",
     })
     setEditingIdx(-1) // -1 means new
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const file = files[0]
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string
+        setFormData({ ...formData, image_url: dataUrl })
+        toast.success("Image selected")
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error("Image upload failed:", error)
+      toast.error("Failed to upload image")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removeImage = () => {
+    setFormData({ ...formData, image_url: "" })
+    toast.success("Image removed")
   }
 
   const openEditForm = (idx: number) => {
@@ -132,7 +164,7 @@ export function VariantManager({ variants, onVariantsChange, disabled, productNa
                     {variant.price_adjustment !== 0 && (
                       <span>Price: {variant.price_adjustment > 0 ? "+" : ""}₹{variant.price_adjustment.toLocaleString()}</span>
                     )}
-                    {variant.barcode && <span className="text-blue-600 font-mono">Barcode: {variant.barcode}</span>}
+                    {variant.image_url && <span className="text-purple-600 flex items-center gap-1"><Image className="w-3 h-3" /> Photo</span>}
                   </div>
                 </div>
 
@@ -144,15 +176,29 @@ export function VariantManager({ variants, onVariantsChange, disabled, productNa
                     className="h-8 px-2"
                     onClick={() => openEditForm(idx)}
                     disabled={disabled}
+                    title="Edit"
                   >
                     <Edit2 className="w-3 h-3" />
                   </Button>
+                  {variant.barcode && onPrintBarcode && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-blue-600"
+                      onClick={() => onPrintBarcode(variant)}
+                      disabled={disabled}
+                      title="Print barcode"
+                    >
+                      <Barcode className="w-3 h-3" />
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-8 px-2"
                     onClick={() => duplicateVariant(idx)}
                     disabled={disabled}
+                    title="Duplicate"
                   >
                     <Copy className="w-3 h-3" />
                   </Button>
@@ -162,6 +208,7 @@ export function VariantManager({ variants, onVariantsChange, disabled, productNa
                     className="h-8 px-2 text-red-600 hover:text-red-700"
                     onClick={() => deleteVariant(idx)}
                     disabled={disabled}
+                    title="Delete"
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>
@@ -315,6 +362,51 @@ export function VariantManager({ variants, onVariantsChange, disabled, productNa
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Photo */}
+            <div className="space-y-2 border-t pt-4">
+              <h4 className="font-semibold text-sm">Variant Photo</h4>
+              {formData.image_url ? (
+                <div className="space-y-2">
+                  <div className="border rounded-lg overflow-hidden bg-gray-50 p-2">
+                    <img
+                      src={formData.image_url}
+                      alt="Variant"
+                      className="w-full h-40 object-cover rounded"
+                    />
+                  </div>
+                  <Button
+                    onClick={removeImage}
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-red-600"
+                  >
+                    <X className="w-3 h-3 mr-2" />
+                    Remove Photo
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                    className="hidden"
+                    id="var_image"
+                  />
+                  <label
+                    htmlFor="var_image"
+                    className="block cursor-pointer"
+                  >
+                    <Image className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {uploading ? "Uploading..." : "Click to upload variant photo"}
+                    </p>
+                  </label>
+                </div>
+              )}
             </div>
           </div>
 
