@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { generateBarcode, generateBarcodeLabel } from "@/lib/barcode-generator"
 import { BarcodePrinter } from "@/components/inventory/barcode-printer"
+import { VariantBarcodePrinter } from "@/components/inventory/variant-barcode-printer"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 // Fixed import path for ProductItemService
 import { ProductItemService } from "@/lib/services/product-item-service"
@@ -82,6 +83,8 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const [variations, setVariations] = useState<any[]>([])
   const [loadingVariations, setLoadingVariations] = useState(false)
   const [variationBarcodeImages, setVariationBarcodeImages] = useState<Record<string, string>>({})
+  const [variantPrintDialogOpen, setVariantPrintDialogOpen] = useState(false)
+  const [selectedVariantForPrint, setSelectedVariantForPrint] = useState<any>(null)
 
   useEffect(() => {
     if (open && product) {
@@ -216,6 +219,13 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
         description: "Failed to generate barcode",
         variant: "destructive",
       })
+    }
+  }
+
+  const handlePrintVariantBarcode = (variant: any) => {
+    if (variant && variant.barcode) {
+      setSelectedVariantForPrint(variant)
+      setVariantPrintDialogOpen(true)
     }
   }
 
@@ -547,6 +557,7 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                               <TableHead className="text-center">Booked</TableHead>
                               <TableHead className="text-center">Dmg.</TableHead>
                               <TableHead>Barcode</TableHead>
+                              <TableHead className="text-center">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -582,6 +593,19 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
                                     </div>
                                   ) : (
                                     <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {v.barcode && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => handlePrintVariantBarcode(v)}
+                                      title={`Print ${v.variation_name} barcodes`}
+                                    >
+                                      <Printer className="h-4 w-4" />
+                                    </Button>
                                   )}
                                 </TableCell>
                               </TableRow>
@@ -659,6 +683,18 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
           productCode={product.barcode || product.product_code || ""}
           productName={product.name}
           productPrice={product.price}
+        />
+      )}
+
+      {product && selectedVariantForPrint && (
+        <VariantBarcodePrinter
+          open={variantPrintDialogOpen}
+          onOpenChange={setVariantPrintDialogOpen}
+          variantCode={selectedVariantForPrint.barcode || ""}
+          variantName={selectedVariantForPrint.variation_name || ""}
+          productName={product.name}
+          productPrice={product.price}
+          priceAdjustment={selectedVariantForPrint.price_adjustment ? (typeof selectedVariantForPrint.price_adjustment === 'number' ? selectedVariantForPrint.price_adjustment : parseFloat(String(selectedVariantForPrint.price_adjustment)) || 0) : 0}
         />
       )}
     </Dialog>

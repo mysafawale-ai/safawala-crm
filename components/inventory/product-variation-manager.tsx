@@ -18,6 +18,7 @@ import {
 import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon, Camera } from "lucide-react"
 import { toast } from "sonner"
 import { generateBarcode, generateBarcodeLabel, generateQRCode } from "@/lib/barcode-generator"
+import { VariantBarcodePrinter } from "./variant-barcode-printer"
 
 export interface VariationData {
   id?: string
@@ -82,6 +83,8 @@ export function ProductVariationManager({
   const [formData, setFormData] = useState<VariationData>({ ...emptyVariation })
   const [barcodeImages, setBarcodeImages] = useState<Record<string, string>>({})
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
+  const [selectedVariantForPrint, setSelectedVariantForPrint] = useState<VariationData | null>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -290,29 +293,9 @@ export function ProductVariationManager({
   }
 
   const handlePrintBarcode = (barcode: string, name: string, variation?: VariationData) => {
-    const labelName = productName ? `${productName} | ${name}` : name
-    const mrp = variation ? getVariationMRP(variation) : productPrice
-    const labelImage = generateBarcodeLabel({ barcodeText: barcode, variationName: labelName, mrp })
-    const printWindow = window.open("", "_blank")
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Print Barcode - ${name}</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; }
-              img { max-width: 100%; height: auto; }
-              @media print { body { margin: 0; padding: 10px; } }
-            </style>
-          </head>
-          <body>
-            <img src="${labelImage}" alt="Barcode Label" />
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.print()
-      printWindow.close()
+    if (variation && barcode) {
+      setSelectedVariantForPrint(variation)
+      setPrintDialogOpen(true)
     }
   }
 
@@ -831,6 +814,16 @@ export function ProductVariationManager({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <VariantBarcodePrinter
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          variantCode={selectedVariantForPrint?.barcode || ""}
+          variantName={selectedVariantForPrint?.variation_name || ""}
+          productName={productName}
+          productPrice={productPrice}
+          priceAdjustment={selectedVariantForPrint ? (typeof selectedVariantForPrint.price_adjustment === 'number' ? selectedVariantForPrint.price_adjustment : parseFloat(String(selectedVariantForPrint.price_adjustment)) || 0) : 0}
+        />
       </CardContent>
     </Card>
   )
