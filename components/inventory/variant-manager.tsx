@@ -76,16 +76,19 @@ export function VariantManager({ variants, onVariantsChange, disabled, productNa
     setUploading(true)
     try {
       const file = files[0]
+
+      // Show preview immediately while uploading
       const reader = new FileReader()
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string
         setFormData({ ...formData, image_url: dataUrl })
-        toast.success("Image selected")
       }
       reader.readAsDataURL(file)
+
+      toast.success("Image selected (will be uploaded when you save the product)")
     } catch (error) {
-      console.error("Image upload failed:", error)
-      toast.error("Failed to upload image")
+      console.error("Image selection failed:", error)
+      toast.error("Failed to select image")
     } finally {
       setUploading(false)
     }

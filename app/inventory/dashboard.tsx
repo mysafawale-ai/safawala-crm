@@ -286,27 +286,63 @@ export default function InventoryDashboard() {
             continue
           }
 
-          const response = await fetch(`/api/products/${productId}/variations`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              variation_name: variant.variation_name,
-              color: variant.color,
-              design: variant.design,
-              material: variant.material,
-              size: variant.size,
-              sku: variant.sku,
-              price_adjustment: variant.price_adjustment || 0,
-              rental_price_adjustment: variant.rental_price_adjustment || 0,
-              stock_total: variant.stock_total || 0,
-              stock_available: variant.stock_available || 0,
-              image_url: variant.image_url,
-            }),
-          })
+          try {
+            let imageUrl = variant.image_url
 
-          if (!response.ok) {
-            const error = await response.json()
-            throw new Error(`Failed to save variant: ${error.error}`)
+            // If image is a data URL, upload it to storage first
+            if (imageUrl && imageUrl.startsWith("data:")) {
+              try {
+                const base64Data = imageUrl.split(",")[1]
+                const buffer = Buffer.from(base64Data, "base64")
+                const timestamp = Date.now()
+                const variantName = variant.variation_name.replace(/\s+/g, "_").toLowerCase()
+                const storagePath = `variants/${user?.franchise_id}/${productId}/${timestamp}-${variantName}.png`
+
+                const { error: uploadError } = await supabase.storage
+                  .from("product-images")
+                  .upload(storagePath, buffer, { upsert: false, contentType: "image/png" })
+
+                if (uploadError) {
+                  throw new Error(`Failed to upload variant image: ${uploadError.message}`)
+                }
+
+                const { data: urlData } = supabase.storage
+                  .from("product-images")
+                  .getPublicUrl(storagePath)
+
+                imageUrl = urlData.publicUrl
+              } catch (imgError) {
+                console.warn("Variant image upload failed, saving without image:", imgError)
+                imageUrl = null
+              }
+            }
+
+            const response = await fetch(`/api/products/${productId}/variations`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                variation_name: variant.variation_name,
+                color: variant.color,
+                design: variant.design,
+                material: variant.material,
+                size: variant.size,
+                sku: variant.sku,
+                price_adjustment: variant.price_adjustment || 0,
+                rental_price_adjustment: variant.rental_price_adjustment || 0,
+                stock_total: variant.stock_total || 0,
+                stock_available: variant.stock_available || 0,
+                image_url: imageUrl,
+              }),
+            })
+
+            if (!response.ok) {
+              const error = await response.json()
+              throw new Error(`Variant "${variant.variation_name}": ${error.error}`)
+            }
+          } catch (variantError) {
+            console.error("Variant save error:", variantError)
+            toast.error(variantError instanceof Error ? variantError.message : "Failed to save variant")
+            throw variantError
           }
         }
       }
@@ -314,7 +350,8 @@ export default function InventoryDashboard() {
       fetchProducts()
     } catch (error) {
       console.error("Save error:", error)
-      toast.error("Failed to save product")
+      const isVariantError = error instanceof Error && error.message.includes("Variant")
+      toast.error(isVariantError ? error.message : "Failed to save product")
     }
   }
 
