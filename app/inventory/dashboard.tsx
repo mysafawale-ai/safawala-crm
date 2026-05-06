@@ -10,6 +10,7 @@ import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle, BarChart3
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { ProductCard } from "@/components/inventory/product-card"
 import { ProductEditorModal } from "@/components/inventory/product-editor-modal"
+import { BarcodePrintDialog } from "@/components/inventory/barcode-print-dialog"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { useConfirmationDialog } from "@/components/ui/confirmation-dialog"
@@ -30,6 +31,8 @@ interface Product {
   size?: string
   color?: string
   material?: string
+  category_id?: string
+  category_name?: string
   price: number
   rental_price: number
   cost_price: number
@@ -48,11 +51,13 @@ interface Product {
 
 export default function InventoryDashboard() {
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all")
+  const [categoryFilter, setCategoryFilter] = useState("")
   const [user, setUser] = useState<User | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -79,6 +84,14 @@ export default function InventoryDashboard() {
       if (!userRes.ok) throw new Error("Failed to fetch user")
       const currentUser: User = await userRes.json()
       setUser(currentUser)
+
+      // Fetch categories
+      let catQuery = supabase.from("categories").select("id, name").eq("is_active", true)
+      if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
+        catQuery = catQuery.eq("franchise_id", currentUser.franchise_id)
+      }
+      const { data: catData } = await catQuery
+      setCategories(catData || [])
 
       let query = supabase.from("products").select("*").order("created_at", { ascending: false })
 
@@ -111,6 +124,8 @@ export default function InventoryDashboard() {
         size: p.size || "",
         color: p.color || "",
         material: p.material || "",
+        category_id: p.category_id || undefined,
+        category_name: p.category_name || undefined,
         id: p.id,
         name: p.name || "Unnamed Product",
       }))
@@ -278,6 +293,8 @@ export default function InventoryDashboard() {
 
       if (!matchesSearch) return false
 
+      if (categoryFilter && product.category_id !== categoryFilter) return false
+
       if (stockFilter !== "all") {
         if (stockFilter === "in_stock" && product.stock_available <= product.reorder_level) return false
         if (stockFilter === "low_stock" && (product.stock_available > product.reorder_level || product.stock_available === 0))
@@ -289,7 +306,7 @@ export default function InventoryDashboard() {
     })
 
     return filtered.sort((a, b) => b.stock_available - a.stock_available)
-  }, [products, debouncedSearchTerm, stockFilter])
+  }, [products, debouncedSearchTerm, stockFilter, categoryFilter])
 
   const stats = {
     total: products.length,
@@ -388,8 +405,8 @@ export default function InventoryDashboard() {
         </div>
 
         {/* Search & Filters */}
-        <div className="flex gap-3 items-end">
-          <div className="flex-1 max-w-md">
+        <div className="flex gap-3 items-end flex-wrap">
+          <div className="flex-1 min-w-48 max-w-md">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -402,7 +419,7 @@ export default function InventoryDashboard() {
           </div>
 
           <Select value={stockFilter} onValueChange={(value: any) => setStockFilter(value)}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-40">
               <SelectValue placeholder="Stock Status" />
             </SelectTrigger>
             <SelectContent>
@@ -413,10 +430,24 @@ export default function InventoryDashboard() {
             </SelectContent>
           </Select>
 
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Categories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Link href="/inventory/categories">
             <Button variant="outline" size="sm" className="gap-2">
               <BarChart3 className="w-4 h-4" />
-              Categories
+              Manage
             </Button>
           </Link>
         </div>
@@ -466,6 +497,13 @@ export default function InventoryDashboard() {
         product={selectedProduct}
         onSave={handleSaveProduct}
         franchiseId={user?.franchise_id}
+      />
+
+      {/* Barcode Print Dialog */}
+      <BarcodePrintDialog
+        open={barcodeDialogOpen}
+        onOpenChange={setBarcodeDialogOpen}
+        product={selectedProductForBarcode}
       />
 
       {/* Confirmation Dialog */}
