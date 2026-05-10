@@ -69,6 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       size,
       sku,
       price_adjustment = 0,
+      regular_price_adjustment = 0,
       rental_price_adjustment = 0,
       stock_total = 0,
       stock_available,
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         size: size?.trim().substring(0, 50) || null,
         sku: sku?.trim().substring(0, 100) || null,
         price_adjustment: Number(price_adjustment) || 0,
+        regular_price_adjustment: Number(regular_price_adjustment) || 0,
         rental_price_adjustment: Number(rental_price_adjustment) || 0,
         stock_total: Math.max(0, Number(stock_total) || 0),
         stock_available: Math.max(0, Number(stock_available ?? stock_total) || 0),
@@ -170,6 +172,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (updateFields.size !== undefined) updateData.size = updateFields.size?.trim().substring(0, 50) || null
     if (updateFields.sku !== undefined) updateData.sku = updateFields.sku?.trim().substring(0, 100) || null
     if (updateFields.price_adjustment !== undefined) updateData.price_adjustment = Number(updateFields.price_adjustment) || 0
+    if (updateFields.regular_price_adjustment !== undefined) updateData.regular_price_adjustment = Number(updateFields.regular_price_adjustment) || 0
     if (updateFields.rental_price_adjustment !== undefined) updateData.rental_price_adjustment = Number(updateFields.rental_price_adjustment) || 0
     if (updateFields.stock_total !== undefined) {
       updateData.stock_total = Math.max(0, Number(updateFields.stock_total) || 0)

@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Printer, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
-import { supabase } from "@/lib/supabase"
 
 interface Product {
   id: string
@@ -25,6 +24,8 @@ interface ProductVariant {
   variation_name: string
   sku?: string
   barcode?: string
+  price_adjustment?: number
+  regular_price_adjustment?: number
 }
 
 interface BarcodeDialogProps {
@@ -116,13 +117,10 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     if (!product?.id) return
     try {
       setLoadingVariants(true)
-      const { data, error } = await supabase
-        .from("product_variations")
-        .select("id, variation_name, sku, barcode")
-        .eq("product_id", product.id)
-        .eq("is_active", true)
-      if (error) throw error
-      setVariants(data || [])
+      const res = await fetch(`/api/products/${product.id}/variations`)
+      if (!res.ok) throw new Error("Failed to load variants")
+      const json = await res.json()
+      setVariants(json.data || [])
     } catch {
       toast.error("Failed to load variants")
     } finally {
@@ -295,6 +293,14 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                             <div className="text-[10px] font-bold text-center leading-tight max-w-[95%] truncate">
                               {`${product.name} - ${selectedVariant.variation_name}`.substring(0, 20)}
                             </div>
+                            <div className="flex items-center gap-1 justify-center">
+                              {((product.regular_price ?? 0) + (selectedVariant.regular_price_adjustment ?? 0)) > 0 && (
+                                <div className="text-[7px] text-gray-500 line-through">₹{(product.regular_price ?? 0) + (selectedVariant.regular_price_adjustment ?? 0)}</div>
+                              )}
+                              {((product.price ?? 0) + (selectedVariant.price_adjustment ?? 0)) > 0 && (
+                                <div className="text-[9px] font-bold">₹{(product.price ?? 0) + (selectedVariant.price_adjustment ?? 0)}</div>
+                              )}
+                            </div>
                             <div className="bg-black h-5 w-full flex items-center justify-center">
                               <div className="flex gap-px h-4">
                                 {Array.from({ length: 28 }).map((_, j) => (
@@ -339,7 +345,9 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                       <Button
                         onClick={() => handlePrint(
                           selectedVariant.barcode,
-                          `${product.name} - ${selectedVariant.variation_name}`
+                          `${product.name} - ${selectedVariant.variation_name}`,
+                          (product.regular_price ?? 0) + (selectedVariant.regular_price_adjustment ?? 0) || undefined,
+                          (product.price ?? 0) + (selectedVariant.price_adjustment ?? 0) || undefined,
                         )}
                         disabled={printing || !selectedVariant.barcode}
                         className="w-full bg-green-600 hover:bg-green-700"

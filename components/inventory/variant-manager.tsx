@@ -19,6 +19,7 @@ export interface ProductVariant {
   size?: string
   sku?: string
   price_adjustment: number
+  regular_price_adjustment: number
   rental_price_adjustment: number
   stock_total: number
   stock_available: number
@@ -43,6 +44,7 @@ const emptyForm = (): ProductVariant => ({
   size: "",
   sku: "",
   price_adjustment: 0,
+  regular_price_adjustment: 0,
   rental_price_adjustment: 0,
   stock_total: 0,
   stock_available: 0,
@@ -172,6 +174,7 @@ export function VariantManager({
               size: formData.size,
               sku: formData.sku,
               price_adjustment: formData.price_adjustment || 0,
+              regular_price_adjustment: formData.regular_price_adjustment || 0,
               rental_price_adjustment: formData.rental_price_adjustment || 0,
               stock_total: formData.stock_total || 0,
               stock_available: formData.stock_available || 0,
@@ -199,6 +202,7 @@ export function VariantManager({
               size: formData.size,
               sku: formData.sku,
               price_adjustment: formData.price_adjustment || 0,
+              regular_price_adjustment: formData.regular_price_adjustment || 0,
               rental_price_adjustment: formData.rental_price_adjustment || 0,
               stock_total: formData.stock_total || 0,
               stock_available: formData.stock_available || 0,
@@ -416,20 +420,29 @@ export function VariantManager({
               <h4 className="font-semibold text-sm">Price Adjustments</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label>Regular Price Adjustment <span className="text-muted-foreground text-[10px]">(MRP, shown struck-through)</span></Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                    <Input type="number" step="0.01" value={formData.regular_price_adjustment}
+                      onChange={(e) => setFormData({ ...formData, regular_price_adjustment: parseFloat(e.target.value) || 0 })}
+                      className="pl-7" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sale Price Adjustment <span className="text-muted-foreground text-[10px]">(shown in bold)</span></Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                    <Input type="number" step="0.01" value={formData.price_adjustment}
+                      onChange={(e) => setFormData({ ...formData, price_adjustment: parseFloat(e.target.value) || 0 })}
+                      className="pl-7" />
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <Label>Rental Price Adjustment</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
                     <Input type="number" step="0.01" value={formData.rental_price_adjustment}
                       onChange={(e) => setFormData({ ...formData, rental_price_adjustment: parseFloat(e.target.value) || 0 })}
-                      className="pl-7" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Sale Price Adjustment</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
-                    <Input type="number" step="0.01" value={formData.price_adjustment}
-                      onChange={(e) => setFormData({ ...formData, price_adjustment: parseFloat(e.target.value) || 0 })}
                       className="pl-7" />
                   </div>
                 </div>
