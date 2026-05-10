@@ -415,7 +415,7 @@ export function ProductEditorModal({
           {/* Barcode Tab */}
           <TabsContent value="barcode" className="flex-1 overflow-y-auto space-y-4">
             {product ? (
-              <BarcodeGenerator product={product} onBarcodeGenerated={loadVariants} />
+              <BarcodeGenerator product={{ ...formData, id: product.id || "" }} onBarcodeGenerated={loadVariants} />
             ) : (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
