@@ -201,23 +201,23 @@ export function PricingPanel({ data, onChange, disabled }: PricingPanelProps) {
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Cost:</span>
-            <span className="font-medium">₹{data.cost_price.toLocaleString()}</span>
+            <span className="font-medium">₹{(data.cost_price || 0).toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Deposit:</span>
-            <span className="font-medium">₹{data.security_deposit.toLocaleString()}</span>
+            <span className="font-medium">₹{(data.security_deposit || 0).toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Regular:</span>
-            <span className="font-medium">₹{data.regular_price.toLocaleString()}</span>
+            <span className="font-medium">₹{(data.regular_price || 0).toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Rental:</span>
-            <span className="font-medium">₹{data.rental_price.toLocaleString()}</span>
+            <span className="font-medium">₹{(data.rental_price || 0).toLocaleString()}</span>
           </div>
           <div className="flex justify-between col-span-2">
             <span className="text-muted-foreground font-semibold">Sale Price:</span>
-            <span className="font-bold text-green-600">₹{data.price.toLocaleString()}</span>
+            <span className="font-bold text-green-600">₹{(data.price || 0).toLocaleString()}</span>
           </div>
         </div>
       </div>
