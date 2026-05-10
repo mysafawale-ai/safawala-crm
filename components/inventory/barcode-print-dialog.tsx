@@ -79,13 +79,13 @@ async function doPrint(barcode: string, label: string, qty: number, regularPrice
   .row:last-child { page-break-after: avoid; }
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.3mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 13pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; height: 5mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
+  .name { font-size: 10pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; height: 5mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
   .prices { display: flex; align-items: center; justify-content: center; gap: 3px; height: 3mm; line-height: 1; }
-  .regular-price { font-size: 10pt; color: #666; text-decoration: line-through; }
-  .sale-price { font-size: 13pt; font-weight: bold; color: #000; }
+  .regular-price { font-size: 8pt; color: #666; text-decoration: line-through; }
+  .sale-price { font-size: 10pt; font-weight: bold; color: #000; }
   .barcode { width: 42mm; height: 8mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-size: 11pt; font-weight: bold; color: #000; text-align: center; height: 2mm; line-height: 1; }
-  .website { font-family: Arial, sans-serif; font-size: 8pt; color: #000; height: 2mm; line-height: 1; }
+  .code { font-size: 9pt; font-weight: bold; color: #000; text-align: center; height: 2mm; line-height: 1; }
+  .website { font-family: Arial, sans-serif; font-size: 6pt; color: #000; height: 2mm; line-height: 1; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
