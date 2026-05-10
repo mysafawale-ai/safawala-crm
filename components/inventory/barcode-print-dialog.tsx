@@ -17,6 +17,9 @@ interface Product {
   price?: number
   regular_price?: number
   rental_price?: number
+  color?: string
+  size?: string
+  material?: string
 }
 
 interface ProductVariant {
@@ -26,6 +29,9 @@ interface ProductVariant {
   barcode?: string
   price_adjustment?: number
   regular_price_adjustment?: number
+  color?: string
+  size?: string
+  material?: string
 }
 
 interface BarcodeDialogProps {
@@ -34,11 +40,24 @@ interface BarcodeDialogProps {
   product: Product | null
 }
 
-async function doPrint(barcode: string, label: string, qty: number, regularPrice?: number, salePrice?: number) {
+async function doPrint(
+  barcode: string,
+  label: string,
+  qty: number,
+  regularPrice?: number,
+  salePrice?: number,
+  color?: string,
+  size?: string,
+  material?: string,
+) {
   const JsBarcode = (await import("jsbarcode")).default
   const labelsPerRow = 2
   const rows = Math.ceil(qty / labelsPerRow)
   let labelsHTML = ""
+
+  const metaParts = [color, size, material].filter(Boolean)
+  const metaLine = metaParts.length > 0 ? metaParts.join(" | ") : ""
+  const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
 
   for (let row = 0; row < rows; row++) {
     labelsHTML += `<div class="row">`
@@ -54,11 +73,11 @@ async function doPrint(barcode: string, label: string, qty: number, regularPrice
         const barcodeImg = canvas.toDataURL("image/png")
         labelsHTML += `
           <div class="label">
-            <div class="name">${label.substring(0, 20)}</div>
-            <div class="prices">
-              ${regularPrice ? `<div class="regular-price">₹${regularPrice}</div>` : ""}
-              ${salePrice ? `<div class="sale-price">₹${salePrice}</div>` : ""}
-            </div>
+            <div class="name">${label.substring(0, 22)}</div>
+            ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+            ${regularPrice ? `<div class="mrp-row">MRP: <span class="mrp-price">&#8377;${regularPrice}</span></div>` : ""}
+            ${salePrice ? `<div class="sale-price">&#8377;${salePrice}</div>` : ""}
+            ${savings > 0 ? `<div class="you-save">You save &#8377;${savings}</div>` : ""}
             <img src="${barcodeImg}" class="barcode" />
             <div class="code">${barcode}</div>
             <div class="website">www.safawala.com</div>
@@ -72,20 +91,22 @@ async function doPrint(barcode: string, label: string, qty: number, regularPrice
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  @page { size: 100mm 25mm; margin: 0; }
+  @page { size: 100mm 40mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100mm; height: 25mm; font-family: 'Courier New', monospace; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
+  html, body { width: 100mm; height: 40mm; font-family: 'Courier New', monospace; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row { width: 100mm; height: 40mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
-  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.3mm; border: 0.5mm solid #ddd; }
+  .label { width: 50mm; height: 40mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1.5mm; gap: 0.4mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 9pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; height: 5mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
-  .prices { display: flex; align-items: center; justify-content: center; gap: 3px; height: 3mm; line-height: 1; }
-  .regular-price { font-size: 9pt; font-weight: bold; color: #000; text-decoration: line-through; }
-  .sale-price { font-size: 10pt; font-weight: bold; color: #000; }
-  .barcode { width: 42mm; height: 8mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-size: 9pt; font-weight: bold; color: #000; text-align: center; height: 2mm; line-height: 1; }
-  .website { font-family: Arial, sans-serif; font-size: 8pt; font-weight: bold; color: #000; height: 2mm; line-height: 1; margin-top: 1mm; }
+  .name { font-size: 9pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.2; word-break: break-word; }
+  .meta { font-size: 7pt; font-weight: bold; color: #333; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.2; }
+  .mrp-row { font-size: 8pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
+  .mrp-price { text-decoration: line-through; }
+  .sale-price { font-size: 12pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
+  .you-save { font-size: 7pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
+  .barcode { width: 42mm; height: 7mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .code { font-size: 8pt; font-weight: bold; color: #000; text-align: center; line-height: 1; }
+  .website { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; line-height: 1; margin-top: 1mm; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
@@ -128,12 +149,20 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     }
   }
 
-  const handlePrint = async (barcode: string | undefined, label: string, regularPrice?: number, salePrice?: number) => {
+  const handlePrint = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
     if (!barcode) { toast.error(`No barcode for ${label}`); return }
     if (quantity < 1) { toast.error("Enter at least 1 label"); return }
     setPrinting(true)
     try {
-      await doPrint(barcode, label, quantity, regularPrice, salePrice)
+      await doPrint(barcode, label, quantity, regularPrice, salePrice, color, size, material)
       toast.success(`Sent ${quantity} label${quantity > 1 ? "s" : ""} to printer`)
     } catch {
       toast.error("Print failed")
@@ -145,6 +174,10 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
   if (!product) return null
 
   const selectedVariant = variants.find((v) => v.id === selectedVariantId)
+
+  // Helper to build meta preview string
+  const buildMeta = (color?: string, size?: string, material?: string) =>
+    [color, size, material].filter(Boolean).join(" | ")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -161,9 +194,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="main">Main Product</TabsTrigger>
-              <TabsTrigger value="variants">
-                Variants ({variants.length})
-              </TabsTrigger>
+              <TabsTrigger value="variants">Variants ({variants.length})</TabsTrigger>
             </TabsList>
 
             {/* ── Main Product ── */}
@@ -179,21 +210,21 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                 <>
                   {/* Preview */}
                   <div className="border rounded-lg p-4 bg-gray-50">
-                    <p className="text-xs text-muted-foreground mb-3">Label preview (50mm × 25mm)</p>
+                    <p className="text-xs text-muted-foreground mb-3">Label preview (50mm × 40mm)</p>
                     <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
                       <div className="flex flex-col items-center gap-0.5" style={{ width: "200px" }}>
-                        <div className="text-[10px] font-bold text-center leading-tight max-w-[95%] truncate">
-                          {product.name.substring(0, 20)}
-                        </div>
-                        <div className="flex items-center gap-1 justify-center">
-                          {product.regular_price && (
-                            <div className="text-[7px] text-gray-500 line-through">₹{product.regular_price}</div>
-                          )}
-                          {product.price && (
-                            <div className="text-[9px] font-bold">₹{product.price}</div>
-                          )}
-                        </div>
-                        <div className="bg-black h-5 w-full flex items-center justify-center">
+                        <div className="text-[10px] font-bold text-center leading-tight">{product.name.substring(0, 22)}</div>
+                        {buildMeta(product.color, product.size, product.material) && (
+                          <div className="text-[8px] font-bold text-gray-600 text-center">{buildMeta(product.color, product.size, product.material)}</div>
+                        )}
+                        {product.regular_price ? (
+                          <div className="text-[8px] font-bold text-center">MRP: <span className="line-through">₹{product.regular_price}</span></div>
+                        ) : null}
+                        {product.price ? <div className="text-[11px] font-bold text-center">₹{product.price}</div> : null}
+                        {product.regular_price && product.price && product.regular_price > product.price ? (
+                          <div className="text-[7px] font-bold text-center">You save ₹{product.regular_price - product.price}</div>
+                        ) : null}
+                        <div className="bg-black h-5 w-full flex items-center justify-center mt-0.5">
                           <div className="flex gap-px h-4">
                             {Array.from({ length: 28 }).map((_, j) => (
                               <div key={j} className="bg-white" style={{ width: j % 4 === 0 ? "2px" : "1px" }} />
@@ -201,7 +232,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                           </div>
                         </div>
                         <div className="text-[8px] font-mono font-bold">{product.barcode}</div>
-                        <div className="text-[6px] font-sans">www.safawala.com</div>
+                        <div className="text-[7px] font-bold font-sans mt-0.5">www.safawala.com</div>
                       </div>
                     </div>
                   </div>
@@ -231,13 +262,13 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <h4 className="font-semibold text-xs text-amber-900 mb-1">Thermal Printer Setup</h4>
                     <ul className="text-xs text-amber-800 space-y-0.5">
-                      <li>• Paper Size: 100mm × 25mm</li>
+                      <li>• Paper Size: 100mm × 40mm</li>
                       <li>• Margins: None (0mm) · Scale: 100%</li>
                     </ul>
                   </div>
 
                   <Button
-                    onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price)}
+                    onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
                     disabled={printing}
                     className="w-full bg-green-600 hover:bg-green-700"
                   >
@@ -271,6 +302,9 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                         onClick={() => setSelectedVariantId(variant.id)}
                       >
                         <p className="font-semibold text-sm">{variant.variation_name}</p>
+                        {buildMeta(variant.color, variant.size, variant.material) && (
+                          <p className="text-xs text-muted-foreground">{buildMeta(variant.color, variant.size, variant.material)}</p>
+                        )}
                         {variant.sku && <p className="text-xs text-muted-foreground">SKU: {variant.sku}</p>}
                         {variant.barcode ? (
                           <code className="text-xs font-mono text-purple-700 bg-purple-100 px-2 py-0.5 rounded inline-block mt-1">
@@ -283,80 +317,84 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                     ))}
                   </div>
 
-                  {selectedVariant && (
-                    <>
-                      {/* Preview */}
-                      <div className="border rounded-lg p-4 bg-gray-50">
-                        <p className="text-xs text-muted-foreground mb-3">Label preview (50mm × 25mm)</p>
-                        <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
-                          <div className="flex flex-col items-center gap-0.5" style={{ width: "200px" }}>
-                            <div className="text-[10px] font-bold text-center leading-tight max-w-[95%] truncate">
-                              {`${product.name} - ${selectedVariant.variation_name}`.substring(0, 20)}
-                            </div>
-                            <div className="flex items-center gap-1 justify-center">
-                              {((product.regular_price ?? 0) + (selectedVariant.regular_price_adjustment ?? 0)) > 0 && (
-                                <div className="text-[7px] text-gray-500 line-through">₹{(product.regular_price ?? 0) + (selectedVariant.regular_price_adjustment ?? 0)}</div>
-                              )}
-                              {((product.price ?? 0) + (selectedVariant.price_adjustment ?? 0)) > 0 && (
-                                <div className="text-[9px] font-bold">₹{(product.price ?? 0) + (selectedVariant.price_adjustment ?? 0)}</div>
-                              )}
-                            </div>
-                            <div className="bg-black h-5 w-full flex items-center justify-center">
-                              <div className="flex gap-px h-4">
-                                {Array.from({ length: 28 }).map((_, j) => (
-                                  <div key={j} className="bg-white" style={{ width: j % 4 === 0 ? "2px" : "1px" }} />
-                                ))}
+                  {selectedVariant && (() => {
+                    const regPrice = (product.regular_price ?? 0) + (selectedVariant.regular_price_adjustment ?? 0) || undefined
+                    const salPrice = (product.price ?? 0) + (selectedVariant.price_adjustment ?? 0) || undefined
+                    const varColor = selectedVariant.color || product.color
+                    const varSize = selectedVariant.size || product.size
+                    const varMaterial = selectedVariant.material || product.material
+                    return (
+                      <>
+                        {/* Preview */}
+                        <div className="border rounded-lg p-4 bg-gray-50">
+                          <p className="text-xs text-muted-foreground mb-3">Label preview (50mm × 40mm)</p>
+                          <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
+                            <div className="flex flex-col items-center gap-0.5" style={{ width: "200px" }}>
+                              <div className="text-[10px] font-bold text-center leading-tight">
+                                {`${product.name} - ${selectedVariant.variation_name}`.substring(0, 22)}
                               </div>
+                              {buildMeta(varColor, varSize, varMaterial) && (
+                                <div className="text-[8px] font-bold text-gray-600 text-center">{buildMeta(varColor, varSize, varMaterial)}</div>
+                              )}
+                              {regPrice ? (
+                                <div className="text-[8px] font-bold text-center">MRP: <span className="line-through">₹{regPrice}</span></div>
+                              ) : null}
+                              {salPrice ? <div className="text-[11px] font-bold text-center">₹{salPrice}</div> : null}
+                              {regPrice && salPrice && regPrice > salPrice ? (
+                                <div className="text-[7px] font-bold text-center">You save ₹{regPrice - salPrice}</div>
+                              ) : null}
+                              <div className="bg-black h-5 w-full flex items-center justify-center mt-0.5">
+                                <div className="flex gap-px h-4">
+                                  {Array.from({ length: 28 }).map((_, j) => (
+                                    <div key={j} className="bg-white" style={{ width: j % 4 === 0 ? "2px" : "1px" }} />
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="text-[8px] font-mono font-bold">{selectedVariant.barcode || "—"}</div>
+                              <div className="text-[7px] font-bold font-sans mt-0.5">www.safawala.com</div>
                             </div>
-                            <div className="text-[8px] font-mono font-bold">{selectedVariant.barcode || "—"}</div>
-                            <div className="text-[6px] font-sans">www.safawala.com</div>
                           </div>
                         </div>
-                      </div>
 
-                      <div>
-                        <Label className="text-sm">Number of Labels</Label>
-                        <div className="flex gap-2 mt-1">
-                          <Input type="number" min="1" max="100" value={quantity}
-                            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                            className="w-20" />
-                          <div className="flex gap-1">
-                            {[1, 5, 10, 20, 50].map((n) => (
-                              <Button key={n} size="sm" variant={quantity === n ? "default" : "outline"}
-                                className="px-2 h-9" onClick={() => setQuantity(n)}>
-                                {n}
-                              </Button>
-                            ))}
+                        <div>
+                          <Label className="text-sm">Number of Labels</Label>
+                          <div className="flex gap-2 mt-1">
+                            <Input type="number" min="1" max="100" value={quantity}
+                              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-20" />
+                            <div className="flex gap-1">
+                              {[1, 5, 10, 20, 50].map((n) => (
+                                <Button key={n} size="sm" variant={quantity === n ? "default" : "outline"}
+                                  className="px-2 h-9" onClick={() => setQuantity(n)}>
+                                  {n}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {Math.ceil(quantity / 2)} rows (2 labels per row)
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {Math.ceil(quantity / 2)} rows (2 labels per row)
-                        </p>
-                      </div>
 
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <h4 className="font-semibold text-xs text-amber-900 mb-1">Thermal Printer Setup</h4>
-                        <ul className="text-xs text-amber-800 space-y-0.5">
-                          <li>• Paper Size: 100mm × 25mm</li>
-                          <li>• Margins: None (0mm) · Scale: 100%</li>
-                        </ul>
-                      </div>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          <h4 className="font-semibold text-xs text-amber-900 mb-1">Thermal Printer Setup</h4>
+                          <ul className="text-xs text-amber-800 space-y-0.5">
+                            <li>• Paper Size: 100mm × 40mm</li>
+                            <li>• Margins: None (0mm) · Scale: 100%</li>
+                          </ul>
+                        </div>
 
-                      <Button
-                        onClick={() => handlePrint(
-                          selectedVariant.barcode,
-                          `${product.name} - ${selectedVariant.variation_name}`,
-                          (product.regular_price ?? 0) + (selectedVariant.regular_price_adjustment ?? 0) || undefined,
-                          (product.price ?? 0) + (selectedVariant.price_adjustment ?? 0) || undefined,
-                        )}
-                        disabled={printing || !selectedVariant.barcode}
-                        className="w-full bg-green-600 hover:bg-green-700"
-                      >
-                        <Printer className="w-4 h-4 mr-2" />
-                        {printing ? "Printing..." : "Print Labels"}
-                      </Button>
-                    </>
-                  )}
+                        <Button
+                          onClick={() => handlePrint(selectedVariant.barcode, `${product.name} - ${selectedVariant.variation_name}`, regPrice, salPrice, varColor, varSize, varMaterial)}
+                          disabled={printing || !selectedVariant.barcode}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                          <Printer className="w-4 h-4 mr-2" />
+                          {printing ? "Printing..." : "Print Labels"}
+                        </Button>
+                      </>
+                    )
+                  })()}
                 </>
               )}
 
