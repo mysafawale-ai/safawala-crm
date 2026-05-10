@@ -15,6 +15,9 @@ interface Product {
   barcode?: string
   regular_price?: number
   price?: number
+  color?: string
+  size?: string
+  material?: string
 }
 
 interface BarcodeGeneratorEnhancedProps {
@@ -31,24 +34,15 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
   const generateNewBarcode = async () => {
     setGenerating(true)
     try {
-      // Call barcode generation API
       const response = await fetch("/api/products/generate-barcode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: product.id }),
       })
-
       if (!response.ok) throw new Error("Failed to generate barcode")
-
       const { barcode } = await response.json()
       setCurrentBarcode(barcode)
-
-      // Update product barcode in DB
-      await supabase
-        .from("products")
-        .update({ barcode })
-        .eq("id", product.id)
-
+      await supabase.from("products").update({ barcode }).eq("id", product.id)
       toast.success("Barcode generated successfully")
       onBarcodeGenerated?.()
     } catch (error) {
@@ -60,52 +54,39 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
   }
 
   const handlePrint = async () => {
-    if (!currentBarcode) {
-      toast.error("Generate a barcode first")
-      return
-    }
-
-    if (quantity < 1) {
-      toast.error("Enter at least 1 label")
-      return
-    }
-
+    if (!currentBarcode) { toast.error("Generate a barcode first"); return }
+    if (quantity < 1) { toast.error("Enter at least 1 label"); return }
     setPrinting(true)
-
     try {
       const JsBarcode = (await import("jsbarcode")).default
-
-      // For thermal printer: single label is 50mm × 25mm
-      // So we fit 2 labels per 100mm width
       const labelsPerRow = 2
       const rows = Math.ceil(quantity / labelsPerRow)
       let labelsHTML = ""
 
+      const metaParts = [product.color, product.size, product.material].filter(Boolean)
+      const metaLine = metaParts.join(" | ")
+      const savings = product.regular_price && product.price && product.regular_price > product.price
+        ? product.regular_price - product.price : 0
+
       for (let row = 0; row < rows; row++) {
         labelsHTML += `<div class="row">`
-
         for (let col = 0; col < labelsPerRow; col++) {
           const idx = row * labelsPerRow + col
           if (idx < quantity) {
             const canvas = document.createElement("canvas")
             JsBarcode(canvas, currentBarcode, {
-              format: "CODE128",
-              width: 3,
-              height: 80,
-              displayValue: false,
-              margin: 4,
-              background: "#FFFFFF",
-              lineColor: "#000000",
+              format: "CODE128", width: 3, height: 80,
+              displayValue: false, margin: 4,
+              background: "#FFFFFF", lineColor: "#000000",
             })
             const barcodeImg = canvas.toDataURL("image/png")
-
             labelsHTML += `
               <div class="label">
-                <div class="name">${product.name.substring(0, 16)}</div>
-                <div class="prices">
-                  ${product.regular_price ? `<div class="regular-price">₹${product.regular_price}</div>` : ""}
-                  ${product.price ? `<div class="sale-price">₹${product.price}</div>` : ""}
-                </div>
+                <div class="name">${product.name.substring(0, 22)}</div>
+                ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+                ${product.regular_price ? `<div class="mrp-row">MRP: <span class="mrp-price">&#8377;${product.regular_price}</span></div>` : ""}
+                ${product.price ? `<div class="sale-price">&#8377;${product.price}</div>` : ""}
+                ${savings > 0 ? `<div class="you-save">You save &#8377;${savings}</div>` : ""}
                 <img src="${barcodeImg}" class="barcode" />
                 <div class="code">${currentBarcode}</div>
                 <div class="website">www.safawala.com</div>
@@ -114,137 +95,35 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
             labelsHTML += `<div class="label empty"></div>`
           }
         }
-
         labelsHTML += `</div>`
       }
 
-      const printHTML = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Barcode Labels</title>
+      const printHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  @page {
-    size: 100mm 25mm;
-    margin: 0;
-    padding: 0;
-  }
+  @page { size: 100mm 40mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100mm;
-    height: 25mm;
-    margin: 0;
-    padding: 0;
-  }
-  body {
-    font-family: 'Courier New', monospace;
-    background: #fff;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .row {
-    width: 100mm;
-    height: 25mm;
-    display: flex;
-    page-break-after: always;
-    page-break-inside: avoid;
-  }
+  html, body { width: 100mm; height: 40mm; font-family: 'Courier New', monospace; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row { width: 100mm; height: 40mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
-  .label {
-    width: 50mm;
-    height: 25mm;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 1mm;
-    gap: 0.3mm;
-    border: 0.5mm solid #ddd;
-  }
+  .label { width: 50mm; height: 40mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1.5mm; gap: 0.4mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name {
-    font-size: 6pt;
-    font-weight: bold;
-    color: #000;
-    text-align: center;
-    max-width: 48mm;
-    line-height: 1.1;
-    word-break: break-word;
-    height: 5mm;
-    overflow: hidden;
-  }
-  .prices {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    height: 3mm;
-    line-height: 1;
-  }
-  .regular-price {
-    font-size: 4pt;
-    font-weight: normal;
-    color: #666;
-    text-align: center;
-    text-decoration: line-through;
-  }
-  .sale-price {
-    font-size: 6pt;
-    font-weight: bold;
-    color: #000;
-    text-align: center;
-    letter-spacing: 0.2px;
-  }
-  .barcode {
-    width: 42mm;
-    height: 8mm;
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  .code {
-    font-family: 'Courier New', monospace;
-    font-size: 5pt;
-    font-weight: bold;
-    color: #000;
-    text-align: center;
-    letter-spacing: 0.3px;
-    height: 2mm;
-    line-height: 1;
-  }
-  .website {
-    font-family: Arial, sans-serif;
-    font-size: 4pt;
-    color: #000;
-    text-align: center;
-    letter-spacing: 0.2px;
-    height: 2mm;
-    line-height: 1;
-  }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  }
-</style>
-</head>
-<body>${labelsHTML}</body>
-</html>`
+  .name { font-size: 9pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.2; word-break: break-word; }
+  .meta { font-size: 7pt; font-weight: bold; color: #333; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.2; }
+  .mrp-row { font-size: 8pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
+  .mrp-price { text-decoration: line-through; }
+  .sale-price { font-size: 12pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
+  .you-save { font-size: 7pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
+  .barcode { width: 42mm; height: 7mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .code { font-size: 8pt; font-weight: bold; color: #000; text-align: center; line-height: 1; }
+  .website { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; line-height: 1; margin-top: 1mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>${labelsHTML}</body></html>`
 
       const printWindow = window.open("", "_blank")
-      if (!printWindow) {
-        toast.error("Please allow popups for printing")
-        return
-      }
-
+      if (!printWindow) { toast.error("Please allow popups for printing"); return }
       printWindow.document.write(printHTML)
       printWindow.document.close()
-
-      // Wait for rendering before printing
-      setTimeout(() => {
-        printWindow.focus()
-        printWindow.print()
-      }, 500)
-
+      setTimeout(() => { printWindow.focus(); printWindow.print() }, 500)
       toast.success(`Sent ${quantity} labels to printer`)
     } catch (error) {
       console.error("Print error:", error)
@@ -254,10 +133,9 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
     }
   }
 
-  const handleDownloadPDF = async () => {
-    // TODO: Implement PDF export using jsPDF
-    toast.info("PDF download coming soon")
-  }
+  const metaPreview = [product.color, product.size, product.material].filter(Boolean).join(" | ")
+  const savings = product.regular_price && product.price && product.regular_price > product.price
+    ? product.regular_price - product.price : 0
 
   return (
     <div className="space-y-4">
@@ -275,21 +153,14 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
           {!currentBarcode && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No barcode assigned yet. Generate one below.
-              </AlertDescription>
+              <AlertDescription>No barcode assigned yet. Generate one below.</AlertDescription>
             </Alert>
           )}
         </div>
       </div>
 
-      {/* Generate Barcode */}
       {!currentBarcode && (
-        <Button
-          onClick={generateNewBarcode}
-          disabled={generating}
-          className="w-full"
-        >
+        <Button onClick={generateNewBarcode} disabled={generating} className="w-full">
           {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           {generating ? "Generating..." : "Generate Barcode"}
         </Button>
@@ -297,42 +168,32 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
 
       {currentBarcode && (
         <>
-          {/* Barcode Preview */}
+          {/* Preview */}
           <div className="border rounded-lg p-4 bg-gray-50">
-            <p className="text-xs text-muted-foreground mb-3">Preview (50mm × 25mm)</p>
+            <p className="text-xs text-muted-foreground mb-3">Preview (50mm × 40mm)</p>
             <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
               <div className="flex flex-col items-center gap-0.5" style={{ width: "200px" }}>
-                <div className="text-[10px] font-bold text-center leading-tight max-w-[95%] truncate">
-                  {product.name.substring(0, 20)}
-                </div>
-                <div className="flex items-center gap-1 justify-center">
-                  {product.regular_price && (
-                    <div className="text-[7px] text-gray-500 line-through">
-                      ₹{product.regular_price}
-                    </div>
-                  )}
-                  {product.price && (
-                    <div className="text-[9px] font-bold">
-                      ₹{product.price}
-                    </div>
-                  )}
-                </div>
-                <div className="bg-black h-5 w-full flex items-center justify-center">
+                <div className="text-[10px] font-bold text-center leading-tight">{product.name.substring(0, 22)}</div>
+                {metaPreview && (
+                  <div className="text-[8px] font-bold text-gray-600 text-center">{metaPreview}</div>
+                )}
+                {product.regular_price ? (
+                  <div className="text-[8px] font-bold text-center">MRP: <span className="line-through">₹{product.regular_price}</span></div>
+                ) : null}
+                {product.price ? <div className="text-[11px] font-bold text-center">₹{product.price}</div> : null}
+                {savings > 0 ? <div className="text-[7px] font-bold text-center">You save ₹{savings}</div> : null}
+                <div className="bg-black h-5 w-full flex items-center justify-center mt-0.5">
                   <div className="flex gap-px h-4">
                     {Array.from({ length: 28 }).map((_, j) => (
-                      <div
-                        key={j}
-                        className="bg-white"
-                        style={{ width: j % 4 === 0 ? "2px" : "1px" }}
-                      />
+                      <div key={j} className="bg-white" style={{ width: j % 4 === 0 ? "2px" : "1px" }} />
                     ))}
                   </div>
                 </div>
                 <div className="text-[8px] font-mono font-bold">{currentBarcode}</div>
-                <div className="text-[6px] font-sans text-center">www.safawala.com</div>
+                <div className="text-[7px] font-bold font-sans mt-0.5">www.safawala.com</div>
               </div>
             </div>
-            <p className="text-[10px] text-gray-400 mt-2">Scale: 1:1 on 100mm × 25mm paper</p>
+            <p className="text-[10px] text-gray-400 mt-2">Scale: 1:1 on 100mm × 40mm paper</p>
           </div>
 
           {/* Print Settings */}
@@ -340,24 +201,13 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
             <div>
               <Label htmlFor="print-quantity" className="text-sm">Number of Labels</Label>
               <div className="flex gap-2 mt-1">
-                <Input
-                  id="print-quantity"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={quantity}
+                <Input id="print-quantity" type="number" min="1" max="100" value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-20"
-                />
+                  className="w-20" />
                 <div className="flex gap-1">
                   {[1, 5, 10, 20, 50].map((n) => (
-                    <Button
-                      key={n}
-                      size="sm"
-                      variant={quantity === n ? "default" : "outline"}
-                      className="px-2 h-9"
-                      onClick={() => setQuantity(n)}
-                    >
+                    <Button key={n} size="sm" variant={quantity === n ? "default" : "outline"}
+                      className="px-2 h-9" onClick={() => setQuantity(n)}>
                       {n}
                     </Button>
                   ))}
@@ -368,45 +218,28 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
               </p>
             </div>
 
-            {/* Printer Instructions */}
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <h4 className="font-semibold text-xs text-amber-900 mb-2">Thermal Printer Setup</h4>
               <ul className="text-xs text-amber-800 space-y-1">
-                <li>• Paper Size: 100mm × 25mm</li>
+                <li>• Paper Size: 100mm × 40mm</li>
                 <li>• Margins: None (0mm)</li>
                 <li>• Scale: 100% (no scaling)</li>
-                <li>• Color: Grayscale or Color (print-color-adjust: exact)</li>
               </ul>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-2">
-              <Button
-                onClick={handlePrint}
-                disabled={printing || !currentBarcode}
-                className="flex-1 bg-green-600 hover:bg-green-700"
-              >
+              <Button onClick={handlePrint} disabled={printing || !currentBarcode}
+                className="flex-1 bg-green-600 hover:bg-green-700">
                 <Printer className="w-4 h-4 mr-2" />
                 {printing ? "Printing..." : "Print Labels"}
               </Button>
-              <Button
-                onClick={handleDownloadPDF}
-                disabled={!currentBarcode}
-                variant="outline"
-                className="flex-1"
-              >
+              <Button disabled variant="outline" className="flex-1">
                 <Download className="w-4 h-4 mr-2" />
                 Export PDF
               </Button>
             </div>
 
-            {/* Regenerate Option */}
-            <Button
-              onClick={generateNewBarcode}
-              disabled={generating}
-              variant="outline"
-              className="w-full"
-            >
+            <Button onClick={generateNewBarcode} disabled={generating} variant="outline" className="w-full">
               <RefreshCw className="w-4 h-4 mr-2" />
               {generating ? "Generating..." : "Generate New Barcode"}
             </Button>
