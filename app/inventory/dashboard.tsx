@@ -125,8 +125,15 @@ export default function InventoryDashboard() {
       const activeData = (data || []).filter((p: any) => p.is_active !== false)
 
       const normalized: Product[] = activeData.map((p: any) => ({
-        product_code: p.product_code || p.id?.slice(0, 8) || "CUST",
+        id: p.id,
+        name: p.name || "Unnamed Product",
+        description: p.description || "",
+        brand: p.brand || "",
+        size: p.size || "",
+        color: p.color || "",
+        material: p.material || "",
         price: typeof p.price === "number" ? p.price : typeof p.sale_price === "number" ? p.sale_price : 0,
+        regular_price: typeof p.regular_price === "number" ? p.regular_price : typeof p.price === "number" ? p.price : 0,
         rental_price: typeof p.rental_price === "number" ? p.rental_price : 0,
         cost_price: typeof p.cost_price === "number" ? p.cost_price : 0,
         security_deposit: typeof p.security_deposit === "number" ? p.security_deposit : 0,
@@ -137,17 +144,11 @@ export default function InventoryDashboard() {
         stock_in_laundry: typeof p.stock_in_laundry === "number" ? p.stock_in_laundry : 0,
         reorder_level: typeof p.reorder_level === "number" ? p.reorder_level : 0,
         barcode: p.barcode || p.barcode_number || undefined,
-        is_active: p.is_active !== false,
         image_url: p.image_url || undefined,
-        description: p.description || "",
-        brand: p.brand || "",
-        size: p.size || "",
-        color: p.color || "",
-        material: p.material || "",
         category_id: p.category_id || undefined,
         category_name: p.category_name || undefined,
-        id: p.id,
-        name: p.name || "Unnamed Product",
+        is_active: p.is_active !== false,
+        product_code: p.product_code || p.id?.slice(0, 8) || "CUST",
       }))
 
       // Fetch variation counts
