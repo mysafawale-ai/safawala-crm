@@ -6,6 +6,7 @@
 interface BarcodeItem {
   code: string
   productName: string
+  price?: number | string
 }
 
 interface PrintConfig {
@@ -69,19 +70,25 @@ export async function createPrintHTML(config: PrintConfig): Promise<string> {
     const bcH = (H - 14) * barcodeScale
     const namePt = 8 * barcodeScale
     const codePt = 6.5 * barcodeScale
+    const pricePt = 7 * barcodeScale
+    const websitePt = 5 * barcodeScale
     return `
       <div style="width:${W}mm;height:${H}mm;display:flex;flex-direction:column;
                   align-items:center;justify-content:center;padding:1mm;
-                  box-sizing:border-box;overflow:hidden;gap:0.5mm;border:0.2mm solid #ccc;">
+                  box-sizing:border-box;overflow:hidden;gap:0.3mm;border:0.2mm solid #ccc;">
         <div style="font-family:Arial Black,Arial,sans-serif;font-size:${namePt}pt;
                     font-weight:900;color:#000;text-align:center;line-height:1.1;
                     max-width:${W - 3}mm;word-break:break-word;">${item.productName}</div>
+        ${item.price ? `<div style="font-family:Arial,sans-serif;font-size:${pricePt}pt;
+                    font-weight:bold;color:#000;text-align:center;">₹${item.price}</div>` : ""}
         <div style="width:${bcW}mm;height:${bcH}mm;display:flex;align-items:center;
                     justify-content:center;overflow:hidden;">
           ${svg.replace(/width="[^"]*"/, `width="${bcW}mm"`).replace(/height="[^"]*"/, `height="${bcH}mm"`)}
         </div>
         <div style="font-family:'Courier New',monospace;font-size:${codePt}pt;
                     font-weight:bold;color:#000;text-align:center;">${item.code}</div>
+        <div style="font-family:Arial,sans-serif;font-size:${websitePt}pt;
+                    color:#000;text-align:center;letter-spacing:0.5px;">www.safawala.com</div>
       </div>`
   }
 

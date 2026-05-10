@@ -13,6 +13,7 @@ interface Product {
   id: string
   name: string
   barcode?: string
+  price?: number
 }
 
 interface BarcodeGeneratorEnhancedProps {
@@ -100,8 +101,10 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
             labelsHTML += `
               <div class="label">
                 <div class="name">${product.name.substring(0, 16)}</div>
+                ${product.price ? `<div class="price">₹${product.price}</div>` : ""}
                 <img src="${barcodeImg}" class="barcode" />
                 <div class="code">${currentBarcode}</div>
+                <div class="website">www.safawala.com</div>
               </div>`
           } else {
             labelsHTML += `<div class="label empty"></div>`
@@ -164,24 +167,42 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
     max-width: 48mm;
     line-height: 1.1;
     word-break: break-word;
-    height: 6mm;
+    height: 5mm;
     overflow: hidden;
+  }
+  .price {
+    font-size: 5pt;
+    font-weight: bold;
+    color: #000;
+    text-align: center;
+    letter-spacing: 0.2px;
+    height: 2mm;
+    line-height: 1;
   }
   .barcode {
     width: 42mm;
-    height: 10mm;
+    height: 8mm;
     display: block;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
   }
   .code {
     font-family: 'Courier New', monospace;
-    font-size: 6pt;
+    font-size: 5pt;
     font-weight: bold;
     color: #000;
     text-align: center;
     letter-spacing: 0.3px;
-    height: 4mm;
+    height: 2mm;
+    line-height: 1;
+  }
+  .website {
+    font-family: Arial, sans-serif;
+    font-size: 4pt;
+    color: #000;
+    text-align: center;
+    letter-spacing: 0.2px;
+    height: 2mm;
     line-height: 1;
   }
   @media print {
@@ -263,12 +284,17 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
           <div className="border rounded-lg p-4 bg-gray-50">
             <p className="text-xs text-muted-foreground mb-3">Preview (50mm × 25mm)</p>
             <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
-              <div className="flex flex-col items-center gap-1" style={{ width: "200px" }}>
+              <div className="flex flex-col items-center gap-0.5" style={{ width: "200px" }}>
                 <div className="text-[10px] font-bold text-center leading-tight max-w-[95%] truncate">
                   {product.name.substring(0, 20)}
                 </div>
-                <div className="bg-black h-6 w-full flex items-center justify-center">
-                  <div className="flex gap-px h-5">
+                {product.price && (
+                  <div className="text-[8px] font-bold text-center">
+                    ₹{product.price}
+                  </div>
+                )}
+                <div className="bg-black h-5 w-full flex items-center justify-center">
+                  <div className="flex gap-px h-4">
                     {Array.from({ length: 28 }).map((_, j) => (
                       <div
                         key={j}
@@ -278,7 +304,8 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
                     ))}
                   </div>
                 </div>
-                <div className="text-[9px] font-mono font-bold">{currentBarcode}</div>
+                <div className="text-[8px] font-mono font-bold">{currentBarcode}</div>
+                <div className="text-[6px] font-sans text-center">www.safawala.com</div>
               </div>
             </div>
             <p className="text-[10px] text-gray-400 mt-2">Scale: 1:1 on 100mm × 25mm paper</p>

@@ -15,6 +15,7 @@ import { PricingPanel } from "./pricing-panel"
 import { PhotoGallery } from "./photo-gallery"
 import { VariantManager, ProductVariant } from "./variant-manager"
 import { BarcodeGenerator } from "./barcode-generator-enhanced"
+import { printBarcodes } from "@/lib/barcode-print-service"
 
 interface Product {
   id?: string
@@ -386,11 +387,26 @@ export function ProductEditorModal({
               variants={variants}
               onVariantsChange={setVariants}
               productName={formData.name}
-              onPrintBarcode={(variant) => {
-                if (variant.barcode) {
-                  toast.info(`Variant barcode: ${variant.barcode}`)
-                } else {
+              onPrintBarcode={async (variant) => {
+                if (!variant.barcode) {
                   toast.error("No barcode for this variant")
+                  return
+                }
+                try {
+                  const variantName = variant.variation_name || formData.name
+                  const price = formData.price + (variant.price_adjustment || 0)
+                  await printBarcodes({
+                    barcodes: [{
+                      code: variant.barcode,
+                      productName: variantName,
+                      price: price,
+                    }],
+                    columns: 2,
+                  })
+                  toast.success("Barcode sent to printer")
+                } catch (error) {
+                  toast.error("Failed to print barcode")
+                  console.error(error)
                 }
               }}
             />
