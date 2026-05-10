@@ -84,9 +84,11 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
               <div class="label">
                 <div class="name">${product.name.substring(0, 22)}</div>
                 ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-                ${product.regular_price ? `<div class="mrp-row">MRP: <span class="mrp-price">&#8377;${product.regular_price}</span></div>` : ""}
-                ${product.price ? `<div class="sale-price">&#8377;${product.price}</div>` : ""}
-                ${savings > 0 ? `<div class="you-save">You save &#8377;${savings}</div>` : ""}
+                ${(product.regular_price || product.price) ? `<div class="pricing-row">
+                  ${product.regular_price ? `MRP: <span class="mrp-price">&#8377;${product.regular_price}</span>` : ""}
+                  ${product.price ? `<span class="sale-price">&#8377;${product.price}</span>` : ""}
+                  ${savings > 0 ? `<span class="you-save">You save &#8377;${savings}</span>` : ""}
+                </div>` : ""}
                 <img src="${barcodeImg}" class="barcode" />
                 <div class="code">${currentBarcode}</div>
                 <div class="website">www.safawala.com</div>
@@ -109,10 +111,10 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
   .label.empty { visibility: hidden; }
   .name { font-size: 8pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
   .meta { font-size: 5.5pt; font-weight: bold; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
-  .mrp-row { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; }
-  .mrp-price { text-decoration: line-through; }
-  .sale-price { font-size: 9pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; }
-  .you-save { font-size: 5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; }
+  .pricing-row { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
+  .mrp-price { text-decoration: line-through; margin-right: 2px; }
+  .sale-price { font-size: 8pt; font-weight: bold; color: #000; margin-right: 2px; }
+  .you-save { font-size: 5.5pt; font-weight: bold; color: #000; }
   .barcode { width: 42mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1; }
   .website { font-family: Arial, sans-serif; font-size: 5.5pt; font-weight: bold; color: #000; line-height: 1; margin-top: 0.5mm; }
