@@ -92,23 +92,24 @@ async function doPrint(
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&display=swap" rel="stylesheet">
 <style>
   @page { size: 100mm 25mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100mm; height: 25mm; font-family: 'Courier New', monospace; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; font-weight: 700; }
+  html, body { width: 100mm; height: 25mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 8pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
-  .meta { font-size: 6.5pt; font-weight: bold; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
-  .pricing-row { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
+  .name { font-size: 8pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
+  .meta { font-size: 6.5pt; font-weight: 700; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
+  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
   .mrp-price { text-decoration: line-through; margin-right: 2px; }
-  .sale-price { font-size: 8pt; font-weight: bold; color: #000; margin-right: 2px; }
-  .you-save { font-size: 6.5pt; font-weight: bold; color: #000; }
+  .sale-price { font-size: 8pt; font-weight: 800; color: #000; margin-right: 2px; }
+  .you-save { font-size: 6.5pt; font-weight: 700; color: #000; }
   .barcode { width: 42mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-size: 7.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1; }
-  .website { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; line-height: 1; margin-top: 0.5mm; }
+  .code { font-size: 7.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1; }
+  .website { font-size: 6.5pt; font-weight: 700; color: #000; line-height: 1; margin-top: 0.5mm; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
