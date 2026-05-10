@@ -223,8 +223,13 @@ export default function InventoryDashboard() {
 
       if (productId) {
         // Update existing
+        console.log("📝 Updating product with data:", productData)
         const { error: updateError } = await supabase.from("products").update(productData).eq("id", productId)
-        if (updateError) throw updateError
+        if (updateError) {
+          console.error("❌ Update error:", updateError)
+          throw updateError
+        }
+        console.log("✅ Product updated successfully")
 
         // Save images
         if (images && images.length > 0) {
