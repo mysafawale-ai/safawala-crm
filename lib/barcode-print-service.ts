@@ -6,6 +6,7 @@
 interface BarcodeItem {
   code: string
   productName: string
+  regularPrice?: number | string
   price?: number | string
 }
 
@@ -70,7 +71,8 @@ export async function createPrintHTML(config: PrintConfig): Promise<string> {
     const bcH = (H - 14) * barcodeScale
     const namePt = 8 * barcodeScale
     const codePt = 6.5 * barcodeScale
-    const pricePt = 7 * barcodeScale
+    const regularPricePt = 5 * barcodeScale
+    const salePricePt = 7 * barcodeScale
     const websitePt = 5 * barcodeScale
     return `
       <div style="width:${W}mm;height:${H}mm;display:flex;flex-direction:column;
@@ -79,8 +81,10 @@ export async function createPrintHTML(config: PrintConfig): Promise<string> {
         <div style="font-family:Arial Black,Arial,sans-serif;font-size:${namePt}pt;
                     font-weight:900;color:#000;text-align:center;line-height:1.1;
                     max-width:${W - 3}mm;word-break:break-word;">${item.productName}</div>
-        ${item.price ? `<div style="font-family:Arial,sans-serif;font-size:${pricePt}pt;
-                    font-weight:bold;color:#000;text-align:center;">₹${item.price}</div>` : ""}
+        ${item.regularPrice || item.price ? `<div style="display:flex;gap:1mm;align-items:center;justify-content:center;font-family:Arial,sans-serif;">
+          ${item.regularPrice ? `<div style="font-size:${regularPricePt}pt;color:#999;text-decoration:line-through;">₹${item.regularPrice}</div>` : ""}
+          ${item.price ? `<div style="font-size:${salePricePt}pt;font-weight:bold;color:#000;">₹${item.price}</div>` : ""}
+        </div>` : ""}
         <div style="width:${bcW}mm;height:${bcH}mm;display:flex;align-items:center;
                     justify-content:center;overflow:hidden;">
           ${svg.replace(/width="[^"]*"/, `width="${bcW}mm"`).replace(/height="[^"]*"/, `height="${bcH}mm"`)}

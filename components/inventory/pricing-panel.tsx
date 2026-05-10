@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface PricingData {
   cost_price: number
   rental_price: number
+  regular_price: number
   price: number // sale price
   security_deposit: number
 }
@@ -104,6 +105,34 @@ export function PricingPanel({ data, onChange, disabled }: PricingPanelProps) {
           )}
         </div>
 
+        {/* Regular Price */}
+        <div className="space-y-2">
+          <Label htmlFor="regular_price" className="flex items-center gap-1">
+            Regular Price
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-3 h-3 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Original/list price (shown with strikethrough on labels)</p>
+              </TooltipContent>
+            </Tooltip>
+          </Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+            <Input
+              id="regular_price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={data.regular_price}
+              onChange={(e) => handleChange("regular_price", parseFloat(e.target.value) || 0)}
+              disabled={disabled}
+              className="pl-7"
+            />
+          </div>
+        </div>
+
         {/* Sale Price */}
         <div className="space-y-2">
           <Label htmlFor="price" className="flex items-center gap-1">
@@ -179,12 +208,16 @@ export function PricingPanel({ data, onChange, disabled }: PricingPanelProps) {
             <span className="font-medium">₹{data.security_deposit.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
+            <span className="text-muted-foreground">Regular:</span>
+            <span className="font-medium">₹{data.regular_price.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-muted-foreground">Rental:</span>
             <span className="font-medium">₹{data.rental_price.toLocaleString()}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Sale:</span>
-            <span className="font-medium">₹{data.price.toLocaleString()}</span>
+          <div className="flex justify-between col-span-2">
+            <span className="text-muted-foreground font-semibold">Sale Price:</span>
+            <span className="font-bold text-green-600">₹{data.price.toLocaleString()}</span>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ interface Product {
   id: string
   name: string
   barcode?: string
+  regular_price?: number
   price?: number
 }
 
@@ -101,7 +102,10 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
             labelsHTML += `
               <div class="label">
                 <div class="name">${product.name.substring(0, 16)}</div>
-                ${product.price ? `<div class="price">₹${product.price}</div>` : ""}
+                <div class="prices">
+                  ${product.regular_price ? `<div class="regular-price">₹${product.regular_price}</div>` : ""}
+                  ${product.price ? `<div class="sale-price">₹${product.price}</div>` : ""}
+                </div>
                 <img src="${barcodeImg}" class="barcode" />
                 <div class="code">${currentBarcode}</div>
                 <div class="website">www.safawala.com</div>
@@ -170,14 +174,27 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
     height: 5mm;
     overflow: hidden;
   }
-  .price {
-    font-size: 5pt;
+  .prices {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 3mm;
+    line-height: 1;
+  }
+  .regular-price {
+    font-size: 4pt;
+    font-weight: normal;
+    color: #666;
+    text-align: center;
+    text-decoration: line-through;
+  }
+  .sale-price {
+    font-size: 6pt;
     font-weight: bold;
     color: #000;
     text-align: center;
     letter-spacing: 0.2px;
-    height: 2mm;
-    line-height: 1;
   }
   .barcode {
     width: 42mm;
@@ -288,11 +305,18 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
                 <div className="text-[10px] font-bold text-center leading-tight max-w-[95%] truncate">
                   {product.name.substring(0, 20)}
                 </div>
-                {product.price && (
-                  <div className="text-[8px] font-bold text-center">
-                    ₹{product.price}
-                  </div>
-                )}
+                <div className="flex items-center gap-1 justify-center">
+                  {product.regular_price && (
+                    <div className="text-[7px] text-gray-500 line-through">
+                      ₹{product.regular_price}
+                    </div>
+                  )}
+                  {product.price && (
+                    <div className="text-[9px] font-bold">
+                      ₹{product.price}
+                    </div>
+                  )}
+                </div>
                 <div className="bg-black h-5 w-full flex items-center justify-center">
                   <div className="flex gap-px h-4">
                     {Array.from({ length: 28 }).map((_, j) => (

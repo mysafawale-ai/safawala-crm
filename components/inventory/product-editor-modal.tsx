@@ -26,6 +26,7 @@ interface Product {
   color?: string
   material?: string
   price: number
+  regular_price: number
   rental_price: number
   cost_price: number
   security_deposit: number
@@ -73,6 +74,7 @@ export function ProductEditorModal({
     color: "",
     material: "",
     price: 0,
+    regular_price: 0,
     rental_price: 0,
     cost_price: 0,
     security_deposit: 0,
@@ -140,6 +142,7 @@ export function ProductEditorModal({
       color: "",
       material: "",
       price: 0,
+      regular_price: 0,
       rental_price: 0,
       cost_price: 0,
       security_deposit: 0,
@@ -374,6 +377,7 @@ export function ProductEditorModal({
               data={{
                 cost_price: formData.cost_price,
                 rental_price: formData.rental_price,
+                regular_price: formData.regular_price,
                 price: formData.price,
                 security_deposit: formData.security_deposit,
               }}
@@ -394,12 +398,14 @@ export function ProductEditorModal({
                 }
                 try {
                   const variantName = variant.variation_name || formData.name
-                  const price = formData.price + (variant.price_adjustment || 0)
+                  const regularPrice = formData.regular_price + (variant.price_adjustment || 0)
+                  const salePrice = formData.price + (variant.price_adjustment || 0)
                   await printBarcodes({
                     barcodes: [{
                       code: variant.barcode,
                       productName: variantName,
-                      price: price,
+                      regularPrice: regularPrice,
+                      price: salePrice,
                     }],
                     columns: 2,
                   })
