@@ -120,14 +120,10 @@ export function ProductEditorModal({
   const loadVariants = async () => {
     if (!product?.id) return
     try {
-      const { data, error } = await supabase
-        .from("product_variations")
-        .select("*")
-        .eq("product_id", product.id)
-        .eq("is_active", true)
-
-      if (error) throw error
-      setVariants(data || [])
+      const res = await fetch(`/api/products/${product.id}/variations`)
+      if (!res.ok) return
+      const json = await res.json()
+      setVariants(json.data || [])
     } catch (error) {
       console.error("Failed to load variants:", error)
     }
