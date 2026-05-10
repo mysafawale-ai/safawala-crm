@@ -34,6 +34,7 @@ interface Product {
   category_id?: string
   category_name?: string
   price: number
+  regular_price?: number
   rental_price: number
   cost_price: number
   security_deposit: number
@@ -222,7 +223,8 @@ export default function InventoryDashboard() {
 
       if (productId) {
         // Update existing
-        await supabase.from("products").update(productData).eq("id", productId)
+        const { error: updateError } = await supabase.from("products").update(productData).eq("id", productId)
+        if (updateError) throw updateError
 
         // Save images
         if (images && images.length > 0) {
