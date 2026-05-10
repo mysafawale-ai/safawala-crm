@@ -99,6 +99,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
+    // Auto-generate unique 11-digit barcode for every new variant
+    const autoBarcode = body.barcode || `${Math.floor(10000000000 + Math.random() * 90000000000)}`
+
     const { data: variation, error } = await supabase
       .from("product_variations")
       .insert([{
@@ -117,6 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         stock_booked: Math.max(0, Number(stock_booked) || 0),
         stock_damaged: Math.max(0, Number(stock_damaged) || 0),
         image_url: image_url || null,
+        barcode: autoBarcode,
         is_active: true,
       }])
       .select()

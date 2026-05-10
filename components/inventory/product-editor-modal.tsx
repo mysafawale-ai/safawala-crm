@@ -391,6 +391,7 @@ export function ProductEditorModal({
               variants={variants}
               onVariantsChange={setVariants}
               productName={formData.name}
+              productId={product?.id}
               onPrintBarcode={async (variant) => {
                 if (!variant.barcode) {
                   toast.error("No barcode for this variant")
