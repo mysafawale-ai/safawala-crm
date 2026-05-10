@@ -218,134 +218,103 @@ export default function InventoryDashboard() {
   }
 
   const handleSaveProduct = async (data: any) => {
-    try {
-      const { images, variants, ...productData } = data
-      let productId = selectedProduct?.id
+    // Strip frontend-only fields that are not columns in the products table
+    const { images, variants, _variation_count, category_name, product_code, ...productData } = data
+    let productId = selectedProduct?.id
 
-      if (productId) {
-        // Update existing
-        console.log("📝 Updating product with data:", productData)
-        const { error: updateError } = await supabase.from("products").update(productData).eq("id", productId)
-        if (updateError) {
-          console.error("❌ Update error:", updateError)
-          throw updateError
-        }
-        console.log("✅ Product updated successfully")
+    if (productId) {
+      const { error: updateError } = await supabase.from("products").update(productData).eq("id", productId)
+      if (updateError) throw updateError
 
-        // Save images
-        if (images && images.length > 0) {
-          await supabase.from("product_images").delete().eq("product_id", productId)
-          const imagesToInsert = images.map((img: any, idx: number) => ({
-            product_id: productId,
-            url: img.url,
-            is_main: img.is_main,
-            order: idx,
-          }))
-          await supabase.from("product_images").insert(imagesToInsert)
-        }
-
-        toast.success("Product updated successfully")
-      } else {
-        // Create new
-        const { data: newProduct, error } = await supabase
-          .from("products")
-          .insert([{ ...productData, franchise_id: user?.franchise_id }])
-          .select()
-          .single()
-
-        if (error) throw error
-
-        productId = newProduct.id
-
-        // Save images
-        if (images && images.length > 0) {
-          const imagesToInsert = images.map((img: any, idx: number) => ({
-            product_id: productId,
-            url: img.url,
-            is_main: img.is_main,
-            order: idx,
-          }))
-          await supabase.from("product_images").insert(imagesToInsert)
-        }
-
-        toast.success("Product created successfully")
+      if (images && images.length > 0) {
+        await supabase.from("product_images").delete().eq("product_id", productId)
+        const imagesToInsert = images.map((img: any, idx: number) => ({
+          product_id: productId,
+          url: img.url,
+          is_main: img.is_main,
+          order: idx,
+        }))
+        await supabase.from("product_images").insert(imagesToInsert)
       }
+    } else {
+      const { data: newProduct, error } = await supabase
+        .from("products")
+        .insert([{ ...productData, franchise_id: user?.franchise_id }])
+        .select()
+        .single()
 
-      // Save variants
-      if (variants && variants.length > 0 && productId) {
-        for (const variant of variants) {
-          // Skip if variant already has an ID (already saved)
-          if (variant.id) {
-            continue
-          }
+      if (error) throw error
 
-          try {
-            let imageUrl = variant.image_url
+      productId = newProduct.id
 
-            // If image is a data URL, upload it to storage first
-            if (imageUrl && imageUrl.startsWith("data:")) {
-              try {
-                const base64Data = imageUrl.split(",")[1]
-                const buffer = Buffer.from(base64Data, "base64")
-                const timestamp = Date.now()
-                const variantName = variant.variation_name.replace(/\s+/g, "_").toLowerCase()
-                const storagePath = `variants/${user?.franchise_id}/${productId}/${timestamp}-${variantName}.png`
-
-                const { error: uploadError } = await supabase.storage
-                  .from("product-images")
-                  .upload(storagePath, buffer, { upsert: false, contentType: "image/png" })
-
-                if (uploadError) {
-                  throw new Error(`Failed to upload variant image: ${uploadError.message}`)
-                }
-
-                const { data: urlData } = supabase.storage
-                  .from("product-images")
-                  .getPublicUrl(storagePath)
-
-                imageUrl = urlData.publicUrl
-              } catch (imgError) {
-                console.warn("Variant image upload failed, saving without image:", imgError)
-                imageUrl = null
-              }
-            }
-
-            const response = await fetch(`/api/products/${productId}/variations`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                variation_name: variant.variation_name,
-                color: variant.color,
-                design: variant.design,
-                material: variant.material,
-                size: variant.size,
-                sku: variant.sku,
-                price_adjustment: variant.price_adjustment || 0,
-                rental_price_adjustment: variant.rental_price_adjustment || 0,
-                stock_total: variant.stock_total || 0,
-                stock_available: variant.stock_available || 0,
-                image_url: imageUrl,
-              }),
-            })
-
-            if (!response.ok) {
-              const error = await response.json()
-              throw new Error(`Variant "${variant.variation_name}": ${error.error}`)
-            }
-          } catch (variantError) {
-            console.error("Variant save error:", variantError)
-            toast.error(variantError instanceof Error ? variantError.message : "Failed to save variant")
-            throw variantError
-          }
-        }
+      if (images && images.length > 0) {
+        const imagesToInsert = images.map((img: any, idx: number) => ({
+          product_id: productId,
+          url: img.url,
+          is_main: img.is_main,
+          order: idx,
+        }))
+        await supabase.from("product_images").insert(imagesToInsert)
       }
-
-      fetchProducts()
-    } catch (error) {
-      console.error("Save error:", error)
-      const isVariantError = error instanceof Error && error.message.includes("Variant")
-      toast.error(isVariantError ? error.message : "Failed to save product")
     }
+
+    if (variants && variants.length > 0 && productId) {
+      for (const variant of variants) {
+        if (variant.id) continue
+
+        let imageUrl = variant.image_url
+
+        if (imageUrl && imageUrl.startsWith("data:")) {
+          try {
+            const base64Data = imageUrl.split(",")[1]
+            const buffer = Buffer.from(base64Data, "base64")
+            const timestamp = Date.now()
+            const variantName = variant.variation_name.replace(/\s+/g, "_").toLowerCase()
+            const storagePath = `variants/${user?.franchise_id}/${productId}/${timestamp}-${variantName}.png`
+
+            const { error: uploadError } = await supabase.storage
+              .from("product-images")
+              .upload(storagePath, buffer, { upsert: false, contentType: "image/png" })
+
+            if (uploadError) throw new Error(`Failed to upload variant image: ${uploadError.message}`)
+
+            const { data: urlData } = supabase.storage
+              .from("product-images")
+              .getPublicUrl(storagePath)
+
+            imageUrl = urlData.publicUrl
+          } catch (imgError) {
+            console.warn("Variant image upload failed, saving without image:", imgError)
+            imageUrl = null
+          }
+        }
+
+        const response = await fetch(`/api/products/${productId}/variations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            variation_name: variant.variation_name,
+            color: variant.color,
+            design: variant.design,
+            material: variant.material,
+            size: variant.size,
+            sku: variant.sku,
+            price_adjustment: variant.price_adjustment || 0,
+            rental_price_adjustment: variant.rental_price_adjustment || 0,
+            stock_total: variant.stock_total || 0,
+            stock_available: variant.stock_available || 0,
+            image_url: imageUrl,
+          }),
+        })
+
+        if (!response.ok) {
+          const errData = await response.json()
+          throw new Error(`Variant "${variant.variation_name}": ${errData.error}`)
+        }
+      }
+    }
+
+    fetchProducts()
   }
 
   const filteredProducts = useMemo(() => {
