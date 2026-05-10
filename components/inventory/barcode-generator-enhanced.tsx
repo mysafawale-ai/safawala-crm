@@ -100,22 +100,22 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
 
       const printHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  @page { size: 100mm 40mm; margin: 0; }
+  @page { size: 100mm 25mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100mm; height: 40mm; font-family: 'Courier New', monospace; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .row { width: 100mm; height: 40mm; display: flex; page-break-after: always; page-break-inside: avoid; }
+  html, body { width: 100mm; height: 25mm; font-family: 'Courier New', monospace; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
-  .label { width: 50mm; height: 40mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1.5mm; gap: 0.4mm; border: 0.5mm solid #ddd; }
+  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 9pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.2; word-break: break-word; }
-  .meta { font-size: 7pt; font-weight: bold; color: #333; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.2; }
-  .mrp-row { font-size: 8pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
+  .name { font-size: 8pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
+  .meta { font-size: 5.5pt; font-weight: bold; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
+  .mrp-row { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; }
   .mrp-price { text-decoration: line-through; }
-  .sale-price { font-size: 12pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
-  .you-save { font-size: 7pt; font-weight: bold; color: #000; text-align: center; line-height: 1.2; }
-  .barcode { width: 42mm; height: 7mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-size: 8pt; font-weight: bold; color: #000; text-align: center; line-height: 1; }
-  .website { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; line-height: 1; margin-top: 1mm; }
+  .sale-price { font-size: 9pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; }
+  .you-save { font-size: 5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; }
+  .barcode { width: 42mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .code { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1; }
+  .website { font-family: Arial, sans-serif; font-size: 5.5pt; font-weight: bold; color: #000; line-height: 1; margin-top: 0.5mm; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
@@ -170,7 +170,7 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
         <>
           {/* Preview */}
           <div className="border rounded-lg p-4 bg-gray-50">
-            <p className="text-xs text-muted-foreground mb-3">Preview (50mm × 40mm)</p>
+            <p className="text-xs text-muted-foreground mb-3">Preview (50mm × 25mm)</p>
             <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
               <div className="flex flex-col items-center gap-0.5" style={{ width: "200px" }}>
                 <div className="text-[10px] font-bold text-center leading-tight">{product.name.substring(0, 22)}</div>
@@ -193,7 +193,7 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
                 <div className="text-[7px] font-bold font-sans mt-0.5">www.safawala.com</div>
               </div>
             </div>
-            <p className="text-[10px] text-gray-400 mt-2">Scale: 1:1 on 100mm × 40mm paper</p>
+            <p className="text-[10px] text-gray-400 mt-2">Scale: 1:1 on 100mm × 25mm paper</p>
           </div>
 
           {/* Print Settings */}
@@ -221,7 +221,7 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <h4 className="font-semibold text-xs text-amber-900 mb-2">Thermal Printer Setup</h4>
               <ul className="text-xs text-amber-800 space-y-1">
-                <li>• Paper Size: 100mm × 40mm</li>
+                <li>• Paper Size: 100mm × 25mm</li>
                 <li>• Margins: None (0mm)</li>
                 <li>• Scale: 100% (no scaling)</li>
               </ul>
