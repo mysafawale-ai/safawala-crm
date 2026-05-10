@@ -81,7 +81,7 @@ async function doPrint(barcode: string, label: string, qty: number, regularPrice
   .label.empty { visibility: hidden; }
   .name { font-size: 9pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; height: 5mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
   .prices { display: flex; align-items: center; justify-content: center; gap: 3px; height: 3mm; line-height: 1; }
-  .regular-price { font-size: 9pt; font-weight: bold; color: #666; text-decoration: line-through; }
+  .regular-price { font-size: 9pt; font-weight: bold; color: #000; text-decoration: line-through; }
   .sale-price { font-size: 10pt; font-weight: bold; color: #000; }
   .barcode { width: 42mm; height: 8mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-size: 9pt; font-weight: bold; color: #000; text-align: center; height: 2mm; line-height: 1; }
