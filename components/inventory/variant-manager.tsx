@@ -93,10 +93,10 @@ async function printVariantBarcode(barcode: string, label: string) {
   .row:last-child { page-break-after: avoid; }
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.3mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 8pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; height: 5mm; overflow: hidden; line-height: 1.1; }
+  .name { font-size: 10pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; height: 5mm; overflow: hidden; line-height: 1.1; }
   .barcode { width: 42mm; height: 10mm; display: block; image-rendering: pixelated; }
-  .code { font-size: 7pt; font-weight: bold; color: #000; text-align: center; height: 3mm; line-height: 1; }
-  .website { font-family: Arial, sans-serif; font-size: 5pt; color: #000; height: 2mm; line-height: 1; }
+  .code { font-size: 9pt; font-weight: bold; color: #000; text-align: center; height: 3mm; line-height: 1; }
+  .website { font-family: Arial, sans-serif; font-size: 6pt; color: #000; height: 2mm; line-height: 1; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
