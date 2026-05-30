@@ -3883,46 +3883,6 @@ export default function CreateInvoicePage() {
                 rows={2}
               />
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs">Pincode</Label>
-                <div className="relative">
-                  <Input
-                    value={newCustomer.pincode}
-                    onChange={(e) => handlePincodeChange(e.target.value)}
-                    placeholder="6 digits"
-                    maxLength={6}
-                    className={pincodeStatus === "success" ? "border-green-500 pr-8" : pincodeStatus === "error" ? "border-red-500" : ""}
-                  />
-                  {pincodeStatus === "loading" && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                    </div>
-                  )}
-                  {pincodeStatus === "success" && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-green-500">✓</div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">City</Label>
-                <Input
-                  value={newCustomer.city}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })}
-                  placeholder="Auto-filled"
-                  className={pincodeStatus === "success" ? "bg-green-50" : ""}
-                />
-              </div>
-              <div>
-                <Label className="text-xs">State</Label>
-                <Input
-                  value={newCustomer.state}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value })}
-                  placeholder="Auto-filled"
-                  className={pincodeStatus === "success" ? "bg-green-50" : ""}
-                />
-              </div>
-            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowNewCustomerDialog(false)}>
                 Cancel
