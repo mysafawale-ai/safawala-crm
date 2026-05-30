@@ -97,20 +97,20 @@ export function BookingBarcodes({ bookingId, bookingType, franchiseId, userId }:
       assigned: { variant: 'secondary', icon: CheckCircle, label: 'Assigned', color: 'bg-gray-100 text-gray-700' },
       delivered: { variant: 'default', icon: Truck, label: 'Delivered', color: 'bg-blue-100 text-blue-700' },
       with_customer: { variant: 'default', icon: Package, label: 'With Customer', color: 'bg-purple-100 text-purple-700' },
-      returned: { variant: 'default', icon: RotateCcw, label: 'Returned', color: 'bg-green-100 text-green-700' },
+      returned: { variant: 'default', icon: RotateCcw, label: 'Rental Completed', color: 'bg-green-100 text-green-700' },
       completed: { variant: 'outline', icon: CheckCircle, label: 'Completed', color: 'bg-gray-100 text-gray-500' },
     }
     
     const config = variants[status] || { variant: 'secondary', icon: AlertCircle, label: status, color: 'bg-gray-100 text-gray-700' }
     const Icon = config.icon
     
-    // Show 'Returned' badge for returned/completed status
+    // Show 'Rental Completed' badge for returned/completed status
     if (status === 'returned' || status === 'completed') {
       return (
         <div className="flex items-center gap-2">
           <Badge className="bg-green-500 text-white text-[10px] px-2 py-0.5 h-5">
             <RotateCcw className="h-3 w-3 mr-1" />
-            Returned
+            Rental Completed
           </Badge>
           {returned_at && (
             <span className="text-[10px] text-gray-500">
@@ -258,7 +258,7 @@ export function BookingBarcodes({ bookingId, bookingType, franchiseId, userId }:
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">{stats.total_returned}</div>
-                <div className="text-xs text-muted-foreground">Returned</div>
+                <div className="text-xs text-muted-foreground">Rental Completed</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-600">{stats.total_completed}</div>

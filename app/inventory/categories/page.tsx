@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Edit, Trash2, MoreHorizontal, ArrowLeft, Filter, Tag, Layers, Package } from 'lucide-react'
+import { Plus, Edit, Trash2, MoreHorizontal, ArrowLeft, Tag, Layers, Package, FolderTree } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -310,11 +310,50 @@ export default function CategoriesPage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Loading categories...</p>
+        <div className="space-y-6">
+          {/* Skeleton Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-9 w-36 bg-[#f6e1c3]/50 rounded-lg animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-7 w-56 bg-[#f6e1c3]/60 rounded animate-pulse" />
+                <div className="h-4 w-72 bg-[#f6e1c3]/40 rounded animate-pulse" />
+              </div>
+            </div>
           </div>
+
+          {/* Skeleton Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="card-heritage p-4 animate-pulse">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="h-3 w-24 bg-[#f6e1c3]/50 rounded" />
+                    <div className="h-8 w-8 bg-[#f6e1c3]/40 rounded-lg" />
+                  </div>
+                  <div className="h-7 w-12 bg-[#f6e1c3]/60 rounded" />
+                  <div className="h-3 w-20 bg-[#f6e1c3]/30 rounded" />
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Skeleton Table */}
+          <Card className="card-heritage">
+            <div className="p-6 space-y-4">
+              <div className="h-6 w-40 bg-[#f6e1c3]/50 rounded animate-pulse" />
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex gap-4 animate-pulse">
+                    <div className="h-5 flex-1 bg-[#f6e1c3]/40 rounded" />
+                    <div className="h-5 w-32 bg-[#f6e1c3]/30 rounded" />
+                    <div className="h-5 w-20 bg-[#f6e1c3]/30 rounded" />
+                    <div className="h-5 w-16 bg-[#f6e1c3]/30 rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
         </div>
       </DashboardLayout>
     )
@@ -323,60 +362,81 @@ export default function CategoriesPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Heritage Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4">
             <Link href="/inventory">
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-[#102516]/15 text-[#102516] hover:bg-[#f9f2e8] hover:border-[#102516]/30 transition-all duration-300"
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Inventory
+                Back
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Category Management</h1>
-              <p className="text-muted-foreground">Organize your products with categories and subcategories</p>
+              <h1
+                className="text-3xl font-bold tracking-tight text-[#102516]"
+                style={{ fontFamily: "var(--font-playfair), serif" }}
+              >
+                Category Management
+              </h1>
+              <p className="text-[#102516]/60 text-sm" style={{ fontFamily: "var(--font-crimson), serif" }}>
+                Organize your products with categories and subcategories
+              </p>
             </div>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button
+                className="bg-gradient-to-r from-[#102516] to-[#1a3a26] text-[#fefaf6] hover:shadow-lg hover:translate-y-[-1px] transition-all duration-300"
+                style={{ fontFamily: "var(--font-cinzel), serif", letterSpacing: "0.5px" }}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Category
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="border-[#102516]/10">
               <DialogHeader>
-                <DialogTitle>Add New Category</DialogTitle>
-                <DialogDescription>
+                <DialogTitle
+                  className="text-[#102516]"
+                  style={{ fontFamily: "var(--font-playfair), serif" }}
+                >
+                  Add New Category
+                </DialogTitle>
+                <DialogDescription style={{ fontFamily: "var(--font-crimson), serif" }}>
                   Create a new category or subcategory for your products.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Category Name</Label>
+                  <Label htmlFor="name" style={{ fontFamily: "var(--font-crimson), serif" }}>Category Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Enter category name"
+                    className="border-[#102516]/15 focus:border-[#102516]/40"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description" style={{ fontFamily: "var(--font-crimson), serif" }}>Description</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Enter category description"
+                    className="border-[#102516]/15 focus:border-[#102516]/40"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="parent">Parent Category (Optional)</Label>
+                  <Label htmlFor="parent" style={{ fontFamily: "var(--font-crimson), serif" }}>Parent Category (Optional)</Label>
                   <select
                     id="parent"
                     value={formData.parent_id}
                     onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    className="flex h-10 w-full rounded-md border border-[#102516]/15 bg-[#fefaf6] px-3 py-2 text-sm ring-offset-background focus:border-[#102516]/40"
                   >
                     <option value="">None (Main Category)</option>
                     {categories.map((category) => (
@@ -388,124 +448,185 @@ export default function CategoriesPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                  className="border-[#102516]/15 text-[#102516]"
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleAddCategory}>Add Category</Button>
+                <Button
+                  onClick={handleAddCategory}
+                  className="bg-gradient-to-r from-[#102516] to-[#1a3a26] text-[#fefaf6]"
+                >
+                  Add Category
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
+        {/* Heritage divider */}
+        <div className="h-[1px] bg-gradient-to-r from-transparent via-[#102516]/20 to-transparent" />
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="relative overflow-hidden border-[#102516]/8 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#102516]/30 to-transparent" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Main Categories</CardTitle>
-              <Tag className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium text-[#102516]/60 uppercase tracking-wider" style={{ fontFamily: "var(--font-crimson), serif" }}>
+                Main Categories
+              </CardTitle>
+              <div className="w-9 h-9 rounded-lg bg-[#102516]/8 flex items-center justify-center">
+                <Tag className="h-4 w-4 text-[#102516]" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalCategories}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-[#102516]">{totalCategories}</div>
+              <p className="text-[10px] text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
                 Primary categories
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-[#102516]/8 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#102516]/30 to-transparent" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Subcategories</CardTitle>
-              <Layers className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium text-[#102516]/60 uppercase tracking-wider" style={{ fontFamily: "var(--font-crimson), serif" }}>
+                Subcategories
+              </CardTitle>
+              <div className="w-9 h-9 rounded-lg bg-[#102516]/8 flex items-center justify-center">
+                <FolderTree className="h-4 w-4 text-[#102516]" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalSubCategories}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-[#102516]">{totalSubCategories}</div>
+              <p className="text-[10px] text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
                 Secondary categories
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-[#102516]/8 bg-gradient-to-br from-emerald-50/60 to-[#fcf7f0] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Categories</CardTitle>
-              <Filter className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-xs font-medium text-[#102516]/60 uppercase tracking-wider" style={{ fontFamily: "var(--font-crimson), serif" }}>
+                Active Categories
+              </CardTitle>
+              <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <Layers className="h-4 w-4 text-emerald-700" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{activeCategories}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-emerald-700">{activeCategories}</div>
+              <p className="text-[10px] text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
                 Currently active
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-[#102516]/8 bg-gradient-to-br from-[#f6e1c3]/30 to-[#fcf7f0] hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#102516]/30 to-transparent" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-xs font-medium text-[#102516]/60 uppercase tracking-wider" style={{ fontFamily: "var(--font-crimson), serif" }}>
+                Total Products
+              </CardTitle>
+              <div className="w-9 h-9 rounded-lg bg-[#f6e1c3] flex items-center justify-center">
+                <Package className="h-4 w-4 text-[#102516]" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalProducts}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-[#102516]">{totalProducts}</div>
+              <p className="text-[10px] text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
                 Across all categories
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Categories */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Main Categories</CardTitle>
-            <CardDescription>
+        {/* Main Categories Table */}
+        <Card className="card-heritage overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-[#102516] to-[#1a3a26] text-[#fefaf6] rounded-t-xl">
+            <CardTitle style={{ fontFamily: "var(--font-playfair), serif" }} className="text-[#fefaf6]">
+              Main Categories
+            </CardTitle>
+            <CardDescription className="text-[#fefaf6]/60" style={{ fontFamily: "var(--font-crimson), serif" }}>
               Primary product categories for your inventory
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
+          <CardContent className="p-0">
+            <div className="rounded-b-md">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Category Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Products</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                  <TableRow className="bg-[#f9f2e8]/50 border-b border-[#102516]/8">
+                    <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Category Name</TableHead>
+                    <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Description</TableHead>
+                    <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Products</TableHead>
+                    <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Status</TableHead>
+                    <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {categories.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No categories found</p>
+                      <TableCell colSpan={5} className="text-center py-12">
+                        <div className="space-y-3">
+                          <div className="w-14 h-14 mx-auto rounded-xl bg-[#102516]/5 flex items-center justify-center">
+                            <Tag className="h-7 w-7 text-[#102516]/25" />
+                          </div>
+                          <p className="text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
+                            No categories found
+                          </p>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : (
                     categories.map((category) => (
-                      <TableRow key={category.id}>
+                      <TableRow
+                        key={category.id}
+                        className="border-b border-[#102516]/5 hover:bg-[#f9f2e8]/30 transition-colors"
+                      >
                         <TableCell>
-                          <div className="font-medium">{category.name}</div>
+                          <div
+                            className="font-semibold text-[#102516]"
+                            style={{ fontFamily: "var(--font-crimson), serif" }}
+                          >
+                            {category.name}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
                             {category.description || 'No description'}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
+                          <Badge
+                            variant="outline"
+                            className="bg-[#f6e1c3]/30 border-[#f6e1c3] text-[#102516]/70 text-xs"
+                          >
                             {category.product_count} products
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={category.is_active ? 'default' : 'secondary'}>
+                          <Badge
+                            variant="outline"
+                            className={
+                              category.is_active
+                                ? 'bg-emerald-50 border-emerald-200/60 text-emerald-700 text-xs'
+                                : 'bg-gray-50 border-gray-200 text-gray-500 text-xs'
+                            }
+                          >
                             {category.is_active ? 'Active' : 'Inactive'}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
+                              <Button
+                                variant="ghost"
+                                className="h-8 w-8 p-0 hover:bg-[#102516]/5"
+                              >
+                                <MoreHorizontal className="h-4 w-4 text-[#102516]/60" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -515,7 +636,7 @@ export default function CategoriesPage() {
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteCategory(category.id)}
-                                className="text-red-600"
+                                className="text-red-600 focus:text-red-600"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
@@ -534,59 +655,79 @@ export default function CategoriesPage() {
 
         {/* Subcategories */}
         {subCategories.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Subcategories</CardTitle>
-              <CardDescription>
+          <Card className="card-heritage overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-[#1a3a26] to-[#102516] text-[#fefaf6] rounded-t-xl">
+              <CardTitle style={{ fontFamily: "var(--font-playfair), serif" }} className="text-[#fefaf6]">
+                Subcategories
+              </CardTitle>
+              <CardDescription className="text-[#fefaf6]/60" style={{ fontFamily: "var(--font-crimson), serif" }}>
                 Secondary categories organized under main categories
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
+            <CardContent className="p-0">
+              <div className="rounded-b-md">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Subcategory Name</TableHead>
-                      <TableHead>Parent Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Products</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                    <TableRow className="bg-[#f9f2e8]/50 border-b border-[#102516]/8">
+                      <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Subcategory Name</TableHead>
+                      <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Parent Category</TableHead>
+                      <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Description</TableHead>
+                      <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Products</TableHead>
+                      <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Status</TableHead>
+                      <TableHead className="text-[#102516]/70 font-semibold" style={{ fontFamily: "var(--font-crimson), serif" }}>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {subCategories.map((subCategory) => {
                       const parentCategory = categories.find(c => c.id === subCategory.parent_id)
                       return (
-                        <TableRow key={subCategory.id}>
+                        <TableRow
+                          key={subCategory.id}
+                          className="border-b border-[#102516]/5 hover:bg-[#f9f2e8]/30 transition-colors"
+                        >
                           <TableCell>
-                            <div className="font-medium">{subCategory.name}</div>
+                            <div className="font-semibold text-[#102516]" style={{ fontFamily: "var(--font-crimson), serif" }}>
+                              {subCategory.name}
+                            </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">
+                            <Badge
+                              variant="outline"
+                              className="bg-[#102516]/5 border-[#102516]/10 text-[#102516]/70 text-xs"
+                            >
                               {parentCategory?.name || 'Unknown'}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-sm text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
                               {subCategory.description || 'No description'}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">
+                            <Badge
+                              variant="outline"
+                              className="bg-[#f6e1c3]/30 border-[#f6e1c3] text-[#102516]/70 text-xs"
+                            >
                               {subCategory.product_count} products
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={subCategory.is_active ? 'default' : 'secondary'}>
+                            <Badge
+                              variant="outline"
+                              className={
+                                subCategory.is_active
+                                  ? 'bg-emerald-50 border-emerald-200/60 text-emerald-700 text-xs'
+                                  : 'bg-gray-50 border-gray-200 text-gray-500 text-xs'
+                              }
+                            >
                               {subCategory.is_active ? 'Active' : 'Inactive'}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-[#102516]/5">
+                                  <MoreHorizontal className="h-4 w-4 text-[#102516]/60" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
@@ -596,7 +737,7 @@ export default function CategoriesPage() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   onClick={() => handleDeleteCategory(subCategory.id)}
-                                  className="text-red-600"
+                                  className="text-red-600 focus:text-red-600"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Delete
@@ -614,32 +755,39 @@ export default function CategoriesPage() {
           </Card>
         )}
 
-  {/* Edit Dialog */}
+        {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="border-[#102516]/10">
             <DialogHeader>
-              <DialogTitle>Edit Category</DialogTitle>
-              <DialogDescription>
+              <DialogTitle
+                className="text-[#102516]"
+                style={{ fontFamily: "var(--font-playfair), serif" }}
+              >
+                Edit Category
+              </DialogTitle>
+              <DialogDescription style={{ fontFamily: "var(--font-crimson), serif" }}>
                 Update the category information.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-name">Category Name</Label>
+                <Label htmlFor="edit-name" style={{ fontFamily: "var(--font-crimson), serif" }}>Category Name</Label>
                 <Input
                   id="edit-name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Enter category name"
+                  className="border-[#102516]/15 focus:border-[#102516]/40"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-description">Description</Label>
+                <Label htmlFor="edit-description" style={{ fontFamily: "var(--font-crimson), serif" }}>Description</Label>
                 <Textarea
                   id="edit-description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Enter category description"
+                  className="border-[#102516]/15 focus:border-[#102516]/40"
                 />
               </div>
               <div className="flex items-center space-x-2">
@@ -648,16 +796,25 @@ export default function CategoriesPage() {
                   id="edit-active"
                   checked={formData.is_active}
                   onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="rounded border-gray-300"
+                  className="rounded border-[#102516]/30 text-[#102516] focus:ring-[#102516]/20"
                 />
-                <Label htmlFor="edit-active">Active</Label>
+                <Label htmlFor="edit-active" style={{ fontFamily: "var(--font-crimson), serif" }}>Active</Label>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                className="border-[#102516]/15 text-[#102516]"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleEditCategory}>Update Category</Button>
+              <Button
+                onClick={handleEditCategory}
+                className="bg-gradient-to-r from-[#102516] to-[#1a3a26] text-[#fefaf6]"
+              >
+                Update Category
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

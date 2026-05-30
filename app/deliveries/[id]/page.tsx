@@ -126,10 +126,10 @@ export default function DeliveryReturnPage() {
       const json = await res.json()
       if (!res.ok || !json.success) throw new Error(json.error || "Failed")
 
-      toast({ title: "Return processed", description: "Inventory and booking summary updated." })
+      toast({ title: "Rental Return processed", description: "Inventory and booking summary updated." })
       router.push("/deliveries")
     } catch (e: any) {
-      toast({ title: "Error", description: e?.message || "Failed to save return", variant: "destructive" })
+      toast({ title: "Error", description: e?.message || "Failed to save rental return", variant: "destructive" })
     }
   }
 
@@ -152,19 +152,19 @@ export default function DeliveryReturnPage() {
           </Button>
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Delivery #{delivery?.delivery_number || ""}</h2>
-            <p className="text-muted-foreground">Process Return</p>
+            <p className="text-muted-foreground">Process Rental Return</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
           <Button onClick={handleSave} disabled={!isValid || items.length === 0}>
-            <CheckCircle2 className="mr-2 h-4 w-4" /> Save Return
+            <CheckCircle2 className="mr-2 h-4 w-4" /> Save Rental Return
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Return Items</CardTitle>
+          <CardTitle>Rental Return Items</CardTitle>
         </CardHeader>
         <CardContent>
           {items.length === 0 ? (

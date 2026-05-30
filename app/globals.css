@@ -671,8 +671,199 @@
   }
   
   /* Hide other non-essential UI elements during print */
-  .print\\:hidden,
+  .print\:hidden,
   [data-print-hidden="true"] {
     display: none !important;
   }
 }
+
+/* ============================================
+   DESKTOP COMPACT MODE OVERRIDES
+   ============================================ */
+@media (min-width: 1024px) {
+  /* 1. Spacing, Gaps, Margins, and Containers */
+  .p-6, .md\:p-6 {
+    padding: 1rem !important;
+  }
+  .p-8, .md\:p-8 {
+    padding: 1.25rem !important;
+  }
+  .pt-6, .md\:pt-6 {
+    padding-top: 1rem !important;
+  }
+  .pb-6, .md\:pb-6 {
+    padding-bottom: 1rem !important;
+  }
+  .pb-2 {
+    padding-bottom: 0.35rem !important;
+  }
+  .pb-4 {
+    padding-bottom: 0.5rem !important;
+  }
+  .gap-6 {
+    gap: 1rem !important;
+  }
+  .gap-4 {
+    gap: 0.75rem !important;
+  }
+  .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem !important;
+  }
+  .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem !important;
+  }
+  .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.5rem !important;
+  }
+  .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.25rem !important;
+  }
+  .container {
+    max-width: 98% !important;
+  }
+
+  /* 2. Card Layouts */
+  .card-heritage, .card-cream, .dashboard-card-heritage, [class*="card-heritage"] {
+    border-radius: 0.75rem !important;
+  }
+
+  /* 3. Forms & Fields Heights */
+  input.h-10,
+  select.h-10,
+  button.h-10,
+  a.h-10,
+  .h-10:not(svg):not(img) {
+    height: 2.125rem !important; /* 34px */
+  }
+  input.h-11,
+  select.h-11,
+  button.h-11 {
+    height: 2.375rem !important; /* 38px */
+  }
+  input.h-9,
+  select.h-9,
+  button.h-9 {
+    height: 1.875rem !important; /* 30px */
+  }
+  
+  /* Compact Inputs/Buttons internal text and padding */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    font-size: 0.85rem !important;
+  }
+  
+  button, 
+  .btn-primary,
+  .btn-secondary,
+  .btn-dark {
+    font-size: 0.85rem !important;
+  }
+
+  /* Compact button/icon svgs */
+  button svg, 
+  .btn-primary svg, 
+  .btn-secondary svg,
+  [class*="sidebar"] svg {
+    width: 0.95rem !important;
+    height: 0.95rem !important;
+  }
+
+  /* 4. CRM Dense Data Tables */
+  th, 
+  td,
+  table th, 
+  table td,
+  [role="gridcell"],
+  [role="columnheader"] {
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+    padding-left: 0.65rem !important;
+    padding-right: 0.65rem !important;
+    font-size: 0.8125rem !important; /* 13px */
+    line-height: 1.25rem !important;
+  }
+  th,
+  table th,
+  [role="columnheader"] {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Dense Table action buttons */
+  td button,
+  td a button,
+  td .button,
+  table td button {
+    height: 1.75rem !important; /* 28px */
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+  td svg,
+  table td svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+  
+  /* Table badges */
+  td .badge,
+  td [class*="badge"],
+  table td span[class*="bg-"] {
+    font-size: 0.7rem !important;
+    padding: 0.1rem 0.4rem !important;
+  }
+
+  /* 5. Compact Sidebar */
+  .heritage-sidebar {
+    --sidebar-width: 14.5rem !important;
+  }
+  .heritage-sidebar [data-sidebar="header"] {
+    padding: 0.4rem 0 !important;
+  }
+  .heritage-sidebar [data-sidebar="header"] img {
+    max-height: 32px !important;
+  }
+  .heritage-sidebar-item {
+    height: 1.875rem !important; /* 30px */
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+    font-size: 0.85rem !important;
+  }
+  .vintage-subtitle {
+    margin-top: 0.4rem !important;
+    margin-bottom: 0.2rem !important;
+    font-size: 0.725rem !important;
+  }
+  .heritage-sidebar [data-sidebar="group-label"] {
+    height: 1.5rem !important;
+    margin-top: 0.35rem !important;
+    margin-bottom: 0.15rem !important;
+  }
+
+  /* 6. Compact Typography */
+  h1, .text-3xl {
+    font-size: 1.375rem !important; /* ~22px */
+    line-height: 1.875rem !important;
+  }
+  h2, .text-2xl {
+    font-size: 1.15rem !important; /* ~18px */
+    line-height: 1.625rem !important;
+  }
+  h3, .text-xl {
+    font-size: 1rem !important; /* 16px */
+    line-height: 1.375rem !important;
+  }
+  .text-lg {
+    font-size: 0.9rem !important;
+  }
+  p.text-muted-foreground,
+  .text-muted-foreground {
+    font-size: 0.8rem !important;
+  }
+}
+

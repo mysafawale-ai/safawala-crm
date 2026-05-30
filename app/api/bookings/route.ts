@@ -136,6 +136,8 @@ export async function GET(request: NextRequest) {
 
     let productTotals: Record<string, number> = {}
     let packageTotals: Record<string, number> = {}
+    const ordersWithAnyItems = new Set<string>()
+    const packagesWithAnyItems = new Set<string>()
 
     if (productIds.length > 0) {
       // Fetch items with product details to identify Safa products
@@ -147,6 +149,12 @@ export async function GET(request: NextRequest) {
           product_id
         `)
         .in('order_id', productIds)
+      
+      if (poItems) {
+        for (const item of poItems) {
+          if (item.order_id) ordersWithAnyItems.add(item.order_id)
+        }
+      }
       
       // Get all unique product IDs
       const productItemIds = [...new Set(poItems?.map(i => i.product_id).filter(Boolean) || [])]
@@ -206,6 +214,24 @@ export async function GET(request: NextRequest) {
         .in('booking_id', packageIds)
       
       pkgItems = pkgItemsData || []
+      
+      if (pkgItemsData) {
+        for (const item of pkgItemsData) {
+          if (item.booking_id) packagesWithAnyItems.add(item.booking_id)
+        }
+      }
+
+      // Also check package_booking_product_items to see if product items are assigned
+      const { data: pkgProdItems } = await supabase
+        .from('package_booking_product_items')
+        .select('package_booking_id')
+        .in('package_booking_id', packageIds)
+      
+      if (pkgProdItems) {
+        for (const item of pkgProdItems) {
+          if (item.package_booking_id) packagesWithAnyItems.add(item.package_booking_id)
+        }
+      }
       
       // Get unique category IDs
       const categoryIds = [...new Set(pkgItems.map(item => item.category_id).filter(Boolean) || [])]
@@ -331,7 +357,7 @@ export async function GET(request: NextRequest) {
       type: 'package' as const,
       booking_kind: 'package' as const,
       total_safas: packageTotals[r.id] || 0,
-      has_items: (packageTotals[r.id] || 0) > 0,
+      has_items: packagesWithAnyItems.has(r.id),
       is_archived: r.is_archived || false,
       // Add package details
       package_details: packageDetails,
@@ -385,7 +411,7 @@ export async function GET(request: NextRequest) {
       type: r.booking_type === 'sale' ? 'sale' : 'rental',
       booking_kind: 'product' as const,
       total_safas: productTotals[r.id] || 0,
-      has_items: (productTotals[r.id] || 0) > 0,
+      has_items: ordersWithAnyItems.has(r.id),
       is_archived: r.is_archived || false,
       // Modification fields for calendar tab
       has_modifications: r.has_modifications || false,
@@ -396,6 +422,7 @@ export async function GET(request: NextRequest) {
     // Compute item totals for direct sales (only Safa products)
     const directSalesIds = (directSalesRes.data || []).map((r: any) => r.id)
     let directSalesTotals: Record<string, number> = {}
+    const directSalesWithAnyItems = new Set<string>()
 
     if (directSalesIds.length > 0) {
       // Fetch from direct_sales_items with product_id
@@ -409,6 +436,17 @@ export async function GET(request: NextRequest) {
         .from('product_order_items')
         .select('order_id, quantity, product_id')
         .in('order_id', directSalesIds)
+      
+      if (dsiItems) {
+        for (const item of dsiItems) {
+          if (item.sale_id) directSalesWithAnyItems.add(item.sale_id)
+        }
+      }
+      if (poiItems) {
+        for (const item of poiItems) {
+          if (item.order_id) directSalesWithAnyItems.add(item.order_id)
+        }
+      }
       
       // Collect all product IDs from both sources
       const allProductIds = [
@@ -506,7 +544,7 @@ export async function GET(request: NextRequest) {
       type: 'sale' as const,
       booking_kind: 'product' as const,
       total_safas: directSalesTotals[r.id] || 0,
-      has_items: (directSalesTotals[r.id] || 0) > 0,
+      has_items: directSalesWithAnyItems.has(r.id),
       is_archived: r.is_archived || false,
     }))
 

@@ -69,6 +69,8 @@ import { ProductSelector } from "@/components/products/product-selector"
 import { Checkbox } from "@/components/ui/checkbox"
 import { supabase as supabaseClient } from "@/lib/supabase"
 import { fetchProductsWithBarcodes } from "@/lib/product-barcode-service"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+
 
 interface Customer {
   id: string
@@ -239,6 +241,11 @@ export default function CreateInvoicePage() {
   const [sendWhatsAppInvoice, setSendWhatsAppInvoice] = useState(true)
   const [applyGst, setApplyGst] = useState(false)
 
+  // Modification Form States
+  const [modService, setModService] = useState<string>("")
+  const [modCost, setModCost] = useState<number>(0)
+  const [customModService, setCustomModService] = useState<string>("")
+
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [editingOrderCustomerId, setEditingOrderCustomerId] = useState<string | null>(null)
@@ -382,10 +389,19 @@ export default function CreateInvoicePage() {
   // Load company settings for PDF header
   const loadCompanySettings = async () => {
     try {
-      const response = await fetch("/api/company-settings", { cache: "no-store" })
+      const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+      const user = userRes.ok ? await userRes.json() : null
+      const userFranchiseId = user?.franchise_id
+
+      let apiUrl = '/api/settings/all'
+      if (userFranchiseId) {
+        apiUrl += `?franchise_id=${encodeURIComponent(userFranchiseId)}`
+      }
+      
+      const response = await fetch(apiUrl, { cache: "no-store" })
       if (response.ok) {
         const data = await response.json()
-        setCompanySettings(data)
+        setCompanySettings(data.merged || data.company)
       }
     } catch (error) {
       console.error("[CreateInvoice] Failed to load company settings:", error)
@@ -489,7 +505,7 @@ export default function CreateInvoicePage() {
       const mappedProducts = productsWithBarcodes.map(p => ({
         id: p.id,
         name: p.name,
-        category: categoryMap[p.category_id] || '', // Lookup category name from category_id
+        category: p.category_id ? (categoryMap[p.category_id] || '') : '', // Lookup category name from category_id
         category_id: p.category_id,
         subcategory_id: undefined,
         rental_price: p.rental_price || 0,
@@ -997,13 +1013,59 @@ export default function CreateInvoicePage() {
     setLoading(false)
   }
 
+  // Add a modification service to the items list
+  const handleAddModService = () => {
+    const finalServiceName = modService === "Other" ? customModService : modService
+    if (!finalServiceName.trim()) {
+      toast({ title: "Error", description: "Please enter or select a service name", variant: "destructive" })
+      return
+    }
+    if (modCost <= 0) {
+      toast({ title: "Error", description: "Cost must be greater than zero", variant: "destructive" })
+      return
+    }
+
+    const newItem: InvoiceItem = {
+      id: `mod-${Date.now()}`,
+      product_id: 'modification-service',
+      product_name: `Modification: ${finalServiceName}`,
+      quantity: 1,
+      unit_price: modCost,
+      total_price: modCost,
+      category: 'Modification'
+    }
+
+    setInvoiceItems(prev => [...prev, newItem])
+    
+    // Update modifications details
+    setInvoiceData(prev => ({
+      ...prev,
+      has_modifications: true,
+      modifications_details: prev.modifications_details 
+        ? `${prev.modifications_details}, ${finalServiceName} (₹${modCost})` 
+        : `${finalServiceName} (₹${modCost})`
+    }))
+
+    // Reset inputs
+    setModService("")
+    setModCost(0)
+    setCustomModService("")
+    
+    toast({ title: "Service Added", description: `Added "${finalServiceName}" modification service` })
+  }
+
   // Calculations
   // When package mode: items are included in package price (for tracking only), don't add their prices
   // Only extraItems are additional products beyond the package
   const additionalItemsSubtotal = extraItems.reduce((sum, item) => sum + item.total_price, 0)
-  // Items subtotal only counts when NOT in package mode (individual product selection)
+  
+  // In package mode, only modification service items from invoiceItems add to the price (along with any extra items)
+  const modificationsSubtotal = invoiceItems
+    .filter(item => item.product_id === 'modification-service' || item.category === 'Modification')
+    .reduce((sum, item) => sum + item.total_price, 0)
+
   const itemsSubtotal = selectionMode === "package" 
-    ? additionalItemsSubtotal  // In package mode, only extra items add to price
+    ? modificationsSubtotal + additionalItemsSubtotal
     : invoiceItems.reduce((sum, item) => sum + item.total_price, 0) + additionalItemsSubtotal
   // Include package price if a package is selected (package is now a variant directly)
   const packagePrice = selectionMode === "package" && selectedPackage 
@@ -1930,23 +1992,32 @@ export default function CreateInvoicePage() {
     try {
       const response = await fetch('/api/coupons/validate', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: invoiceData.coupon_code,
           invoice_type: invoiceData.invoice_type,
-          subtotal: baseSubtotal
+          subtotal: baseSubtotal,
+          orderValue: baseSubtotal
         })
       })
 
       if (!response.ok) {
         const error = await response.json()
-        setCouponError(error.message || "Invalid or expired coupon")
+        setCouponError(error.message || error.error || "Invalid or expired coupon")
         setInvoiceData(prev => ({ ...prev, coupon_discount: 0 }))
         setAppliedCoupon(null)
         return
       }
 
       const data = await response.json()
+      if (data.valid === false) {
+        setCouponError(data.message || data.error || "Invalid or expired coupon")
+        setInvoiceData(prev => ({ ...prev, coupon_discount: 0 }))
+        setAppliedCoupon(null)
+        return
+      }
+
       setInvoiceData(prev => ({
         ...prev,
         coupon_discount: data.discount || 0
@@ -1979,6 +2050,17 @@ export default function CreateInvoicePage() {
     window.print()
     document.title = originalTitle
   }
+
+  // Auto-trigger print if requested via query parameter
+  useEffect(() => {
+    if (!loading && orderId && searchParams.get("print") === "true" && invoiceData.invoice_number) {
+      console.log("[CreateInvoice] Auto-triggering print for invoice:", invoiceData.invoice_number)
+      const timer = setTimeout(() => {
+        handlePrint()
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [loading, orderId, searchParams, invoiceData.invoice_number, selectedCustomer])
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -2116,14 +2198,14 @@ export default function CreateInvoicePage() {
         </div>
 
         {/* ========== WEB-ONLY HEADER ========== */}
-        <div className="print:hidden bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-t-lg">
+        <div className="print:hidden bg-gradient-to-r from-[#102516] to-[#1a3a26] text-[#fefaf6] p-6 rounded-t-lg border-b border-amber-900/10">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-3xl font-bold">SAFAWALA</h2>
-              <p className="text-orange-100 text-sm mt-1">Premium Wedding Accessories</p>
+              <h2 className="text-3xl font-bold tracking-wider font-serif" style={{ fontFamily: "var(--font-cinzel), serif" }}>SAFAWALA</h2>
+              <p className="text-emerald-100/80 text-xs mt-1 font-serif" style={{ fontFamily: "var(--font-crimson), serif" }}>Premium Wedding Turbans & Accessories</p>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold tracking-wide font-serif" style={{ fontFamily: "var(--font-cinzel), serif" }}>
                 {mode === "final-bill" ? "FINAL BILL" : invoiceData.invoice_type === "rental" ? "RENTAL INVOICE" : "SALE INVOICE"}
               </div>
               <div className="mt-2">
@@ -2131,7 +2213,7 @@ export default function CreateInvoicePage() {
                   value={invoiceData.invoice_type}
                   onValueChange={(v) => setInvoiceData({ ...invoiceData, invoice_type: v as any })}
                 >
-                  <SelectTrigger className="w-32 bg-white/20 border-white/30 text-white">
+                  <SelectTrigger className="w-32 bg-white/10 border-white/20 text-[#fefaf6] hover:bg-white/20 transition-all">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2157,34 +2239,23 @@ export default function CreateInvoicePage() {
 
           {/* Event Details - Rental Only */}
           {invoiceData.invoice_type === "rental" && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-gray-50 px-2 py-1.5 rounded">
-                <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Event Details</div>
-                <div className="space-y-0.5 text-[10px]">
+            <div className="bg-gray-50 px-2 py-1.5 rounded">
+              <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Event Details</div>
+              <div className="grid grid-cols-2 gap-4 text-[10px]">
+                <div className="space-y-0.5">
                   <div><span className="text-gray-500">Event:</span> <span className="font-medium capitalize">{invoiceData.event_type}</span></div>
                   <div><span className="text-gray-500">For:</span> <span className="font-medium capitalize">{invoiceData.event_participant}</span></div>
+                </div>
+                <div className="space-y-0.5">
                   {invoiceData.event_date && <div><span className="text-gray-500">Event Date:</span> <span className="font-medium">{format(new Date(invoiceData.event_date), "dd MMM yyyy")}</span></div>}
                   {invoiceData.event_time && <div><span className="text-gray-500">Event Time:</span> <span className="font-medium">{formatTime12h(invoiceData.event_time)}</span></div>}
                 </div>
               </div>
-              <div className="bg-gray-50 px-2 py-1.5 rounded">
-                <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Delivery & Return</div>
-                <div className="space-y-0.5 text-[10px]">
-                  {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {formatTime12h(invoiceData.delivery_time)}</span></div>}
-                  {invoiceData.return_date && <div><span className="text-gray-500">Return:</span> <span className="font-medium">{format(new Date(invoiceData.return_date), "dd MMM yyyy")} {formatTime12h(invoiceData.return_time)}</span></div>}
-                  {invoiceData.venue_address && <div><span className="text-gray-500">Venue:</span> <span className="font-medium">{invoiceData.venue_address}</span></div>}
+              {invoiceData.venue_address && (
+                <div className="mt-1.5 pt-1.5 border-t border-gray-200/50 text-[10px]">
+                  <span className="text-gray-500">Venue:</span> <span className="font-medium text-gray-800">{invoiceData.venue_address}</span>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sale Details */}
-          {invoiceData.invoice_type === "sale" && (
-            <div className="bg-gray-50 px-2 py-1.5 rounded">
-              <div className="text-[9px] text-amber-700 font-medium mb-1 border-b border-amber-200 pb-0.5">Delivery Details</div>
-              <div className="text-[10px]">
-                {invoiceData.delivery_date && <div><span className="text-gray-500">Delivery:</span> <span className="font-medium">{format(new Date(invoiceData.delivery_date), "dd MMM yyyy")} {formatTime12h(invoiceData.delivery_time)}</span></div>}
-              </div>
+              )}
             </div>
           )}
 
@@ -2259,705 +2330,495 @@ export default function CreateInvoicePage() {
             </div>
           </div>
 
-          {/* Customer & Event Section - Improved Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Customer Details Card */}
-            <Card className="p-4 shadow-sm border-l-4 border-l-orange-500">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-orange-100 rounded-lg">
-                    <User className="h-4 w-4 text-orange-600" />
-                  </div>
-                  <span className="font-semibold text-gray-800">Customer</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="print:hidden h-8 text-xs border-orange-200 hover:bg-orange-50 hover:text-orange-600"
-                  onClick={() => setShowNewCustomerDialog(true)}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  New
-                </Button>
-              </div>
+          {/* ================= WEB-ONLY CONTENT START ================= */}
+          <div className="p-4 md:p-6 print:hidden bg-[#fefaf6] space-y-6">
+            <Tabs defaultValue="details" className="w-full">
+                  <TabsList className="grid grid-cols-3 bg-[#f6e1c3]/30 p-1 rounded-xl mb-4 border border-[#102516]/10">
+                    <TabsTrigger value="details" className="data-[state=active]:bg-[#102516] data-[state=active]:text-[#fefaf6] text-[#102516] rounded-lg py-1.5 font-serif font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
+                      <User className="h-4 w-4" />
+                      Details
+                    </TabsTrigger>
+                    <TabsTrigger value="items" className="data-[state=active]:bg-[#102516] data-[state=active]:text-[#fefaf6] text-[#102516] rounded-lg py-1.5 font-serif font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
+                      <Package className="h-4 w-4" />
+                      Products
+                    </TabsTrigger>
+                    <TabsTrigger value="settlement" className="data-[state=active]:bg-[#102516] data-[state=active]:text-[#fefaf6] text-[#102516] rounded-lg py-1.5 font-serif font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
+                      <FileCheck className="h-4 w-4" />
+                      Settlement
+                    </TabsTrigger>
+                  </TabsList>
 
-              {/* Customer Search */}
-              <div className="print:hidden mb-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search customers..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-10 h-9 text-sm bg-gray-50 border-gray-200 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* Customer List or Selected Customer */}
-              {selectedCustomer ? (
-                <div className="p-3 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 flex items-start justify-between">
-                  <div className="space-y-0.5">
-                    <div className="font-semibold text-orange-900">
-                      {selectedCustomer.name}
-                    </div>
-                    <div className="text-sm text-orange-700 flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {selectedCustomer.phone}
-                    </div>
-                    {selectedCustomer.email && (
-                      <div className="text-xs text-orange-600">
-                        {selectedCustomer.email}
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="print:hidden h-7 w-7 p-0 hover:bg-orange-200"
-                    onClick={() => setSelectedCustomer(null)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="border rounded-lg max-h-48 overflow-y-auto text-sm print:hidden bg-white">
-                  {customersLoading ? (
-                    <div className="space-y-0">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="p-3 border-b last:border-b-0">
-                          <div className="h-4 w-28 mb-1.5 bg-gray-200 rounded animate-pulse" />
-                          <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <>
-                      {(customerSearch ? filteredCustomers : customers.slice(0, 4)).map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => setSelectedCustomer(c)}
-                          className="w-full text-left p-2.5 border-b last:border-b-0 hover:bg-orange-50 transition-colors group"
-                        >
-                          <div className="font-medium text-gray-800 group-hover:text-orange-700">{c.name}</div>
-                          <div className="text-xs text-gray-500">
-                            {c.phone}
+                  {/* TAB 1: CUSTOMER & EVENT DETAILS */}
+                  <TabsContent value="details" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
+                    
+                    {/* Customer Selection Card */}
+                    <Card className="p-4 shadow-sm border-l-4 border-l-[#102516] bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8]">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-emerald-100 rounded-lg">
+                            <User className="h-4 w-4 text-[#102516]" />
                           </div>
-                        </button>
-                      ))}
-                      {customerSearch && filteredCustomers.length === 0 && (
-                        <div className="p-3 text-xs text-gray-500 text-center">
-                          No matches found
+                          <span className="font-semibold text-gray-800 font-serif">Customer Details</span>
                         </div>
-                      )}
-                      {!customerSearch && customers.length > 4 && (
-                        <div className="p-2 text-xs text-gray-500 text-center bg-gray-50 border-t">
-                          Type to search {customers.length} customers...
-                        </div>
-                      )}
-                      {!customerSearch && customers.length === 0 && !customersLoading && (
-                        <div className="p-3 text-xs text-gray-500 text-center">
-                          No customers found
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </Card>
-
-            {/* Event / Delivery Details */}
-            {invoiceData.invoice_type === "rental" ? (
-              <>
-                {/* Full event details for rentals - spans 2 columns */}
-                <Card className="p-4 shadow-sm border-l-4 border-l-blue-500 lg:col-span-2">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="p-1.5 bg-blue-100 rounded-lg">
-                      <CalendarIcon className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <span className="font-semibold text-gray-800">Event Details</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 text-xs md:text-sm">
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Type</Label>
-                      <Select
-                        value={invoiceData.event_type}
-                        onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
-                      >
-                        <SelectTrigger className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="wedding">Wedding</SelectItem>
-                          <SelectItem value="engagement">Engagement</SelectItem>
-                          <SelectItem value="reception">Reception</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">For</Label>
-                      <Select
-                        value={invoiceData.event_participant}
-                        onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
-                      >
-                        <SelectTrigger className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="both">Both</SelectItem>
-                          <SelectItem value="groom">Groom Only</SelectItem>
-                          <SelectItem value="bride">Bride Only</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Date <span className="text-red-500">*</span></Label>
-                      <div className="relative">
-                        <Input
-                          type="date"
-                          value={invoiceData.event_date}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
-                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 pr-8 print:border-0 print:p-0 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                        />
-                        <CalendarIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Event Time</Label>
-                      <div className="relative">
-                        <Input
-                          type="time"
-                          value={invoiceData.event_time}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
-                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Delivery Date</Label>
-                      <div className="relative">
-                        <Input
-                          type="date"
-                          value={invoiceData.delivery_date}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, delivery_date: e.target.value })}
-                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 pr-8 print:border-0 print:p-0 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                        />
-                        <CalendarIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Delivery Time</Label>
-                      <div className="relative">
-                        <Input
-                          type="time"
-                          value={invoiceData.delivery_time}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
-                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Return Date</Label>
-                      <div className="relative">
-                        <Input
-                          type="date"
-                          value={invoiceData.return_date}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, return_date: e.target.value })}
-                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 pr-8 print:border-0 print:p-0 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-8 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                        />
-                        <CalendarIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Return Time</Label>
-                      <div className="relative">
-                        <Input
-                          type="time"
-                          value={invoiceData.return_time}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, return_time: e.target.value })}
-                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                        />
-                      </div>
-                    </div>
-                    {/* Venue Address - full width at bottom */}
-                    <div className="col-span-2 md:col-span-4 pt-2 border-t border-gray-100 mt-1">
-                      <Label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        Venue Address
-                      </Label>
-                      <Textarea
-                        value={invoiceData.venue_address}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
-                        placeholder="Enter venue address..."
-                        rows={2}
-                        className="bg-gray-50 border-gray-200 resize-none print:border-0 print:p-0"
-                      />
-                    </div>
-                  </div>
-                </Card>
-              </>
-            ) : (
-              /* Direct sale layout: only delivery details + address */
-              <Card className="p-4 shadow-sm border-l-4 border-l-green-500 lg:col-span-2">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-1.5 bg-green-100 rounded-lg">
-                    <CalendarIcon className="h-4 w-4 text-green-600" />
-                  </div>
-                  <span className="font-semibold text-gray-800">Direct Sale Details</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                  <div>
-                    <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Date</Label>
-                    <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
-                      <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          className="w-full justify-start text-left h-9 bg-gray-50 border-gray-200"
+                          size="sm"
+                          type="button"
+                          className="print:hidden h-8 text-xs border-[#102516]/20 text-[#102516] hover:bg-[#102516] hover:text-white transition-all font-serif"
+                          onClick={() => setShowNewCustomerDialog(true)}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {invoiceData.delivery_date
-                            ? format(new Date(invoiceData.delivery_date), "dd/MM/yyyy")
-                            : "Pick a date"}
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          New
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            invoiceData.delivery_date
-                              ? new Date(invoiceData.delivery_date)
-                              : undefined
-                          }
-                          onSelect={(d) => {
-                            setInvoiceData({
-                              ...invoiceData,
-                              delivery_date: d?.toISOString().split('T')[0] || "",
-                            })
-                            setDeliveryDateOpen(false)
-                          }}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-500 mb-1.5 block">Delivery Time</Label>
-                    <Input
-                      type="time"
-                      value={invoiceData.delivery_time}
-                      onChange={(e) => setInvoiceData({ ...invoiceData, delivery_time: e.target.value })}
-                      className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                    />
-                  </div>
-                </div>
-
-                {/* 🔧 Modifications Section for Direct Sales */}
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <Checkbox
-                      id="hasModifications"
-                      checked={invoiceData.has_modifications}
-                      onCheckedChange={(checked) =>
-                        setInvoiceData({
-                          ...invoiceData,
-                          has_modifications: checked === true,
-                        })
-                      }
-                    />
-                    <Label htmlFor="hasModifications" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                      🔧 Modifications Required
-                    </Label>
-                  </div>
-
-                  {invoiceData.has_modifications && (
-                    <div className="space-y-4 bg-amber-50/50 p-3 rounded-lg border border-amber-200">
-                      <div>
-                        <Label className="text-xs font-medium text-amber-800">Modification Details *</Label>
-                        <Textarea
-                          rows={2}
-                          value={invoiceData.modifications_details}
-                          onChange={(e) =>
-                            setInvoiceData({
-                              ...invoiceData,
-                              modifications_details: e.target.value,
-                            })
-                          }
-                          className="mt-1 bg-white"
-                          placeholder="Describe modifications needed (e.g., color change, size adjustment, embroidery, etc.)"
-                        />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs font-medium text-amber-800">Modification Date *</Label>
-                          <Popover open={modificationDateOpen} onOpenChange={setModificationDateOpen}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="w-full justify-start text-left h-9 bg-white"
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {invoiceData.modification_date
-                                  ? format(new Date(invoiceData.modification_date), "dd/MM/yyyy")
-                                  : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={
-                                  invoiceData.modification_date
-                                    ? new Date(invoiceData.modification_date)
-                                    : undefined
-                                }
-                                onSelect={(d) => {
-                                  setInvoiceData({
-                                    ...invoiceData,
-                                    modification_date: d?.toISOString() || "",
-                                  })
-                                  setModificationDateOpen(false)
-                                }}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-
-                        <div>
-                          <Label className="text-xs font-medium text-amber-800">Modification Time *</Label>
+                      {/* Customer Search */}
+                      <div className="print:hidden mb-3">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                           <Input
-                            type="time"
-                            value={invoiceData.modification_time}
-                            onChange={(e) =>
-                              setInvoiceData({ ...invoiceData, modification_time: e.target.value })
-                            }
-                            className="h-9 bg-white"
+                            placeholder="Search customers..."
+                            value={customerSearch}
+                            onChange={(e) => setCustomerSearch(e.target.value)}
+                            className="pl-10 h-9 text-xs bg-white border-gray-200 focus:border-[#102516] focus:ring-1 focus:ring-[#102516]"
                           />
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )}
-          </div>
 
-          {/* Groom & Bride Details - separate section, only for rentals */}
-          {invoiceData.invoice_type === "rental" && (
-            <div className={`grid gap-4 ${
-              invoiceData.event_participant === "both" 
-                ? "grid-cols-1 md:grid-cols-2" 
-                : "grid-cols-1 md:max-w-md"
-            }`}>
-              {/* Groom Details - show for "groom" or "both" */}
-              {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && (
-                <Card className="p-4 shadow-sm border-l-4 border-l-sky-500">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="p-1.5 bg-sky-100 rounded-lg">
-                      <User className="h-4 w-4 text-sky-600" />
-                    </div>
-                    <span className="font-semibold text-gray-800">Groom Details</span>
-                  </div>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Name</Label>
-                      <Input
-                        value={invoiceData.groom_name}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
-                        placeholder="Groom's name"
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">WhatsApp</Label>
-                      <Input
-                        value={invoiceData.groom_whatsapp}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
-                        placeholder="WhatsApp number"
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Address</Label>
-                      <Textarea
-                        value={invoiceData.groom_address}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
-                        placeholder="Address"
-                        rows={2}
-                        className="bg-gray-50 border-gray-200 resize-none print:border-0 print:p-0"
-                      />
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {/* Bride Details - show for "bride" or "both" */}
-              {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && (
-                <Card className="p-4 shadow-sm border-l-4 border-l-pink-500">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="p-1.5 bg-pink-100 rounded-lg">
-                      <User className="h-4 w-4 text-pink-600" />
-                    </div>
-                    <span className="font-semibold text-gray-800">Bride Details</span>
-                  </div>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Name</Label>
-                      <Input
-                        value={invoiceData.bride_name}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
-                        placeholder="Bride's name"
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">WhatsApp</Label>
-                      <Input
-                        value={invoiceData.bride_whatsapp}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
-                        placeholder="WhatsApp number"
-                        className="h-9 bg-gray-50 border-gray-200 print:border-0 print:p-0"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">Address</Label>
-                      <Textarea
-                        value={invoiceData.bride_address}
-                        onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
-                        placeholder="Address"
-                        rows={2}
-                        className="bg-gray-50 border-gray-200 resize-none print:border-0 print:p-0"
-                      />
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-
-
-
-          {/* Selection Mode Toggle & Options - Only for rentals */}
-          {invoiceData.invoice_type === "rental" && (
-            <Card className="p-4 mb-4 print:hidden bg-gray-50">
-              <div className="mb-4 pb-4 border-b border-gray-200">
-                <Label className="text-sm font-medium mb-2 block">Selection Mode</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={selectionMode === "products" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setSelectionMode("products")
-                      setSelectedPackage(null)
-                      setSelectedPackageVariant(null)
-                      setSelectedPackageCategory("")
-                      setUseCustomPackagePrice(false)
-                      setCustomPackagePrice(0)
-                    }}
-                    className="flex-1"
-                  >
-                    <Package className="h-4 w-4 mr-2" />
-                    Individual Products
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={selectionMode === "package" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectionMode("package")}
-                    className="flex-1"
-                  >
-                    <Tag className="h-4 w-4 mr-2" />
-                    Package
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          )}
-
-            {/* Package Selector - Show when package mode is selected (rental only) */}
-            {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
-              <Card className="p-4 mb-4 print:hidden">
-                {/* Debug info */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="text-xs bg-gray-100 p-2 rounded mb-3 font-mono">
-                    📦 Categories: {packagesCategories.length} | Packages: {packages.length}
-                    {packages.length > 0 && packages[0].category_id && (
-                      <span> | Sample category_id: {packages[0].category_id}</span>
-                    )}
-                    {selectedPackageCategory && (
-                      <span> | Selected: {selectedPackageCategory}</span>
-                    )}
-                  </div>
-                )}
-                {packagesLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                    <span className="ml-2 text-gray-500">Loading packages...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Package Category Selection */}
-                    <div>
-                      <Label className="text-sm font-medium mb-2 block">Step 1: Select Package Category</Label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {packagesCategories.map((cat) => (
-                          <Button
-                            key={cat.id}
-                            type="button"
-                            variant={selectedPackageCategory === cat.id ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              console.log("[CreateInvoice] Category clicked:", cat.name, cat.id)
-                              console.log("[CreateInvoice] Total packages in state:", packages.length)
-                              const filtered = packages.filter(pkg => pkg.category_id === cat.id || (pkg as any).package_id === cat.id)
-                              console.log("[CreateInvoice] Filtered packages for category:", filtered.length)
-                              if (packages.length > 0 && filtered.length === 0) {
-                                console.log("[CreateInvoice] No match! Sample package:", packages[0])
-                                console.log("[CreateInvoice]   category_id:", packages[0].category_id)
-                                console.log("[CreateInvoice]   package_id:", (packages[0] as any).package_id)
-                              }
-                              
-                              // Extract safa limit from category name (e.g., "31 Safas" → 31)
-                              const match = cat.name.match(/(\d+)\s*Safa/i)
-                              const limit = match ? parseInt(match[1]) : null
-                              console.log("[CreateInvoice] Extracted safa limit from category:", cat.name, "→", limit)
-                              setSafaLimit(limit)
-                              
-                              setSelectedPackageCategory(cat.id)
-                              setSelectedPackage(null)
-                              setSelectedPackageVariant(null)
-                              setUseCustomPackagePrice(false)
-                              setCustomPackagePrice(0)
-                            }}
-                            className="justify-start"
-                          >
-                            {cat.name}
-                          </Button>
-                        ))}
-                      </div>
-                      {packagesCategories.length === 0 && (
-                        <p className="text-sm text-gray-500 text-center py-4">No package categories found</p>
-                      )}
-                    </div>
-
-                    {/* Package/Variant Selection - Direct from category */}
-                    {selectedPackageCategory && (
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Step 2: Select Package</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {packages
-                            .filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory)
-                            .map((pkg) => (
-                              <div
-                                key={pkg.id}
-                                className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                                  selectedPackage?.id === pkg.id
-                                    ? "border-green-500 bg-green-50"
-                                    : "border-gray-200 hover:border-gray-300"
-                                }`}
-                                onClick={() => {
-                                  setSelectedPackage(pkg)
-                                  setSelectedPackageVariant(null)
-                                  setUseCustomPackagePrice(false)
-                                  setCustomPackagePrice(0)
-                                  // AUTO-FILL security deposit field with package security deposit
-                                  if (pkg.security_deposit && pkg.security_deposit > 0) {
-                                    setInvoiceData(prev => ({
-                                      ...prev,
-                                      security_deposit: pkg.security_deposit
-                                    }))
-                                  }
-                                }}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h4 className="font-semibold">{pkg.name || pkg.variant_name}</h4>
-                                    {pkg.inclusions && (
-                                      <div className="flex flex-wrap gap-1 mt-1">
-                                        {(Array.isArray(pkg.inclusions) 
-                                          ? pkg.inclusions 
-                                          : typeof pkg.inclusions === 'string' 
-                                            ? pkg.inclusions.split(',').map((s: string) => s.trim())
-                                            : []
-                                        ).slice(0, 3).map((inc: string, i: number) => (
-                                          <Badge key={i} variant="outline" className="text-xs">{inc}</Badge>
-                                        ))}
-                                        {(Array.isArray(pkg.inclusions) ? pkg.inclusions.length : 0) > 3 && (
-                                          <Badge variant="outline" className="text-xs">+{(Array.isArray(pkg.inclusions) ? pkg.inclusions.length : 0) - 3} more</Badge>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-lg font-bold text-green-600">₹{pkg.base_price?.toLocaleString() || 0}</p>
-                                    {pkg.security_deposit > 0 && (
-                                      <p className="text-xs text-gray-500">+₹{pkg.security_deposit} deposit</p>
-                                    )}
-                                  </div>
-                                </div>
+                      {/* Customer List or Selected Customer */}
+                      {selectedCustomer ? (
+                        <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-800/10 flex items-start justify-between">
+                          <div className="space-y-0.5">
+                            <div className="font-semibold text-emerald-950 font-serif text-sm">
+                              {selectedCustomer.name}
+                            </div>
+                            <div className="text-xs text-emerald-800 flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {selectedCustomer.phone}
+                            </div>
+                            {selectedCustomer.email && (
+                              <div className="text-xs text-emerald-700">
+                                {selectedCustomer.email}
                               </div>
-                            ))}
-                        </div>
-                        {packages.filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory).length === 0 && (
-                          <div className="text-center py-4">
-                            <p className="text-sm text-gray-500">No packages in this category</p>
-                            <p className="text-xs mt-1 text-gray-400">
-                              Total packages loaded: {packages.length} | Category: {packagesCategories.find(c => c.id === selectedPackageCategory)?.name || selectedPackageCategory}
-                            </p>
-                            {packages.length === 0 && (
-                              <p className="text-xs mt-2 text-amber-500">
-                                ⚠️ No packages loaded. Check if package variants exist for your franchise.
-                              </p>
                             )}
                           </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="print:hidden h-7 w-7 p-0 hover:bg-emerald-100 text-[#102516]"
+                            onClick={() => setSelectedCustomer(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border border-gray-100 rounded-lg max-h-36 overflow-y-auto text-sm print:hidden bg-white">
+                          {customersLoading ? (
+                            <div className="space-y-0">
+                              {[1, 2, 3].map((i) => (
+                                <div key={i} className="p-2.5 border-b last:border-b-0">
+                                  <div className="h-4 w-24 mb-1 bg-gray-200 rounded animate-pulse" />
+                                  <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <>
+                              {(customerSearch ? filteredCustomers : customers.slice(0, 3)).map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => setSelectedCustomer(c)}
+                                  className="w-full text-left p-2 border-b last:border-b-0 hover:bg-emerald-50/45 transition-colors group flex items-center justify-between"
+                                >
+                                  <div>
+                                    <div className="font-medium text-gray-800 group-hover:text-emerald-900 text-xs">{c.name}</div>
+                                    <div className="text-[10px] text-gray-500">{c.phone}</div>
+                                  </div>
+                                  <Check className="h-3.5 w-3.5 text-emerald-700 opacity-0 group-hover:opacity-100" />
+                                </button>
+                              ))}
+                              {customerSearch && filteredCustomers.length === 0 && (
+                                <div className="p-3 text-xs text-gray-500 text-center">
+                                  No matches found
+                                </div>
+                              )}
+                              {!customerSearch && customers.length > 3 && (
+                                <div className="p-2 text-[10px] text-gray-500 text-center bg-gray-50/50 border-t">
+                                  Type to search {customers.length} customers...
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* Event Details Card */}
+                    {invoiceData.invoice_type === "rental" && (
+                      <Card className="p-4 shadow-sm border-l-4 border-l-[#102516] bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8]">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="p-1.5 bg-emerald-100 rounded-lg">
+                            <CalendarIcon className="h-4 w-4 text-[#102516]" />
+                          </div>
+                          <span className="font-semibold text-gray-800 font-serif">Event Details</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Type</Label>
+                            <Select
+                              value={invoiceData.event_type}
+                              onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
+                            >
+                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="wedding">Wedding</SelectItem>
+                                <SelectItem value="engagement">Engagement</SelectItem>
+                                <SelectItem value="reception">Reception</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-[10px] text-gray-500 mb-0.5 block">For</Label>
+                            <Select
+                              value={invoiceData.event_participant}
+                              onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
+                            >
+                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="both">Both</SelectItem>
+                                <SelectItem value="groom">Groom Only</SelectItem>
+                                <SelectItem value="bride">Bride Only</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Date *</Label>
+                            <Input
+                              type="date"
+                              value={invoiceData.event_date}
+                              onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
+                              className="h-8 text-xs bg-white border-gray-200"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Time</Label>
+                            <Input
+                              type="time"
+                              value={invoiceData.event_time}
+                              onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
+                              className="h-8 text-xs bg-white border-gray-200"
+                            />
+                          </div>
+
+                          <div className="col-span-2 pt-2 border-t border-gray-200/50 mt-1">
+                            <Label className="text-[10px] text-gray-500 mb-1 flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              Venue Address
+                            </Label>
+                            <Textarea
+                              value={invoiceData.venue_address}
+                              onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
+                              placeholder="Enter venue address..."
+                              rows={1.5}
+                              className="bg-white border-gray-200 resize-none text-xs"
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+
+                    {/* Groom & Bride details */}
+                    {invoiceData.invoice_type === "rental" && (
+                      <div className={`grid gap-3 ${invoiceData.event_participant === "both" ? "grid-cols-2" : "grid-cols-1"}`}>
+                        {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && (
+                          <Card className="p-3 shadow-sm border-l-4 border-l-sky-500 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8]">
+                            <div className="flex items-center gap-1.5 mb-2 border-b border-gray-200/50 pb-1">
+                              <User className="h-3.5 w-3.5 text-sky-600" />
+                              <span className="font-semibold text-gray-800 font-serif text-xs">Groom Details</span>
+                            </div>
+                            <div className="space-y-2 text-xs">
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Name</Label>
+                                <Input
+                                  value={invoiceData.groom_name}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
+                                  placeholder="Groom name"
+                                  className="h-8 bg-white border-gray-200 text-xs"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">WhatsApp</Label>
+                                <Input
+                                  value={invoiceData.groom_whatsapp}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
+                                  placeholder="WhatsApp number"
+                                  className="h-8 bg-white border-gray-200 text-xs"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Address</Label>
+                                <Textarea
+                                  value={invoiceData.groom_address}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
+                                  placeholder="Address"
+                                  rows={1.5}
+                                  className="bg-white border-gray-200 resize-none text-xs"
+                                />
+                              </div>
+                            </div>
+                          </Card>
+                        )}
+                        {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && (
+                          <Card className="p-3 shadow-sm border-l-4 border-l-pink-500 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8]">
+                            <div className="flex items-center gap-1.5 mb-2 border-b border-gray-200/50 pb-1">
+                              <User className="h-3.5 w-3.5 text-pink-600" />
+                              <span className="font-semibold text-gray-800 font-serif text-xs">Bride Details</span>
+                            </div>
+                            <div className="space-y-2 text-xs">
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Name</Label>
+                                <Input
+                                  value={invoiceData.bride_name}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
+                                  placeholder="Bride name"
+                                  className="h-8 bg-white border-gray-200 text-xs"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">WhatsApp</Label>
+                                <Input
+                                  value={invoiceData.bride_whatsapp}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
+                                  placeholder="WhatsApp number"
+                                  className="h-8 bg-white border-gray-200 text-xs"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Address</Label>
+                                <Textarea
+                                  value={invoiceData.bride_address}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
+                                  placeholder="Address"
+                                  rows={1.5}
+                                  className="bg-white border-gray-200 resize-none text-xs"
+                                />
+                              </div>
+                            </div>
+                          </Card>
                         )}
                       </div>
                     )}
+                  </TabsContent>
 
-                    {/* Selected Package Summary */}
-                    {selectedPackage && (
-                      <div className="space-y-3">
-                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-semibold text-green-800">Selected: {selectedPackage.name || selectedPackage.variant_name}</h4>
-                              {selectedPackage.inclusions && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {(Array.isArray(selectedPackage.inclusions) 
-                                    ? selectedPackage.inclusions 
-                                    : typeof selectedPackage.inclusions === 'string' 
-                                      ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
-                                      : []
-                                  ).map((inc: string, i: number) => (
-                                    <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold text-green-700">
-                                ₹{packagePrice.toLocaleString()}
-                              </p>
-                              {selectedPackage.security_deposit > 0 && (
-                                <p className="text-xs text-gray-500">+₹{selectedPackage.security_deposit} deposit</p>
-                              )}
-                            </div>
+                  {/* TAB 2: PRODUCTS & ITEMS */}
+                  <TabsContent value="items" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
+                    
+                    {/* Selection Mode Toggle */}
+                    {invoiceData.invoice_type === "rental" && (
+                      <Card className="p-3 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8] border border-[#102516]/10 shadow-sm">
+                        <Label className="text-xs font-semibold mb-2 block font-serif">Selection Mode</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={selectionMode === "products" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setSelectionMode("products")
+                              setSelectedPackage(null)
+                              setSelectedPackageVariant(null)
+                              setSelectedPackageCategory("")
+                              setUseCustomPackagePrice(false)
+                              setCustomPackagePrice(0)
+                            }}
+                            className={`flex-1 text-xs h-8 font-serif ${selectionMode === "products" ? "bg-[#102516] hover:bg-[#1a3a26] text-[#fefaf6]" : "text-[#102516] border-[#102516]/10"}`}
+                          >
+                            <Package className="h-3.5 w-3.5 mr-1" />
+                            Individual Products
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={selectionMode === "package" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectionMode("package")}
+                            className={`flex-1 text-xs h-8 font-serif ${selectionMode === "package" ? "bg-[#102516] hover:bg-[#1a3a26] text-[#fefaf6]" : "text-[#102516] border-[#102516]/10"}`}
+                          >
+                            <Tag className="h-3.5 w-3.5 mr-1" />
+                            Package
+                          </Button>
+                        </div>
+                      </Card>
+                    )}
+
+                    {/* Package Selector */}
+                    {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
+                      <Card className="p-4 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8] border border-[#102516]/10 shadow-sm">
+                        {packagesLoading ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-5 w-5 animate-spin text-[#102516]" />
+                            <span className="ml-2 text-xs text-gray-500 font-serif">Loading packages...</span>
                           </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {/* Package Category Selection */}
+                            <div>
+                              <Label className="text-xs font-semibold mb-2 block font-serif">1. Select Category</Label>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {packagesCategories.map((cat) => (
+                                  <Button
+                                    key={cat.id}
+                                    type="button"
+                                    variant={selectedPackageCategory === cat.id ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => {
+                                      const match = cat.name.match(/(\d+)\s*Safa/i)
+                                      const limit = match ? parseInt(match[1]) : null
+                                      setSafaLimit(limit)
+                                      setSelectedPackageCategory(cat.id)
+                                      setSelectedPackage(null)
+                                      setSelectedPackageVariant(null)
+                                      setUseCustomPackagePrice(false)
+                                      setCustomPackagePrice(0)
+                                    }}
+                                    className={`justify-start text-xs h-8 font-serif ${selectedPackageCategory === cat.id ? "bg-[#102516] hover:bg-[#1a3a26] text-[#fefaf6]" : "text-[#102516] border-[#102516]/10"}`}
+                                  >
+                                    {cat.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Package Selection */}
+                            {selectedPackageCategory && (
+                              <div className="border-t border-gray-200/50 pt-3">
+                                <Label className="text-xs font-semibold mb-2 block font-serif">2. Select Variant</Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                  {packages
+                                    .filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory)
+                                    .map((pkg) => (
+                                      <div
+                                        key={pkg.id}
+                                        className={`p-3 border-2 rounded-xl cursor-pointer transition-all hover:shadow-sm flex items-center justify-between ${
+                                          selectedPackage?.id === pkg.id
+                                            ? "border-[#102516] bg-emerald-50/20"
+                                            : "border-gray-200 hover:border-gray-300"
+                                        }`}
+                                        onClick={() => {
+                                          setSelectedPackage(pkg)
+                                          setSelectedPackageVariant(null)
+                                          setUseCustomPackagePrice(false)
+                                          setCustomPackagePrice(0)
+                                          if (pkg.security_deposit && pkg.security_deposit > 0) {
+                                            setInvoiceData(prev => ({
+                                              ...prev,
+                                              security_deposit: pkg.security_deposit
+                                            }))
+                                          }
+                                        }}
+                                      >
+                                        <div className="min-w-0 flex-1">
+                                          <h4 className="font-semibold font-serif text-xs text-gray-800">{pkg.name || pkg.variant_name}</h4>
+                                          {pkg.inclusions && (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {(Array.isArray(pkg.inclusions)
+                                                ? pkg.inclusions
+                                                : typeof pkg.inclusions === 'string'
+                                                  ? pkg.inclusions.split(',').map((s: string) => s.trim())
+                                                  : []
+                                              ).slice(0, 2).map((inc: string, i: number) => (
+                                                <Badge key={i} variant="outline" className="text-[9px] scale-95 origin-left">{inc}</Badge>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="text-right pl-2 flex-shrink-0">
+                                          <p className="text-sm font-bold text-emerald-800">₹{pkg.base_price?.toLocaleString('en-IN') || 0}</p>
+                                          {pkg.security_deposit > 0 && (
+                                            <p className="text-[9px] text-gray-400">+₹{pkg.security_deposit} dep</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Card>
+                    )}
+
+                    {/* Package Summary & Add products to package */}
+                    {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
+                      <Card className="p-3 bg-emerald-50/20 border border-emerald-800/10 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-semibold text-emerald-950 font-serif">Package: {selectedPackage.name || selectedPackage.variant_name}</span>
+                            {selectedPackage.inclusions && (
+                              <p className="text-[10px] text-emerald-800 mt-0.5">Includes: {Array.isArray(selectedPackage.inclusions) ? selectedPackage.inclusions.join(', ') : selectedPackage.inclusions}</p>
+                            )}
+                          </div>
+                          <span className="font-bold text-sm text-emerald-800">₹{packagePrice.toLocaleString('en-IN')}</span>
                         </div>
 
+                        {/* Additional package items */}
+                        <div className="border-t border-gray-200/50 pt-3">
+                          <Label className="text-[10px] text-gray-500 font-semibold mb-2 block uppercase tracking-wider">Add Products to Package</Label>
+                          <ProductSelector
+                            products={products.map(p => ({
+                              ...p,
+                              category: p.category || '',
+                              security_deposit: p.security_deposit || 0,
+                              sale_price: p.sale_price || p.rental_price,
+                            }))}
+                            categories={categories}
+                            subcategories={subcategories}
+                            selectedItems={invoiceItems.map(item => ({
+                              product_id: item.product_id,
+                              quantity: item.quantity
+                            }))}
+                            bookingType={invoiceData.invoice_type}
+                            eventDate={invoiceData.event_date}
+                            onProductSelect={(product) => addProduct(product as Product)}
+                            onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
+                          />
+                        </div>
+                      </Card>
+                    )}
+
+                    {/* Safa Limit Control */}
+                    {selectedPackage && (
+                      <div className="border-l-4 border-l-purple-600 bg-purple-50/50 p-3 rounded-lg flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-semibold text-purple-950 font-serif">
+                            Safa Limit Control {safaLimit !== null && `(Max: ${safaLimit} safas)`}
+                          </p>
+                          <p className="text-[10px] text-purple-800">
+                            Current Safas: {countSafasInInvoice()} {safaLimit !== null && !bypassSafaLimit && `(Remaining: ${Math.max(0, safaLimit - countSafasInInvoice())})`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Checkbox
+                            id="bypassSafaLimit"
+                            checked={bypassSafaLimit}
+                            onCheckedChange={(checked) => setBypassSafaLimit(checked as boolean)}
+                            disabled={safaLimit === null}
+                          />
+                          <label htmlFor="bypassSafaLimit" className="cursor-pointer font-medium text-purple-950">
+                            Bypass
+                          </label>
+                        </div>
                       </div>
                     )}
 
-                    {/* Add Products to Package */}
-                    {selectedPackage && (
-                      <div className="border-t pt-4">
-                        <Label className="text-sm font-medium mb-2 block">
-                          Add Products to Package (Optional)
-                        </Label>
-                        <p className="text-xs text-gray-500 mb-3">
-                          Select additional individual products to include with this package
-                        </p>
+                    {/* Product Selector for Individual Selection */}
+                    {!skipProductSelection && (selectionMode === "products" || invoiceData.invoice_type === "sale") && (
+                      <div className="mb-2">
                         <ProductSelector
                           products={products.map(p => ({
                             ...p,
@@ -2978,829 +2839,747 @@ export default function CreateInvoicePage() {
                         />
                       </div>
                     )}
-                  </div>
-                )}
-              </Card>
-            )}
 
-            {/* Product Selector - Show when products mode is selected (or for sales) */}
-            {!skipProductSelection && (selectionMode === "products" || invoiceData.invoice_type === "sale") && (
-              <div className="print:hidden mb-4">
-                <ProductSelector
-                  products={products.map(p => ({
-                    ...p,
-                    category: p.category || '',
-                    security_deposit: p.security_deposit || 0,
-                    sale_price: p.sale_price || p.rental_price,
-                  }))}
-                  categories={categories}
-                  subcategories={subcategories}
-                  selectedItems={invoiceItems.map(item => ({
-                    product_id: item.product_id,
-                    quantity: item.quantity
-                  }))}
-                  bookingType={invoiceData.invoice_type}
-                  eventDate={invoiceData.event_date}
-                  onProductSelect={(product) => addProduct(product as Product)}
-                  onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
-                />
-              </div>
-            )}
-
-            {/* Package Details Section - Show when package is selected in rental mode (ABOVE items table) */}
-            {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Tag className="h-4 w-4 text-blue-500" />
-                  <span className="font-semibold text-blue-900">Package Details</span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  {/* Package Name & Price */}
-                  <div>
-                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Package</h4>
-                    <p className="text-lg font-bold text-blue-700">{selectedPackage.name || selectedPackage.variant_name}</p>
-                  </div>
-                  
-                  {/* Base Price */}
-                  <div>
-                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Package Price</h4>
-                    <p className="text-lg font-bold">₹{packagePrice.toLocaleString()}</p>
-                    {useCustomPackagePrice && customPackagePrice > 0 && (
-                      <p className="text-xs text-amber-600 mt-1">⚠️ Custom override price applied</p>
-                    )}
-                  </div>
-
-                  {/* Security Deposit */}
-                  {selectedPackage.security_deposit > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-sm text-gray-700 mb-2">Security Deposit</h4>
-                      <p className="text-lg font-bold text-red-600">₹{selectedPackage.security_deposit.toLocaleString()}</p>
-                    </div>
-                  )}
-
-                  {/* Inclusions */}
-                  {selectedPackage.inclusions && (
-                    <div className={selectedPackage.security_deposit > 0 ? "" : "md:col-span-1"}>
-                      <h4 className="font-semibold text-sm text-gray-700 mb-2">Includes</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {(Array.isArray(selectedPackage.inclusions) 
-                          ? selectedPackage.inclusions 
-                          : typeof selectedPackage.inclusions === 'string' 
-                            ? selectedPackage.inclusions.split(',').map((s: string) => s.trim())
-                            : []
-                        ).map((inc: string, i: number) => (
-                          <Badge key={i} variant="secondary" className="text-xs">{inc}</Badge>
-                        ))}
+                    {/* Modifications Section */}
+                    <Card className="p-4 shadow-sm border-l-4 border-l-amber-600 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8] overflow-visible mt-4">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Checkbox
+                          id="hasModifications"
+                          checked={invoiceData.has_modifications}
+                          onCheckedChange={(checked) =>
+                            setInvoiceData({
+                              ...invoiceData,
+                              has_modifications: checked === true,
+                            })
+                          }
+                        />
+                        <Label htmlFor="hasModifications" className="text-xs font-semibold font-serif text-gray-800 cursor-pointer flex items-center gap-1.5">
+                          🔧 Modifications & Stitching
+                        </Label>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {/* Safa Limit Control */}
-            {selectedPackage && (
-              <div className="border-l-4 border-l-purple-400 bg-purple-50 p-4 rounded space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <Label className="text-sm font-medium text-purple-900 block mb-2">
-                      Safa Limit Control
-                    </Label>
-                    {safaLimit !== null ? (
-                      <div className="bg-white border border-purple-200 rounded p-3 mb-2">
-                        <p className="text-sm font-semibold text-purple-900">
-                          📦 Auto-detected Limit: <span className="text-lg text-purple-600">{safaLimit} safas</span>
-                        </p>
-                        <p className="text-xs text-purple-700 mt-1">
-                          This limit was extracted from your selected package category
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="bg-white border border-gray-200 rounded p-3 mb-2">
-                        <p className="text-sm text-gray-600">
-                          No safa limit detected. Select a package category with safas (e.g., "31 Safas") to set a limit.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-end">
-                    <Checkbox
-                      id="bypassSafaLimit"
-                      checked={bypassSafaLimit}
-                      onCheckedChange={(checked) => setBypassSafaLimit(checked as boolean)}
-                      disabled={safaLimit === null}
-                    />
-                    <label
-                      htmlFor="bypassSafaLimit"
-                      className="text-sm font-medium text-purple-900 ml-2 cursor-pointer"
-                    >
-                      Bypass Limit
-                    </label>
-                  </div>
-                </div>
-                
-                {safaLimit !== null && !bypassSafaLimit && (
-                  <div className="bg-white border border-purple-200 rounded p-2 text-xs text-purple-800">
-                    ✓ Restriction Active: Maximum {safaLimit} safas allowed | Current: {countSafasInInvoice()}
-                  </div>
-                )}
-                {safaLimit !== null && bypassSafaLimit && (
-                  <div className="bg-white border border-orange-200 rounded p-2 text-xs text-orange-800">
-                    ⚠ Bypass Enabled: Unlimited safas allowed
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* Extra Items Section - HIDDEN */}
-            {false && selectedPackage && (
-              <div className="border-t pt-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-blue-500" />
-                    <span className="font-semibold text-blue-700">Extra Items (No Limit)</span>
-                    <Badge variant="outline" className="text-xs bg-blue-50">Bypass restrictions</Badge>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addExtraItem(products[0])}
-                    disabled={products.length === 0}
-                    className="print:hidden text-blue-600 border-blue-200 hover:bg-blue-50"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Extra Item
-                  </Button>
-                </div>
-
-                {extraItems.length === 0 ? (
-                  <div className="text-center py-4 text-gray-400 text-sm border rounded-lg">
-                    No extra items added
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-blue-50">
-                        <tr>
-                          <th className="text-left p-3 font-medium">Item</th>
-                          <th className="text-center p-3 font-medium w-36">Qty</th>
-                          <th className="text-right p-3 font-medium w-24">Rate</th>
-                          <th className="text-right p-3 font-medium w-28">Total</th>
-                          <th className="w-12 print:hidden"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {extraItems.map((item) => (
-                          <tr key={item.id} className="border-t hover:bg-blue-50">
-                            <td className="p-3">
-                              <div className="flex items-center gap-3">
-                                {item.image_url ? (
-                                  <img src={item.image_url} alt="" className="h-10 w-10 object-cover rounded print:hidden" />
-                                ) : (
-                                  <div className="h-10 w-10 bg-blue-100 rounded flex items-center justify-center print:hidden">
-                                    <Package className="h-5 w-5 text-blue-400" />
-                                  </div>
-                                )}
-                                <div>
-                                  <div className="font-medium">{item.product_name}</div>
-                                  {item.barcode && <div className="text-xs text-gray-500">#{item.barcode}</div>}
-                                </div>
+                      {invoiceData.has_modifications && (
+                        <div className="space-y-3 bg-[#f6e1c3]/15 p-3 rounded-lg border border-amber-200 text-xs">
+                          {/* List of modifications added to the cart */}
+                          <div>
+                            <Label className="text-[10px] font-semibold text-[#102516] mb-1.5 block">Added Modification Services:</Label>
+                            {invoiceItems.filter(item => item.product_id === 'modification-service').length === 0 ? (
+                              <p className="text-[10px] text-gray-500 italic">No modification services added yet. Use the form below to add service and cost.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {invoiceItems
+                                  .filter(item => item.product_id === 'modification-service')
+                                  .map((item) => (
+                                    <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded border border-amber-200/50">
+                                      <span className="font-medium text-gray-800">{item.product_name}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-amber-800 font-mono">₹{item.unit_price}</span>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 w-5 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                          onClick={() => removeItem(item.id)}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
                               </div>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 print:hidden"
-                                  onClick={() => updateExtraItemQuantity(item.id, item.quantity - 1)}
+                            )}
+                          </div>
+
+                          {/* Form to add a modification service */}
+                          <div className="border-t border-amber-200/30 pt-3 space-y-2">
+                            <Label className="text-[10px] font-semibold text-[#102516]">Add Custom Service & Cost</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Select
+                                  value={modService}
+                                  onValueChange={setModService}
                                 >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
+                                  <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                    <SelectValue placeholder="Select Service" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Stitching">Stitching</SelectItem>
+                                    <SelectItem value="Alteration">Alteration</SelectItem>
+                                    <SelectItem value="Dry Cleaning">Dry Cleaning</SelectItem>
+                                    <SelectItem value="Pressing">Pressing</SelectItem>
+                                    <SelectItem value="Custom fitting">Custom fitting</SelectItem>
+                                    <SelectItem value="Other">Other Service</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex gap-1.5">
                                 <Input
                                   type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => updateExtraItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                                  className="w-16 text-center h-7 print:border-0"
-                                  min={1}
+                                  placeholder="Cost (₹)"
+                                  value={modCost || ''}
+                                  onChange={(e) => setModCost(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                  className="h-8 text-xs bg-white"
                                 />
                                 <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 print:hidden"
-                                  onClick={() => updateExtraItemQuantity(item.id, item.quantity + 1)}
+                                  type="button"
+                                  onClick={handleAddModService}
+                                  className="h-8 text-xs bg-[#102516] hover:bg-[#1a3a26] text-white px-2.5 whitespace-nowrap"
                                 >
-                                  <Plus className="h-3 w-3" />
+                                  Add
                                 </Button>
                               </div>
-                            </td>
-                            <td className="p-3 text-right">{formatCurrency(item.unit_price)}</td>
-                            <td className="p-3 text-right font-semibold">{formatCurrency(item.total_price)}</td>
-                            <td className="p-3 print:hidden">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-blue-500 hover:text-blue-700"
-                                onClick={() => removeExtraItem(item.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Items Table */}
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left p-3 font-medium">Item</th>
-                    <th className="text-center p-3 font-medium w-36">Qty</th>
-                    <th className="text-right p-3 font-medium w-24">Rate</th>
-                    <th className="text-right p-3 font-medium w-28">Total</th>
-                    <th className="w-12 print:hidden"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoiceItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center py-8 text-gray-400">
-                        <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="font-medium">No items added yet</p>
-                        <p className="text-xs mt-1">Products are optional - you can add them now or later during editing</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    invoiceItems.map((item, index) => (
-                      <tr key={item.id} className="border-t hover:bg-gray-50">
-                        <td className="p-3">
-                          <div className="flex items-center gap-3">
-                            {item.image_url ? (
-                              <img src={item.image_url} alt="" className="h-10 w-10 object-cover rounded print:hidden" />
-                            ) : (
-                              <div className="h-10 w-10 bg-gray-100 rounded flex items-center justify-center print:hidden">
-                                <Package className="h-5 w-5 text-gray-400" />
-                              </div>
+                            </div>
+                            {modService === "Other" && (
+                              <Input
+                                placeholder="Enter custom service name..."
+                                value={customModService}
+                                onChange={(e) => setCustomModService(e.target.value)}
+                                className="h-8 text-xs bg-white mt-1"
+                              />
                             )}
+                          </div>
+
+                          {/* Completion Date/Time */}
+                          <div className="grid grid-cols-2 gap-2 border-t border-amber-200/40 pt-3">
                             <div>
-                              <div className="font-medium">{item.product_name}</div>
-                              {item.barcode && <div className="text-xs text-gray-500">#{item.barcode}</div>}
+                              <Label className="text-[10px] font-medium text-[#102516] mb-0.5 block">Completion Date</Label>
+                              <Input
+                                type="date"
+                                value={invoiceData.modification_date ? formatDateForInput(invoiceData.modification_date) : ""}
+                                onChange={(e) =>
+                                  setInvoiceData({
+                                    ...invoiceData,
+                                    modification_date: e.target.value ? new Date(e.target.value).toISOString() : "",
+                                  })
+                                }
+                                className="h-8 text-xs bg-white border-gray-200"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] font-medium text-[#102516] mb-0.5 block">Completion Time</Label>
+                              <Input
+                                type="time"
+                                value={invoiceData.modification_time}
+                                onChange={(e) =>
+                                  setInvoiceData({ ...invoiceData, modification_time: e.target.value })
+                                }
+                                className="h-8 text-xs bg-white border-gray-200"
+                              />
                             </div>
                           </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 w-7 p-0 print:hidden"
-                              onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                              className="w-16 text-center h-7 print:border-0"
-                              min={1}
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 w-7 p-0 print:hidden"
-                              onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                        <td className="p-3 text-right">{formatCurrency(item.unit_price)}</td>
-                        <td className="p-3 text-right font-semibold">{formatCurrency(item.total_price)}</td>
-                        <td className="p-3 print:hidden">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                            onClick={() => removeItem(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      )}
+                    </Card>
+                  </TabsContent>
 
-          {/* Notes */}
-          <div className="border-t pt-6">
-            <Label className="text-xs text-gray-500">Notes</Label>
-            <Textarea
-              value={invoiceData.notes}
-              onChange={(e) => setInvoiceData({ ...invoiceData, notes: e.target.value })}
-              placeholder="Any additional notes..."
-              rows={2}
-              className="mt-1 print:border-0"
-            />
-          </div>
-
-          {/* Lost/Damaged Items Section - only for rentals */}
-          {invoiceData.invoice_type === "rental" && (mode === "final-bill" || lostDamagedItems.length > 0) && (
-            <div className="border-t pt-6 relative z-50">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                  <span className="font-semibold text-red-700">Lost / Damaged Items</span>
-                  <Badge variant="destructive" className="text-xs">Stock will be reduced</Badge>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addLostDamagedItem()}
-                  className="print:hidden"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Item
-                </Button>
-              </div>
-
-              {lostDamagedItems.length === 0 ? (
-                <div className="text-center py-4 text-gray-400 text-sm border rounded-lg">
-                  No lost or damaged items
-                </div>
-              ) : (
-                <div className="border rounded-lg overflow-visible">
-                  <table className="w-full text-sm">
-                    <thead className="bg-red-50">
-                      <tr>
-                        <th className="text-left p-3 font-medium">Select Product</th>
-                        <th className="text-center p-3 font-medium w-28">Type</th>
-                        <th className="text-center p-3 font-medium w-28">Qty</th>
-                        <th className="text-right p-3 font-medium w-28">Charge/Item</th>
-                        <th className="text-right p-3 font-medium w-28">Total</th>
-                        <th className="w-12 print:hidden"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="relative">
-                      {lostDamagedItems.map((item) => (
-                        <tr key={item.id} className="border-t">
-                          <td className="p-3 relative" style={{ overflow: 'visible' }}>
-                            {item.product_name ? (
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{item.product_name}</span>
-                                {item.barcode && (
-                                  <span className="text-xs text-gray-400">{item.barcode}</span>
-                                )}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 print:hidden"
-                                  onClick={() => {
-                                    updateLostDamagedItem(item.id, "product_id", "")
-                                    updateLostDamagedItem(item.id, "product_name", "")
-                                  }}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="print:hidden relative">
-                                <Input
-                                  placeholder="Search product..."
-                                  onFocus={() => setLostDamagedProductSearch(item.id)}
-                                  onChange={(e) => setProductSearch(e.target.value)}
-                                  className="text-sm"
-                                />
-                                {lostDamagedProductSearch === item.id && productSearch && (
-                                  <div className="absolute z-[9999] left-0 right-0 mt-1 bg-white border rounded-lg shadow-xl max-h-60 overflow-y-auto" style={{ top: '100%' }}>
-                                    {products
-                                      .filter(p => 
-                                        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-                                        p.barcode?.includes(productSearch)
-                                      )
-                                      .slice(0, 8)
-                                      .map((product) => (
-                                        <div
-                                          key={product.id}
-                                          className="p-2 hover:bg-gray-50 cursor-pointer border-b last:border-0"
-                                          onClick={() => {
-                                            updateLostDamagedItemProduct(item.id, product)
-                                            setLostDamagedProductSearch(null)
-                                            setProductSearch("")
-                                          }}
-                                        >
-                                          <div className="font-medium text-sm">{product.name}</div>
-                                          <div className="text-xs text-gray-500 flex gap-2">
-                                            {product.barcode && <span>{product.barcode}</span>}
-                                            <span>Stock: {product.stock_available}</span>
-                                            <span className="text-green-600">₹{product.rental_price}</span>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    {products.filter(p => 
-                                      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-                                      p.barcode?.includes(productSearch)
-                                    ).length === 0 && (
-                                      <div className="p-2 text-sm text-gray-400">No products found</div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-3">
+                    {/* TAB 3: SETTLEMENT */}
+                    <TabsContent value="settlement" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
+                      
+                      {/* Payment Method & Staff Attribution */}
+                      <Card className="p-4 shadow-sm border-l-4 border-l-[#102516] bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8]">
+                        <div className="font-semibold mb-3 font-serif text-sm text-gray-800 flex items-center gap-2">
+                          <FileCheck className="h-4 w-4 text-[#102516]" />
+                          Payment & Staff
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                          <div>
+                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Payment Method</Label>
                             <Select
-                              value={item.type}
-                              onValueChange={(v) => updateLostDamagedItem(item.id, "type", v)}
+                              value={invoiceData.payment_method}
+                              onValueChange={(v) => setInvoiceData({ ...invoiceData, payment_method: v as any })}
                             >
-                              <SelectTrigger className="print:border-0">
+                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="damaged">Damaged</SelectItem>
-                                <SelectItem value="lost">Lost</SelectItem>
+                                <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
+                                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
+                                <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
+                                <SelectItem value="International Payment">International Payment</SelectItem>
                               </SelectContent>
                             </Select>
-                          </td>
-                          <td className="p-3">
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateLostDamagedItem(item.id, "quantity", parseInt(e.target.value) || 1)}
-                              className="w-16 text-center print:border-0"
-                              min={1}
-                            />
-                          </td>
-                          <td className="p-3">
-                            <Input
-                              type="number"
-                              value={item.charge_per_item}
-                              onChange={(e) => updateLostDamagedItem(item.id, "charge_per_item", parseFloat(e.target.value) || 0)}
-                              className="w-24 text-right print:border-0"
-                              placeholder="₹0"
-                            />
-                          </td>
-                          <td className="p-3 text-right font-semibold text-red-600">
-                            {formatCurrency(item.total_charge)}
-                          </td>
-                          <td className="p-3 print:hidden">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                              onClick={() => removeLostDamagedItem(item.id)}
+                          </div>
+
+                          <div>
+                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Sales Staff</Label>
+                            <Select
+                              value={invoiceData.sales_closed_by_id}
+                              onValueChange={(v) => setInvoiceData({ ...invoiceData, sales_closed_by_id: v })}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                <SelectValue placeholder="Select staff member" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {staffMembers.map((staff) => (
+                                  <SelectItem key={staff.id} value={staff.id}>
+                                    {staff.name} ({staff.role})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* WhatsApp Invoice Toggle */}
+                        <div className="border-t border-gray-200/50 pt-3 mt-3">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="sendWhatsAppInvoice"
+                              checked={sendWhatsAppInvoice}
+                              onCheckedChange={(checked) => setSendWhatsAppInvoice(checked === true)}
+                            />
+                            <Label htmlFor="sendWhatsAppInvoice" className="text-xs font-medium cursor-pointer flex items-center gap-1.5">
+                              <Send className="h-3.5 w-3.5 text-green-600" /> Send bill on WhatsApp (WATI)
+                            </Label>
+                          </div>
+                          {sendWhatsAppInvoice && (
+                            <p className="text-[10px] text-green-600 mt-1 ml-6">Invoice will be auto-sent to customer + owner on WhatsApp</p>
+                          )}
+                        </div>
+                      </Card>
+
+                      {/* Lost/Damaged Items Section */}
+                      {invoiceData.invoice_type === "rental" && (
+                        <Card className="p-4 shadow-sm border-l-4 border-l-red-500 bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8] overflow-visible">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-red-500" />
+                              <span className="font-semibold text-gray-800 font-serif text-sm">Lost / Damaged Items</span>
+                              <Badge variant="destructive" className="text-[9px]">Stock will be reduced</Badge>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              onClick={() => addLostDamagedItem()}
+                              className="h-7 text-[10px] border-red-200 text-red-700 hover:bg-red-50"
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
                             </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
+                          </div>
 
-          {/* Button to show Lost/Damaged section - only for rentals */}
-          {invoiceData.invoice_type === "rental" && mode !== "final-bill" && lostDamagedItems.length === 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => addLostDamagedItem()}
-              className="print:hidden text-red-600 border-red-200 hover:bg-red-50"
-            >
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Add Lost/Damaged Items
-            </Button>
-          )}
-
-          {/* Totals Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-            {/* Payment Method & Discounts - Combined (Only show if user has permission) */}
-            {userPermissions?.invoice_payment_access !== false && (
-            <Card className="p-4">
-              <div className="font-semibold mb-3 underline">Payment Method & Discounts</div>
-              <div className="space-y-3 text-sm">
-                {/* Payment Method */}
-                <div>
-                  <Label className="text-xs text-gray-500">Payment Method</Label>
-                  <Select
-                    value={invoiceData.payment_method}
-                    onValueChange={(v) => setInvoiceData({ ...invoiceData, payment_method: v as any })}
-                  >
-                    <SelectTrigger className="print:border-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
-                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
-                      <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
-                      <SelectItem value="International Payment">International Payment</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Custom Amount */}
-                {/* Removed - use Override Package Price instead for package mode */}
-
-                {/* Override Price - for both products and packages in rentals */}
-                {invoiceData.invoice_type === "rental" && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Checkbox
-                        id="useCustomPackagePrice"
-                        checked={useCustomPackagePrice}
-                        onCheckedChange={(checked) => setUseCustomPackagePrice(checked as boolean)}
-                      />
-                      <Label htmlFor="useCustomPackagePrice" className="text-xs text-gray-500 cursor-pointer">Override price (₹)</Label>
-                    </div>
-                    <Input
-                      type="number"
-                      value={customPackagePrice || ''}
-                      onChange={(e) => setCustomPackagePrice(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                      className="print:border-0"
-                      placeholder="Enter custom price"
-                      disabled={!useCustomPackagePrice}
-                    />
-                    {useCustomPackagePrice && customPackagePrice > 0 && <p className="text-xs text-orange-500 mt-1">Overrides total price</p>}
-                  </div>
-                )}
-
-                {/* Security Deposit - rental only, and only if package has deposit or user entered amount */}
-                {invoiceData.invoice_type === "rental" && (
-                  invoiceData.security_deposit > 0
-                ) && (
-                  <div>
-                    <Label className="text-xs text-gray-500">Security Deposit (₹) - Auto-filled from package</Label>
-                    <Input
-                      type="number"
-                      value={invoiceData.security_deposit || ''}
-                      onChange={(e) => setInvoiceData({ ...invoiceData, security_deposit: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
-                      className="print:border-0"
-                      placeholder="Security deposit"
-                    />
-                  </div>
-                )}
-
-                {/* Discount Amount */}
-                <div>
-                  <Label className="text-xs text-gray-500">Discount Amount (₹)</Label>
-                  <Input
-                    type="number"
-                    value={invoiceData.discount_amount || ''}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, discount_amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
-                    className="print:border-0"
-                    placeholder="Enter discount amount"
-                  />
-                </div>
-
-                {/* Amount Paid */}
-                <div>
-                  <Label className="text-xs text-gray-500">Amount Paid (₹)</Label>
-                  <Input
-                    type="number"
-                    value={invoiceData.amount_paid || ''}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, amount_paid: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
-                    className="print:border-0"
-                    placeholder="Enter amount paid"
-                  />
-                  {invoiceData.amount_paid > 0 && (
-                    <p className="text-xs text-blue-500 mt-1">Balance: {formatCurrency(Math.max(0, grandTotal - invoiceData.amount_paid))}</p>
-                  )}
-                </div>
-
-                {/* Coupon Code - with Apply button */}
-                <div className="print:hidden">
-                  <Label className="text-xs text-gray-500">Coupon Code (Optional)</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      value={invoiceData.coupon_code}
-                      onChange={(e) => {
-                        setInvoiceData({ ...invoiceData, coupon_code: e.target.value.toUpperCase() })
-                        setCouponError(null)
-                        if (appliedCoupon !== invoiceData.coupon_code) {
-                          setAppliedCoupon(null)
-                        }
-                      }}
-                      placeholder="Enter coupon code"
-                      className="print:border-0"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={appliedCoupon ? "default" : "outline"}
-                      onClick={handleApplyCoupon}
-                      disabled={validatingCoupon || !invoiceData.coupon_code.trim()}
-                      className="whitespace-nowrap"
-                    >
-                      {validatingCoupon ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          Validating...
-                        </>
-                      ) : appliedCoupon ? (
-                        <>
-                          <Check className="h-4 w-4 mr-1" />
-                          Applied
-                        </>
-                      ) : (
-                        "Apply"
+                          {lostDamagedItems.length === 0 ? (
+                            <div className="text-center py-4 text-gray-400 text-xs border border-dashed rounded-lg bg-white">
+                              No lost or damaged items added.
+                            </div>
+                          ) : (
+                            <div className="border border-gray-100 rounded-lg bg-white overflow-visible">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead className="bg-red-50/50 text-red-950 font-serif">
+                                    <tr>
+                                      <th className="text-left p-2 font-medium">Product</th>
+                                      <th className="text-center p-2 font-medium w-24">Type</th>
+                                      <th className="text-center p-2 font-medium w-16">Qty</th>
+                                      <th className="text-right p-2 font-medium w-24">Charge</th>
+                                      <th className="text-right p-2 font-medium w-24">Total</th>
+                                      <th className="w-10"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {lostDamagedItems.map((item) => (
+                                      <tr key={item.id} className="hover:bg-red-50/10">
+                                        <td className="p-2 relative" style={{ overflow: 'visible' }}>
+                                          {item.product_name ? (
+                                            <div className="flex items-center gap-1.5 max-w-[150px]">
+                                              <span className="font-medium truncate">{item.product_name}</span>
+                                              {item.barcode && <span className="text-[9px] text-gray-400">({item.barcode})</span>}
+                                              <button
+                                                type="button"
+                                                className="text-gray-400 hover:text-gray-600"
+                                                onClick={() => {
+                                                  updateLostDamagedItem(item.id, "product_id", "")
+                                                  updateLostDamagedItem(item.id, "product_name", "")
+                                                }}
+                                              >
+                                                <X className="h-3 w-3" />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div className="relative">
+                                              <Input
+                                                placeholder="Search product..."
+                                                onFocus={() => setLostDamagedProductSearch(item.id)}
+                                                onChange={(e) => setProductSearch(e.target.value)}
+                                                className="h-7 text-xs"
+                                              />
+                                              {lostDamagedProductSearch === item.id && productSearch && (
+                                                <div className="absolute z-[9999] left-0 right-0 mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto" style={{ top: '100%' }}>
+                                                  {products
+                                                    .filter(p => 
+                                                      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                                      p.barcode?.toLowerCase().includes(productSearch.toLowerCase())
+                                                    )
+                                                    .slice(0, 8)
+                                                    .map((product) => (
+                                                      <div
+                                                        key={product.id}
+                                                        className="p-1.5 hover:bg-gray-50 cursor-pointer border-b last:border-0 text-left"
+                                                        onClick={() => {
+                                                          updateLostDamagedItemProduct(item.id, product)
+                                                          setLostDamagedProductSearch(null)
+                                                          setProductSearch("")
+                                                        }}
+                                                      >
+                                                        <div className="font-medium text-xs">{product.name}</div>
+                                                        <div className="text-[9px] text-gray-500 flex gap-1.5">
+                                                          {product.barcode && <span>{product.barcode}</span>}
+                                                          <span>Stock: {product.stock_available}</span>
+                                                          <span className="text-emerald-700">₹{product.rental_price}</span>
+                                                        </div>
+                                                      </div>
+                                                    ))}
+                                                  {products.filter(p => 
+                                                    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                                    p.barcode?.toLowerCase().includes(productSearch.toLowerCase())
+                                                  ).length === 0 && (
+                                                    <div className="p-2 text-xs text-gray-400">No products found</div>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </td>
+                                        <td className="p-2 text-center">
+                                          <select
+                                            value={item.type}
+                                            onChange={(e) => updateLostDamagedItem(item.id, "type", e.target.value)}
+                                            className="h-7 text-xs bg-white border border-gray-200 rounded px-1"
+                                          >
+                                            <option value="damaged">Damaged</option>
+                                            <option value="lost">Lost</option>
+                                          </select>
+                                        </td>
+                                        <td className="p-2 text-center">
+                                          <Input
+                                            type="number"
+                                            value={item.quantity}
+                                            onChange={(e) => updateLostDamagedItem(item.id, "quantity", parseInt(e.target.value) || 1)}
+                                            className="h-7 w-12 text-center"
+                                            min={1}
+                                          />
+                                        </td>
+                                        <td className="p-2">
+                                          <Input
+                                            type="number"
+                                            value={item.charge_per_item}
+                                            onChange={(e) => updateLostDamagedItem(item.id, "charge_per_item", parseFloat(e.target.value) || 0)}
+                                            className="h-7 w-20 text-right font-mono"
+                                            placeholder="₹0"
+                                          />
+                                        </td>
+                                        <td className="p-2 text-right font-semibold text-red-600 font-mono">
+                                          ₹{item.total_charge.toLocaleString('en-IN')}
+                                        </td>
+                                        <td className="p-2 text-center">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            type="button"
+                                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                            onClick={() => removeLostDamagedItem(item.id)}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
                       )}
-                    </Button>
-                  </div>
-                  {couponError && (
-                    <p className="text-xs text-red-500 mt-1">{couponError}</p>
-                  )}
-                  {appliedCoupon && invoiceData.coupon_discount > 0 && (
-                    <p className="text-xs text-green-600 mt-1">✅ Coupon applied - Discount: ₹{invoiceData.coupon_discount.toLocaleString()}</p>
-                  )}
-                </div>
 
-                {/* Sales Staff */}
-                <div>
-                  <Label className="text-xs text-gray-500">Sales Staff</Label>
-                  <Select
-                    value={invoiceData.sales_closed_by_id}
-                    onValueChange={(v) => setInvoiceData({ ...invoiceData, sales_closed_by_id: v })}
-                  >
-                    <SelectTrigger className="print:border-0">
-                      <SelectValue placeholder="Select staff member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staffMembers.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id}>
-                          {staff.name} ({staff.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                      {/* Notes Card */}
+                      <Card className="p-4 shadow-sm border-l-4 border-l-[#102516] bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8]">
+                        <Label className="text-xs font-semibold font-serif text-gray-800 mb-2 block">Order Notes</Label>
+                        <Textarea
+                          value={invoiceData.notes}
+                          onChange={(e) => setInvoiceData({ ...invoiceData, notes: e.target.value })}
+                          placeholder="Any additional notes..."
+                          rows={2}
+                          className="bg-white border-gray-200 resize-none text-xs"
+                        />
+                      </Card>
 
-                {/* Apply GST Toggle */}
-                <div className="border-t pt-3 mt-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="applyGst"
-                      checked={applyGst}
-                      onCheckedChange={(checked) => setApplyGst(checked === true)}
-                    />
-                    <Label htmlFor="applyGst" className="text-sm font-medium cursor-pointer">
-                      Apply GST ({invoiceData.gst_percentage}%) — Inclusive
-                    </Label>
-                  </div>
-                  {applyGst && (
-                    <p className="text-xs text-gray-500 mt-1 ml-6">Price includes GST. Breakdown: Base ₹{Math.round(baseAmountBeforeGst).toLocaleString('en-IN')} + GST ₹{Math.round(gstAmount).toLocaleString('en-IN')}</p>
-                  )}
-                </div>
+                      {/* Terms & Conditions Card */}
+                      <Card className="p-4 shadow-sm border-l-4 border-l-[#102516] bg-gradient-to-br from-[#fcf7f0] to-[#f9f2e8] text-xs">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileCheck className="h-4 w-4 text-orange-500" />
+                          <span className="font-semibold font-serif text-gray-800">Terms & Conditions</span>
+                        </div>
+                        <div className="text-[10px] text-gray-600 max-h-40 overflow-y-auto leading-relaxed">
+                          {invoiceData.invoice_type === "sale" ? (
+                            <ul className="list-disc list-inside space-y-1">
+                              <li>Sold products will not be returned or exchanged.</li>
+                              <li>Subject to Vadodara jurisdiction.</li>
+                            </ul>
+                          ) : (
+                            companySettings?.terms_conditions ? (
+                              <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
+                            ) : (
+                              <ol className="list-decimal list-inside space-y-0.5">
+                                <li>Sold products will not be returned or exchanged.</li>
+                                <li>Please book the Safa Wale service at least 1 month in advance.</li>
+                                <li>We will not allow any last-minute changes in placed orders.</li>
+                                <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
+                                <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
+                                <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
+                                <li>Our staff team will not ask guests to return safas (as per company reputation & policies).</li>
+                                <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
+                                <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
+                                <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
+                                <li>I hereby declare that all the above products are selected and checked by me.</li>
+                                <li>Subject to Vadodara jurisdiction.</li>
+                              </ol>
+                            )
+                          )}
+                        </div>
+                      </Card>
+                    </TabsContent>
+                  </Tabs>
 
-                {/* WhatsApp Invoice Toggle */}
-                <div className="border-t pt-3 mt-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="sendWhatsAppInvoice"
-                      checked={sendWhatsAppInvoice}
-                      onCheckedChange={(checked) => setSendWhatsAppInvoice(checked === true)}
-                    />
-                    <Label htmlFor="sendWhatsAppInvoice" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                      <Send className="h-3.5 w-3.5 text-green-600" /> Send bill on WhatsApp (WATI)
-                    </Label>
-                  </div>
-                  {sendWhatsAppInvoice && (
-                    <p className="text-xs text-green-600 mt-1.5 ml-6">Invoice will be auto-sent to customer + owner on WhatsApp</p>
-                  )}
-                </div>
-              </div>
-            </Card>
-            )}
+                  {/* CHECKOUT SECTION */}
+                  <div className="space-y-4 mt-6">
+                    <Card className="shadow-md border-t-4 border-t-[#102516] bg-[#fefaf6] overflow-hidden">
+                      {/* Sidebar Header */}
+                      <div className="p-4 bg-[#102516] text-[#fefaf6] flex justify-between items-center">
+                        <div>
+                          <h3 className="font-semibold font-serif text-sm">Checkout Overview</h3>
+                          <p className="text-[10px] text-emerald-100/70">
+                            {selectedCustomer ? selectedCustomer.name : "No Customer Selected"}
+                          </p>
+                        </div>
+                        <Badge className="bg-amber-600 hover:bg-amber-700 text-[#fefaf6] border-none text-[10px] capitalize">
+                          {invoiceData.invoice_type}
+                        </Badge>
+                      </div>
 
-            {/* Financial Summary */}
-            <Card className="p-4 bg-gray-50">
-              <div className="font-semibold mb-3">Summary</div>
-              <div className="space-y-2 text-sm">
-                {/* Show package if selected */}
-                {selectionMode === "package" && selectedPackage && (
-                  <div className="flex justify-between text-blue-600">
-                    <span>
-                      Package: {selectedPackage.name || selectedPackage.variant_name}
-                    </span>
-                    <span>{formatCurrency(packagePrice)}</span>
-                  </div>
-                )}
-                {/* Show items subtotal separately if there's a package */}
-                {selectionMode === "package" && selectedPackage && itemsSubtotal > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Additional Items</span>
-                    <span>{formatCurrency(itemsSubtotal)}</span>
-                  </div>
-                )}
-                {lostDamagedTotal > 0 && (
-                  <div className="flex justify-between text-red-600">
-                    <span>Additional Products</span>
-                    <span>+{formatCurrency(lostDamagedTotal)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span>{formatCurrency(subtotal)}</span>
-                </div>
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount</span>
-                    <span>-{formatCurrency(discountAmount)}</span>
-                  </div>
-                )}
-                {applyGst && (
-                  <div className="flex justify-between text-gray-500 text-xs">
-                    <span>Inclusive GST ({invoiceData.gst_percentage}%)</span>
-                    <span>₹{Math.round(gstAmount).toLocaleString('en-IN')}</span>
-                  </div>
-                )}
-                {invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
-                  <div className="space-y-2 p-2 bg-blue-50 rounded">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Security Deposit</span>
-                      <span>{formatCurrency(securityDeposit)}</span>
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        {/* Left Column: Added Items & package/lost/damaged details */}
+                        <div className="space-y-4">
+                          {/* Added Items / Cart List */}
+                          <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-xs font-semibold font-serif text-gray-800">Added Items</Label>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {invoiceItems.reduce((sum, item) => sum + item.quantity, 0)} Items
+                          </Badge>
+                        </div>
+
+                        {invoiceItems.length === 0 ? (
+                          <div className="text-center py-6 text-gray-400 text-xs border border-dashed rounded-lg bg-white/50">
+                            <Package className="h-6 w-6 mx-auto mb-1.5 opacity-40 text-gray-400" />
+                            <p>Cart is empty</p>
+                          </div>
+                        ) : (
+                          <div className="border border-gray-100 rounded-lg max-h-52 overflow-y-auto bg-white divide-y divide-gray-100">
+                            {invoiceItems.map((item) => (
+                              <div key={item.id} className="p-2 flex items-center justify-between text-xs hover:bg-gray-50 transition-colors">
+                                <div className="min-w-0 flex-1 flex items-center gap-2">
+                                  {item.image_url ? (
+                                    <img src={item.image_url} alt="" className="h-8 w-8 object-cover rounded flex-shrink-0" />
+                                  ) : (
+                                    <div className="h-8 w-8 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+                                      <Package className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-gray-800 truncate">{item.product_name}</p>
+                                    <p className="text-[10px] text-gray-500">₹{item.unit_price} / unit</p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 pl-2">
+                                  <div className="flex items-center border border-gray-200 rounded">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
+                                      className="h-5 w-5 flex items-center justify-center hover:bg-gray-100 text-gray-600"
+                                    >
+                                      <Minus className="h-2.5 w-2.5" />
+                                    </button>
+                                    <span className="w-6 text-center text-[11px] font-medium">{item.quantity}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                                      className="h-5 w-5 flex items-center justify-center hover:bg-gray-100 text-gray-600"
+                                    >
+                                      <Plus className="h-2.5 w-2.5" />
+                                    </button>
+                                  </div>
+                                  <span className="font-semibold text-gray-900 w-16 text-right">
+                                    ₹{item.total_price.toLocaleString('en-IN')}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeItem(item.id)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Package details preview */}
+                      {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
+                        <div className="bg-blue-50/60 border border-blue-200/50 p-2.5 rounded-lg text-xs space-y-1">
+                          <div className="flex justify-between">
+                            <span className="font-semibold text-blue-950 font-serif">Package Base Price</span>
+                            <span className="font-bold text-blue-800">₹{packagePrice.toLocaleString()}</span>
+                          </div>
+                          {selectedPackage.inclusions && (
+                            <p className="text-[10px] text-blue-700">Includes: {Array.isArray(selectedPackage.inclusions) ? selectedPackage.inclusions.join(', ') : selectedPackage.inclusions}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Lost & Damaged Items Sidebar summary */}
+                      {lostDamagedItems.length > 0 && (
+                        <div className="bg-red-50/50 border border-red-200/50 rounded-lg p-2.5 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-red-900 flex items-center gap-1.5">
+                              <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                              Lost / Damaged Items
+                            </span>
+                            <span className="font-bold text-red-700">₹{lostDamagedTotal.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="text-[10px] text-red-800 space-y-0.5 divide-y divide-red-200/30">
+                            {lostDamagedItems.map((item) => (
+                              <div key={item.id} className="pt-1 first:pt-0 flex justify-between">
+                                <span className="truncate max-w-[160px]">{item.product_name || "Unknown Product"} ({item.type})</span>
+                                <span>{item.quantity}x ₹{item.charge_per_item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2 pt-1">
-                      <Checkbox
-                        id="depositRefunded"
-                        checked={isDepositRefunded}
-                        onCheckedChange={(checked) => setIsDepositRefunded(checked as boolean)}
-                      />
-                      <label
-                        htmlFor="depositRefunded"
-                        className="text-xs text-gray-600 cursor-pointer"
-                      >
-                        Refunded to Customer
-                      </label>
+
+                    {/* Right Column: Financial Calculator / Settlement Inputs */}
+                    <div className="space-y-4">
+                      <div className="space-y-2.5 text-xs">
+                        
+                        {/* Subtotal Display */}
+                        <div className="flex justify-between text-gray-600 font-medium">
+                          <span>Subtotal</span>
+                          <span>₹{subtotal.toLocaleString('en-IN')}</span>
+                        </div>
+
+                        {/* Override Price Input - rental only */}
+                        {invoiceData.invoice_type === "rental" && (
+                          <div className="bg-amber-50/50 border border-amber-200/40 p-2 rounded-lg space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="useCustomPackagePrice"
+                                checked={useCustomPackagePrice}
+                                onCheckedChange={(checked) => setUseCustomPackagePrice(checked === true)}
+                              />
+                              <Label htmlFor="useCustomPackagePrice" className="text-[10px] text-amber-900 cursor-pointer font-medium">
+                                Override Subtotal Price (₹)
+                              </Label>
+                            </div>
+                            {useCustomPackagePrice && (
+                              <Input
+                                type="number"
+                                value={customPackagePrice || ''}
+                                onChange={(e) => setCustomPackagePrice(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                className="h-7 text-xs bg-white border-amber-200 focus:border-[#102516] focus:ring-1 focus:ring-[#102516]"
+                                placeholder="Enter custom price"
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Security Deposit & Refund Toggle - rental only */}
+                        {invoiceData.invoice_type === "rental" && (
+                          <div className="bg-blue-50/40 border border-blue-200/40 p-2 rounded-lg space-y-2">
+                            <div className="grid grid-cols-2 gap-2 items-center">
+                              <Label className="text-[10px] text-blue-900 font-medium">Security Deposit (₹)</Label>
+                              <Input
+                                type="number"
+                                value={invoiceData.security_deposit || ''}
+                                onChange={(e) => setInvoiceData({ ...invoiceData, security_deposit: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
+                                className="h-7 text-xs bg-white border-blue-200"
+                                placeholder="Deposit"
+                              />
+                            </div>
+                            {securityDeposit > 0 && (
+                              <div className="flex items-center space-x-2 border-t border-blue-200/30 pt-1.5">
+                                <Checkbox
+                                  id="depositRefunded"
+                                  checked={isDepositRefunded}
+                                  onCheckedChange={(checked) => setIsDepositRefunded(checked as boolean)}
+                                />
+                                <Label htmlFor="depositRefunded" className="text-[10px] text-blue-900 cursor-pointer font-medium">
+                                  Refunded to Customer
+                                </Label>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Coupon / Discount Code */}
+                        <div className="bg-gray-50 border border-gray-200/50 p-2 rounded-lg space-y-2">
+                          <div className="grid grid-cols-2 gap-2 items-center">
+                            <Label className="text-[10px] text-gray-700 font-medium">Discount Amount (₹)</Label>
+                            <Input
+                              type="number"
+                              value={invoiceData.discount_amount || ''}
+                              onChange={(e) => setInvoiceData({ ...invoiceData, discount_amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
+                              className="h-7 text-xs bg-white border-gray-200"
+                              placeholder="Discount"
+                            />
+                          </div>
+
+                          <div className="border-t border-gray-200/50 pt-2 space-y-1.5">
+                            <Label className="text-[10px] text-gray-500">Coupon Code</Label>
+                            <div className="flex gap-1">
+                              <Input
+                                value={invoiceData.coupon_code}
+                                onChange={(e) => {
+                                  setInvoiceData({ ...invoiceData, coupon_code: e.target.value.toUpperCase() })
+                                  setCouponError(null)
+                                  if (appliedCoupon !== invoiceData.coupon_code) {
+                                    setAppliedCoupon(null)
+                                  }
+                                }}
+                                placeholder="COUPON"
+                                className="h-7 text-xs bg-white uppercase animate-none"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={appliedCoupon ? "default" : "outline"}
+                                onClick={handleApplyCoupon}
+                                disabled={validatingCoupon || !invoiceData.coupon_code.trim()}
+                                className="h-7 text-[10px] px-2 whitespace-nowrap"
+                              >
+                                {validatingCoupon ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : appliedCoupon ? (
+                                  "Applied"
+                                ) : (
+                                  "Apply"
+                                )}
+                              </Button>
+                            </div>
+                            {couponError && <p className="text-[9px] text-red-500">{couponError}</p>}
+                            {appliedCoupon && invoiceData.coupon_discount > 0 && (
+                              <p className="text-[9px] text-green-600">✓ Discount: ₹{invoiceData.coupon_discount}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* GST Tax Toggle */}
+                        <div className="border-t border-gray-200/50 pt-2.5">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="applyGst"
+                              checked={applyGst}
+                              onCheckedChange={(checked) => setApplyGst(checked === true)}
+                            />
+                            <Label htmlFor="applyGst" className="text-[10px] font-medium cursor-pointer text-gray-700">
+                              Apply GST ({invoiceData.gst_percentage}%) — Inclusive
+                            </Label>
+                          </div>
+                          {applyGst && (
+                            <div className="text-[9px] text-gray-500 mt-1 pl-5">
+                              Breakdown: Base ₹{Math.round(baseAmountBeforeGst).toLocaleString('en-IN')} + GST ₹{Math.round(gstAmount).toLocaleString('en-IN')}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Advance / Amount Paid */}
+                        <div className="border-t border-gray-200/50 pt-2.5 grid grid-cols-2 gap-2 items-center">
+                          <Label className="font-semibold text-gray-800">Amount Paid (₹)</Label>
+                          <Input
+                            type="number"
+                            value={invoiceData.amount_paid || ''}
+                            onChange={(e) => setInvoiceData({ ...invoiceData, amount_paid: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
+                            className="h-8 text-xs bg-white border-gray-200 font-bold"
+                            placeholder="Paid"
+                          />
+                        </div>
+
+                        {/* Summary Totals */}
+                        <div className="border-t border-gray-200/80 pt-3 space-y-2">
+                          {discountAmount > 0 && (
+                            <div className="flex justify-between text-green-700 font-medium">
+                              <span>Discount Applied</span>
+                              <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                          )}
+                          {isDepositRefunded && invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
+                            <div className="flex justify-between text-green-700 font-medium">
+                              <span>Refunded Deposit</span>
+                              <span>-₹{securityDeposit.toLocaleString('en-IN')}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-base text-gray-900 border-b border-gray-200/40 pb-1.5">
+                            <span>Total Amount</span>
+                            <span className="text-orange-700">₹{grandTotal.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between text-[#102516] font-semibold">
+                            <span>Amount Paid</span>
+                            <span>₹{invoiceData.amount_paid.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-red-600 text-sm pt-0.5">
+                            <span>Balance Due</span>
+                            <span>₹{pendingAmount.toLocaleString('en-IN')}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Checkout Sticky Actions */}
+                      <div className="pt-2 flex flex-col gap-2">
+                        <Button 
+                          size="default" 
+                          onClick={handleCreateOrder} 
+                          disabled={saving || !selectedCustomer}
+                          className="w-full bg-[#102516] hover:bg-[#1a3a26] text-[#fefaf6] h-10 font-serif font-semibold text-xs tracking-wider"
+                        >
+                          {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                          {mode === "edit" && editingQuote ? "CONVERT TO BOOKING" : mode === "edit" ? "UPDATE ORDER" : "CREATE ORDER"}
+                        </Button>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handlePrint}
+                            className="border-[#102516]/20 text-[#102516] hover:bg-[#102516]/5 h-8 font-serif"
+                          >
+                            <Printer className="h-3.5 w-3.5 mr-1.5" />
+                            Print
+                          </Button>
+                          {mode !== "edit" && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={handleSaveAsQuote} 
+                              disabled={saving}
+                              className="border-[#102516]/20 text-[#102516] hover:bg-[#102516]/5 h-8 font-serif"
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1.5" />
+                              Save Quote
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
-                {isDepositRefunded && invoiceData.invoice_type === "rental" && securityDeposit > 0 && (
-                  <div className="flex justify-between text-green-600 font-medium">
-                    <span>Security Deposit (Refunded)</span>
-                    <span>-{formatCurrency(securityDeposit)}</span>
-                  </div>
-                )}
-                <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                  <span>Total Amount</span>
-                  <span className="text-orange-600">{formatCurrency(grandTotal)}</span>
-                </div>
-                <div className="flex justify-between text-green-600">
-                  <span>Amount Paid</span>
-                  <span>{formatCurrency(invoiceData.amount_paid)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-red-600">
-                  <span>Balance Due</span>
-                  <span>{formatCurrency(pendingAmount)}</span>
-                </div>
+                </Card>
               </div>
-            </Card>
-          </div>
-
-          {/* Terms & Conditions - Compact for print */}
-          <Card className="p-3 bg-gray-50 print:bg-white print:p-2 print:hidden">
-            <div className="flex items-center gap-2 mb-2">
-              <FileCheck className="h-4 w-4 text-orange-500 print:hidden" />
-              <span className="font-semibold text-xs">Terms & Conditions</span>
             </div>
-            <div className="text-[10px] text-gray-600 print:text-[9px]">
-              {companySettings?.terms_conditions ? (
-                <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
-              ) : (
-                <ol className="list-decimal list-inside space-y-0.5">
-                  <li>Sold products will not be returned or exchanged.</li>
-                  <li>Please book the Safa Wale service at least 1 month in advance.</li>
-                  <li>We will not allow any last-minute changes in placed orders.</li>
-                  <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
-                  <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
-                  <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
-                  <li>Our staff team will not ask guests to return safas (as per company reputation & policies).</li>
-                  <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
-                  <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
-                  <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
-                  <li>I hereby declare that all the above products are selected and checked by me.</li>
-                  <li>Subject to Vadodara jurisdiction.</li>
-                </ol>
-              )}
-            </div>
-          </Card>
-
-          {/* Footer */}
-          <div className="border-t pt-2 text-center text-[10px] text-gray-500 print:pt-1 print:hidden">
-            <p>Thank you for choosing Safawala! | Terms & Conditions apply</p>
           </div>
-        </div>
         {/* ================= END WEB-ONLY CONTENT ================= */}
 
         {/* ================= PRINT-ONLY ITEMS & SUMMARY SECTION ================= */}
@@ -3844,28 +3623,42 @@ export default function CreateInvoicePage() {
                   <tr>
                     <th className="text-left px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-8"></th>
                     <th className="text-left px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200">Item</th>
-                    <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-16">Qty</th>
+                    <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-12">Qty</th>
+                    <th className="text-right px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-20">Rate</th>
+                    <th className="text-right px-1.5 py-1 text-[9px] font-semibold text-amber-800 border-b border-amber-200 w-24">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {invoiceItems.map((item) => (
-                    <tr key={item.id} className="border-b border-gray-100">
-                      <td className="px-1 py-0.5">
-                        {item.image_url ? (
-                          <img src={item.image_url} alt="" className="h-7 w-7 object-cover rounded" />
-                        ) : (
-                          <div className="h-7 w-7 bg-gray-100 rounded flex items-center justify-center">
-                            <Package className="h-3.5 w-3.5 text-gray-400" />
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-1.5 py-0.5">
-                        <span className="font-medium text-gray-900">{item.product_name}</span>
-                        {item.barcode && <span className="text-[8px] text-gray-400 ml-1">#{item.barcode}</span>}
-                      </td>
-                      <td className="px-1.5 py-0.5 text-center font-medium">{item.quantity}</td>
-                    </tr>
-                  ))}
+                  {invoiceItems.map((item) => {
+                    const isPackageInclusion = selectionMode === "package" && 
+                      item.product_id !== 'modification-service' && 
+                      item.category !== 'Modification';
+                    
+                    return (
+                      <tr key={item.id} className="border-b border-gray-100">
+                        <td className="px-1 py-0.5">
+                          {item.image_url ? (
+                            <img src={item.image_url} alt="" className="h-7 w-7 object-cover rounded" />
+                          ) : (
+                            <div className="h-7 w-7 bg-gray-100 rounded flex items-center justify-center">
+                              <Package className="h-3.5 w-3.5 text-gray-400" />
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-1.5 py-0.5">
+                          <span className="font-medium text-gray-900">{item.product_name}</span>
+                          {item.barcode && <span className="text-[8px] text-gray-400 ml-1">#{item.barcode}</span>}
+                        </td>
+                        <td className="px-1.5 py-0.5 text-center font-medium">{item.quantity}</td>
+                        <td className="px-1.5 py-0.5 text-right font-medium text-gray-900">
+                          {isPackageInclusion ? "Included" : formatCurrency(item.unit_price)}
+                        </td>
+                        <td className="px-1.5 py-0.5 text-right font-medium text-gray-900">
+                          {isPackageInclusion ? "Included" : formatCurrency(item.total_price)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -3993,23 +3786,30 @@ export default function CreateInvoicePage() {
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">Terms & Conditions</div>
             <div className="text-[9px] text-gray-600">
-              {companySettings?.terms_conditions ? (
-                <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
-              ) : (
-                <ol className="list-decimal list-inside space-y-0.5 leading-tight">
+              {invoiceData.invoice_type === "sale" ? (
+                <ul className="list-disc list-inside space-y-1">
                   <li>Sold products will not be returned or exchanged.</li>
-                  <li>Please book the Safa Wale service at least 1 month in advance.</li>
-                  <li>We will not allow any last-minute changes in placed orders.</li>
-                  <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
-                  <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
-                  <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
-                  <li>Our staff team will not ask guests to return safas (as per company reputation &amp; policies).</li>
-                  <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
-                  <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
-                  <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
-                  <li>I hereby declare that all the above products are selected and checked by me.</li>
                   <li>Subject to Vadodara jurisdiction.</li>
-                </ol>
+                </ul>
+              ) : (
+                companySettings?.terms_conditions ? (
+                  <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
+                ) : (
+                  <ol className="list-decimal list-inside space-y-0.5 leading-tight">
+                    <li>Sold products will not be returned or exchanged.</li>
+                    <li>Please book the Safa Wale service at least 1 month in advance.</li>
+                    <li>We will not allow any last-minute changes in placed orders.</li>
+                    <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
+                    <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
+                    <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
+                    <li>Our staff team will not ask guests to return safas (as per company reputation &amp; policies).</li>
+                    <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
+                    <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
+                    <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
+                    <li>I hereby declare that all the above products are selected and checked by me.</li>
+                    <li>Subject to Vadodara jurisdiction.</li>
+                  </ol>
+                )
               )}
             </div>
           </div>
@@ -4021,8 +3821,19 @@ export default function CreateInvoicePage() {
                 <p className="text-[10px] font-semibold text-gray-700">Customer Signature</p>
               </div>
             </div>
-            <div className="text-center w-[40%]">
-              <div className="border-t border-gray-400 pt-1 mt-10">
+            <div className="text-center w-[40%] flex flex-col items-center justify-end">
+              {companySettings?.signature_url ? (
+                <div className="h-10 w-auto mb-1 flex items-center justify-center">
+                  <img 
+                    src={companySettings.signature_url} 
+                    alt="Authorized Signature" 
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="h-10" />
+              )}
+              <div className="border-t border-gray-400 pt-1 w-full">
                 <p className="text-[10px] font-semibold text-gray-700">Authorized Signature</p>
                 <p className="text-[8px] text-gray-500">{companySettings?.company_name || 'Safawala'}</p>
               </div>
@@ -4038,34 +3849,7 @@ export default function CreateInvoicePage() {
         {/* ================= END PRINT-ONLY ITEMS & SUMMARY ================= */}
       </div>
 
-      {/* Bottom Action Bar - Mobile Friendly, Hidden on Print */}
-      <div className="max-w-4xl mx-auto mt-4 print:hidden">
-        <Card className="p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm">
-              <span className="text-gray-500">Total:</span>
-              <span className="ml-2 font-bold text-lg">{formatCurrency(grandTotal)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handlePrint}>
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              {/* Save as Quote - only show in new mode, not in edit mode */}
-              {mode !== "edit" && (
-                <Button variant="outline" onClick={handleSaveAsQuote} disabled={saving}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Save as Quote
-                </Button>
-              )}
-              <Button onClick={handleCreateOrder} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                {mode === "edit" && editingQuote ? "Convert to Booking" : mode === "edit" ? "Update Order" : "Create Order"}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
+      {/* Bottom Action Bar is now integrated into Checkout Overview card */}
 
       {/* New Customer Dialog */}
       <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>

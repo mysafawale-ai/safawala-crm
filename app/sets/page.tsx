@@ -65,43 +65,9 @@ export default function PackagesPage() {
                 
                 const { data: variantsData } = await variantQuery.order("display_order", { ascending: true })
 
-                // Fetch levels for each variant
-                const variantsWithLevels = await Promise.all(
-                  (variantsData || []).map(async (variant) => {
-                    const { data: levelsData } = await supabase
-                      .from("package_levels")
-                      .select("*")
-                      .eq("variant_id", variant.id)
-                      .eq("is_active", true)
-                      .order("display_order", { ascending: true })
-
-                    // Fetch distance pricing for each level
-                    const levelsWithPricing = await Promise.all(
-                      (levelsData || []).map(async (level) => {
-                        const { data: pricingData } = await supabase
-                          .from("distance_pricing")
-                          .select("*")
-                          .eq("level_id", level.id)
-                          .eq("is_active", true)
-                          .order("min_km", { ascending: true })
-
-                        return {
-                          ...level,
-                          distance_pricing: pricingData || [],
-                        }
-                      }),
-                    )
-
-                    return {
-                      ...variant,
-                      package_levels: levelsWithPricing,
-                    }
-                  }),
-                )
-
                 return {
                   ...category,
-                  package_variants: variantsWithLevels,
+                  package_variants: variantsData || [],
                 }
               }),
             )

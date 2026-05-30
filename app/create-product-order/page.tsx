@@ -121,8 +121,8 @@ export default function CreateProductOrderPage() {
   const [basePincode, setBasePincode] = useState<string>('390007') // Default fallback
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
-  const [subcategories, setSubcategories] = useState<Array<{id: string, name: string, parent_id: string}>>([])
+  const [categories, setCategories] = useState<Array<{ id: string, name: string }>>([])
+  const [subcategories, setSubcategories] = useState<Array<{ id: string, name: string, parent_id: string }>>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [selectedStaff, setSelectedStaff] = useState<string>("none")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -148,7 +148,7 @@ export default function CreateProductOrderPage() {
   const [damageAmount, setDamageAmount] = useState(0)
   const [lossAmount, setLossAmount] = useState(0)
   const [skipProductSelection, setSkipProductSelection] = useState(false)
-  
+
   // Calendar popover states for auto-close
   const [eventDateOpen, setEventDateOpen] = useState(false)
   const [deliveryDateOpen, setDeliveryDateOpen] = useState(false)
@@ -196,15 +196,15 @@ export default function CreateProductOrderPage() {
   // Recalculate item prices when booking type changes
   useEffect(() => {
     if (items.length === 0) return
-    
+
     setItems(prevItems => prevItems.map(item => {
       const product = products.find(p => p.id === item.product_id)
       if (!product) return item
-      
-      const newUnitPrice = formData.booking_type === "rental" 
-        ? (product.rental_price || 0) 
+
+      const newUnitPrice = formData.booking_type === "rental"
+        ? (product.rental_price || 0)
         : (product.sale_price || product.rental_price || 0) // Fallback to rental if sale is 0
-      
+
       return {
         ...item,
         unit_price: newUnitPrice,
@@ -216,7 +216,7 @@ export default function CreateProductOrderPage() {
 
   // Load initial data
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       setCustomersLoading(true)
       try {
         // Fetch current user to apply franchise isolation
@@ -292,15 +292,15 @@ export default function CreateProductOrderPage() {
           all_barcode_numbers: p.all_barcode_numbers || []
         })) as Product[]
         setProducts(mappedProducts)
-        
+
         // Fetch categories and subcategories from database
         const mainCats = categoriesData.data?.filter((c: any) => !c.parent_id) || []
         const subCats = categoriesData.data?.filter((c: any) => c.parent_id) || []
         setCategories(mainCats)
         setSubcategories(subCats)
-        
+
         setStaffMembers(staff.data || [])
-        
+
         // Auto-select current user as sales staff if they are in the staff list
         if (user && staff.data) {
           const currentUserInStaff = staff.data.find((s: any) => s.id === user.id)
@@ -456,8 +456,8 @@ export default function CreateProductOrderPage() {
     }
 
     const unit =
-      formData.booking_type === "rental" 
-        ? (p.rental_price || 0) 
+      formData.booking_type === "rental"
+        ? (p.rental_price || 0)
         : (p.sale_price || p.rental_price || 0) // Use rental as fallback if sale is 0
 
     if (existing) {
@@ -502,7 +502,7 @@ export default function CreateProductOrderPage() {
       toast.error("Please enter a valid price")
       return
     }
-    
+
     setCreatingProduct(true)
     try {
       let imageUrl: string | null = customProductData.image_url
@@ -516,7 +516,7 @@ export default function CreateProductOrderPage() {
           const randomStr = Math.random().toString(36).substring(7)
           const fileExt = blob.type.split('/')[1] || 'jpg'
           const fileName = `product-${timestamp}-${randomStr}.${fileExt}`
-          
+
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('product-images')
             .upload(fileName, blob, {
@@ -524,13 +524,13 @@ export default function CreateProductOrderPage() {
               cacheControl: '3600',
               upsert: true
             })
-          
+
           if (uploadError) throw uploadError
-          
+
           const { data: { publicUrl } } = supabase.storage
             .from('product-images')
             .getPublicUrl(fileName)
-          
+
           imageUrl = publicUrl
           toast.success('Image uploaded successfully!')
         } catch (uploadError: any) {
@@ -581,15 +581,15 @@ export default function CreateProductOrderPage() {
         .insert(basePayload)
         .select()
         .single()
-      
+
       if (error) throw error
-      
+
       // Add to products list and immediately add to order
       setProducts(prev => [...prev, product as any])
       addProduct(product)
-      
+
       toast.success(`Product "${product.name}" created and added to order!`)
-      
+
       setCustomProductData({ name: '', category_id: '', image_url: '', rental_price: '' })
       setShowCustomProductDialog(false)
     } catch (e: any) {
@@ -602,12 +602,12 @@ export default function CreateProductOrderPage() {
 
   const openCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: cameraFacing } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: cameraFacing }
       })
       streamRef.current = stream
       setShowCameraDialog(true)
-      
+
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream
@@ -623,13 +623,13 @@ export default function CreateProductOrderPage() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
     }
-    
+
     const newFacing = cameraFacing === 'user' ? 'environment' : 'user'
     setCameraFacing(newFacing)
-    
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: newFacing } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newFacing }
       })
       streamRef.current = stream
       if (videoRef.current) {
@@ -868,8 +868,8 @@ export default function CreateProductOrderPage() {
             eventDateTime = combineDateAndTime(today, formData.event_time)
           }
         }
-        
-        const deliveryDateTime = formData.delivery_date 
+
+        const deliveryDateTime = formData.delivery_date
           ? combineDateAndTime(formData.delivery_date, formData.delivery_time)
           : null
         const returnDateTime = formData.return_date
@@ -973,8 +973,8 @@ export default function CreateProductOrderPage() {
           eventDateTime = combineDateAndTime(today, formData.event_time)
         }
       }
-      
-      const deliveryDateTime = formData.delivery_date 
+
+      const deliveryDateTime = formData.delivery_date
         ? combineDateAndTime(formData.delivery_date, formData.delivery_time)
         : null
       const returnDateTime = formData.return_date
@@ -990,15 +990,15 @@ export default function CreateProductOrderPage() {
       // ✅ NEW: Branch for direct sales (separate table) - using server-side API
       if (formData.booking_type === "sale" && !isQuote) {
         console.log('[Create Product Order] Saving direct sale via API...')
-        
+
         // Generate DSL* prefix for direct sales
         const saleNumber = `DSL${Date.now().toString().slice(-8)}`
-        
+
         // Determine status based on payment type:
         // - Full payment → "confirmed" (ready to proceed)
         // - Advance/Partial payment → "pending_payment" (needs payment confirmation)
         const saleStatus = formData.payment_type === "full" ? "confirmed" : "pending_payment"
-        
+
         // Prepare sale data
         const saleData = {
           sale_number: saleNumber,
@@ -1162,38 +1162,38 @@ export default function CreateProductOrderPage() {
         try {
           for (const item of items) {
             console.log(`[Product Order] Deducting ${item.quantity} units from product ${item.product_id}`)
-            
+
             // Get current stock from products table
             const { data: product, error: fetchError } = await supabase
               .from('products')
               .select('stock_available, name')
               .eq('id', item.product_id)
               .single()
-              
+
             if (fetchError) {
               console.warn(`[Product Order] Failed to fetch product stock for ${item.product_id}:`, fetchError)
               continue
             }
-            
+
             const currentStock = product?.stock_available || 0
             const newStock = Math.max(0, currentStock - item.quantity)
-            
+
             // Warn if stock would go negative
             if (newStock < currentStock - item.quantity) {
               console.warn(`[Product Order] Product ${item.product_id} (${product?.name}) reserved more than available. Current: ${currentStock}, Requested: ${item.quantity}, Will reserve: ${newStock}`)
             }
-            
+
             // Update stock in products table
             const { error: updateError } = await supabase
               .from('products')
               .update({ stock_available: newStock })
               .eq('id', item.product_id)
-              
+
             if (updateError) {
               console.warn(`[Product Order] Failed to deduct stock for product ${item.product_id}:`, updateError)
               continue
             }
-            
+
             console.log(`[Product Order] ✅ Deducted ${item.quantity} units from ${item.product_id}. New stock: ${newStock}`)
           }
         } catch (inventoryError) {
@@ -1203,8 +1203,8 @@ export default function CreateProductOrderPage() {
         }
       }
 
-      const successMsg = isQuote 
-        ? `Quote ${orderNumber} created successfully` 
+      const successMsg = isQuote
+        ? `Quote ${orderNumber} created successfully`
         : `Order ${orderNumber} created successfully`
       toast.success(successMsg)
 
@@ -1213,7 +1213,7 @@ export default function CreateProductOrderPage() {
         sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order" })
           .then(r => r.success && toast.success("Invoice sent on WhatsApp!"))
       }
-      
+
       // Redirect to quotes page if quote, bookings page if order
       // Add timestamp to force page reload and refetch
       const redirectPath = isQuote ? "/quotes" : "/bookings"
@@ -1263,369 +1263,255 @@ export default function CreateProductOrderPage() {
               {/* Forms Section */}
               <div className="space-y-6">
                 {/* Customer Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Customer
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowNewCustomer(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    New
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search customers..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {selectedCustomer ? (
-                  <div className="p-3 rounded-md bg-blue-50 border border-blue-200 flex items-start justify-between">
-                    <div>
-                      <div className="font-medium text-blue-900">
-                        {selectedCustomer.name}
-                      </div>
-                      <div className="text-xs text-blue-700">
-                        {selectedCustomer.phone}
-                      </div>
-                      {selectedCustomer.email && (
-                        <div className="text-xs text-blue-600">
-                          {selectedCustomer.email}
-                        </div>
-                      )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      Customer
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowNewCustomer(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        New
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search customers..."
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        className="pl-10"
+                      />
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setSelectedCustomer(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="border rounded-md max-h-56 overflow-y-auto text-sm">
-                    {customersLoading ? (
-                      // Skeleton loading state
-                      <div className="space-y-0">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <div key={i} className="p-3 border-b last:border-b-0">
-                            <Skeleton className="h-5 w-32 mb-2" />
-                            <Skeleton className="h-4 w-24" />
+
+                    {selectedCustomer ? (
+                      <div className="p-3 rounded-md bg-blue-50 border border-blue-200 flex items-start justify-between">
+                        <div>
+                          <div className="font-medium text-blue-900">
+                            {selectedCustomer.name}
                           </div>
-                        ))}
+                          <div className="text-xs text-blue-700">
+                            {selectedCustomer.phone}
+                          </div>
+                          {selectedCustomer.email && (
+                            <div className="text-xs text-blue-600">
+                              {selectedCustomer.email}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedCustomer(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
                     ) : (
-                      <>
-                        {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => setSelectedCustomer(c)}
-                            className="w-full text-left p-3 border-b last:border-b-0 hover:bg-muted"
-                          >
-                            <div className="font-medium">{c.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {c.phone}
-                            </div>
-                          </button>
-                        ))}
-                        {customerSearch && filteredCustomers.length === 0 && (
-                          <div className="p-3 text-xs text-muted-foreground">
-                            No matches
+                      <div className="border rounded-md max-h-56 overflow-y-auto text-sm">
+                        {customersLoading ? (
+                          // Skeleton loading state
+                          <div className="space-y-0">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <div key={i} className="p-3 border-b last:border-b-0">
+                                <Skeleton className="h-5 w-32 mb-2" />
+                                <Skeleton className="h-4 w-24" />
+                              </div>
+                            ))}
                           </div>
+                        ) : (
+                          <>
+                            {(customerSearch ? filteredCustomers : customers.slice(0, 5)).map((c) => (
+                              <button
+                                key={c.id}
+                                onClick={() => setSelectedCustomer(c)}
+                                className="w-full text-left p-3 border-b last:border-b-0 hover:bg-muted"
+                              >
+                                <div className="font-medium">{c.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {c.phone}
+                                </div>
+                              </button>
+                            ))}
+                            {customerSearch && filteredCustomers.length === 0 && (
+                              <div className="p-3 text-xs text-muted-foreground">
+                                No matches
+                              </div>
+                            )}
+                            {!customerSearch && customers.length > 5 && (
+                              <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
+                                Showing first 5 of {customers.length} customers. Type to search more...
+                              </div>
+                            )}
+                            {!customerSearch && customers.length === 0 && (
+                              <div className="p-3 text-xs text-muted-foreground">
+                                No customers found
+                              </div>
+                            )}
+                          </>
                         )}
-                        {!customerSearch && customers.length > 5 && (
-                          <div className="p-3 text-xs text-muted-foreground text-center bg-muted/30">
-                            Showing first 5 of {customers.length} customers. Type to search more...
-                          </div>
-                        )}
-                        {!customerSearch && customers.length === 0 && (
-                          <div className="p-3 text-xs text-muted-foreground">
-                            No customers found
-                          </div>
-                        )}
-                      </>
+                      </div>
                     )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            {/* Booking Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>{formData.booking_type === "sale" ? "Direct Sale Details" : "Event & Wedding Details"}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                {/* Row 1: Booking Type */}
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-xs">Booking Type</Label>
-                    <Select
-                      value={formData.booking_type}
-                      onValueChange={(v) =>
-                        setFormData({ ...formData, booking_type: v as any })
-                      }
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="rental">Rental</SelectItem>
-                        <SelectItem value="sale">Direct Sale</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {/* Only show Event Type and Event Participant for rentals */}
-                  {formData.booking_type === "rental" && (
-                    <>
+                {/* Booking Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{formData.booking_type === "sale" ? "Direct Sale Details" : "Event & Wedding Details"}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm">
+                    {/* Row 1: Booking Type */}
+                    <div className="grid sm:grid-cols-3 gap-4">
                       <div>
-                        <Label className="text-xs">Event Type</Label>
+                        <Label className="text-xs">Booking Type</Label>
                         <Select
-                          value={formData.event_type}
+                          value={formData.booking_type}
                           onValueChange={(v) =>
-                            setFormData({ ...formData, event_type: v })
+                            setFormData({ ...formData, booking_type: v as any })
                           }
                         >
                           <SelectTrigger className="mt-1">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Wedding">Wedding</SelectItem>
-                            <SelectItem value="Engagement">Engagement</SelectItem>
-                            <SelectItem value="Reception">Reception</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
+                            <SelectItem value="rental">Rental</SelectItem>
+                            <SelectItem value="sale">Direct Sale</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Only show Event Type and Event Participant for rentals */}
+                      {formData.booking_type === "rental" && (
+                        <>
+                          <div>
+                            <Label className="text-xs">Event Type</Label>
+                            <Select
+                              value={formData.event_type}
+                              onValueChange={(v) =>
+                                setFormData({ ...formData, event_type: v })
+                              }
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Wedding">Wedding</SelectItem>
+                                <SelectItem value="Engagement">Engagement</SelectItem>
+                                <SelectItem value="Reception">Reception</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Event Participant</Label>
+                            <Select
+                              value={formData.event_participant}
+                              onValueChange={(v) =>
+                                setFormData({ ...formData, event_participant: v })
+                              }
+                            >
+                              <SelectTrigger className="mt-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Groom">Groom Only</SelectItem>
+                                <SelectItem value="Bride">Bride Only</SelectItem>
+                                <SelectItem value="Both">Both</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Payment Type - only for rentals */}
+                    {formData.booking_type === "rental" && (
                       <div>
-                        <Label className="text-xs">Event Participant</Label>
+                        <Label className="text-xs">Payment Type</Label>
                         <Select
-                          value={formData.event_participant}
+                          value={formData.payment_type}
                           onValueChange={(v) =>
-                            setFormData({ ...formData, event_participant: v })
+                            setFormData({ ...formData, payment_type: v as any })
                           }
                         >
                           <SelectTrigger className="mt-1">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Groom">Groom Only</SelectItem>
-                            <SelectItem value="Bride">Bride Only</SelectItem>
-                            <SelectItem value="Both">Both</SelectItem>
+                            <SelectItem value="full">Full Payment</SelectItem>
+                            <SelectItem value="advance">Advance Payment</SelectItem>
+                            <SelectItem value="partial">Deposit Only</SelectItem>
                           </SelectContent>
                         </Select>
+                        {formData.payment_type === "partial" && (
+                          <Input
+                            type="number"
+                            min={0}
+                            value={formData.custom_amount || ''}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                custom_amount: e.target.value === '' ? 0 : Number(e.target.value),
+                              })
+                            }
+                            className="mt-2"
+                            placeholder="Custom amount"
+                          />
+                        )}
                       </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Payment Type - only for rentals */}
-                {formData.booking_type === "rental" && (
-                  <div>
-                    <Label className="text-xs">Payment Type</Label>
-                    <Select
-                      value={formData.payment_type}
-                      onValueChange={(v) =>
-                        setFormData({ ...formData, payment_type: v as any })
-                      }
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="full">Full Payment</SelectItem>
-                        <SelectItem value="advance">Advance Payment</SelectItem>
-                        <SelectItem value="partial">Deposit Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {formData.payment_type === "partial" && (
-                      <Input
-                        type="number"
-                        min={0}
-                        value={formData.custom_amount || ''}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            custom_amount: e.target.value === '' ? 0 : Number(e.target.value),
-                          })
-                        }
-                        className="mt-2"
-                        placeholder="Custom amount"
-                      />
                     )}
-                  </div>
-                )}
 
-                {/* Dates & Times - only for rentals */}
-                {formData.booking_type === "rental" && (
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Event Date & Time *</Label>
-                      <Popover open={eventDateOpen} onOpenChange={setEventDateOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.event_date
-                              ? format(new Date(formData.event_date), "dd/MM/yyyy")
-                              : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={
-                              formData.event_date
-                                ? new Date(formData.event_date)
-                                : undefined
-                            }
-                            onSelect={(d) => {
-                              setFormData({
-                                ...formData,
-                                event_date: d?.toISOString() || "",
-                              })
-                              setEventDateOpen(false)
-                            }}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Input
-                        type="time"
-                        value={formData.event_time}
-                        onChange={(e) =>
-                          setFormData({ ...formData, event_time: e.target.value })
-                        }
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Delivery Date & Time</Label>
-                      <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.delivery_date
-                              ? format(
-                                  new Date(formData.delivery_date),
-                                  "dd/MM/yyyy"
-                                )
-                              : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={
-                              formData.delivery_date
-                                ? new Date(formData.delivery_date)
-                                : undefined
-                            }
-                            onSelect={(d) => {
-                              setFormData({
-                                ...formData,
-                                delivery_date: d?.toISOString() || "",
-                              })
-                              setDeliveryDateOpen(false)
-                            }}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Input
-                        type="time"
-                        value={formData.delivery_time}
-                        onChange={(e) =>
-                          setFormData({ ...formData, delivery_time: e.target.value })
-                        }
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Return Date & Time</Label>
-                      <Popover open={returnDateOpen} onOpenChange={setReturnDateOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.return_date
-                              ? format(new Date(formData.return_date), "dd/MM/yyyy")
-                              : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={
-                              formData.return_date
-                                ? new Date(formData.return_date)
-                                : undefined
-                            }
-                            onSelect={(d) => {
-                              setFormData({
-                                ...formData,
-                                return_date: d?.toISOString() || "",
-                              })
-                              setReturnDateOpen(false)
-                            }}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Input
-                        type="time"
-                        value={formData.return_time}
-                        onChange={(e) =>
-                          setFormData({ ...formData, return_time: e.target.value })
-                        }
-                        className="text-sm"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Venue Address - only for rentals */}
-                {formData.booking_type === "rental" && (
-                  <div>
-                    <Label className="text-xs">Venue Address</Label>
-                    <Textarea
-                      rows={2}
-                      value={formData.venue_address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, venue_address: e.target.value })
-                      }
-                      className="mt-1"
-                      placeholder="Enter venue address (e.g., Grand Palace Banquet, Connaught Place, Delhi - 110001)"
-                    />
-                  </div>
-                )}
-
-                {/* Delivery Date/Time & Address - for Direct Sales */}
-                {formData.booking_type === "sale" && (
-                  <>
-                    {/* 🚚 Delivery Details Section */}
-                    <div className="border-t pt-4 mt-4">
-                      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                        🚚 Delivery Details
-                      </h3>
-                      
-                      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                    {/* Dates & Times - only for rentals */}
+                    {formData.booking_type === "rental" && (
+                      <div className="grid sm:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-xs font-medium">Delivery Date *</Label>
+                          <Label className="text-xs">Event Date & Time *</Label>
+                          <Popover open={eventDateOpen} onOpenChange={setEventDateOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {formData.event_date
+                                  ? format(new Date(formData.event_date), "dd/MM/yyyy")
+                                  : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  formData.event_date
+                                    ? new Date(formData.event_date)
+                                    : undefined
+                                }
+                                onSelect={(d) => {
+                                  setFormData({
+                                    ...formData,
+                                    event_date: d?.toISOString() || "",
+                                  })
+                                  setEventDateOpen(false)
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Input
+                            type="time"
+                            value={formData.event_time}
+                            onChange={(e) =>
+                              setFormData({ ...formData, event_time: e.target.value })
+                            }
+                            className="text-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Delivery Date & Time</Label>
                           <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
                             <PopoverTrigger asChild>
                               <Button
@@ -1635,9 +1521,9 @@ export default function CreateProductOrderPage() {
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {formData.delivery_date
                                   ? format(
-                                      new Date(formData.delivery_date),
-                                      "dd/MM/yyyy"
-                                    )
+                                    new Date(formData.delivery_date),
+                                    "dd/MM/yyyy"
+                                  )
                                   : "Pick a date"}
                               </Button>
                             </PopoverTrigger>
@@ -1659,10 +1545,6 @@ export default function CreateProductOrderPage() {
                               />
                             </PopoverContent>
                           </Popover>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Delivery Time</Label>
                           <Input
                             type="time"
                             value={formData.delivery_time}
@@ -1672,77 +1554,90 @@ export default function CreateProductOrderPage() {
                             className="text-sm"
                           />
                         </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Return Date & Time</Label>
+                          <Popover open={returnDateOpen} onOpenChange={setReturnDateOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {formData.return_date
+                                  ? format(new Date(formData.return_date), "dd/MM/yyyy")
+                                  : "Pick a date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  formData.return_date
+                                    ? new Date(formData.return_date)
+                                    : undefined
+                                }
+                                onSelect={(d) => {
+                                  setFormData({
+                                    ...formData,
+                                    return_date: d?.toISOString() || "",
+                                  })
+                                  setReturnDateOpen(false)
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Input
+                            type="time"
+                            value={formData.return_time}
+                            onChange={(e) =>
+                              setFormData({ ...formData, return_time: e.target.value })
+                            }
+                            className="text-sm"
+                          />
+                        </div>
                       </div>
+                    )}
 
+                    {/* Venue Address - only for rentals */}
+                    {formData.booking_type === "rental" && (
                       <div>
-                        <Label className="text-xs font-medium">Delivery Address</Label>
+                        <Label className="text-xs">Venue Address</Label>
                         <Textarea
-                          rows={3}
-                          value={formData.delivery_address}
+                          rows={2}
+                          value={formData.venue_address}
                           onChange={(e) =>
-                            setFormData({ ...formData, delivery_address: e.target.value })
+                            setFormData({ ...formData, venue_address: e.target.value })
                           }
                           className="mt-1"
-                          placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
+                          placeholder="Enter venue address (e.g., Grand Palace Banquet, Connaught Place, Delhi - 110001)"
                         />
                       </div>
-                    </div>
+                    )}
 
-                    {/* 🔧 Modifications Section */}
-                    <div className="border-t pt-4 mt-4">
-                      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                        🔧 Modifications & Requirements
-                      </h3>
+                    {/* Delivery Date/Time & Address - for Direct Sales */}
+                    {formData.booking_type === "sale" && (
+                      <>
+                        {/* 🚚 Delivery Details Section */}
+                        <div className="border-t pt-4 mt-4">
+                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                            🚚 Delivery Details
+                          </h3>
 
-                      <div className="flex items-center space-x-2 mb-4">
-                        <Checkbox
-                          id="hasModifications"
-                          checked={formData.has_modifications}
-                          onCheckedChange={(checked) =>
-                            setFormData({
-                              ...formData,
-                              has_modifications: checked === true,
-                            })
-                          }
-                        />
-                        <Label htmlFor="hasModifications" className="text-sm font-medium cursor-pointer">
-                          Modifications Required
-                        </Label>
-                      </div>
-
-                      {formData.has_modifications && (
-                        <div className="space-y-4">
-                          <div>
-                            <Label className="text-xs font-medium">Modification Details *</Label>
-                            <Textarea
-                              rows={3}
-                              value={formData.modifications_details}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  modifications_details: e.target.value,
-                                })
-                              }
-                              className="mt-1"
-                              placeholder="Describe any modifications needed (e.g., color change, size adjustment, special embroidery, etc.)"
-                            />
-                          </div>
-
-                          <div className="grid sm:grid-cols-2 gap-4">
+                          <div className="grid sm:grid-cols-2 gap-4 mb-4">
                             <div className="space-y-2">
-                              <Label className="text-xs font-medium">Modification Date *</Label>
-                              <Popover open={modificationDateOpen} onOpenChange={setModificationDateOpen}>
+                              <Label className="text-xs font-medium">Delivery Date *</Label>
+                              <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
                                 <PopoverTrigger asChild>
                                   <Button
                                     variant="outline"
                                     className="w-full justify-start text-left"
                                   >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {formData.modification_date
+                                    {formData.delivery_date
                                       ? format(
-                                          new Date(formData.modification_date),
-                                          "dd/MM/yyyy"
-                                        )
+                                        new Date(formData.delivery_date),
+                                        "dd/MM/yyyy"
+                                      )
                                       : "Pick a date"}
                                   </Button>
                                 </PopoverTrigger>
@@ -1750,16 +1645,16 @@ export default function CreateProductOrderPage() {
                                   <Calendar
                                     mode="single"
                                     selected={
-                                      formData.modification_date
-                                        ? new Date(formData.modification_date)
+                                      formData.delivery_date
+                                        ? new Date(formData.delivery_date)
                                         : undefined
                                     }
                                     onSelect={(d) => {
                                       setFormData({
                                         ...formData,
-                                        modification_date: d?.toISOString() || "",
+                                        delivery_date: d?.toISOString() || "",
                                       })
-                                      setModificationDateOpen(false)
+                                      setDeliveryDateOpen(false)
                                     }}
                                   />
                                 </PopoverContent>
@@ -1767,755 +1662,860 @@ export default function CreateProductOrderPage() {
                             </div>
 
                             <div className="space-y-2">
-                              <Label className="text-xs font-medium">Modification Time *</Label>
+                              <Label className="text-xs font-medium">Delivery Time</Label>
                               <Input
                                 type="time"
-                                value={formData.modification_time}
+                                value={formData.delivery_time}
                                 onChange={(e) =>
-                                  setFormData({ ...formData, modification_time: e.target.value })
+                                  setFormData({ ...formData, delivery_time: e.target.value })
                                 }
                                 className="text-sm"
                               />
                             </div>
                           </div>
+
+                          <div>
+                            <Label className="text-xs font-medium">Delivery Address</Label>
+                            <Textarea
+                              rows={3}
+                              value={formData.delivery_address}
+                              onChange={(e) =>
+                                setFormData({ ...formData, delivery_address: e.target.value })
+                              }
+                              className="mt-1"
+                              placeholder="Enter delivery address with complete details (e.g., 123 Main Street, Apartment 4B, Delhi - 110001)"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 🔧 Modifications Section */}
+                        <div className="border-t pt-4 mt-4">
+                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                            🔧 Modifications & Requirements
+                          </h3>
+
+                          <div className="flex items-center space-x-2 mb-4">
+                            <Checkbox
+                              id="hasModifications"
+                              checked={formData.has_modifications}
+                              onCheckedChange={(checked) =>
+                                setFormData({
+                                  ...formData,
+                                  has_modifications: checked === true,
+                                })
+                              }
+                            />
+                            <Label htmlFor="hasModifications" className="text-sm font-medium cursor-pointer">
+                              Modifications Required
+                            </Label>
+                          </div>
+
+                          {formData.has_modifications && (
+                            <div className="space-y-4">
+                              <div>
+                                <Label className="text-xs font-medium">Modification Details *</Label>
+                                <Textarea
+                                  rows={3}
+                                  value={formData.modifications_details}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      modifications_details: e.target.value,
+                                    })
+                                  }
+                                  className="mt-1"
+                                  placeholder="Describe any modifications needed (e.g., color change, size adjustment, special embroidery, etc.)"
+                                />
+                              </div>
+
+                              <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label className="text-xs font-medium">Modification Date *</Label>
+                                  <Popover open={modificationDateOpen} onOpenChange={setModificationDateOpen}>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left"
+                                      >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {formData.modification_date
+                                          ? format(
+                                            new Date(formData.modification_date),
+                                            "dd/MM/yyyy"
+                                          )
+                                          : "Pick a date"}
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                      <Calendar
+                                        mode="single"
+                                        selected={
+                                          formData.modification_date
+                                            ? new Date(formData.modification_date)
+                                            : undefined
+                                        }
+                                        onSelect={(d) => {
+                                          setFormData({
+                                            ...formData,
+                                            modification_date: d?.toISOString() || "",
+                                          })
+                                          setModificationDateOpen(false)
+                                        }}
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label className="text-xs font-medium">Modification Time *</Label>
+                                  <Input
+                                    type="time"
+                                    value={formData.modification_time}
+                                    onChange={(e) =>
+                                      setFormData({ ...formData, modification_time: e.target.value })
+                                    }
+                                    className="text-sm"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Groom Information - Show only for rentals */}
+                {formData.booking_type === "rental" && (formData.event_participant === "Groom" || formData.event_participant === "Both") && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Groom Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 text-sm">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs">Groom Name</Label>
+                          <Input
+                            value={formData.groom_name}
+                            onChange={(e) =>
+                              setFormData({ ...formData, groom_name: e.target.value })
+                            }
+                            className="mt-1"
+                            placeholder="Enter groom's full name (e.g., Rajesh Kumar)"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Additional WhatsApp Number</Label>
+                          <Input
+                            value={formData.groom_whatsapp}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                groom_whatsapp: e.target.value,
+                              })
+                            }
+                            className="mt-1"
+                            placeholder="WhatsApp number (e.g., +91 9876543210)"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Home Address</Label>
+                        <Textarea
+                          rows={2}
+                          value={formData.groom_address}
+                          onChange={(e) =>
+                            setFormData({ ...formData, groom_address: e.target.value })
+                          }
+                          className="mt-1"
+                          placeholder="Full address with locality and pin code"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Bride Information - Show only for rentals */}
+                {formData.booking_type === "rental" && (formData.event_participant === "Bride" || formData.event_participant === "Both") && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Bride Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 text-sm">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs">Bride Name</Label>
+                          <Input
+                            value={formData.bride_name}
+                            onChange={(e) =>
+                              setFormData({ ...formData, bride_name: e.target.value })
+                            }
+                            className="mt-1"
+                            placeholder="Enter bride's full name (e.g., Priya Sharma)"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Additional WhatsApp Number</Label>
+                          <Input
+                            value={formData.bride_whatsapp}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                bride_whatsapp: e.target.value,
+                              })
+                            }
+                            className="mt-1"
+                            placeholder="WhatsApp number (e.g., +91 9876543210)"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Home Address</Label>
+                        <Textarea
+                          rows={2}
+                          value={formData.bride_address}
+                          onChange={(e) =>
+                            setFormData({ ...formData, bride_address: e.target.value })
+                          }
+                          className="mt-1"
+                          placeholder="Full address with locality and pin code"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Notes */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      📝 Notes & Special Instructions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      rows={3}
+                      value={formData.notes}
+                      onChange={(e) =>
+                        setFormData({ ...formData, notes: e.target.value })
+                      }
+                      placeholder="Any special instructions or requirements (e.g., Delivery before 9 AM, color preference - golden, special care needed)"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Quick Barcode Scanner - Only show for Sale type */}
+                {formData.booking_type === "sale" && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Quick Add by Barcode
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <BarcodeInput
+                        onScan={async (code) => {
+                          try {
+                            console.log('[Barcode Scan] Starting scan:', {
+                              fullBarcode: code,
+                              length: code.length,
+                              timestamp: new Date().toISOString(),
+                              currentUser: currentUser?.email,
+                              franchiseId: currentUser?.franchise_id
+                            })
+
+                            // ===== STEP 1: QUERY DEDICATED API (BEST) =====
+                            // Use the dedicated barcode lookup API for reliable scanning
+                            console.log('[Barcode Scan] Step 1: Querying barcode lookup API...')
+
+                            const response = await fetch('/api/barcode/lookup', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                barcode: code,
+                                franchiseId: currentUser?.franchise_id  // ✅ FIXED: Use currentUser instead of formData
+                              })
+                            })
+
+                            if (response.ok) {
+                              const result = await response.json()
+                              console.log('[Barcode Scan] ✅ FOUND via API:', {
+                                barcode: code,
+                                product: result.product.name,
+                                source: result.source,
+                                productId: result.product.id
+                              })
+
+                              // ✅ Check for duplicates - increment quantity instead
+                              const existingItem = items.find(item => item.product_id === result.product.id)
+                              if (existingItem) {
+                                console.log('[Barcode Scan] ⚠️ Product already in cart, incrementing quantity')
+                                const updatedItems = items.map(item =>
+                                  item.product_id === result.product.id
+                                    ? { ...item, quantity: item.quantity + 1 }
+                                    : item
+                                )
+                                setItems(updatedItems)
+                                toast.success("Quantity increased!", {
+                                  description: `${result.product.name} - Quantity: ${existingItem.quantity + 1}`,
+                                  duration: 2000
+                                })
+                                return
+                              }
+
+                              // ✅ Defensive mapping with fallback values
+                              addProduct({
+                                id: result.product.id || '',
+                                name: result.product.name || 'Unknown Product',
+                                category: result.product.category || '',
+                                category_id: result.product.category_id || undefined,
+                                subcategory_id: result.product.subcategory_id || undefined,
+                                rental_price: result.product.rental_price || 0,
+                                sale_price: result.product.sale_price || 0,
+                                security_deposit: result.product.security_deposit || 0,
+                                stock_available: result.product.stock_available || 0,
+                                image_url: result.product.image_url || ''
+                              })
+
+                              toast.success("Product added!", {
+                                description: `${result.product.name} added to cart`,
+                                duration: 2000
+                              })
+                              return
+                            }
+
+                            if (response.status === 404) {
+                              const errorData = await response.json()
+                              console.log('[Barcode Scan] ❌ Product not found via API:', {
+                                barcode: code,
+                                error: errorData.error
+                              })
+                              toast.error("Product not found", {
+                                description: `No product found with barcode: ${code}`,
+                                duration: 3000
+                              })
+                              return
+                            }
+
+                            // ===== STEP 2: FALLBACK LOCAL SEARCH =====
+                            // If API fails, try local search in products array
+                            console.log('[Barcode Scan] Step 2: Falling back to local product search...')
+
+                            const foundProduct = findProductByAnyBarcode(products as any, code)
+
+                            if (foundProduct) {
+                              console.log('[Barcode Scan] ✅ Found in local products:', {
+                                barcode: code,
+                                product: foundProduct.name
+                              })
+                              addProduct(foundProduct as any)
+                              toast.success("Product added!", {
+                                description: `${foundProduct.name} added to cart (local)`,
+                                duration: 2000
+                              })
+                              return
+                            }
+
+                            // ===== NOT FOUND =====
+                            console.log('[Barcode Scan] ❌ Product not found in any source:', code)
+                            toast.error("Product not found", {
+                              description: `Barcode not found: ${code}. Try scanning again or select manually.`,
+                              duration: 3000
+                            })
+
+                          } catch (error) {
+                            console.error('[Barcode Scan] Error:', error)
+                            toast.error("Scan error", {
+                              description: `Failed to process barcode: ${error instanceof Error ? error.message : 'Unknown error'}`
+                            })
+                          }
+                        }}
+                        placeholder="Scan product barcode..."
+                        debounceMs={1000}
+                        digitsOnly
+                        minDigits={11}
+                        autoFocus={true}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        💡 Use a handheld scanner or type the 11-digit product barcode manually
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Product Selection Options - Only for rentals */}
+                {formData.booking_type === "rental" && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Product Selection</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="skipProducts"
+                          checked={skipProductSelection}
+                          onCheckedChange={(checked) => setSkipProductSelection(checked === true)}
+                        />
+                        <Label htmlFor="skipProducts" className="text-sm">
+                          Skip product selection for now (can be done later)
+                        </Label>
+                      </div>
+
+                      {skipProductSelection ? (
+                        <div className="p-4 bg-yellow-50 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            ⏳ Product selection will be done later. Booking status will be "Selection Pending" until products are chosen.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-green-50 rounded-lg">
+                          <p className="text-sm text-green-800">
+                            ✓ Product selection will be completed now. You can add items using barcode or product selector below.
+                          </p>
                         </div>
                       )}
-                    </div>
-                  </>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
 
-            {/* Groom Information - Show only for rentals */}
-            {formData.booking_type === "rental" && (formData.event_participant === "Groom" || formData.event_participant === "Both") && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Groom Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm">
-                  <div className="grid sm:grid-cols-2 gap-4">
+                {/* Product Selection */}
+                {(formData.booking_type === "rental" ? !skipProductSelection : true) && (
+                  <ProductSelector
+                    products={products}
+                    categories={categories}
+                    subcategories={subcategories}
+                    selectedItems={items.map(item => ({
+                      product_id: item.product_id,
+                      quantity: item.quantity
+                    }))}
+                    bookingType={formData.booking_type}
+                    eventDate={formData.event_date}
+                    onProductSelect={addProduct}
+                    onCheckAvailability={checkAvailability}
+                    onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
+                  />
+                )}
+
+                {/* Order Items */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Order Items</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {items.length === 0 ? (
+                      <div className="py-10 text-center text-sm text-muted-foreground">
+                        <ShoppingCart className="h-8 w-8 mx-auto mb-3 text-gray-300" />
+                        No items added yet
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {items.map((it) => (
+                          <div
+                            key={it.id}
+                            className="flex items-center justify-between border-b pb-2 gap-3"
+                          >
+                            <div className="min-w-0">
+                              <div
+                                className="text-sm font-medium leading-none truncate"
+                                title={it.product_name}
+                              >
+                                {it.product_name}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground truncate">
+                                {it.category}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    updateQuantity(it.id, it.quantity - 1)
+                                  }
+                                >
+                                  -
+                                </Button>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={it.stock_available}
+                                  value={it.quantity || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? 1 : parseInt(e.target.value) || 1
+                                    updateQuantity(it.id, val)
+                                  }}
+                                  className="w-16 h-8 text-center text-sm"
+                                  autoFocus={lastAddedItemId === it.id}
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    updateQuantity(it.id, it.quantity + 1)
+                                  }
+                                >
+                                  +
+                                </Button>
+                              </div>
+                              <span className="text-xs font-medium whitespace-nowrap">
+                                ₹{it.total_price}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeItem(it.id)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Payment & Discounts */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Payment Method & Discounts</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Payment Method */}
                     <div>
-                      <Label className="text-xs">Groom Name</Label>
-                      <Input
-                        value={formData.groom_name}
-                        onChange={(e) =>
-                          setFormData({ ...formData, groom_name: e.target.value })
+                      <Label className="text-sm">Payment Method</Label>
+                      <Select
+                        value={formData.payment_method}
+                        onValueChange={(v) =>
+                          setFormData({ ...formData, payment_method: v })
                         }
-                        className="mt-1"
-                        placeholder="Enter groom's full name (e.g., Rajesh Kumar)"
-                      />
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
+                          <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                          <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
+                          <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
+                          <SelectItem value="International Payment Method">International Payment Method</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    {/* Deposit Amount - Only for Rental Type */}
+                    {formData.booking_type === "rental" && (
+                      <div>
+                        <Label className="text-sm">Deposit Amount (₹) - Additional/Custom Deposit</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={formData.deposit_amount || ''}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              deposit_amount: e.target.value === '' ? 0 : Number(e.target.value),
+                            })
+                          }
+                          className="mt-1"
+                          placeholder="Enter deposit amount"
+                        />
+                        {(formData.deposit_amount || 0) > 0 && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            ✓ Deposit Amount: ₹{(formData.deposit_amount || 0).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Custom Subtotal (before GST) */}
                     <div>
-                      <Label className="text-xs">Additional WhatsApp Number</Label>
+                      <Label className="text-sm">Custom Subtotal (₹) - Before GST (Optional)</Label>
                       <Input
-                        value={formData.groom_whatsapp}
+                        type="number"
+                        min={0}
+                        value={formData.custom_subtotal || ''}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            groom_whatsapp: e.target.value,
+                            custom_subtotal: e.target.value === '' ? 0 : Number(e.target.value),
                           })
                         }
                         className="mt-1"
-                        placeholder="WhatsApp number (e.g., +91 9876543210)"
+                        placeholder="Leave empty to use items total"
                       />
+                      {formData.custom_subtotal > 0 && (
+                        <p className="text-xs text-purple-600 mt-1">
+                          ✓ Custom Subtotal: ₹{(formData.custom_subtotal || 0).toFixed(2)}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Home Address</Label>
-                    <Textarea
-                      rows={2}
-                      value={formData.groom_address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, groom_address: e.target.value })
-                      }
-                      className="mt-1"
-                      placeholder="Full address with locality and pin code"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
-            {/* Bride Information - Show only for rentals */}
-            {formData.booking_type === "rental" && (formData.event_participant === "Bride" || formData.event_participant === "Both") && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Bride Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs">Bride Name</Label>
-                    <Input
-                      value={formData.bride_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, bride_name: e.target.value })
-                      }
-                      className="mt-1"
-                      placeholder="Enter bride's full name (e.g., Priya Sharma)"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Additional WhatsApp Number</Label>
-                    <Input
-                      value={formData.bride_whatsapp}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          bride_whatsapp: e.target.value,
-                        })
-                      }
-                      className="mt-1"
-                      placeholder="WhatsApp number (e.g., +91 9876543210)"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs">Home Address</Label>
-                  <Textarea
-                    rows={2}
-                    value={formData.bride_address}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bride_address: e.target.value })
-                    }
-                    className="mt-1"
-                    placeholder="Full address with locality and pin code"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Notes */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  📝 Notes & Special Instructions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  rows={3}
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Any special instructions or requirements (e.g., Delivery before 9 AM, color preference - golden, special care needed)"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Quick Barcode Scanner - Only show for Sale type */}
-            {formData.booking_type === "sale" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Quick Add by Barcode
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BarcodeInput
-                  onScan={async (code) => {
-                    try {
-                      console.log('[Barcode Scan] Starting scan:', {
-                        fullBarcode: code,
-                        length: code.length,
-                        timestamp: new Date().toISOString(),
-                        currentUser: currentUser?.email,
-                        franchiseId: currentUser?.franchise_id
-                      })
-                      
-                      // ===== STEP 1: QUERY DEDICATED API (BEST) =====
-                      // Use the dedicated barcode lookup API for reliable scanning
-                      console.log('[Barcode Scan] Step 1: Querying barcode lookup API...')
-                      
-                      const response = await fetch('/api/barcode/lookup', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                          barcode: code,
-                          franchiseId: currentUser?.franchise_id  // ✅ FIXED: Use currentUser instead of formData
-                        })
-                      })
-
-                      if (response.ok) {
-                        const result = await response.json()
-                        console.log('[Barcode Scan] ✅ FOUND via API:', {
-                          barcode: code,
-                          product: result.product.name,
-                          source: result.source,
-                          productId: result.product.id
-                        })
-
-                        // ✅ Check for duplicates - increment quantity instead
-                        const existingItem = items.find(item => item.product_id === result.product.id)
-                        if (existingItem) {
-                          console.log('[Barcode Scan] ⚠️ Product already in cart, incrementing quantity')
-                          const updatedItems = items.map(item =>
-                            item.product_id === result.product.id
-                              ? { ...item, quantity: item.quantity + 1 }
-                              : item
-                          )
-                          setItems(updatedItems)
-                          toast.success("Quantity increased!", {
-                            description: `${result.product.name} - Quantity: ${existingItem.quantity + 1}`,
-                            duration: 2000
+                    {/* Discount */}
+                    <div>
+                      <Label className="text-sm">Discount Amount (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={formData.discount_amount || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            discount_amount: e.target.value === '' ? 0 : Number(e.target.value),
                           })
-                          return
                         }
-
-                        // ✅ Defensive mapping with fallback values
-                        addProduct({
-                          id: result.product.id || '',
-                          name: result.product.name || 'Unknown Product',
-                          category: result.product.category || '',
-                          category_id: result.product.category_id || undefined,
-                          subcategory_id: result.product.subcategory_id || undefined,
-                          rental_price: result.product.rental_price || 0,
-                          sale_price: result.product.sale_price || 0,
-                          security_deposit: result.product.security_deposit || 0,
-                          stock_available: result.product.stock_available || 0,
-                          image_url: result.product.image_url || ''
-                        })
-
-                        toast.success("Product added!", {
-                          description: `${result.product.name} added to cart`,
-                          duration: 2000
-                        })
-                        return
-                      }
-
-                      if (response.status === 404) {
-                        const errorData = await response.json()
-                        console.log('[Barcode Scan] ❌ Product not found via API:', {
-                          barcode: code,
-                          error: errorData.error
-                        })
-                        toast.error("Product not found", {
-                          description: `No product found with barcode: ${code}`,
-                          duration: 3000
-                        })
-                        return
-                      }
-
-                      // ===== STEP 2: FALLBACK LOCAL SEARCH =====
-                      // If API fails, try local search in products array
-                      console.log('[Barcode Scan] Step 2: Falling back to local product search...')
-                      
-                      const foundProduct = findProductByAnyBarcode(products as any, code)
-                      
-                      if (foundProduct) {
-                        console.log('[Barcode Scan] ✅ Found in local products:', {
-                          barcode: code,
-                          product: foundProduct.name
-                        })
-                        addProduct(foundProduct as any)
-                        toast.success("Product added!", {
-                          description: `${foundProduct.name} added to cart (local)`,
-                          duration: 2000
-                        })
-                        return
-                      }
-
-                      // ===== NOT FOUND =====
-                      console.log('[Barcode Scan] ❌ Product not found in any source:', code)
-                      toast.error("Product not found", {
-                        description: `Barcode not found: ${code}. Try scanning again or select manually.`,
-                        duration: 3000
-                      })
-
-                    } catch (error) {
-                      console.error('[Barcode Scan] Error:', error)
-                      toast.error("Scan error", {
-                        description: `Failed to process barcode: ${error instanceof Error ? error.message : 'Unknown error'}`
-                      })
-                    }
-                  }}
-                  placeholder="Scan product barcode..."
-                  debounceMs={1000}
-                  digitsOnly
-                  minDigits={11}
-                  autoFocus={true}
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  💡 Use a handheld scanner or type the 11-digit product barcode manually
-                </p>
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Product Selection Options - Only for rentals */}
-            {formData.booking_type === "rental" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Product Selection</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="skipProducts" 
-                      checked={skipProductSelection} 
-                      onCheckedChange={(checked) => setSkipProductSelection(checked === true)} 
-                    />
-                    <Label htmlFor="skipProducts" className="text-sm">
-                      Skip product selection for now (can be done later)
-                    </Label>
-                  </div>
-
-                  {skipProductSelection ? (
-                    <div className="p-4 bg-yellow-50 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        ⏳ Product selection will be done later. Booking status will be "Selection Pending" until products are chosen.
-                      </p>
+                        className="mt-1"
+                        placeholder="Enter discount amount"
+                      />
+                      {formData.discount_amount > 0 && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Discount: ₹{formData.discount_amount.toFixed(2)}
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <p className="text-sm text-green-800">
-                        ✓ Product selection will be completed now. You can add items using barcode or product selector below.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
 
-            {/* Product Selection */}
-            {(formData.booking_type === "rental" ? !skipProductSelection : true) && (
-            <ProductSelector
-              products={products}
-              categories={categories}
-              subcategories={subcategories}
-              selectedItems={items.map(item => ({
-                product_id: item.product_id,
-                quantity: item.quantity
-              }))}
-              bookingType={formData.booking_type}
-              eventDate={formData.event_date}
-              onProductSelect={addProduct}
-              onCheckAvailability={checkAvailability}
-              onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
-            />
-            )}
-
-            {/* Order Items */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {items.length === 0 ? (
-                  <div className="py-10 text-center text-sm text-muted-foreground">
-                    <ShoppingCart className="h-8 w-8 mx-auto mb-3 text-gray-300" />
-                    No items added yet
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {items.map((it) => (
-                      <div
-                        key={it.id}
-                        className="flex items-center justify-between border-b pb-2 gap-3"
-                      >
-                        <div className="min-w-0">
-                          <div
-                            className="text-sm font-medium leading-none truncate"
-                            title={it.product_name}
-                          >
-                            {it.product_name}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground truncate">
-                            {it.category}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                updateQuantity(it.id, it.quantity - 1)
-                              }
-                            >
-                              -
-                            </Button>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={it.stock_available}
-                              value={it.quantity || ''}
-                              onChange={(e) => {
-                                const val = e.target.value === '' ? 1 : parseInt(e.target.value) || 1
-                                updateQuantity(it.id, val)
-                              }}
-                              className="w-16 h-8 text-center text-sm"
-                              autoFocus={lastAddedItemId === it.id}
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                updateQuantity(it.id, it.quantity + 1)
-                              }
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <span className="text-xs font-medium whitespace-nowrap">
-                            ₹{it.total_price}
-                          </span>
+                    {/* Coupon Code */}
+                    <div>
+                      <Label className="text-sm">Coupon Code (Optional)</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          type="text"
+                          value={formData.coupon_code}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              coupon_code: e.target.value.toUpperCase(),
+                            })
+                            setCouponError("")
+                          }}
+                          placeholder="Enter coupon code"
+                          maxLength={50}
+                          disabled={formData.coupon_discount > 0}
+                        />
+                        {formData.coupon_discount > 0 ? (
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeItem(it.id)}
+                            type="button"
+                            variant="outline"
+                            onClick={handleRemoveCoupon}
+                            className="whitespace-nowrap"
                           >
-                            <X className="h-4 w-4" />
+                            Remove
                           </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={couponValidating || !formData.coupon_code.trim()}
+                            className="whitespace-nowrap"
+                          >
+                            {couponValidating ? "Validating..." : "Apply"}
+                          </Button>
+                        )}
+                      </div>
+                      {couponError && (
+                        <p className="text-xs text-red-600 mt-1">{couponError}</p>
+                      )}
+                      {formData.coupon_discount > 0 && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Coupon Applied: -₹{formData.coupon_discount.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Totals */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>💰 Price Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    {/* Items Subtotal */}
+                    <div className="flex justify-between">
+                      <span>{formData.custom_subtotal > 0 ? 'Custom Subtotal' : 'Items Subtotal'}</span>
+                      <span className="font-medium">₹{totals.subtotal.toFixed(2)}</span>
+                    </div>
+                    {formData.custom_subtotal > 0 && items.length > 0 && (
+                      <div className="text-[11px] text-purple-600 -mt-1">
+                        (Actual items total: ₹{items.reduce((s, i) => s + i.total_price, 0).toFixed(2)})
+                      </div>
+                    )}
+
+                    {/* Manual Discount */}
+                    {totals.discount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount (40%)</span>
+                        <span className="font-medium">-₹{totals.discount.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {/* Coupon Discount */}
+                    {totals.couponDiscount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Coupon ({formData.coupon_code})</span>
+                        <span className="font-medium">-₹{totals.couponDiscount.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {/* After Discounts */}
+                    {totals.totalDiscount > 0 && (
+                      <div className="flex justify-between font-medium border-t pt-2">
+                        <span>After Discounts</span>
+                        <span>₹{totals.subtotalAfterDiscount.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {/* GST */}
+                    <div className="flex justify-between">
+                      <span>GST (5%)</span>
+                      <span className="font-medium">₹{totals.gst.toFixed(2)}</span>
+                    </div>
+
+                    {/* Grand Total */}
+                    <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
+                      <span>Grand Total</span>
+                      <span className="text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
+                    </div>
+
+                    {/* Security Deposit for Rentals */}
+                    {formData.booking_type === "rental" && totals.deposit > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200">
+                          <span className="flex items-center gap-1">
+                            <span>� Security Deposit Amount</span>
+                          </span>
+                          <span className="font-medium text-blue-700">₹{totals.deposit.toFixed(2)}</span>
+                        </div>
+                        {/* From products breakdown removed - using only custom deposit */}
+                      </div>
+                    )}
+
+                    {/* Payment Breakdown */}
+                    {formData.payment_type !== "full" && (
+                      <div className="pt-2 mt-2 border-t space-y-2">
+                        <h4 className="font-semibold text-xs text-gray-600">Payment Breakdown</h4>
+                        <div className="flex justify-between text-sm bg-orange-50 p-2 rounded">
+                          <span>💳 Payable Now{formData.booking_type === "rental" ? " (incl. deposit)" : ""}:</span>
+                          <span className="font-bold text-orange-700">₹{(totals.payable + (formData.booking_type === "rental" ? totals.deposit : 0)).toFixed(2)}</span>
+                        </div>
+                        {formData.booking_type === "rental" && totals.deposit > 0 && (
+                          <div className="text-[11px] text-gray-600 -mt-1">
+                            Includes refundable deposit of ₹{totals.deposit.toFixed(2)} collected now
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm bg-yellow-50 p-2 rounded">
+                          <span>⏳ Remaining:</span>
+                          <span className="font-medium text-yellow-700">₹{totals.remaining.toFixed(2)}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Payment & Discounts */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Method & Discounts</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Payment Method */}
-                <div>
-                  <Label className="text-sm">Payment Method</Label>
-                  <Select
-                    value={formData.payment_method}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, payment_method: v })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
-                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
-                      <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
-                      <SelectItem value="International Payment Method">International Payment Method</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Deposit Amount - Only for Rental Type */}
-                {formData.booking_type === "rental" && (
-                  <div>
-                    <Label className="text-sm">Deposit Amount (₹) - Additional/Custom Deposit</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={formData.deposit_amount || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          deposit_amount: e.target.value === '' ? 0 : Number(e.target.value),
-                        })
-                      }
-                      className="mt-1"
-                      placeholder="Enter deposit amount"
-                    />
-                    {(formData.deposit_amount || 0) > 0 && (
-                      <p className="text-xs text-blue-600 mt-1">
-                        ✓ Deposit Amount: ₹{(formData.deposit_amount || 0).toFixed(2)}
-                      </p>
                     )}
-                  </div>
-                )}
+                  </CardContent>
+                </Card>
 
-                {/* Custom Subtotal (before GST) */}
-                <div>
-                  <Label className="text-sm">Custom Subtotal (₹) - Before GST (Optional)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={formData.custom_subtotal || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        custom_subtotal: e.target.value === '' ? 0 : Number(e.target.value),
-                      })
-                    }
-                    className="mt-1"
-                    placeholder="Leave empty to use items total"
-                  />
-                  {formData.custom_subtotal > 0 && (
-                    <p className="text-xs text-purple-600 mt-1">
-                      ✓ Custom Subtotal: ₹{(formData.custom_subtotal || 0).toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Discount */}
-                <div>
-                  <Label className="text-sm">Discount Amount (₹)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={formData.discount_amount || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        discount_amount: e.target.value === '' ? 0 : Number(e.target.value),
-                      })
-                    }
-                    className="mt-1"
-                    placeholder="Enter discount amount"
-                  />
-                  {formData.discount_amount > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Discount: ₹{formData.discount_amount.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Coupon Code */}
-                <div>
-                  <Label className="text-sm">Coupon Code (Optional)</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input
-                      type="text"
-                      value={formData.coupon_code}
-                      onChange={(e) => {
-                        setFormData({
-                          ...formData,
-                          coupon_code: e.target.value.toUpperCase(),
-                        })
-                        setCouponError("")
-                      }}
-                      placeholder="Enter coupon code"
-                      maxLength={50}
-                      disabled={formData.coupon_discount > 0}
-                    />
-                    {formData.coupon_discount > 0 ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleRemoveCoupon}
-                        className="whitespace-nowrap"
-                      >
-                        Remove
-                      </Button>
+                {/* Payment Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>💳 Payment Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {formData.booking_type === "sale" ? (
+                      /* For Sale - Only show Total Payment */
+                      <div className="flex justify-between text-base bg-green-50 p-3 rounded border border-green-200">
+                        <span className="font-medium">💰 Total Payment:</span>
+                        <span className="font-bold text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
+                      </div>
                     ) : (
-                      <Button
-                        type="button"
-                        onClick={handleApplyCoupon}
-                        disabled={couponValidating || !formData.coupon_code.trim()}
-                        className="whitespace-nowrap"
-                      >
-                        {couponValidating ? "Validating..." : "Apply"}
-                      </Button>
+                      /* For Rental - Show Payable Now, Remaining, and Refundable */
+                      <>
+                        {/* Payable Now */}
+                        <div className="flex justify-between text-base bg-green-50 p-3 rounded border border-green-200">
+                          <span className="font-medium">💰 Payable Now:</span>
+                          <span className="font-bold text-green-700 text-lg">
+                            ₹{(totals.payable + totals.deposit).toFixed(2)}
+                          </span>
+                        </div>
+
+                        {/* Remaining Amount */}
+                        <div className="flex justify-between text-base bg-orange-50 p-3 rounded border border-orange-200">
+                          <span className="font-medium">⏳ Remaining Amount:</span>
+                          <span className="font-bold text-orange-700 text-lg">₹{totals.remaining.toFixed(2)}</span>
+                        </div>
+
+                        {/* Security Deposit Amount */}
+                        {totals.deposit > 0 && (
+                          <div className="flex justify-between text-base bg-blue-50 p-3 rounded border border-blue-200">
+                            <span className="font-medium">� Security Deposit:</span>
+                            <span className="font-bold text-blue-700 text-lg">₹{totals.deposit.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </>
                     )}
-                  </div>
-                  {couponError && (
-                    <p className="text-xs text-red-600 mt-1">{couponError}</p>
+                  </CardContent>
+                </Card>
+
+                {/* Sales Closed By */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Sales Closed By</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select staff member (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {staffMembers.map(staff => (
+                          <SelectItem key={staff.id} value={staff.id}>
+                            {staff.name} ({staff.role === 'franchise_admin' ? 'Admin' : 'Staff'})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-gray-500">Track which team member closed this sale for incentives</p>
+                  </CardContent>
+                </Card>
+
+                {/* Submit Buttons */}
+                <div className={`grid gap-4 ${formData.booking_type === "sale" ? "grid-cols-1" : "grid-cols-2"}`}>
+                  {/* Create Quote button - only show for rentals */}
+                  {formData.booking_type === "rental" && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={loading}
+                      onClick={() => handleSubmit(true)}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        isEditMode ? "Update Quote" : "Create Quote for Now"
+                      )}
+                    </Button>
                   )}
-                  {formData.coupon_discount > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Coupon Applied: -₹{formData.coupon_discount.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Totals */}
-            <Card>
-              <CardHeader>
-                <CardTitle>💰 Price Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {/* Items Subtotal */}
-                <div className="flex justify-between">
-                  <span>{formData.custom_subtotal > 0 ? 'Custom Subtotal' : 'Items Subtotal'}</span>
-                  <span className="font-medium">₹{totals.subtotal.toFixed(2)}</span>
-                </div>
-                {formData.custom_subtotal > 0 && items.length > 0 && (
-                  <div className="text-[11px] text-purple-600 -mt-1">
-                    (Actual items total: ₹{items.reduce((s, i) => s + i.total_price, 0).toFixed(2)})
-                  </div>
-                )}
-
-                {/* Manual Discount */}
-                {totals.discount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount (40%)</span>
-                    <span className="font-medium">-₹{totals.discount.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {/* Coupon Discount */}
-                {totals.couponDiscount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Coupon ({formData.coupon_code})</span>
-                    <span className="font-medium">-₹{totals.couponDiscount.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {/* After Discounts */}
-                {totals.totalDiscount > 0 && (
-                  <div className="flex justify-between font-medium border-t pt-2">
-                    <span>After Discounts</span>
-                    <span>₹{totals.subtotalAfterDiscount.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {/* GST */}
-                <div className="flex justify-between">
-                  <span>GST (5%)</span>
-                  <span className="font-medium">₹{totals.gst.toFixed(2)}</span>
-                </div>
-
-                {/* Grand Total */}
-                <div className="flex justify-between font-bold text-base border-t pt-2 bg-green-50 p-2 rounded">
-                  <span>Grand Total</span>
-                  <span className="text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
-                </div>
-
-                {/* Security Deposit for Rentals */}
-                {formData.booking_type === "rental" && totals.deposit > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm bg-blue-50 p-2 rounded border border-blue-200">
-                      <span className="flex items-center gap-1">
-                        <span>� Security Deposit Amount</span>
-                      </span>
-                      <span className="font-medium text-blue-700">₹{totals.deposit.toFixed(2)}</span>
-                    </div>
-                    {/* From products breakdown removed - using only custom deposit */}
-                  </div>
-                )}
-
-                {/* Payment Breakdown */}
-                {formData.payment_type !== "full" && (
-                  <div className="pt-2 mt-2 border-t space-y-2">
-                    <h4 className="font-semibold text-xs text-gray-600">Payment Breakdown</h4>
-                    <div className="flex justify-between text-sm bg-orange-50 p-2 rounded">
-                      <span>💳 Payable Now{formData.booking_type === "rental" ? " (incl. deposit)" : ""}:</span>
-                      <span className="font-bold text-orange-700">₹{(totals.payable + (formData.booking_type === "rental" ? totals.deposit : 0)).toFixed(2)}</span>
-                    </div>
-                    {formData.booking_type === "rental" && totals.deposit > 0 && (
-                      <div className="text-[11px] text-gray-600 -mt-1">
-                        Includes refundable deposit of ₹{totals.deposit.toFixed(2)} collected now
-                      </div>
+                  <Button
+                    className="w-full"
+                    disabled={loading}
+                    onClick={() => handleSubmit(false)}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      isEditMode ? "Update Order" : "Create Order"
                     )}
-                    <div className="flex justify-between text-sm bg-yellow-50 p-2 rounded">
-                      <span>⏳ Remaining:</span>
-                      <span className="font-medium text-yellow-700">₹{totals.remaining.toFixed(2)}</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Payment Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>💳 Payment Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {formData.booking_type === "sale" ? (
-                  /* For Sale - Only show Total Payment */
-                  <div className="flex justify-between text-base bg-green-50 p-3 rounded border border-green-200">
-                    <span className="font-medium">💰 Total Payment:</span>
-                    <span className="font-bold text-green-700 text-lg">₹{totals.grand.toFixed(2)}</span>
-                  </div>
-                ) : (
-                  /* For Rental - Show Payable Now, Remaining, and Refundable */
-                  <>
-                    {/* Payable Now */}
-                    <div className="flex justify-between text-base bg-green-50 p-3 rounded border border-green-200">
-                      <span className="font-medium">💰 Payable Now:</span>
-                      <span className="font-bold text-green-700 text-lg">
-                        ₹{(totals.payable + totals.deposit).toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* Remaining Amount */}
-                    <div className="flex justify-between text-base bg-orange-50 p-3 rounded border border-orange-200">
-                      <span className="font-medium">⏳ Remaining Amount:</span>
-                      <span className="font-bold text-orange-700 text-lg">₹{totals.remaining.toFixed(2)}</span>
-                    </div>
-
-                    {/* Security Deposit Amount */}
-                    {totals.deposit > 0 && (
-                      <div className="flex justify-between text-base bg-blue-50 p-3 rounded border border-blue-200">
-                        <span className="font-medium">� Security Deposit:</span>
-                        <span className="font-bold text-blue-700 text-lg">₹{totals.deposit.toFixed(2)}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Sales Closed By */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Sales Closed By</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Select value={selectedStaff} onValueChange={setSelectedStaff}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff member (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {staffMembers.map(staff => (
-                      <SelectItem key={staff.id} value={staff.id}>
-                        {staff.name} ({staff.role === 'franchise_admin' ? 'Admin' : 'Staff'})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-gray-500">Track which team member closed this sale for incentives</p>
-              </CardContent>
-            </Card>
-
-            {/* Submit Buttons */}
-            <div className={`grid gap-4 ${formData.booking_type === "sale" ? "grid-cols-1" : "grid-cols-2"}`}>
-              {/* Create Quote button - only show for rentals */}
-              {formData.booking_type === "rental" && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  disabled={loading}
-                  onClick={() => handleSubmit(true)}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    isEditMode ? "Update Quote" : "Create Quote for Now"
-                  )}
-                </Button>
-              )}
-              <Button
-                className="w-full"
-                disabled={loading}
-                onClick={() => handleSubmit(false)}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  isEditMode ? "Update Order" : "Create Order"
-                )}
-              </Button>
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
           </>
         )}
       </div>
@@ -2543,7 +2543,7 @@ export default function CreateProductOrderPage() {
                 className="mt-1"
               />
             </div>
-            
+
             <div>
               <label className="text-sm font-medium">Category *</label>
               <select
@@ -2575,7 +2575,7 @@ export default function CreateProductOrderPage() {
 
             <div>
               <label className="text-sm font-medium">Product Image (optional)</label>
-              
+
               <div className="mt-2 flex gap-2">
                 <Button
                   type="button"
@@ -2586,7 +2586,7 @@ export default function CreateProductOrderPage() {
                   <Camera className="w-4 h-4 mr-2" />
                   Take Photo
                 </Button>
-                
+
                 <label className="flex-1 cursor-pointer">
                   <input
                     type="file"
@@ -2621,12 +2621,12 @@ export default function CreateProductOrderPage() {
                 value={customProductData.image_url}
                 onChange={(e) => setCustomProductData(prev => ({ ...prev, image_url: e.target.value }))}
               />
-              
+
               {customProductData.image_url && (
                 <div className="mt-2 border rounded-md overflow-hidden relative">
-                  <img 
-                    src={customProductData.image_url} 
-                    alt="Preview" 
+                  <img
+                    src={customProductData.image_url}
+                    alt="Preview"
                     className="w-full h-32 object-cover"
                     onError={(e) => {
                       e.currentTarget.src = '/placeholder-product.png'
@@ -2644,8 +2644,8 @@ export default function CreateProductOrderPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setShowCustomProductDialog(false)
                   setCustomProductData({ name: '', category_id: '', image_url: '', rental_price: '' })
@@ -2654,7 +2654,7 @@ export default function CreateProductOrderPage() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleCreateCustomProduct}
                 disabled={creatingProduct || !customProductData.name.trim() || !customProductData.category_id || !customProductData.rental_price || parseFloat(customProductData.rental_price) <= 0}
               >
@@ -2677,16 +2677,16 @@ export default function CreateProductOrderPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <video 
+            <video
               ref={videoRef}
-              autoPlay 
+              autoPlay
               playsInline
               className="w-full rounded-lg bg-black"
               style={{ maxHeight: '60vh' }}
             />
             <div className="flex justify-between gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={switchCamera}
                 title="Switch Camera"
               >
@@ -2718,7 +2718,7 @@ export default function CreateProductOrderPage() {
                 Checking 5-day window around event date.
                 {formData.event_date && (
                   <span className="block mt-1">
-                    {new Date(new Date(formData.event_date).setDate(new Date(formData.event_date).getDate()-2)).toLocaleDateString()} → {new Date(new Date(formData.event_date).setDate(new Date(formData.event_date).getDate()+2)).toLocaleDateString()}
+                    {new Date(new Date(formData.event_date).setDate(new Date(formData.event_date).getDate() - 2)).toLocaleDateString()} → {new Date(new Date(formData.event_date).setDate(new Date(formData.event_date).getDate() + 2)).toLocaleDateString()}
                   </span>
                 )}
               </div>
@@ -2733,7 +2733,7 @@ export default function CreateProductOrderPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span>{new Date(r.date).toLocaleDateString()} • {r.kind === 'order' ? 'Order' : 'Package'} {r.ref || ''}</span>
                         <span className="font-medium">×{r.qty}</span>
-                        
+
                         {/* Return Status Badges */}
                         {r.returnStatus === 'returned' && (
                           <Badge variant="default" className="bg-green-500 text-white text-[10px] px-1.5 py-0 h-4">
@@ -2747,18 +2747,18 @@ export default function CreateProductOrderPage() {
                             </Badge>
                             {r.returnDate && (
                               <span className="text-[10px] text-orange-600 font-medium">
-                                Return: {new Date(r.returnDate).toLocaleString('en-US', { 
-                                  month: 'short', 
+                                Return: {new Date(r.returnDate).toLocaleString('en-US', {
+                                  month: 'short',
                                   day: 'numeric',
                                   hour: 'numeric',
                                   minute: '2-digit',
-                                  hour12: true 
+                                  hour12: true
                                 })}
                               </span>
                             )}
                           </>
                         )}
-                        
+
                         {/* Debug: Show if no barcode data */}
                         {!r.returnStatus && (
                           <span className="text-[9px] text-gray-400 italic">No tracking</span>

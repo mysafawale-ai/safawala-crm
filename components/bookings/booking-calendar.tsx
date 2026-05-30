@@ -203,7 +203,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
           delivery_date: toDateOnly(r.delivery_date),
           return_date: toDateOnly(r.pickup_date), // API field name
           modification_date: r.modification_date ? toDateOnly(r.modification_date) : undefined,
-          modification_time: r.modification_time || undefined,
+          modification_time: r.modification_date ? format(new Date(r.modification_date), 'hh:mm a') : undefined,
           modifications_details: r.modifications_details || undefined,
           has_modifications: r.has_modifications || false,
           event_type: r.event_type,
@@ -358,6 +358,10 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     // 1 <= bookingCount < 20 => low
     // bookingCount >= 20 => high
     if (bookingCount === 0) {
+      const dayModifications = getModificationsForDate(date)
+      if (dayModifications.length > 0) {
+        return "modification"
+      }
       return "zero" // 0 bookings
     }
 
@@ -397,6 +401,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       zero: [],    // 0 bookings (green)
       low: [],     // 1-19 bookings (blue)
       high: [],    // 20+ bookings (red)
+      modification: [], // Has modifications (amber)
     }
 
     // Generate dates for the current month and next few months
@@ -421,6 +426,8 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   low: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm font-semibold",
     // 20+ bookings → red
     high: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm font-semibold",
+    // Has modifications → amber
+    modification: "!bg-amber-400 !text-amber-950 hover:!bg-amber-500 !cursor-pointer !border !border-amber-500/30 shadow-sm font-semibold",
   }
 
   return (

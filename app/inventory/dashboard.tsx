@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle, BarChart3 } from "lucide-react"
+import {
+  Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle,
+  BarChart3, IndianRupee, ArrowUpDown, TrendingUp, Boxes
+} from "lucide-react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { ProductCard } from "@/components/inventory/product-card"
 import { ProductEditorModal } from "@/components/inventory/product-editor-modal"
@@ -50,6 +53,128 @@ interface Product {
   _variation_count?: number
 }
 
+// Animated counter hook
+function useAnimatedCount(target: number, duration: number = 600) {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    if (target === 0) { setCount(0); return }
+    let start = 0
+    const increment = target / (duration / 16)
+    const timer = setInterval(() => {
+      start += increment
+      if (start >= target) {
+        setCount(target)
+        clearInterval(timer)
+      } else {
+        setCount(Math.floor(start))
+      }
+    }, 16)
+    return () => clearInterval(timer)
+  }, [target, duration])
+  return count
+}
+
+// Skeleton loading card
+function SkeletonCard() {
+  return (
+    <div className="card-heritage rounded-xl overflow-hidden animate-pulse">
+      <div className="w-full aspect-square bg-gradient-to-br from-[#f9f2e8] to-[#f6e1c3]/40" />
+      <div className="p-4 space-y-3">
+        <div className="h-4 bg-[#f6e1c3]/60 rounded w-3/4" />
+        <div className="h-3 bg-[#f6e1c3]/40 rounded w-1/2" />
+        <div className="flex gap-2">
+          <div className="h-5 bg-[#f6e1c3]/50 rounded-full w-16" />
+          <div className="h-5 bg-[#f6e1c3]/50 rounded-full w-12" />
+        </div>
+        <div className="border-t border-[#102516]/5 pt-3 space-y-2">
+          <div className="flex justify-between">
+            <div className="h-3 bg-[#f6e1c3]/40 rounded w-12" />
+            <div className="h-3 bg-[#f6e1c3]/60 rounded w-16" />
+          </div>
+          <div className="flex justify-between">
+            <div className="h-3 bg-[#f6e1c3]/40 rounded w-10" />
+            <div className="h-3 bg-[#f6e1c3]/60 rounded w-14" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Stat card component
+function StatCard({
+  title, value, icon: Icon, color, subtext, prefix = ""
+}: {
+  title: string
+  value: number
+  icon: React.ElementType
+  color: string
+  subtext: string
+  prefix?: string
+}) {
+  const animatedValue = useAnimatedCount(value)
+  const colorMap: Record<string, { bg: string; icon: string; text: string; glow: string }> = {
+    default: {
+      bg: "from-[#fcf7f0] to-[#f9f2e8]",
+      icon: "text-[#102516] bg-[#102516]/8",
+      text: "text-[#102516]",
+      glow: "shadow-[0_8px_25px_rgba(16,37,22,0.08)]",
+    },
+    green: {
+      bg: "from-emerald-50/80 to-[#fcf7f0]",
+      icon: "text-emerald-700 bg-emerald-100",
+      text: "text-emerald-700",
+      glow: "shadow-[0_8px_25px_rgba(16,185,129,0.1)]",
+    },
+    amber: {
+      bg: "from-amber-50/80 to-[#fcf7f0]",
+      icon: "text-amber-700 bg-amber-100",
+      text: "text-amber-700",
+      glow: "shadow-[0_8px_25px_rgba(245,158,11,0.1)]",
+    },
+    red: {
+      bg: "from-red-50/80 to-[#fcf7f0]",
+      icon: "text-red-700 bg-red-100",
+      text: "text-red-700",
+      glow: "shadow-[0_8px_25px_rgba(239,68,68,0.1)]",
+    },
+    royal: {
+      bg: "from-[#f6e1c3]/40 to-[#fcf7f0]",
+      icon: "text-[#102516] bg-[#f6e1c3]",
+      text: "text-[#102516]",
+      glow: "shadow-[0_8px_25px_rgba(16,37,22,0.12)]",
+    },
+  }
+  const c = colorMap[color] || colorMap.default
+
+  return (
+    <Card
+      className={`relative overflow-hidden border border-[#102516]/8 bg-gradient-to-br ${c.bg} ${c.glow}
+        hover:translate-y-[-2px] hover:shadow-lg transition-all duration-300 group`}
+    >
+      {/* Heritage top accent line */}
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#102516]/30 to-transparent" />
+      <div className="p-4 flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-[#102516]/60 uppercase tracking-wider" style={{ fontFamily: "var(--font-crimson), serif" }}>
+            {title}
+          </p>
+          <p className={`text-2xl font-bold ${c.text} tracking-tight`}>
+            {prefix}{animatedValue.toLocaleString()}
+          </p>
+          <p className="text-[10px] text-[#102516]/50" style={{ fontFamily: "var(--font-crimson), serif" }}>
+            {subtext}
+          </p>
+        </div>
+        <div className={`w-11 h-11 rounded-xl ${c.icon} flex items-center justify-center
+          group-hover:scale-110 transition-transform duration-300`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 export default function InventoryDashboard() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([])
@@ -59,6 +184,7 @@ export default function InventoryDashboard() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [sortBy, setSortBy] = useState<"stock_desc" | "stock_asc" | "name_asc" | "name_desc" | "price_asc" | "price_desc">("stock_desc")
   const [user, setUser] = useState<User | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -183,6 +309,15 @@ export default function InventoryDashboard() {
       setLoading(false)
     }
   }
+
+  // Build a category name lookup map for product cards
+  const categoryNameMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const cat of categories) {
+      map[cat.id] = cat.name
+    }
+    return map
+  }, [categories])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -338,23 +473,72 @@ export default function InventoryDashboard() {
       return true
     })
 
-    return filtered.sort((a, b) => b.stock_available - a.stock_available)
-  }, [products, debouncedSearchTerm, stockFilter, categoryFilter])
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "stock_desc": return b.stock_available - a.stock_available
+        case "stock_asc": return a.stock_available - b.stock_available
+        case "name_asc": return a.name.localeCompare(b.name)
+        case "name_desc": return b.name.localeCompare(a.name)
+        case "price_asc": return a.rental_price - b.rental_price
+        case "price_desc": return b.rental_price - a.rental_price
+        default: return b.stock_available - a.stock_available
+      }
+    })
+  }, [products, debouncedSearchTerm, stockFilter, categoryFilter, sortBy])
 
   const stats = {
     total: products.length,
     inStock: products.filter((p) => p.stock_available > p.reorder_level).length,
     lowStock: products.filter((p) => p.stock_available <= p.reorder_level && p.stock_available > 0).length,
     outOfStock: products.filter((p) => p.stock_available <= 0).length,
+    inventoryValue: products.reduce((sum, p) => sum + (p.price * p.stock_available), 0),
   }
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center space-y-3">
-            <Package className="w-12 h-12 text-muted-foreground/50 mx-auto" />
-            <p className="text-muted-foreground">Loading inventory...</p>
+        <div className="space-y-6">
+          {/* Skeleton Header */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-48 bg-[#f6e1c3]/60 rounded animate-pulse" />
+              <div className="h-4 w-72 bg-[#f6e1c3]/40 rounded animate-pulse" />
+            </div>
+            <div className="flex gap-2">
+              <div className="h-9 w-24 bg-[#f6e1c3]/50 rounded-lg animate-pulse" />
+              <div className="h-9 w-32 bg-[#102516]/20 rounded-lg animate-pulse" />
+            </div>
+          </div>
+
+          {/* Skeleton Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <Card key={i} className="p-4 card-heritage animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <div className="h-3 w-16 bg-[#f6e1c3]/50 rounded" />
+                    <div className="h-7 w-12 bg-[#f6e1c3]/70 rounded" />
+                    <div className="h-2 w-20 bg-[#f6e1c3]/30 rounded" />
+                  </div>
+                  <div className="w-11 h-11 bg-[#f6e1c3]/40 rounded-xl" />
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Skeleton Search Bar */}
+          <div className="flex gap-3 items-end flex-wrap">
+            <div className="flex-1 min-w-48 max-w-md h-10 bg-[#f6e1c3]/40 rounded-lg animate-pulse" />
+            <div className="h-10 w-36 bg-[#f6e1c3]/40 rounded-lg animate-pulse" />
+            <div className="h-10 w-36 bg-[#f6e1c3]/40 rounded-lg animate-pulse" />
+          </div>
+
+          {/* Skeleton Product Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         </div>
       </DashboardLayout>
@@ -364,11 +548,18 @@ export default function InventoryDashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Heritage Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
-            <p className="text-muted-foreground">Manage products, variants, pricing & barcodes</p>
+            <h1
+              className="text-3xl font-bold tracking-tight text-[#102516]"
+              style={{ fontFamily: "var(--font-playfair), serif" }}
+            >
+              Inventory
+            </h1>
+            <p className="text-[#102516]/60 text-sm" style={{ fontFamily: "var(--font-crimson), serif" }}>
+              Manage products, variants, pricing & barcodes
+            </p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -376,7 +567,7 @@ export default function InventoryDashboard() {
               size="sm"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="gap-2"
+              className="gap-2 border-[#102516]/15 text-[#102516] hover:bg-[#f9f2e8] hover:border-[#102516]/30 transition-all duration-300"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
@@ -386,7 +577,8 @@ export default function InventoryDashboard() {
                 setSelectedProduct(null)
                 setEditorOpen(true)
               }}
-              className="gap-2"
+              className="gap-2 bg-gradient-to-r from-[#102516] to-[#1a3a26] text-[#fefaf6] hover:shadow-lg hover:translate-y-[-1px] transition-all duration-300"
+              style={{ fontFamily: "var(--font-cinzel), serif", letterSpacing: "0.5px" }}
             >
               <Plus className="w-4 h-4" />
               Add Product
@@ -394,65 +586,65 @@ export default function InventoryDashboard() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Total Products</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-              <Package className="w-8 h-8 text-muted-foreground/50" />
-            </div>
-          </Card>
+        {/* Heritage divider line */}
+        <div className="h-[1px] bg-gradient-to-r from-transparent via-[#102516]/20 to-transparent" />
 
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">In Stock</p>
-                <p className="text-2xl font-bold text-green-600">{stats.inStock}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-600/50" />
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Low Stock</p>
-                <p className="text-2xl font-bold text-amber-600">{stats.lowStock}</p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-amber-600/50" />
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Out of Stock</p>
-                <p className="text-2xl font-bold text-red-600">{stats.outOfStock}</p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-red-600/50" />
-            </div>
-          </Card>
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <StatCard
+            title="Total Products"
+            value={stats.total}
+            icon={Boxes}
+            color="default"
+            subtext="Active in inventory"
+          />
+          <StatCard
+            title="In Stock"
+            value={stats.inStock}
+            icon={CheckCircle}
+            color="green"
+            subtext="Above reorder level"
+          />
+          <StatCard
+            title="Low Stock"
+            value={stats.lowStock}
+            icon={AlertTriangle}
+            color="amber"
+            subtext="Below reorder level"
+          />
+          <StatCard
+            title="Out of Stock"
+            value={stats.outOfStock}
+            icon={AlertTriangle}
+            color="red"
+            subtext="Needs restocking"
+          />
+          <StatCard
+            title="Inventory Value"
+            value={stats.inventoryValue}
+            icon={IndianRupee}
+            color="royal"
+            subtext="Total stock value"
+            prefix="₹"
+          />
         </div>
 
-        {/* Search & Filters */}
+        {/* Search, Filters & Sort */}
         <div className="flex gap-3 items-end flex-wrap">
           <div className="flex-1 min-w-48 max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#102516]/40" />
               <Input
                 placeholder="Search products, brand, barcode..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 border-[#102516]/15 bg-[#fefaf6] focus:border-[#102516]/40 focus:ring-[#102516]/10 transition-all"
               />
             </div>
           </div>
 
           <Select value={stockFilter} onValueChange={(value: any) => setStockFilter(value)}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 border-[#102516]/15 bg-[#fefaf6]">
               <SelectValue placeholder="Stock Status" />
             </SelectTrigger>
             <SelectContent>
@@ -464,7 +656,7 @@ export default function InventoryDashboard() {
           </Select>
 
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 border-[#102516]/15 bg-[#fefaf6]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -477,40 +669,106 @@ export default function InventoryDashboard() {
             </SelectContent>
           </Select>
 
+          <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+            <SelectTrigger className="w-44 border-[#102516]/15 bg-[#fefaf6]">
+              <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-[#102516]/50" />
+              <SelectValue placeholder="Sort By" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stock_desc">Stock: High → Low</SelectItem>
+              <SelectItem value="stock_asc">Stock: Low → High</SelectItem>
+              <SelectItem value="name_asc">Name: A → Z</SelectItem>
+              <SelectItem value="name_desc">Name: Z → A</SelectItem>
+              <SelectItem value="price_asc">Price: Low → High</SelectItem>
+              <SelectItem value="price_desc">Price: High → Low</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Link href="/inventory/categories">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-[#102516]/15 text-[#102516] hover:bg-[#f9f2e8] hover:border-[#102516]/30"
+            >
               <BarChart3 className="w-4 h-4" />
-              Manage
+              Categories
             </Button>
           </Link>
         </div>
 
+        {/* Results count */}
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="text-xs bg-[#fcf7f0] border-[#102516]/10 text-[#102516]/70"
+            style={{ fontFamily: "var(--font-crimson), serif" }}
+          >
+            {filteredProducts.length} of {products.length} products
+          </Badge>
+          {(debouncedSearchTerm || stockFilter !== "all" || categoryFilter !== "all") && (
+            <button
+              onClick={() => {
+                setSearchTerm("")
+                setStockFilter("all")
+                setCategoryFilter("all")
+              }}
+              className="text-xs text-[#102516]/50 hover:text-[#102516] underline transition-colors"
+              style={{ fontFamily: "var(--font-crimson), serif" }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
         {/* Products Grid */}
         {filteredProducts.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Package className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-            <p className="text-muted-foreground mb-4">
-              {debouncedSearchTerm || stockFilter !== "all"
-                ? "No products found"
-                : "No products yet. Create your first product!"}
-            </p>
-            <Button
-              onClick={() => {
-                setSelectedProduct(null)
-                setEditorOpen(true)
-              }}
-              size="sm"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
-            </Button>
+          <Card className="card-heritage p-12 text-center">
+            <div className="space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-[#102516]/5 flex items-center justify-center">
+                <Package className="w-8 h-8 text-[#102516]/30" />
+              </div>
+              <div>
+                <p
+                  className="text-[#102516]/70 font-medium"
+                  style={{ fontFamily: "var(--font-playfair), serif" }}
+                >
+                  {debouncedSearchTerm || stockFilter !== "all"
+                    ? "No products match your filters"
+                    : "Your inventory is empty"}
+                </p>
+                <p
+                  className="text-sm text-[#102516]/40 mt-1"
+                  style={{ fontFamily: "var(--font-crimson), serif" }}
+                >
+                  {debouncedSearchTerm || stockFilter !== "all"
+                    ? "Try adjusting your search or filters"
+                    : "Add your first product to get started"}
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setSelectedProduct(null)
+                  setEditorOpen(true)
+                }}
+                size="sm"
+                className="bg-gradient-to-r from-[#102516] to-[#1a3a26] text-[#fefaf6] hover:shadow-lg transition-all"
+                style={{ fontFamily: "var(--font-cinzel), serif" }}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
-                product={product}
+                product={{
+                  ...product,
+                  // Resolve category name from the map if not already set
+                  category_name: product.category_name || (product.category_id ? categoryNameMap[product.category_id] : undefined),
+                }}
                 onEdit={handleEditProduct}
                 onDelete={handleDeleteProduct}
                 onGenerateBarcode={(p) => {

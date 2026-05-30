@@ -274,11 +274,6 @@ export function BrandingSection({ franchiseId }: BrandingSectionProps) {
   const handleDocumentDataChange = (field: keyof DocumentSettingsData, value: any) => {
     setDocumentData(prev => ({ ...prev, [field]: value }))
   }
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
 
   if (loading) {
     return (

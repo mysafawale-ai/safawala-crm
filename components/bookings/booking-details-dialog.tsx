@@ -58,7 +58,7 @@ export function BookingDetailsDialog({
       pending_selection: "Selection Pending", 
       confirmed: "Confirmed",
       delivered: "Delivered",
-      returned: "Returned",
+      returned: "Rental Completed",
       order_complete: "Complete",
       cancelled: "Cancelled"
     }
@@ -79,7 +79,7 @@ export function BookingDetailsDialog({
     const actions = {
       pending_selection: "Confirm Selection",
       confirmed: "Mark as Delivered", 
-      delivered: "Mark as Returned",
+      delivered: "Mark as Rental Completed",
       returned: "Complete Order"
     }
     return actions[status as keyof typeof actions]

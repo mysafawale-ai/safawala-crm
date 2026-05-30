@@ -6,10 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-
-import { Loader2, MapPin, CheckCircle, XCircle } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { PincodeService } from "@/lib/pincode-service"
 
 interface CustomerFormDialogProps {
   open: boolean
@@ -29,11 +27,14 @@ interface CustomerFormData {
   pincode: string
 }
 
-export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode = "create", customer }: CustomerFormDialogProps) {
+export function CustomerFormDialog({ 
+  open, 
+  onOpenChange, 
+  onCustomerCreated, 
+  mode = "create", 
+  customer 
+}: CustomerFormDialogProps) {
   const [loading, setLoading] = useState(false)
-  const [pincodeLoading, setPincodeLoading] = useState(false)
-  const [pincodeStatus, setPincodeStatus] = useState<"idle" | "valid" | "invalid">("idle")
-  
   const [formData, setFormData] = useState<CustomerFormData>({
     name: "",
     phone: "",
@@ -56,10 +57,6 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         state: customer.state || "",
         pincode: customer.pincode || "",
       })
-      // Set pincode status if valid
-      if (customer.pincode && /^\d{6}$/.test(customer.pincode) && customer.city && customer.state) {
-        setPincodeStatus("valid")
-      }
     } else if (mode === "create" && !open) {
       // Reset form when dialog closes in create mode
       setFormData({
@@ -71,7 +68,6 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         state: "",
         pincode: "",
       })
-      setPincodeStatus("idle")
     }
   }, [mode, customer, open])
 
@@ -80,48 +76,6 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
       ...prev,
       [field]: value,
     }))
-  }
-
-  const handlePincodeChange = async (pincode: string) => {
-    handleInputChange("pincode", pincode)
-    setPincodeStatus("idle")
-
-    if (pincode.length < 6) {
-      setFormData((prev) => ({
-        ...prev,
-        city: "",
-        state: "",
-      }))
-    }
-
-    if (pincode.length === 6 && /^\d{6}$/.test(pincode)) {
-      setPincodeLoading(true)
-
-      try {
-        const pincodeData = await PincodeService.lookup(pincode)
-
-        if (pincodeData) {
-          setFormData((prev) => ({
-            ...prev,
-            city: pincodeData.city,
-            state: pincodeData.state,
-          }))
-          setPincodeStatus("valid")
-          toast.success(`Location found: ${pincodeData.city}, ${pincodeData.state}`)
-        } else {
-          setPincodeStatus("invalid")
-          toast.error("Invalid pincode or location not found")
-        }
-      } catch (error) {
-        console.error("Pincode lookup error:", error)
-        setPincodeStatus("invalid")
-        toast.error("Failed to lookup pincode")
-      } finally {
-        setPincodeLoading(false)
-      }
-    } else if (pincode.length > 6) {
-      setPincodeStatus("invalid")
-    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,121 +95,66 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
         throw new Error("Phone number must be at least 10 digits")
       }
 
-      if (!formData.pincode.trim() || !/^\d{6}$/.test(formData.pincode)) {
-        throw new Error("Valid 6-digit pincode is required")
+      const payload = {
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        whatsapp: formData.whatsapp?.trim() || null,
+        address: formData.address?.trim() || null,
+        city: formData.city?.trim() || null,
+        state: formData.state?.trim() || null,
+        pincode: formData.pincode?.trim() || null,
       }
 
-
-
       if (mode === "edit" && customer) {
-        // Update existing customer via API
-        const updatePayload = {
-          name: formData.name,
-          phone: formData.phone,
-          whatsapp: formData.whatsapp || null,
-          address: formData.address || null,
-          city: formData.city || null,
-          state: formData.state || null,
-          pincode: formData.pincode || null,
-        }
-
-        console.log("[CustomerFormDialog] Updating customer via API:", { customerId: customer.id, payload: updatePayload })
-
+        console.log("[CustomerFormDialog] Updating customer:", customer.id, payload)
         const response = await fetch(`/api/customers`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          body: JSON.stringify({ id: customer.id, ...updatePayload }),
+          body: JSON.stringify({ id: customer.id, ...payload }),
         })
-
-        console.log("[CustomerFormDialog] API response status:", response.status)
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-          console.error("[CustomerFormDialog] API error:", errorData)
           throw new Error(errorData.error || `Failed to update customer (${response.status})`)
         }
 
         const result = await response.json()
-        console.log("[CustomerFormDialog] API result:", result)
-
         if (!result.success || !result.data) {
           throw new Error(result.error || "No data returned from update")
         }
 
-        const data = result.data
-
-        console.log("[CustomerFormDialog] Customer updated successfully:", data)
         toast.success("Customer updated successfully!")
-        
-        // Call callback with updated customer
         if (onCustomerCreated) {
-          console.log("[CustomerFormDialog] Calling onCustomerCreated with:", data)
-          onCustomerCreated(data)
+          onCustomerCreated(result.data)
         }
       } else {
-        // Create new customer via API
-        const createPayload = {
-          name: formData.name,
-          phone: formData.phone,
-          whatsapp: formData.whatsapp || null,
-          address: formData.address || null,
-          city: formData.city || null,
-          state: formData.state || null,
-          pincode: formData.pincode || null,
-        }
-
-        console.log("[CustomerFormDialog] Creating customer via API:", createPayload)
-
+        console.log("[CustomerFormDialog] Creating customer:", payload)
         const response = await fetch("/api/customers", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          body: JSON.stringify(createPayload),
+          body: JSON.stringify(payload),
         })
-
-        console.log("[CustomerFormDialog] API response status:", response.status)
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-          console.error("[CustomerFormDialog] API error:", errorData)
           throw new Error(errorData.error || `Failed to create customer (${response.status})`)
         }
 
         const result = await response.json()
-        console.log("[CustomerFormDialog] API result:", result)
-
         if (!result.success || !result.data) {
           throw new Error(result.error || "No data returned from create")
         }
 
-        const data = result.data
-
         toast.success("Customer created successfully!")
-        
-        // Call callback with new customer
         if (onCustomerCreated) {
-          onCustomerCreated(data)
+          onCustomerCreated(result.data)
         }
-      }
-
-      // Reset form only in create mode
-      if (mode === "create") {
-        setFormData({
-          name: "",
-          email: "",
-          phone: "",
-          whatsapp: "",
-          address: "",
-          city: "",
-          state: "",
-          pincode: "",
-        })
-        setPincodeStatus("idle")
       }
 
       // Close dialog
@@ -268,147 +167,95 @@ export function CustomerFormDialog({ open, onOpenChange, onCustomerCreated, mode
     }
   }
 
-  const getPincodeIcon = () => {
-    if (pincodeLoading) return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-    if (pincodeStatus === "valid") return <CheckCircle className="h-4 w-4 text-green-500" />
-    if (pincodeStatus === "invalid") return <XCircle className="h-4 w-4 text-red-500" />
-    return <MapPin className="h-4 w-4 text-gray-400" />
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader className="border-b pb-4">
-          <DialogTitle className="text-xl font-semibold">
-            {mode === "edit" ? "Edit Customer" : "Add New Customer"}
+      <DialogContent className="sm:max-w-[420px] p-5 rounded-xl border border-slate-100 bg-white">
+        <DialogHeader className="pb-3 border-b border-slate-100">
+          <DialogTitle className="text-lg font-bold text-slate-900 tracking-tight">
+            {mode === "edit" ? "Edit Customer Details" : "New Customer Profile"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5 pt-4">
-          {/* Name and Phone */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium">
-                Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-                placeholder="Enter customer name"
-                required
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="name" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Full Name *
+            </Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              placeholder="e.g. John Doe"
+              required
+              className="h-9 bg-slate-50/50 border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-400 rounded-lg text-sm"
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium">
-                Phone <span className="text-red-500">*</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="phone" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Phone Number *
               </Label>
               <Input
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => handleInputChange("phone", e.target.value)}
-                placeholder="+91 9876543210"
+                placeholder="+91 98765 43210"
                 required
+                className="h-9 bg-slate-50/50 border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-400 rounded-lg text-sm"
               />
             </div>
-          </div>
 
-          {/* WhatsApp and Email */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp" className="text-sm font-medium">WhatsApp</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="whatsapp" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                WhatsApp
+              </Label>
               <Input
                 id="whatsapp"
                 value={formData.whatsapp}
                 onChange={(e) => handleInputChange("whatsapp", e.target.value)}
-                placeholder="+91 9876543210"
+                placeholder="Optional"
+                className="h-9 bg-slate-50/50 border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-400 rounded-lg text-sm"
               />
             </div>
           </div>
 
-          {/* Address */}
-          <div className="space-y-2">
-            <Label htmlFor="address" className="text-sm font-medium">Address</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="address" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Address
+            </Label>
             <Textarea
               id="address"
               value={formData.address}
               onChange={(e) => handleInputChange("address", e.target.value)}
-              placeholder="Enter full address"
+              placeholder="Full delivery/billing address"
               rows={2}
+              className="bg-slate-50/50 border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-400 rounded-lg text-sm resize-none"
             />
           </div>
 
-          {/* Pincode, City, State */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pincode" className="text-sm font-medium">
-                Pincode <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <Input
-                  id="pincode"
-                  value={formData.pincode}
-                  onChange={(e) => handlePincodeChange(e.target.value)}
-                  placeholder="123456"
-                  maxLength={6}
-                  required
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  {getPincodeIcon()}
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">Auto-fills city & state</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="city" className="text-sm font-medium">City</Label>
-              <Input
-                id="city"
-                value={formData.city}
-                onChange={(e) => handleInputChange("city", e.target.value)}
-                placeholder="City"
-                readOnly={pincodeStatus === "valid"}
-                className={pincodeStatus === "valid" ? "bg-muted" : ""}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="state" className="text-sm font-medium">State</Label>
-              <Input
-                id="state"
-                value={formData.state}
-                onChange={(e) => handleInputChange("state", e.target.value)}
-                placeholder="State"
-                readOnly={pincodeStatus === "valid"}
-                className={pincodeStatus === "valid" ? "bg-muted" : ""}
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-6 border-t">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={() => onOpenChange(false)}
               disabled={loading}
-              className="min-w-24"
+              className="h-9 px-4 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 text-sm font-medium"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading} 
-              className="bg-green-700 hover:bg-green-800 min-w-32"
+              className="h-9 px-5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium transition-colors"
             >
               {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {mode === "edit" ? "Updating..." : "Saving..."}
-                </>
+                <div className="flex items-center space-x-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </div>
               ) : (
-                mode === "edit" ? "Update Customer" : "Save Customer"
+                <span>{mode === "edit" ? "Update Profile" : "Create Profile"}</span>
               )}
             </Button>
           </div>

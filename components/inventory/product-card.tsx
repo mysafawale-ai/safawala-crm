@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ImageIcon, MoreHorizontal, Edit, Trash2, Barcode, Copy } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ImageIcon, MoreHorizontal, Edit, Trash2, Barcode, Copy, Eye, Tag } from "lucide-react"
 import { toast } from "sonner"
 
 interface Product {
@@ -20,6 +19,7 @@ interface Product {
   image_url?: string
   barcode?: string
   is_custom?: boolean
+  category_name?: string
   _variation_count?: number
 }
 
@@ -36,15 +36,21 @@ export function ProductCard({ product, onEdit, onDelete, onGenerateBarcode }: Pr
   const isOutOfStock = product.stock_available <= 0
 
   const getStockColor = () => {
-    if (isOutOfStock) return "bg-red-50 border-red-200 text-red-700"
-    if (isLowStock) return "bg-amber-50 border-amber-200 text-amber-700"
-    return "bg-green-50 border-green-200 text-green-700"
+    if (isOutOfStock) return "bg-red-50 border-red-200/60 text-red-700"
+    if (isLowStock) return "bg-amber-50 border-amber-200/60 text-amber-700"
+    return "bg-emerald-50 border-emerald-200/60 text-emerald-700"
   }
 
   const getStockLabel = () => {
     if (isOutOfStock) return "Out of Stock"
     if (isLowStock) return "Low Stock"
     return "In Stock"
+  }
+
+  const getStockDot = () => {
+    if (isOutOfStock) return "bg-red-500"
+    if (isLowStock) return "bg-amber-500"
+    return "bg-emerald-500"
   }
 
   const copyBarcodeToClipboard = () => {
@@ -55,102 +61,175 @@ export function ProductCard({ product, onEdit, onDelete, onGenerateBarcode }: Pr
   }
 
   return (
-    <Card className="group overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full">
+    <Card
+      className="group overflow-hidden flex flex-col h-full border-[#102516]/8
+        bg-gradient-to-b from-[#fcf7f0] to-[#f9f2e8]/80
+        hover:translate-y-[-3px] hover:shadow-[0_12px_30px_rgba(16,37,22,0.12)]
+        transition-all duration-300 ease-out rounded-xl"
+    >
+      {/* Heritage top accent line */}
+      <div className="h-[2px] bg-gradient-to-r from-transparent via-[#102516]/20 to-transparent" />
+
       {/* Image Container */}
-      <div className="relative w-full aspect-square bg-muted overflow-hidden flex items-center justify-center">
+      <div className="relative w-full aspect-square bg-gradient-to-br from-[#f9f2e8] to-[#f6e1c3]/30 overflow-hidden flex items-center justify-center">
         {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement
-              target.style.display = "none"
-              target.parentElement!.innerHTML =
-                '<div class="w-full h-full flex items-center justify-center"><svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
-            }}
-          />
+          <>
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.style.display = "none"
+                if (target.nextElementSibling) {
+                  (target.nextElementSibling as HTMLElement).style.display = "flex"
+                }
+              }}
+            />
+            <div className="hidden w-full h-full items-center justify-center">
+              <ImageIcon className="w-8 h-8 text-[#102516]/20" />
+            </div>
+            {/* Hover overlay gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#102516]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          </>
         ) : (
-          <ImageIcon className="w-8 h-8 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center gap-2 text-[#102516]/20">
+            <ImageIcon className="w-10 h-10" />
+            <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "var(--font-crimson), serif" }}>
+              No Image
+            </span>
+          </div>
+        )}
+
+        {/* Stock indicator dot — top-left */}
+        <div className={`absolute top-2.5 left-2.5 w-2.5 h-2.5 rounded-full ${getStockDot()} ring-2 ring-white/80 shadow-sm`} />
+
+        {/* Category badge — top-right */}
+        {product.category_name && (
+          <div className="absolute top-2.5 right-2.5">
+            <Badge
+              variant="outline"
+              className="text-[9px] font-medium bg-white/85 backdrop-blur-sm border-[#102516]/10 text-[#102516]/80 shadow-sm px-2 py-0.5"
+              style={{ fontFamily: "var(--font-crimson), serif" }}
+            >
+              <Tag className="w-2.5 h-2.5 mr-1" />
+              {product.category_name}
+            </Badge>
+          </div>
         )}
       </div>
 
       {/* Content */}
-      <div className="p-4 flex flex-col flex-1 space-y-3">
+      <div className="p-3.5 flex flex-col flex-1 space-y-2.5">
         {/* Header with menu */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm leading-tight truncate">{product.name}</h3>
-            {product.brand && <p className="text-xs text-muted-foreground truncate">{product.brand}</p>}
+            <h3
+              className="font-semibold text-sm leading-tight truncate text-[#102516]"
+              style={{ fontFamily: "var(--font-crimson), serif", fontWeight: 600 }}
+            >
+              {product.name}
+            </h3>
+            {product.brand && (
+              <p
+                className="text-[11px] text-[#102516]/50 truncate mt-0.5"
+                style={{ fontFamily: "var(--font-crimson), serif" }}
+              >
+                {product.brand}
+              </p>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <MoreHorizontal className="h-4 w-4" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity
+                  hover:bg-[#102516]/5 rounded-lg"
+              >
+                <MoreHorizontal className="h-4 w-4 text-[#102516]/60" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(product)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => onEdit(product)} className="text-[#102516]">
+                <Edit className="mr-2 h-3.5 w-3.5" />
+                Edit Product
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onGenerateBarcode(product)}>
-                <Barcode className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => onGenerateBarcode(product)} className="text-[#102516]">
+                <Barcode className="mr-2 h-3.5 w-3.5" />
                 Print Barcode
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={copyBarcodeToClipboard} disabled={!product.barcode}>
-                <Copy className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={copyBarcodeToClipboard} disabled={!product.barcode} className="text-[#102516]">
+                <Copy className="mr-2 h-3.5 w-3.5" />
                 Copy Barcode
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDelete(product.id, product.name)} className="text-red-600">
-                <Trash2 className="mr-2 h-4 w-4" />
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onDelete(product.id, product.name)} className="text-red-600 focus:text-red-600">
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Stock Status */}
+        {/* Stock Status Row */}
         <div className="flex items-center justify-between gap-2">
-          <Badge variant="outline" className={`text-xs whitespace-nowrap ${getStockColor()}`}>
+          <Badge variant="outline" className={`text-[10px] font-medium whitespace-nowrap px-2 py-0.5 ${getStockColor()}`}>
             {getStockLabel()}
           </Badge>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {product.stock_available}/{product.stock_total}
+          <span
+            className="text-[11px] text-[#102516]/50 whitespace-nowrap font-medium"
+            style={{ fontFamily: "var(--font-crimson), serif" }}
+          >
+            {product.stock_available}/{product.stock_total} units
           </span>
         </div>
 
-        {/* Badges */}
+        {/* Attribute Badges */}
         <div className="flex flex-wrap gap-1">
           {product.is_custom && (
-            <Badge variant="outline" className="text-[10px] bg-amber-50 border-amber-300 text-amber-700">
+            <Badge
+              variant="outline"
+              className="text-[9px] bg-[#f6e1c3]/40 border-[#f6e1c3] text-[#102516]/70 px-1.5 py-0"
+            >
               Custom
             </Badge>
           )}
           {(product._variation_count ?? 0) > 0 && (
-            <Badge variant="outline" className="text-[10px] bg-purple-50 border-purple-300 text-purple-700">
+            <Badge
+              variant="outline"
+              className="text-[9px] bg-purple-50/80 border-purple-200/60 text-purple-700 px-1.5 py-0"
+            >
               {product._variation_count} variant{product._variation_count !== 1 ? "s" : ""}
             </Badge>
           )}
         </div>
 
-        {/* Pricing */}
-        <div className="space-y-1 border-t pt-3">
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Rental</span>
-            <span className="font-semibold">₹{product.rental_price.toLocaleString()}</span>
+        {/* Pricing — pushed to bottom */}
+        <div className="space-y-1.5 border-t border-[#102516]/6 pt-2.5 mt-auto">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[#102516]/45" style={{ fontFamily: "var(--font-crimson), serif" }}>
+              Rental
+            </span>
+            <span className="font-bold text-[#102516]" style={{ fontFamily: "var(--font-crimson), serif" }}>
+              ₹{product.rental_price.toLocaleString()}
+            </span>
           </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Sale</span>
-            <span className="font-semibold">₹{product.price.toLocaleString()}</span>
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-[#102516]/45" style={{ fontFamily: "var(--font-crimson), serif" }}>
+              Sale
+            </span>
+            <span className="font-semibold text-[#102516]/70" style={{ fontFamily: "var(--font-crimson), serif" }}>
+              ₹{product.price.toLocaleString()}
+            </span>
           </div>
         </div>
 
         {/* Barcode indicator */}
         {product.barcode && (
-          <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-auto">
-            <Barcode className="w-3 h-3" />
-            <code className="font-mono text-[10px] font-bold">{product.barcode}</code>
+          <div className="flex items-center gap-1.5 text-[10px] text-[#102516]/60 bg-[#102516]/3 px-2 py-1 rounded-md mt-auto">
+            <Barcode className="w-3 h-3 text-[#102516]/40" />
+            <code className="font-mono text-[9px] font-bold tracking-wide">{product.barcode}</code>
           </div>
         )}
       </div>

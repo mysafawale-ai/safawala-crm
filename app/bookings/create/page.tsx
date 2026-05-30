@@ -299,10 +299,10 @@ export default function CreateBookingPage() {
       prev.map((item) =>
         item.product_id === productId
           ? {
-              ...item,
-              quantity: newQuantity,
-              total_price: item.unit_price * newQuantity,
-            }
+            ...item,
+            quantity: newQuantity,
+            total_price: item.unit_price * newQuantity,
+          }
           : item,
       ),
     )

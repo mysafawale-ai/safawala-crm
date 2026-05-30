@@ -23,7 +23,7 @@ export function BookingStatusUpdater({ bookingId, currentStatus, onStatusUpdate 
     { value: "pending_selection", label: "Pending Selection", variant: "info" as const },
     { value: "confirmed", label: "Confirmed", variant: "default" as const },
     { value: "delivered", label: "Delivered", variant: "success" as const },
-    { value: "returned", label: "Returned", variant: "secondary" as const },
+    { value: "returned", label: "Rental Completed", variant: "secondary" as const },
     { value: "order_complete", label: "Order Complete", variant: "success" as const },
     { value: "cancelled", label: "Cancelled", variant: "destructive" as const },
   ]

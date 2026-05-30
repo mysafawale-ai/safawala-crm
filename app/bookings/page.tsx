@@ -489,7 +489,6 @@ export default function BookingsPage() {
     const pendingAmount = totalAmount - paidAmount
     const isFullyPaid = paidAmount >= totalAmount
     const isUnpaid = paidAmount === 0
-    const paymentPercentage = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0
     
     // Override status to "Payment Pending" if payment is incomplete
     let displayStatus = status
@@ -502,64 +501,34 @@ export default function BookingsPage() {
       pending_selection: { label: "Pending Selection", variant: "info" as const },
       confirmed: { label: "Confirmed", variant: "default" as const },
       delivered: { label: "Delivered", variant: "success" as const },
-      returned: { label: "Returned", variant: "secondary" as const },
+      returned: { label: "Rental Completed", variant: "secondary" as const },
       order_complete: { label: "Order Complete", variant: "success" as const },
       cancelled: { label: "Cancelled", variant: "destructive" as const },
     }
     const config = statusConfig[displayStatus as keyof typeof statusConfig] || statusConfig.confirmed
     
     return (
-      <div className="flex flex-col gap-1">
-        <Badge variant={config.variant}>{config.label}</Badge>
+      <div className="flex flex-col gap-1.5 items-start">
+        <Badge variant={config.variant} className="whitespace-nowrap shadow-sm font-semibold">{config.label}</Badge>
         
-        {/* Enhanced Payment Status Display */}
-        {displayStatus === 'pending_payment' && (
-          <div className="text-xs space-y-1">
-            {/* Amount Taken */}
-            <div className="flex items-center gap-1">
-              <span className="text-green-600 font-medium">✓ Paid:</span>
-              <span className="text-green-700 font-bold">₹{paidAmount.toLocaleString()}</span>
-              {paymentPercentage > 0 && (
-                <span className="text-green-600">({Math.round(paymentPercentage)}%)</span>
-              )}
-            </div>
-            
-            {/* Amount Remaining */}
-            <div className="flex items-center gap-1">
-              <span className="text-amber-600 font-medium">⏳ Pending:</span>
-              <span className="text-amber-700 font-bold">₹{pendingAmount.toLocaleString()}</span>
-              {paymentPercentage < 100 && (
-                <span className="text-amber-600">({100 - Math.round(paymentPercentage)}%)</span>
-              )}
-            </div>
-            
-            {/* Total for Reference */}
-            <div className="flex items-center gap-1 border-t border-gray-200 pt-1">
-              <span className="text-blue-600 font-medium">💰 Total:</span>
-              <span className="text-blue-700 font-bold">₹{totalAmount.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
-        
-        {/* For fully paid bookings */}
-        {isFullyPaid && paidAmount > 0 && (
-          <div className="text-xs">
-            <div className="flex items-center gap-1">
-              <span className="text-green-600 font-medium">✅ Fully Paid:</span>
-              <span className="text-green-700 font-bold">₹{paidAmount.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
-        
-        {/* For unpaid bookings */}
-        {isUnpaid && totalAmount > 0 && (
-          <div className="text-xs">
-            <div className="flex items-center gap-1">
-              <span className="text-red-600 font-medium">❌ Unpaid:</span>
-              <span className="text-red-700 font-bold">₹{totalAmount.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
+        {/* Simplified Payment Status Info */}
+        <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1.5">
+          {isFullyPaid && paidAmount > 0 && (
+            <span className="text-green-600 flex items-center gap-1 font-semibold">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block animate-pulse" /> Paid
+            </span>
+          )}
+          {hasPartialPayment && (
+            <span className="text-amber-600 flex items-center gap-1 font-semibold" title={`Paid: ₹${paidAmount.toLocaleString()} / Total: ₹${totalAmount.toLocaleString()}`}>
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 inline-block" /> Bal: ₹{pendingAmount.toLocaleString()}
+            </span>
+          )}
+          {isUnpaid && totalAmount > 0 && (
+            <span className="text-red-500 flex items-center gap-1 font-semibold">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 inline-block" /> Unpaid
+            </span>
+          )}
+        </div>
       </div>
     )
   }
@@ -1244,7 +1213,7 @@ export default function BookingsPage() {
             
             <Card className="border-purple-200 bg-purple-50/30 dark:bg-purple-950/30">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Returned</CardTitle>
+                <CardTitle className="text-sm font-medium">Rental Completed</CardTitle>
                 <RefreshCw className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
@@ -1305,7 +1274,7 @@ export default function BookingsPage() {
                 <SelectItem value="pending_selection">Pending Selection</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
-                <SelectItem value="returned">Returned</SelectItem>
+                <SelectItem value="returned">Rental Completed</SelectItem>
                 <SelectItem value="order_complete">Order Complete</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
@@ -1373,6 +1342,7 @@ export default function BookingsPage() {
             getStatusBadge={getStatusBadge}
             bookingItems={bookingItems}
             bookingsWithItems={bookingsWithItems}
+            itemsLoading={itemsLoading}
             getPageNumbers={getPageNumbers}
             goToPage={goToPage}
             setItemsPerPage={setItemsPerPage}

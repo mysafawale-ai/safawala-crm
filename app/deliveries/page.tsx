@@ -843,8 +843,8 @@ export default function DeliveriesPage() {
             <span>Back</span>
           </Button>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">📦 Deliveries & Returns Management</h2>
-            <p className="text-muted-foreground">Schedule deliveries, track fulfillment, and manage product returns</p>
+            <h2 className="text-3xl font-bold tracking-tight">📦 Deliveries & Rental Returns</h2>
+            <p className="text-muted-foreground">Schedule deliveries, track fulfillment, and manage rental returns</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -1418,7 +1418,7 @@ export default function DeliveriesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{deliveryOverview.orderCompleted}</div>
-            <p className="text-xs text-muted-foreground">Return processed</p>
+            <p className="text-xs text-muted-foreground">Rental Return processed</p>
           </CardContent>
         </Card>
         <Card>
@@ -1585,9 +1585,9 @@ export default function DeliveriesPage() {
                           if (!ret) return null
                           try {
                             const d = new Date(ret)
-                            return ` • Return: ${d.toLocaleDateString()} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+                            return ` • Rental Return: ${d.toLocaleDateString()} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
                           } catch {
-                            return ` • Return: ${ret}`
+                            return ` • Rental Return: ${ret}`
                           }
                         })()}
                       </p>
@@ -1675,7 +1675,7 @@ export default function DeliveriesPage() {
                             }}
                           >
                             <RotateCcw className="h-4 w-4 mr-1" />
-                            Process Return
+                            Process Rental Return
                           </Button>
                         )}
                       </>
@@ -2059,11 +2059,11 @@ export default function DeliveriesPage() {
               {/* Return Confirmation Details */}
               {(selectedDelivery as any).returned_at && (
                 <div className="border-t pt-4 mt-4">
-                  <Label className="text-sm font-bold text-blue-700 mb-3 block">🔄 Return Confirmation</Label>
+                  <Label className="text-sm font-bold text-blue-700 mb-3 block">🔄 Rental Return Confirmation</Label>
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-sm text-blue-700 font-medium">Returned By:</span>
+                        <span className="text-sm text-blue-700 font-medium">Rental Returned By:</span>
                         <p className="font-semibold">{(selectedDelivery as any).return_confirmation_name || 'Not recorded'}</p>
                       </div>
                       <div>
@@ -2077,7 +2077,7 @@ export default function DeliveriesPage() {
                       item.return_lost_damaged > 0 || item.return_used > 0 || item.return_fresh > 0
                     ) && (
                       <div className="border-t pt-3 mt-3">
-                        <h4 className="font-semibold text-blue-800 mb-2">📦 Return Items Breakdown</h4>
+                        <h4 className="font-semibold text-blue-800 mb-2">📦 Rental Return Items Breakdown</h4>
                         <div className="space-y-2">
                           {deliveryItems.map((item: any, index: number) => (
                             <div key={index} className="bg-white rounded p-3 border border-blue-100">
@@ -2108,23 +2108,23 @@ export default function DeliveriesPage() {
 
                     {(selectedDelivery as any).return_notes && (
                       <div>
-                        <span className="text-sm text-blue-700 font-medium">Return Notes:</span>
+                        <span className="text-sm text-blue-700 font-medium">Rental Return Notes:</span>
                         <p className="text-sm bg-white p-2 rounded border border-blue-200 mt-1">{(selectedDelivery as any).return_notes}</p>
                       </div>
                     )}
                     {(selectedDelivery as any).return_photo_url && (
                       <div>
-                        <span className="text-sm text-blue-700 font-medium">Return Proof Photo:</span>
+                        <span className="text-sm text-blue-700 font-medium">Rental Return Proof Photo:</span>
                         <img 
                           src={(selectedDelivery as any).return_photo_url} 
-                          alt="Return proof" 
+                          alt="Rental return proof" 
                           className="mt-2 rounded-lg border border-blue-200 max-h-48 object-cover"
                         />
                       </div>
                     )}
                     {(selectedDelivery as any).returned_at && (
                       <div>
-                        <span className="text-sm text-blue-700 font-medium">Returned At:</span>
+                        <span className="text-sm text-blue-700 font-medium">Rental Completed At:</span>
                         <p className="font-semibold">{new Date((selectedDelivery as any).returned_at).toLocaleString()}</p>
                       </div>
                     )}
@@ -2491,7 +2491,7 @@ export default function DeliveriesPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Reschedule Return</DialogTitle>
+            <DialogTitle>Reschedule Rental Return</DialogTitle>
             <DialogDescription>
               Set a new pickup/return date and time for the linked booking. If you leave it empty, we'll keep the original
               booking return.
@@ -2500,7 +2500,7 @@ export default function DeliveriesPage() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="reschedule_date">Return Date</Label>
+                <Label htmlFor="reschedule_date">Rental Return Date</Label>
                 <Input
                   id="reschedule_date"
                   type="date"
@@ -2509,7 +2509,7 @@ export default function DeliveriesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reschedule_time">Return Time</Label>
+                <Label htmlFor="reschedule_time">Rental Return Time</Label>
                 <Input
                   id="reschedule_time"
                   type="time"
@@ -2560,7 +2560,7 @@ export default function DeliveriesPage() {
                       b.id === selectedDelivery.booking_id ? { ...b, pickup_date: iso, return_date: iso } : b
                     )
                   )
-                  toast({ title: "Return rescheduled", description: "Return date/time updated successfully." })
+                  toast({ title: "Rental return rescheduled", description: "Rental return date/time updated successfully." })
                   // Close the dialog immediately for better UX, then refresh in background
                   setShowRescheduleDialog(false)
                   clearActionParams()

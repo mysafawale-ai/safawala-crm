@@ -27,11 +27,6 @@ function isAuthDisabled() {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow API routes and public paths
-  if (pathname.startsWith("/api/") || isPublic(pathname)) {
-    return NextResponse.next()
-  }
-
   // Optional global switch to turn off auth quickly in dev
   if (isAuthDisabled()) {
     return NextResponse.next()
@@ -43,6 +38,17 @@ export function middleware(request: NextRequest) {
 
   // Any of these cookies indicates an authenticated browser session
   const isAuthed = hasUserCookie || hasLegacySession || hasSb
+
+  // If user is already logged in, redirect them to the dashboard if they go to the login pages
+  const isLoginPage = pathname === "/" || pathname === "/auth/login"
+  if (isLoginPage && isAuthed) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  // Allow API routes and public paths
+  if (pathname.startsWith("/api/") || isPublic(pathname)) {
+    return NextResponse.next()
+  }
 
   if (!isAuthed) {
     const loginUrl = new URL("/", request.url)

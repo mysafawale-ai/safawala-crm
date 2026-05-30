@@ -480,7 +480,7 @@ export default function DashboardPage() {
                 </Link>
               )}
               {user?.permissions?.customers && (
-                <Link href="/customers/new">
+                <Link href="/customers?add=true">
                   <Button variant="outline" className="w-full justify-start bg-transparent">
                     <Users className="h-4 w-4 mr-2" />
                     Add New Customer

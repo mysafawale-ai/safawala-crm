@@ -393,10 +393,10 @@ export function ProcessReturnDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-blue-600" />
-            Process Return
+            Process Rental Return
           </DialogTitle>
           <DialogDescription>
-            {delivery?.delivery_number} • Specify item conditions and process the return
+            {delivery?.delivery_number} • Specify item conditions and process the rental return
           </DialogDescription>
         </DialogHeader>
 
@@ -435,7 +435,7 @@ export function ProcessReturnDialog({
           <Card className="p-4">
             <h3 className="font-semibold mb-3 flex items-center gap-2">
               <Camera className="h-4 w-4" />
-              Return Photo (Optional)
+              Rental Return Photo (Optional)
             </h3>
             {showCamera ? (
               <div className="space-y-2">
@@ -467,7 +467,7 @@ export function ProcessReturnDialog({
             ) : (
               <Button variant="outline" onClick={startCamera} className="w-full">
                 <Camera className="h-4 w-4 mr-2" />
-                Capture Return Photo
+                Capture Rental Return Photo
               </Button>
             )}
           </Card>
@@ -558,7 +558,7 @@ export function ProcessReturnDialog({
 
           {/* Action Summary */}
           <Card className="p-4 bg-gray-50">
-            <h4 className="font-medium mb-2">What happens when you Process Return:</h4>
+            <h4 className="font-medium mb-2">What happens when you Process Rental Return:</h4>
             <div className="space-y-1 text-sm">
               <div className="flex items-center gap-2 text-orange-700">
                 <Shirt className="h-4 w-4" />
@@ -602,7 +602,7 @@ export function ProcessReturnDialog({
             ) : (
               <CheckCircle2 className="h-4 w-4 mr-2" />
             )}
-            Process Return
+            Process Rental Return
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -320,7 +320,7 @@ export default function NewBookingPage() {
   // Calculate payment amounts based on payment type
   const getPaymentBreakdown = () => {
     const totalPayable = totalAmount + (formData.type === "rental" ? totalSecurityDeposit : 0)
-    
+
     switch (formData.payment_type) {
       case "full":
         return {
@@ -832,7 +832,7 @@ export default function NewBookingPage() {
                       </Select>
                     </div>
                   </div>
-                  
+
                   {/* Custom Payment Amount - Only show for partial payment */}
                   {formData.payment_type === "partial" && (
                     <div className="mt-4">
@@ -845,9 +845,9 @@ export default function NewBookingPage() {
                         value={formData.payment_amount || ""}
                         onChange={(e) => {
                           const value = e.target.value;
-                          setFormData((prev) => ({ 
-                            ...prev, 
-                            payment_amount: value === "" ? 0 : Math.max(0, Number(value)) 
+                          setFormData((prev) => ({
+                            ...prev,
+                            payment_amount: value === "" ? 0 : Math.max(0, Number(value))
                           }));
                         }}
                         placeholder="Enter payment amount"

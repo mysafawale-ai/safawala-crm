@@ -291,7 +291,7 @@ export default function BookingDetailPage() {
       pending_payment: { label: "Pending Payment", variant: "secondary" as const },
       pending_selection: { label: "Pending Selection", variant: "outline" as const },
       delivered: { label: "Delivered", variant: "default" as const },
-      returned: { label: "Returned", variant: "outline" as const },
+      returned: { label: "Rental Completed", variant: "outline" as const },
       order_complete: { label: "Order Complete", variant: "default" as const },
       cancelled: { label: "Cancelled", variant: "destructive" as const },
     }
@@ -401,7 +401,7 @@ export default function BookingDetailPage() {
                     <SelectItem value="pending_payment">Pending Payment</SelectItem>
                     <SelectItem value="pending_selection">Pending Selection</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="returned">Returned</SelectItem>
+                    <SelectItem value="returned">Rental Completed</SelectItem>
                     <SelectItem value="order_complete">Order Complete</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
@@ -616,7 +616,7 @@ export default function BookingDetailPage() {
       {booking && (
         <Card>
           <CardHeader>
-            <CardTitle id="returns-settlement">Returns & Settlement</CardTitle>
+            <CardTitle id="returns-settlement">Rental Return & Settlement</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

@@ -14,15 +14,15 @@ import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 // @ts-ignore
 import QRCode from 'qrcode'
-import { 
-  CreditCard, 
-  MessageCircle, 
-  ShoppingCart, 
-  Mail, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  CheckCircle, 
+import {
+  CreditCard,
+  MessageCircle,
+  ShoppingCart,
+  Mail,
+  Plus,
+  Edit,
+  Trash2,
+  CheckCircle,
   XCircle,
   Loader2,
   ExternalLink,
@@ -98,7 +98,7 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
       setLoading(true)
       const response = await fetch(`/api/settings/banking?franchise_id=${franchiseId}`)
       const result = await response.json()
-      
+
       if (response.ok) {
         setBankAccounts(result.data || [])
       }
@@ -155,7 +155,7 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
     try {
       setSaving(true)
       const method = editingBank ? 'PUT' : 'POST'
-      const body = editingBank 
+      const body = editingBank
         ? { ...bankForm, id: editingBank.id, franchise_id: franchiseId }
         : { ...bankForm, franchise_id: franchiseId }
 
@@ -236,7 +236,7 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
 
     setSelectedAccount(account)
     setQrCodeDialogOpen(true)
-    
+
     // Generate initial QR code without amount
     await updateQRCode(account, paymentAmount)
   }
@@ -245,11 +245,11 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
     try {
       // Generate UPI payment URL
       let upiUrl = `upi://pay?pa=${account.upi_id}&pn=${encodeURIComponent(account.account_holder_name)}&cu=INR`
-      
+
       if (amount && amount.trim() && parseFloat(amount) > 0) {
         upiUrl += `&am=${parseFloat(amount).toFixed(2)}`
       }
-      
+
       const qrCodeUrl = await QRCode.toDataURL(upiUrl, {
         width: 256,
         margin: 2,
@@ -258,7 +258,7 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
           light: '#FFFFFF'
         }
       })
-      
+
       setQrCodeDataUrl(qrCodeUrl)
     } catch (error) {
       console.error('Error generating QR code:', error)
@@ -272,16 +272,16 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
 
   const downloadQRCode = () => {
     if (!qrCodeDataUrl || !selectedAccount) return
-    
+
     const link = document.createElement('a')
-    const filename = paymentAmount && parseFloat(paymentAmount) > 0 
+    const filename = paymentAmount && parseFloat(paymentAmount) > 0
       ? `${selectedAccount.bank_name}_UPI_QR_₹${parseFloat(paymentAmount).toFixed(2)}.png`
       : `${selectedAccount.bank_name}_UPI_QR.png`
-    
+
     link.download = filename
     link.href = qrCodeDataUrl
     link.click()
-    
+
     toast({
       title: "Downloaded!",
       description: "QR code image saved to your device",
@@ -428,9 +428,9 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
                   />
                   {bankForm.qr_code_url && (
                     <div className="mt-2">
-                      <img 
-                        src={bankForm.qr_code_url} 
-                        alt="QR Code Preview" 
+                      <img
+                        src={bankForm.qr_code_url}
+                        alt="QR Code Preview"
                         className="w-24 h-24 object-contain border rounded"
                       />
                     </div>
@@ -491,7 +491,7 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
                             <Badge variant="outline" className="text-xs">On Invoices</Badge>
                           )}
                         </div>
-                        
+
                         <div className="space-y-1">
                           <p className="text-sm text-gray-600">{account.account_holder_name}</p>
                           <div className="flex items-center gap-2">
@@ -519,7 +519,7 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
                               <Smartphone className="h-4 w-4 text-blue-600" />
                               <span className="text-sm font-medium text-blue-900">UPI Payment</span>
                             </div>
-                            
+
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -535,7 +535,7 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
                                   <Copy className="h-3 w-3 text-blue-600" />
                                 </Button>
                               </div>
-                              
+
                               <div className="flex gap-2">
                                 <Button
                                   variant="outline"
@@ -557,15 +557,15 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
                               <QrCode className="h-4 w-4 text-gray-600" />
                               <span className="text-sm font-medium text-gray-700">Uploaded QR Code</span>
                             </div>
-                            <img 
-                              src={account.qr_code_url} 
-                              alt="Bank QR Code" 
+                            <img
+                              src={account.qr_code_url}
+                              alt="Bank QR Code"
                               className="w-20 h-20 object-contain border rounded"
                             />
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="flex gap-2 ml-4">
                         <Button
                           variant="outline"
@@ -590,223 +590,115 @@ export function BankingSection({ franchiseId }: BankingSectionProps) {
           )}
         </CardContent>
       </Card>
-              {bankAccounts.length === 0 ? (
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">No bank accounts added yet</p>
-                  <p className="text-sm text-gray-500">Add your first bank account to get started</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {bankAccounts.map((account) => (
-                    <Card key={account.id} className="hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 space-y-3">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold">{account.bank_name}</h4>
-                              {account.is_primary && (
-                                <Badge variant="default" className="text-xs">Primary</Badge>
-                              )}
-                              {account.show_on_invoice && (
-                                <Badge variant="outline" className="text-xs">On Invoices</Badge>
-                              )}
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <p className="text-sm text-gray-600">{account.account_holder_name}</p>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-500">
-                                  {formatAccountNumber(account.account_number, showAccountNumbers[account.id] || false)} • {account.ifsc_code}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleAccountVisibility(account.id)}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  {showAccountNumbers[account.id] ? (
-                                    <EyeOff className="h-3 w-3" />
-                                  ) : (
-                                    <Eye className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
 
-                            {account.upi_id && (
-                              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 space-y-3 border border-blue-100">
-                                <div className="flex items-center gap-2">
-                                  <Smartphone className="h-4 w-4 text-blue-600" />
-                                  <span className="text-sm font-medium text-blue-900">UPI Payment</span>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm text-gray-600">UPI ID:</span>
-                                      <code className="text-sm bg-white px-2 py-1 rounded border text-blue-700 font-medium">{account.upi_id}</code>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => copyUPIId(account.upi_id!)}
-                                      className="h-8 w-8 p-0 hover:bg-blue-100"
-                                    >
-                                      <Copy className="h-3 w-3 text-blue-600" />
-                                    </Button>
-                                  </div>
-                                  
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => generateUPIQRCode(account)}
-                                      className="flex-1 text-blue-700 border-blue-200 hover:bg-blue-50"
-                                    >
-                                      <QrCode className="h-3 w-3 mr-2" />
-                                      Generate QR Code
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex gap-2 ml-4">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditBank(account)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteBank(account.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+    {/* QR Code Dialog */ }
+    < Dialog open = { qrCodeDialogOpen } onOpenChange = {(open) => {
+    setQrCodeDialogOpen(open)
+    if (!open) {
+      setPaymentAmount('')
+      setQrCodeDataUrl('')
+    }
+  }
+}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <QrCode className="h-5 w-5 text-blue-600" />
+        UPI Payment QR Code
+      </DialogTitle>
+    </DialogHeader>
 
-      {/* QR Code Dialog */}
-      <Dialog open={qrCodeDialogOpen} onOpenChange={(open) => {
-        setQrCodeDialogOpen(open)
-        if (!open) {
-          setPaymentAmount('')
-          setQrCodeDataUrl('')
-        }
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-blue-600" />
-              UPI Payment QR Code
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedAccount && (
-            <div className="space-y-4">
-              <div className="text-center space-y-2">
-                <h3 className="font-medium">{selectedAccount.bank_name}</h3>
-                <p className="text-sm text-gray-600">{selectedAccount.account_holder_name}</p>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-sm text-gray-500">UPI ID:</span>
-                  <code className="text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 text-blue-700">{selectedAccount.upi_id}</code>
-                </div>
-              </div>
+    {selectedAccount && (
+      <div className="space-y-4">
+        <div className="text-center space-y-2">
+          <h3 className="font-medium">{selectedAccount.bank_name}</h3>
+          <p className="text-sm text-gray-600">{selectedAccount.account_holder_name}</p>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm text-gray-500">UPI ID:</span>
+            <code className="text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 text-blue-700">{selectedAccount.upi_id}</code>
+          </div>
+        </div>
 
-              <Separator />
+        <Separator />
 
-              {/* Payment Amount Input */}
-              <div className="space-y-2">
-                <Label htmlFor="payment_amount">Payment Amount (Optional)</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">₹</span>
-                  <Input
-                    id="payment_amount"
-                    type="number"
-                    placeholder="0.00"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    onBlur={() => selectedAccount && updateQRCode(selectedAccount, paymentAmount)}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => selectedAccount && updateQRCode(selectedAccount, paymentAmount)}
-                  >
-                    Update QR
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500">Leave empty for open amount</p>
-              </div>
+        {/* Payment Amount Input */}
+        <div className="space-y-2">
+          <Label htmlFor="payment_amount">Payment Amount (Optional)</Label>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">₹</span>
+            <Input
+              id="payment_amount"
+              type="number"
+              placeholder="0.00"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+              onBlur={() => selectedAccount && updateQRCode(selectedAccount, paymentAmount)}
+              className="flex-1"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => selectedAccount && updateQRCode(selectedAccount, paymentAmount)}
+            >
+              Update QR
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">Leave empty for open amount</p>
+        </div>
 
-              <div className="flex justify-center">
-                {qrCodeDataUrl ? (
-                  <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm">
-                    <img 
-                      src={qrCodeDataUrl} 
-                      alt="UPI QR Code" 
-                      className="w-48 h-48"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                  </div>
-                )}
-              </div>
-
-              <div className="text-center space-y-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-gray-700">
-                    {paymentAmount && parseFloat(paymentAmount) > 0 
-                      ? `Payment of ₹${parseFloat(paymentAmount).toFixed(2)}`
-                      : 'Open Amount Payment'
-                    }
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Scan with any UPI app (PhonePe, Google Pay, Paytm, etc.)
-                  </p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => copyUPIId(selectedAccount.upi_id!)}
-                    className="flex-1"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy UPI ID
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={downloadQRCode}
-                    className="flex-1"
-                    disabled={!qrCodeDataUrl}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download QR
-                  </Button>
-                </div>
-              </div>
+        <div className="flex justify-center">
+          {qrCodeDataUrl ? (
+            <div className="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm">
+              <img
+                src={qrCodeDataUrl}
+                alt="UPI QR Code"
+                className="w-48 h-48"
+              />
+            </div>
+          ) : (
+            <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-    </div>
+        </div>
+
+        <div className="text-center space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-gray-700">
+              {paymentAmount && parseFloat(paymentAmount) > 0
+                ? `Payment of ₹${parseFloat(paymentAmount).toFixed(2)}`
+                : 'Open Amount Payment'
+              }
+            </p>
+            <p className="text-xs text-gray-500">
+              Scan with any UPI app (PhonePe, Google Pay, Paytm, etc.)
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => copyUPIId(selectedAccount.upi_id!)}
+              className="flex-1"
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy UPI ID
+            </Button>
+            <Button
+              variant="outline"
+              onClick={downloadQRCode}
+              className="flex-1"
+              disabled={!qrCodeDataUrl}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download QR
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+      </Dialog >
+    </div >
   )
 }

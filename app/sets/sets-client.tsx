@@ -25,16 +25,6 @@ import { createClient } from "@/lib/supabase/client"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 
-interface DistancePricing {
-  id: string
-  package_variant_id: string
-  distance_range: string
-  min_distance_km: number
-  max_distance_km: number
-  additional_price: number
-  is_active: boolean
-}
-
 interface PackageVariant {
   id: string
   name: string
@@ -43,7 +33,6 @@ interface PackageVariant {
   missing_safa_penalty?: number
   deposit_amount?: number
   inclusions?: string[]
-  distance_pricing?: DistancePricing[]
   is_active: boolean
 }
 
@@ -74,24 +63,12 @@ interface PackagesClientProps {
   user?: any
   initialCategories?: Category[]
   franchises?: any[]
-  distanceTiers?: any[]
 }
 
 export function PackagesClient({ user, initialCategories, franchises }: PackagesClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
-
-  // Get initial tab from URL hash or default to categories
-  const getInitialTab = () => {
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '')
-      if (['categories', 'variants', 'pricing'].includes(hash)) {
-        return hash
-      }
-    }
-    return 'categories'
-  }
 
   const [packageForm, setPackageForm] = useState({
     name: "",
@@ -111,35 +88,17 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     inclusions: "",
   })
 
-  const [distancePricingForm, setDistancePricingForm] = useState({
-    range: "",
-    min_km: "",
-    max_km: "",
-    base_price_addition: "",
-  })
-
   const [dialogs, setDialogs] = useState({
     createCategory: false,
     createPackage: false,
     createVariant: false,
-    configurePricing: false,
   })
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [editingPackage, setEditingPackage] = useState<PackageType | null>(null)
   const [editingVariant, setEditingVariant] = useState<PackageVariant | null>(null)
-  const [editingDistancePricing, setEditingDistancePricing] = useState<DistancePricing | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
-  const [selectedVariant, setSelectedVariant] = useState<PackageVariant | null>(null)
   const [categoryForm, setCategoryForm] = useState({ name: "" })
-  const [activeTab, setActiveTab] = useState(getInitialTab())
-
-  // Sync tab changes to URL without creating history entries
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', `#${activeTab}`)
-    }
-  }, [activeTab])
 
   const [isLoading, setIsLoading] = useState(false)
   const [showPackageDialog, setShowPackageDialog] = useState(false)
@@ -165,12 +124,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               base_price: 35000,
               inclusions: ["21 Silk Safas", "Gold Kalgis", "Premium Jewelry Set", "Storage Box", "Setup Service"],
               is_active: true,
-              distance_pricing: [
-                { id: "1", package_variant_id: "1-1-1", distance_range: "0-10 km", min_distance_km: 0, max_distance_km: 10, additional_price: 500, is_active: true },
-                { id: "2", package_variant_id: "1-1-1", distance_range: "11-50 km", min_distance_km: 11, max_distance_km: 50, additional_price: 1000, is_active: true },
-                { id: "3", package_variant_id: "1-1-1", distance_range: "51-250 km", min_distance_km: 51, max_distance_km: 250, additional_price: 2000, is_active: true },
-                { id: "4", package_variant_id: "1-1-1", distance_range: "251-1500 km", min_distance_km: 251, max_distance_km: 1500, additional_price: 3000, is_active: true },
-              ],
             },
           ],
           display_order: 1,
@@ -182,6 +135,13 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
   ]
 
   const [categories, setCategories] = useState<Category[]>(initialCategories || mockCategories)
+
+  // Auto-select first category on load
+  useEffect(() => {
+    if (!selectedCategory && categories.length > 0) {
+      setSelectedCategory(categories[0])
+    }
+  }, [categories, selectedCategory])
 
   // Initialize franchise_id for non-super-admins on mount
   useEffect(() => {
@@ -579,126 +539,6 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
     }
   }
 
-  const handleCreateDistancePricing = async () => {
-    if (!selectedVariant) {
-      toast.error("Please select a variant first")
-      return
-    }
-    try {
-      setIsLoading(true)
-      console.log("[v0] Creating/updating distance pricing...")
-
-      // Validate form
-      if (!distancePricingForm.range.trim()) {
-        toast.error("Please enter a distance range")
-        return
-      }
-      const minKm = Number(distancePricingForm.min_km) || 0
-      const maxKm = Number(distancePricingForm.max_km) || 0
-      const addPrice = Number(distancePricingForm.base_price_addition) || 0
-      
-      if (minKm < 0 || maxKm <= minKm) {
-        toast.error("Please enter valid distance range (max must be greater than min)")
-        return
-      }
-      if (addPrice < 0) {
-        toast.error("Base price addition cannot be negative")
-        return
-      }
-
-      const payload: any = {
-        package_variant_id: selectedVariant.id,
-        distance_range: distancePricingForm.range.trim(),
-        min_distance_km: minKm,
-        max_distance_km: maxKm,
-        additional_price: addPrice,
-        franchise_id: user?.franchise_id,
-        is_active: true,
-      }
-      if (editingDistancePricing) payload.id = editingDistancePricing.id
-
-      const res = await fetch('/api/distance-pricing/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || 'Failed to save distance pricing')
-      
-      await refetchData()
-      toast.success(editingDistancePricing ? 'Distance pricing updated successfully!' : 'Distance pricing created successfully!')
-      
-      setDialogs((prev) => ({ ...prev, configurePricing: false }))
-      setEditingDistancePricing(null)
-      setDistancePricingForm({
-        range: "",
-        min_km: "",
-        max_km: "",
-        base_price_addition: "",
-      })
-    } catch (error) {
-      console.error("[v0] Error creating/updating distance pricing:", error)
-      toast.error("Failed to save distance pricing. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleEditDistancePricing = (distancePricing: DistancePricing) => {
-    setEditingDistancePricing(distancePricing)
-    setDistancePricingForm({
-      range: distancePricing.distance_range,
-      min_km: String(distancePricing.min_distance_km),
-      max_km: String(distancePricing.max_distance_km),
-      base_price_addition: String(distancePricing.additional_price),
-    })
-    setDialogs((prev) => ({ ...prev, configurePricing: true }))
-  }
-
-  const handleSaveLevel = async () => {
-    try {
-      if (!selectedVariant) {
-        toast.error("Select a variant first")
-        return
-      }
-      
-      console.log('[Sets] Attempting to save distance pricing, but handleCreateLevel should not be called anymore')
-      toast.error("This function is deprecated - use distance pricing tab instead")
-    } catch (e:any) {
-      toast.error(e.message || 'Failed to save level')
-    }
-  }
-
-  const handleDeleteLevel = async (levelId: string) => {
-    console.log('[Sets] handleDeleteLevel called but levels are removed from system')
-    toast.error("Levels have been removed - manage distance pricing directly on variants")
-  }
-
-  const handleDeleteDistancePricing = async (distancePricingId: string) => {
-    try {
-      setIsLoading(true)
-      console.log("[v0] Deleting distance pricing:", distancePricingId)
-
-      const res = await fetch('/api/distance-pricing/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ id: distancePricingId }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || 'Failed to delete distance pricing')
-
-      toast.success("Distance pricing deleted successfully!")
-      await refetchData()
-    } catch (error) {
-      console.error("[v0] Error deleting distance pricing:", error)
-      toast.error("Failed to delete distance pricing. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const refetchData = async () => {
     try {
       console.log("[v0] Starting refetchData - fetching categories...")
@@ -726,65 +566,30 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
       console.log("[v0] Variants fetched:", allVariants?.length || 0, "variants")
       console.log("[v0] Sample variant data:", allVariants?.[0])
 
-      // Fetch distance pricing directly for all variants (no more levels)
-      const variantIds = (allVariants || []).map((v: any) => v.id)
-      let pricingData: any[] = []
-      if (variantIds.length > 0) {
-        const { data: dpData, error: dpError } = await supabase
-          .from("distance_pricing")
-          .select("*")
-          .in("package_variant_id", variantIds)
-          .order("min_distance_km")
-        if (dpError) throw dpError
-        pricingData = (dpData || []).map((dp:any) => ({ 
-          ...dp, 
-          distance_range: dp.distance_range ?? dp.range ?? '',
-          min_distance_km: dp.min_distance_km ?? dp.min_km ?? 0,
-          max_distance_km: dp.max_distance_km ?? dp.max_km ?? 0,
-          additional_price: dp.additional_price ?? dp.base_price_addition ?? 0
-        }))
-      }
-
       const categoriesWithVariants = (categoriesData || []).map((category:any) => {
         const variants = (allVariants || []).filter((v:any) => v.category_id === category.id)
         console.log(`[v0] Category "${category.name}" has ${variants.length} matching variants`)
-        const variantsWithPricing = variants.map((v:any) => ({
-          ...v,
-          distance_pricing: pricingData.filter((dp:any) => dp.package_variant_id === v.id),
-        }))
-        return { ...category, package_variants: variantsWithPricing }
+        return { ...category, package_variants: variants }
       })
 
       setCategories(categoriesWithVariants)
 
       if (selectedCategory) {
         const updatedCategory = categoriesWithVariants.find((c:any) => c.id === selectedCategory.id)
-        if (updatedCategory) setSelectedCategory(updatedCategory)
-      }
-      if (selectedVariant && selectedCategory) {
-        const updatedCategory = categoriesWithVariants.find((c:any)=>c.id===selectedCategory.id)
-        const updatedVariant = (updatedCategory?.package_variants||[]).find((v:any)=>v.id===selectedVariant.id)
-        if (updatedVariant) {
-          setSelectedVariant(updatedVariant)
+        if (updatedCategory) {
+          setSelectedCategory(updatedCategory)
+        } else if (categoriesWithVariants.length > 0) {
+          setSelectedCategory(categoriesWithVariants[0])
+        } else {
+          setSelectedCategory(null)
         }
+      } else if (categoriesWithVariants.length > 0) {
+        setSelectedCategory(categoriesWithVariants[0])
       }
     } catch (error) {
       console.error("[v0] Error refetching data:", error)
       toast.error("Failed to refresh data")
     }
-  }
-
-  const calculateVariantTotalPrice = (packageBasePrice: number, variantExtraPrice: number) => {
-    return packageBasePrice + variantExtraPrice
-  }
-
-  // Calculate final price given package base, variant extra/base and distance pricing addition
-  const calculatePrice = (
-    variantTotalPrice: number,
-    variantBaseExtra: number,
-    distancePricing: DistancePricing,
-  ) => {
-    return variantTotalPrice + distancePricing.additional_price
   }
 
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -820,7 +625,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             <div>
               <h1 className="vintage-title text-3xl font-bold">Safawala Package Management</h1>
               <p className="vintage-subtitle text-sm opacity-80">
-                Category-based package system with distance pricing from Alkapuri, Vadodara
+                Category-based package system
               </p>
             </div>
           </div>
@@ -836,49 +641,17 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             </div>
             <div className="text-brown-600">Variants</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-heritage-dark">
-              {categories.reduce((acc, cat) => 
-                acc + (cat.package_variants || []).reduce((vAcc, variant) => 
-                  vAcc + (variant.distance_pricing || []).length, 0), 0
-              )}
-            </div>
-            <div className="text-brown-600">Distance Tiers</div>
-          </div>
+          
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-cream-100">
-          <TabsTrigger
-            value="categories"
-            className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
-          >
-            <Crown className="w-4 h-4 mr-2" />
-            Categories
-          </TabsTrigger>
-          
-          <TabsTrigger
-            value="variants"
-            className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
-          >
-            <Palette className="w-4 h-4 mr-2" />
-            Variants
-          </TabsTrigger>
-          <TabsTrigger
-            value="pricing"
-            className="data-[state=active]:bg-heritage-dark data-[state=active]:text-gray-800"
-          >
-            <MapPin className="w-4 h-4 mr-2" />
-            Distance Pricing
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="categories" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-brown-600">
-              Showing {categories.length} safa categories
-              <Badge className="ml-2 bg-green-100 text-green-800">Real Data - Supabase</Badge>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        {/* Left Sidebar: Categories List (Master Pane) */}
+        <div className="md:col-span-4 space-y-4">
+          <div className="flex justify-between items-center bg-cream-50/50 p-4 rounded-xl border border-brown-100">
+            <div>
+              <h2 className="vintage-heading text-lg font-bold text-heritage-dark">Safa Categories</h2>
+              <p className="text-[11px] text-brown-500">{categories.length} categories active</p>
             </div>
             <Dialog
               open={dialogs.createCategory}
@@ -891,9 +664,9 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
               }}
             >
               <DialogTrigger asChild>
-                <Button className="btn-heritage-dark" disabled={isLoading}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Category
+                <Button size="sm" className="btn-heritage-dark px-3 py-1.5 h-auto text-xs" disabled={isLoading}>
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Add
                 </Button>
               </DialogTrigger>
               <DialogContent className="heritage-container">
@@ -907,7 +680,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                     <Label htmlFor="category-name">Category Name</Label>
                     <Input
                       id="category-name"
-                      className="input-heritage"
+                      className="input-heritage mt-1"
                       placeholder="e.g., 21 Safas"
                       value={categoryForm.name}
                       onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -916,7 +689,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                 </div>
                 <Button
                   onClick={handleCreateCategory}
-                  className="btn-heritage-dark"
+                  className="btn-heritage-dark w-full mt-4"
                   disabled={!categoryForm.name.trim() || isLoading}
                 >
                   {isLoading ? "Saving..." : editingCategory ? "Update Category" : "Create Category"}
@@ -925,171 +698,166 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
             </Dialog>
           </div>
 
-          <div className="grid gap-4">
-            {categories.map((category) => (
-              <Card key={category.id} className="card-heritage">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-brown-100 rounded-lg">
-                        <Crown className="w-8 h-8 text-heritage-dark" />
-                      </div>
-                      <div>
-                        <h3 className="vintage-heading text-xl font-semibold">{category.name}</h3>
-                        <div className="flex items-center gap-3 mt-2">
-                          <Badge variant="secondary" className="bg-green-100 text-green-800">
-                            {(category.package_variants || category.packages || []).length} Variants
-                          </Badge>
-                          <span className="text-sm text-brown-500">{(category.package_variants || category.packages || []).length} variants</span>
-                        </div>
-                      </div>
+          <div className="space-y-2.5 max-h-[70vh] overflow-y-auto pr-1">
+            {categories.map((category) => {
+              const isSelected = selectedCategory?.id === category.id;
+              const variantCount = (category.package_variants || category.packages || []).length;
+              return (
+                <div
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`group relative p-4 rounded-xl border transition-all duration-300 cursor-pointer flex items-center justify-between hover:scale-[1.01] active:scale-[0.99] ${
+                    isSelected
+                      ? "bg-gradient-to-r from-cream-100 to-cream-50 border-gold shadow-md"
+                      : "bg-white border-brown-100 hover:border-brown-300 hover:bg-cream-50/20"
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gold rounded-l-xl" />
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg transition-colors ${
+                      isSelected ? "bg-gold/25" : "bg-brown-50 group-hover:bg-brown-100"
+                    }`}>
+                      <Crown className={`w-5 h-5 ${isSelected ? "text-brown-800" : "text-heritage-dark"}`} />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-green-300 text-green-700 hover:bg-green-50 bg-green-50/30"
-                        onClick={() => {
-                          // Set category with proper state update, then switch tabs
-                          setSelectedCategory(category)
-                          // Use setTimeout to ensure state updates before tab switch
-                          setTimeout(() => {
-                            setActiveTab("variants")
-                          }, 0)
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Variants
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
-                        onClick={() => handleEditCategory(category)}
-                        disabled={isLoading}
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
-                        onClick={() => handleDeleteCategory(category.id)}
-                        disabled={isLoading}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
+                    <div>
+                      <h4 className="font-semibold text-sm text-brown-900 vintage-heading">{category.name}</h4>
+                      <p className="text-[11px] text-brown-500 mt-0.5">{variantCount} variants</p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50/50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditCategory(category);
+                      }}
+                      disabled={isLoading}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50/50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCategory(category.id);
+                      }}
+                      disabled={isLoading}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </TabsContent>
+        </div>
 
-        
-
-        <TabsContent value="variants" className="space-y-4">
+        {/* Right Detail Pane: Variants List */}
+        <div className="md:col-span-8 space-y-4">
           {!selectedCategory ? (
-            <div className="text-center py-8">
-              <Palette className="w-16 h-16 mx-auto text-brown-400 mb-4" />
-              <h3 className="vintage-heading text-xl mb-2">Select a Category</h3>
-              <p className="text-brown-600 mb-4">Choose a category to view its variants</p>
+            <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-brown-200 rounded-2xl bg-cream-50/10 min-h-[400px]">
+              <Palette className="w-16 h-16 text-brown-300 mb-4 stroke-1 animate-pulse" />
+              <h3 className="vintage-heading text-lg font-semibold text-brown-800 mb-1">Select a Category</h3>
+              <p className="text-sm text-brown-500 max-w-sm">
+                Choose one of the safa categories from the sidebar to view, add, or edit its variants.
+              </p>
             </div>
           ) : (
-            <>
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-cream-50/20 p-6 rounded-2xl border border-brown-100 space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-brown-100">
                 <div>
-                  <h3 className="vintage-heading text-xl font-bold text-heritage-dark mb-2">{selectedCategory.name}</h3>
-                  <p className="text-sm text-brown-600">
-                    {(selectedCategory.package_variants || []).length} variants available
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-gold/10 text-brown-800 border-gold/30 text-xs">Active Category</Badge>
+                  </div>
+                  <h3 className="vintage-heading text-2xl font-bold text-heritage-dark mt-1">{selectedCategory.name}</h3>
+                  <p className="text-xs text-brown-600">
+                    {(selectedCategory.package_variants || []).length} variants configured
                   </p>
                 </div>
                 <Button
                   onClick={() => setDialogs((prev) => ({ ...prev, createVariant: true }))}
-                  className="bg-heritage-dark hover:bg-heritage-dark/90 text-white"
+                  className="bg-heritage-dark hover:bg-heritage-dark/90 text-white shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-transform"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4 mr-1.5" />
                   Add Variant
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {(selectedCategory.package_variants || []).map((variant: any) => (
-                  <Card key={variant.id} className="card-heritage">
+                  <Card key={variant.id} className="card-heritage hover:shadow-md transition-all duration-300 border border-brown-100 hover:border-gold/40 flex flex-col h-full bg-white hover:-translate-y-0.5">
                     <CardContent className="p-5 flex flex-col h-full">
                       <div className="flex-1">
-                        <h4 className="text-lg font-semibold vintage-heading text-heritage-dark">{variant.name}</h4>
-                        <p className="text-sm text-brown-600 mt-1 line-clamp-2">{variant.description}</p>
-                        <div className="mt-3 flex items-center gap-2">
-                          <Badge className="bg-gold text-brown-800 font-semibold text-sm px-3 py-1">₹{variant.base_price?.toLocaleString() || "0"}</Badge>
-                          {Array.isArray(variant.distance_pricing) && variant.distance_pricing.length > 0 && (
-                            <span className="text-xs text-brown-500">{variant.distance_pricing.length} distance tier(s)</span>
-                          )}
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="text-base font-bold vintage-heading text-heritage-dark tracking-wide line-clamp-1">{variant.name}</h4>
+                          <Badge className="bg-gold text-brown-800 font-bold text-xs px-2.5 py-0.5 border border-gold shadow-sm shrink-0">₹{variant.base_price?.toLocaleString() || "0"}</Badge>
                         </div>
+                        <p className="text-xs text-brown-600 mt-2 line-clamp-2 min-h-[32px]">{variant.description || "No description provided."}</p>
+                        
+                        <div className="grid grid-cols-2 gap-2 mt-4 p-2.5 bg-brown-50/40 rounded-lg text-[11px] border border-brown-100/50">
+                          <div>
+                            <span className="text-brown-500">Extra Safa: </span>
+                            <span className="font-semibold text-brown-800">₹{variant.extra_safa_price || 0}</span>
+                          </div>
+                          <div>
+                            <span className="text-brown-500">Security Dep: </span>
+                            <span className="font-semibold text-brown-800">₹{variant.deposit_amount || 0}</span>
+                          </div>
+                          <div className="col-span-2 mt-1 pt-1 border-t border-brown-100/30">
+                            <span className="text-brown-500">Missing Safa Penalty: </span>
+                            <span className="font-semibold text-brown-800">₹{variant.missing_safa_penalty || 0}</span>
+                          </div>
+                        </div>
+
                         {Array.isArray(variant.inclusions) && variant.inclusions.length > 0 && (
-                          <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-                            <h5 className="text-sm font-bold text-purple-900 mb-2 uppercase tracking-wide">✨ Inclusions</h5>
-                            <div className="flex flex-wrap gap-2">
-                              {variant.inclusions.map((inc: string, idx: number) => {
-                                const colors = [
-                                  'bg-purple-500 text-white',
-                                  'bg-blue-500 text-white',
-                                  'bg-green-500 text-white',
-                                  'bg-orange-500 text-white',
-                                  'bg-pink-500 text-white',
-                                  'bg-teal-500 text-white',
-                                ]
-                                const colorClass = colors[idx % colors.length]
-                                return (
-                                  <Badge key={idx} className={`${colorClass} font-semibold text-sm px-3 py-1.5 shadow-sm`}>
-                                    {inc}
-                                  </Badge>
-                                )
-                              })}
+                          <div className="mt-4 pt-3 border-t border-brown-100/30">
+                            <h5 className="text-[11px] font-bold text-brown-700 mb-2 uppercase tracking-wider">✨ Inclusions</h5>
+                            <div className="flex flex-wrap gap-1.5">
+                              {variant.inclusions.map((inc: string, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-[10px] bg-cream-50/50 text-brown-800 border-brown-200 px-2 py-0.5 shadow-sm">
+                                  {inc}
+                                </Badge>
+                              ))}
                             </div>
                           </div>
                         )}
                       </div>
-                      <div className="pt-4 flex items-center justify-between gap-2">
+                      
+                      <div className="pt-4 mt-4 border-t border-brown-100/30 flex items-center justify-end gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setSelectedVariant(variant)
-                            // Use setTimeout to ensure state updates before tab switch
-                            setTimeout(() => {
-                              setActiveTab("pricing")
-                            }, 0)
-                          }}
+                          className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50/50 bg-blue-50/10 px-3 text-xs hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                          onClick={() => handleEditVariant(variant)}
                         >
-                          <MapPin className="w-4 h-4 mr-2" />
-                          Distance Pricing
+                          <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
                         </Button>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
-                            onClick={() => handleEditVariant(variant)}
-                          >
-                            <Pencil className="w-4 h-4 mr-2" /> Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
-                            onClick={() => handleDeleteVariant(variant.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" /> Delete
-                          </Button>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 border-red-200 text-red-700 hover:bg-red-50/50 bg-red-50/10 px-3 text-xs hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                          onClick={() => handleDeleteVariant(variant.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
+                
+                {(selectedCategory.package_variants || []).length === 0 && (
+                  <div className="col-span-2 text-center py-12 border border-dashed border-brown-100 rounded-xl bg-white">
+                    <Palette className="w-10 h-10 mx-auto text-brown-300 mb-2 stroke-1 animate-pulse" />
+                    <p className="text-sm font-medium text-brown-600">No variants in this category yet</p>
+                    <p className="text-xs text-brown-400 mt-1">Click the Add Variant button to get started.</p>
+                  </div>
+                )}
               </div>
 
               {/* Add/Edit Variant Dialog */}
@@ -1103,87 +871,90 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   }
                 }}
               >
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md heritage-container">
                   <DialogHeader>
                     <DialogTitle className="vintage-heading text-heritage-dark">
                       {editingVariant ? "Edit Variant" : "Create New Variant"}
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-brown-600">
                       {selectedCategory ? `Category: ${selectedCategory.name}` : "Select a category first"}
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <div className="space-y-4 mt-2">
                     <div>
-                      <Label htmlFor="variant-name">Variant Name</Label>
+                      <Label htmlFor="variant-name" className="text-brown-700 font-semibold">Variant Name</Label>
                       <Input
                         id="variant-name"
                         placeholder="E.g. Premium Collection"
+                        className="input-heritage mt-1"
                         value={variantForm.name}
                         onChange={(e) => setVariantForm((prev) => ({ ...prev, name: e.target.value }))}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="variant-price">Base Price (₹)</Label>
+                      <Label htmlFor="variant-price" className="text-brown-700 font-semibold">Base Price (₹)</Label>
                       <Input
                         id="variant-price"
                         type="number"
                         min="0"
                         step="0.01"
                         placeholder="Base price for this variant"
+                        className="input-heritage mt-1"
                         value={variantForm.extra_price}
                         onChange={(e) => setVariantForm((prev) => ({ ...prev, extra_price: e.target.value }))}
                       />
-                      <p className="text-xs text-gray-500 mt-1">This is the base price for the variant.</p>
+                      <p className="text-[10px] text-brown-500 mt-1">This is the base price for the variant.</p>
                     </div>
                     <div>
-                      <Label htmlFor="variant-inclusions">Inclusions (comma-separated)</Label>
+                      <Label htmlFor="variant-inclusions" className="text-brown-700 font-semibold">Inclusions (comma-separated)</Label>
                       <Textarea
                         id="variant-inclusions"
                         placeholder="E.g. Safa, Kalgi, Necklace, Earrings"
+                        className="input-heritage mt-1"
                         value={variantForm.inclusions}
                         onChange={(e) => setVariantForm((prev) => ({ ...prev, inclusions: e.target.value }))}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Separate each inclusion with a comma</p>
+                      <p className="text-[10px] text-brown-500 mt-1">Separate each inclusion with a comma</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="extra-safa-price">Extra Safa Price (₹)</Label>
+                        <Label htmlFor="extra-safa-price" className="text-brown-700 font-semibold">Extra Safa Price (₹)</Label>
                         <Input
                           id="extra-safa-price"
                           type="number"
                           min="0"
                           step="0.01"
                           placeholder="Price per extra safa"
+                          className="input-heritage mt-1"
                           value={variantForm.extra_safa_price}
                           onChange={(e) => setVariantForm((prev) => ({ ...prev, extra_safa_price: e.target.value }))}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Charge for additional safas</p>
                       </div>
                       <div>
-                        <Label htmlFor="missing-safa-penalty">Missing Safa Penalty (₹)</Label>
+                        <Label htmlFor="missing-safa-penalty" className="text-brown-700 font-semibold">Missing Safa Penalty (₹)</Label>
                         <Input
                           id="missing-safa-penalty"
                           type="number"
                           min="0"
                           step="0.01"
                           placeholder="Penalty for missing safas"
+                          className="input-heritage mt-1"
                           value={variantForm.missing_safa_penalty}
                           onChange={(e) => setVariantForm((prev) => ({ ...prev, missing_safa_penalty: e.target.value }))}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Charge if safas are lost/damaged</p>
                       </div>
-                      <div>
-                        <Label htmlFor="deposit-amount">Security Deposit (₹)</Label>
+                      <div className="col-span-2">
+                        <Label htmlFor="deposit-amount" className="text-brown-700 font-semibold">Security Deposit (₹)</Label>
                         <Input
                           id="deposit-amount"
                           type="number"
                           min="0"
                           step="0.01"
                           placeholder="Deposit amount for this package"
+                          className="input-heritage mt-1"
                           value={variantForm.deposit_amount}
                           onChange={(e) => setVariantForm((prev) => ({ ...prev, deposit_amount: e.target.value }))}
                         />
-                        <p className="text-xs text-gray-500 mt-1">Security deposit collected for package booking</p>
                       </div>
                     </div>
                   </div>
@@ -1197,358 +968,10 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
                   </div>
                 </DialogContent>
               </Dialog>
-            </>
-          )}
-        </TabsContent>
-  {/* Removed stray legacy variant card block that caused JSX mismatch
-                  <Card key={variant.id} className="card-heritage">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-brown-100 rounded-lg">
-                            <Palette className="w-8 h-8 text-heritage-dark" />
-                          </div>
-                          <div>
-                            <h4 className="vintage-heading text-lg font-semibold">{variant.name}</h4>
-                            <p className="text-brown-600 mb-2">{variant.description}</p>
-                            <div className="flex items-center gap-3 mb-2">
-                              <Badge
-                                variant="secondary"
-                                className={`bg-green-100 text-green-800 ${variant.base_price === 0 ? "opacity-40" : ""}`}
-                              >
-                                ₹{selectedPackage.base_price.toLocaleString()} + ₹{variant.base_price.toLocaleString()}{" "}
-                                = ₹
-                                {calculateVariantTotalPrice(
-                                  selectedPackage.base_price,
-                                  variant.base_price,
-                                ).toLocaleString()}
-                              </Badge>
-                              {variant.inclusions && variant.inclusions.length > 0 && (
-                                <span className="text-sm text-brown-500">{variant.inclusions.length} inclusions</span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {variant.inclusions && variant.inclusions.slice(0, 3).map((inclusion: string, idx: number) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {inclusion}
-                                </Badge>
-                              ))}
-                              {variant.inclusions && variant.inclusions.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{variant.inclusions.length - 3} more
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-purple-300 text-purple-700 hover:bg-purple-50 bg-purple-50/30"
-                            onClick={() => {
-                              setSelectedVariant(variant)
-                              setActiveTab("pricing")
-                            }}
-                          >
-                            <MapPin className="w-4 h-4 mr-2" />
-                            Distance Pricing
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
-                            onClick={() => handleEditVariant(variant)}
-                          >
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
-                            onClick={() => handleDeleteVariant(variant.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              <Dialog
-                open={dialogs.createVariant}
-                onOpenChange={(open) => {
-                  setDialogs((prev) => ({ ...prev, createVariant: open }))
-                  if (!open) {
-                    setEditingVariant(null)
-                    setVariantForm({
-                      name: "",
-                      description: "",
-                      extra_price: "0.00",
-                      inclusions: "",
-                    })
-                  }
-                }}
-              >
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="vintage-heading text-heritage-dark">
-                      {editingVariant ? "Edit Variant" : "Create New Variant"}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="variant-name">Variant Name</Label>
-                      <Input
-                        id="variant-name"
-                        placeholder="E.g. Premium Collection"
-                        value={variantForm.name}
-                        onChange={(e) => setVariantForm((prev) => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="variant-price">Base Price (₹)</Label>
-                      <Input
-                        id="variant-price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Base price for this variant"
-                        value={variantForm.extra_price}
-                        onChange={(e) => setVariantForm((prev) => ({ ...prev, extra_price: e.target.value }))}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">This is the base price for the variant.</p>
-                    </div>
-                    <div>
-                      <Label htmlFor="variant-inclusions">Inclusions (comma-separated)</Label>
-                      <Textarea
-                        id="variant-inclusions"
-                        placeholder="E.g. Safa, Kalgi, Necklace, Earrings"
-                        value={variantForm.inclusions}
-                        onChange={(e) => setVariantForm((prev) => ({ ...prev, inclusions: e.target.value }))}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Separate each inclusion with a comma</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 mt-6">
-                    <Button variant="outline" onClick={() => setDialogs((prev) => ({ ...prev, createVariant: false }))}>
-                      Cancel
-                    </Button>
-                    <Button className="btn-heritage-dark" onClick={handleCreateVariant}>
-                      {editingVariant ? "Update Variant" : "Create Variant"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              */}
-
-        <TabsContent value="pricing" className="space-y-4">
-          {!selectedVariant ? (
-            <div className="text-center py-8">
-              <MapPin className="w-16 h-16 mx-auto text-brown-400 mb-4" />
-              <h3 className="vintage-heading text-xl mb-2">Select a Variant</h3>
-              <p className="text-brown-600 mb-4">Choose a variant to view and manage its distance pricing</p>
             </div>
-          ) : (
-            <>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedVariant(null)}
-                    className="border-brown-300 text-brown-700 hover:bg-brown-50"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Variants
-                  </Button>
-                  <div>
-                    <h3 className="vintage-heading text-lg font-semibold">{selectedVariant.name}</h3>
-                    <p className="text-sm text-brown-600">Distance-based pricing from Alkapuri, Vadodara</p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => setDialogs((prev) => ({ ...prev, configurePricing: true }))}
-                  className="bg-heritage-dark hover:bg-heritage-dark/90 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Distance Pricing
-                </Button>
-              </div>
-
-              <div className="grid gap-4">
-                {(selectedVariant.distance_pricing || []).map((pricing, index) => (
-                  <Card key={pricing.id} className="card-heritage">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 bg-brown-100 rounded-lg">
-                            <MapPin className="w-6 h-6 text-heritage-dark" />
-                          </div>
-                          <div>
-                            <h4 className="vintage-heading font-semibold">{pricing.distance_range}</h4>
-                            <p className="text-sm text-brown-600">
-                              {pricing.min_distance_km} - {pricing.max_distance_km} kilometers from Alkapuri
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                Base Price + ₹{pricing.additional_price?.toLocaleString() || '0'} Extra
-                              </Badge>
-                              <span className="text-sm text-brown-500">
-                                Total: ₹
-                                {((selectedVariant.base_price || 0) + (pricing.additional_price || 0)).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/30"
-                            onClick={() => handleEditDistancePricing(pricing)}
-                          >
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/30"
-                            onClick={() => handleDeleteDistancePricing(pricing.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              <Dialog
-                open={dialogs.configurePricing}
-                onOpenChange={(open) => {
-                  setDialogs((prev) => ({ ...prev, configurePricing: open }))
-                  if (!open) {
-                    setEditingDistancePricing(null)
-                    setDistancePricingForm({
-                      range: "",
-                      min_km: "",
-                      max_km: "",
-                      base_price_addition: "",
-                    })
-                  }
-                }}
-              >
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="vintage-heading">
-                      {editingDistancePricing ? "Edit Distance Pricing" : "Add Distance Pricing"}
-                    </DialogTitle>
-                    <DialogDescription>Configure distance-based pricing for {selectedVariant?.name}</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="range">Distance Range</Label>
-                      <Input
-                        id="range"
-                        placeholder="e.g., Within City, Nearby Districts"
-                        value={distancePricingForm.range}
-                        onChange={(e) => setDistancePricingForm((prev) => ({ ...prev, range: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="min_km">Min Distance (km)</Label>
-                        <Input
-                          id="min_km"
-                          type="number"
-                          min="0"
-                          value={distancePricingForm.min_km}
-                          onChange={(e) =>
-                            setDistancePricingForm((prev) => ({
-                              ...prev,
-                              min_km: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="max_km">Max Distance (km)</Label>
-                        <Input
-                          id="max_km"
-                          type="number"
-                          min="1"
-                          value={distancePricingForm.max_km}
-                          onChange={(e) =>
-                            setDistancePricingForm((prev) => ({
-                              ...prev,
-                              max_km: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="base_price_addition">Additional Price (₹)</Label>
-                      <Input
-                        id="base_price_addition"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={distancePricingForm.base_price_addition}
-                        onChange={(e) =>
-                          setDistancePricingForm((prev) => ({
-                            ...prev,
-                            base_price_addition: e.target.value,
-                          }))
-                        }
-                      />
-                      <div className="mt-2 p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-                        <p className="text-xs font-medium text-gray-700 mb-1">💰 Total Price Calculation:</p>
-                        <div className="space-y-1 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Variant Base:</span>
-                            <span className="font-semibold">₹{(selectedVariant?.base_price || 0).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-blue-600">+ Distance Charge:</span>
-                            <span className="font-semibold text-blue-600">₹{(Number(distancePricingForm.base_price_addition) || 0).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between border-t-2 border-purple-300 pt-1">
-                            <span className="text-purple-700 font-bold">Final Price:</span>
-                            <span className="font-bold text-lg text-purple-700">₹{((selectedVariant?.base_price || 0) + (Number(distancePricingForm.base_price_addition) || 0)).toLocaleString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setDialogs((prev) => ({ ...prev, configurePricing: false }))}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleCreateDistancePricing}
-                      disabled={isLoading}
-                      className="bg-heritage-dark hover:bg-heritage-dark/90 text-white"
-                    >
-                      {isLoading ? "Saving..." : editingDistancePricing ? "Update Pricing" : "Add Pricing"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       {categories.length === 0 && (
         <div className="text-center py-12">

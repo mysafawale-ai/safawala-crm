@@ -49,6 +49,7 @@ import { toast } from "sonner"
 import type { User, Customer } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export default function CustomersPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -59,12 +60,21 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(25)
   const router = useRouter()
 
   const { data: customers = [], loading, error, refresh } = useData<Customer[]>("customers")
   const { data: bookings = [] } = useData("bookings")
+  const [localCustomers, setLocalCustomers] = useState<Customer[]>([])
+
+  // Keep localCustomers in sync with the useData hook
+  useEffect(() => {
+    if (customers) {
+      setLocalCustomers(customers)
+    }
+  }, [customers])
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -78,19 +88,32 @@ export default function CustomersPage() {
     checkAuth()
   }, [router])
 
+  // Auto-open add customer modal if ?add=true query param is present
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get("add") === "true") {
+        setCreateDialogOpen(true)
+        // Clean up the URL parameter without refreshing the page
+        const cleanUrl = window.location.pathname
+        window.history.replaceState({}, "", cleanUrl)
+      }
+    }
+  }, [])
+
   const filteredCustomers = useMemo(() => {
-    if (!customers || !Array.isArray(customers)) {
+    if (!localCustomers || !Array.isArray(localCustomers)) {
       return []
     }
     
-    return customers.filter(
+    return localCustomers.filter(
       (customer: Customer) =>
         customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.phone?.includes(searchTerm) ||
         customer.customer_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.email?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
-  }, [customers, searchTerm])
+  }, [localCustomers, searchTerm])
 
   const paginatedCustomers = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
@@ -221,8 +244,11 @@ export default function CustomersPage() {
       }
 
       // Success!
-  console.log('[Delete Customer] Successfully deleted:', responseData)
-  toast.success(`Customer "${customerToDelete.name}" permanently deleted`)
+      console.log('[Delete Customer] Successfully deleted:', responseData)
+      toast.success(`Customer "${customerToDelete.name}" permanently deleted`)
+      
+      // Update local state immediately for instant feedback
+      setLocalCustomers(prev => prev.filter(c => c.id !== customerId))
       
       // Close dialog and refresh list
       setDeleteDialogOpen(false)
@@ -274,12 +300,10 @@ export default function CustomersPage() {
               <h1 className="text-3xl font-bold tracking-tight">Customer Management</h1>
               <p className="text-muted-foreground">Manage your customer database and relationships</p>
             </div>
-            <Link href="/customers/new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Customer
-              </Button>
-            </Link>
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Customer
+            </Button>
           </div>
           <div className="grid gap-4 md:grid-cols-4">
             <StatCardSkeleton />
@@ -317,12 +341,10 @@ export default function CustomersPage() {
             <h1 className="text-3xl font-bold tracking-tight">Customer Management</h1>
             <p className="text-muted-foreground">Manage your customer database and relationships</p>
           </div>
-          <Link href="/customers/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Customer
-            </Button>
-          </Link>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Customer
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
@@ -332,7 +354,7 @@ export default function CustomersPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{Array.isArray(customers) ? customers.length : 0}</div>
+              <div className="text-2xl font-bold">{Array.isArray(localCustomers) ? localCustomers.length : 0}</div>
             </CardContent>
           </Card>
 
@@ -353,13 +375,13 @@ export default function CustomersPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                +{Array.isArray(customers) 
-                  ? customers.filter(c => {
+                +{Array.isArray(localCustomers) 
+                  ? localCustomers.filter(c => {
                       const createdDate = new Date(c.created_at)
                       const now = new Date()
                       return createdDate.getMonth() === now.getMonth() && 
                              createdDate.getFullYear() === now.getFullYear()
-                    }).length 
+                     }).length 
                   : 0}
               </div>
               <p className="text-xs text-muted-foreground">New customers</p>
@@ -373,7 +395,7 @@ export default function CustomersPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {Array.isArray(bookings) && Array.isArray(customers)
+                {Array.isArray(bookings) && Array.isArray(localCustomers)
                   ? new Set(
                       bookings
                         .filter((b: any) => 
@@ -402,138 +424,119 @@ export default function CustomersPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {paginatedCustomers.length > 0 ? (
-            paginatedCustomers.map((customer) => (
-              <Card key={customer.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{customer.name}</CardTitle>
-                    <Badge variant={customer.status === 'inactive' ? "destructive" : "default"}>
-                      {customer.status ? customer.status.charAt(0).toUpperCase() + customer.status.slice(1) : 'Active'}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{customer.customer_code}</p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2">
-                    {customer.franchise && (
-                      <div className="mb-2">
-                        <Badge variant="outline" className="bg-blue-50">
-                          {customer.franchise.name}
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            {paginatedCustomers.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">Code</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>WhatsApp</TableHead>
+                    <TableHead>Address</TableHead>
+                    {user.role === "super_admin" && <TableHead>Franchise</TableHead>}
+                    <TableHead className="w-[100px]">Status</TableHead>
+                    <TableHead className="text-right w-[150px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedCustomers.map((customer) => (
+                    <TableRow key={customer.id} className="hover:bg-slate-50/50">
+                      <TableCell className="font-mono text-xs text-slate-500 font-medium">
+                        {customer.customer_code}
+                      </TableCell>
+                      <TableCell className="font-semibold text-slate-900">
+                        {customer.name}
+                      </TableCell>
+                      <TableCell className="text-slate-600 text-sm">
+                        {customer.phone}
+                      </TableCell>
+                      <TableCell className="text-slate-600 text-sm">
+                        {customer.whatsapp || "-"}
+                      </TableCell>
+                      <TableCell className="text-slate-600 text-sm max-w-xs truncate">
+                        {customer.address || "-"}
+                      </TableCell>
+                      {user.role === "super_admin" && (
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-50/50 text-blue-700 border-blue-100 text-xs">
+                            {customer.franchise?.name || "-"}
+                          </Badge>
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Badge 
+                          variant={customer.status === "inactive" ? "destructive" : "default"}
+                          className="text-[10px] uppercase font-semibold tracking-wider"
+                        >
+                          {customer.status || "active"}
                         </Badge>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-gray-500" />
-                      <span>{customer.phone}</span>
-                    </div>
-
-                    {customer.whatsapp && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <MessageCircle className="h-4 w-4 text-green-500" />
-                        <span>{customer.whatsapp}</span>
-                      </div>
-                    )}
-
-                    {customer.email && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-gray-500" />
-                        <span className="truncate">{customer.email}</span>
-                      </div>
-                    )}
-
-                    {customer.address && (
-                      <div className="flex items-start gap-2 text-sm">
-                        <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-2">
-                          {customer.address}
-                          {customer.city && `, ${customer.city}`} - {customer.pincode}
-                          {customer.state && `, ${customer.state}`}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {customer.staff_assignments && customer.staff_assignments.length > 0 && (
-                      <div className="flex items-start gap-2 text-sm pt-2 border-t border-gray-100">
-                        <Users className="h-4 w-4 text-gray-500 mt-0.5" />
-                        <div>
-                          <span className="text-xs text-gray-500">Assigned to:</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {customer.staff_assignments.map(assignment => (
-                              <Badge key={assignment.id} variant="outline" className="text-xs">
-                                {assignment.staff.first_name} {assignment.staff.last_name}
-                                {assignment.role === 'primary' && ' (Primary)'}
-                              </Badge>
-                            ))}
-                          </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-500 hover:text-slate-900"
+                            onClick={() => handleViewCustomer(customer)}
+                            title="View Profile"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-500 hover:text-slate-900"
+                            onClick={() => handleEditCustomer(customer)}
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {customer.whatsapp && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={() => handleWhatsApp(customer)}
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteClick(customer)}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex space-x-1 pt-3">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 bg-transparent"
-                      onClick={() => handleViewCustomer(customer)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 bg-transparent"
-                      onClick={() => handleEditCustomer(customer)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                    {customer.whatsapp && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleWhatsApp(customer)}
-                        className="text-green-600 hover:text-green-700"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteClick(customer)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full">
-              <Card>
-                <CardContent className="text-center py-12">
-                  <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No customers found</h3>
-                  <p className="text-gray-500 mb-4">
-                    {searchTerm ? "Try adjusting your search terms." : "Get started by adding your first customer."}
-                  </p>
-                  <Link href="/customers/new">
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Customer
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-16">
+                <UserPlus className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-semibold text-slate-900 mb-1">No customers found</h3>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto mb-4">
+                  {searchTerm ? "No customers match your search filters." : "Create your customer profile to start tracking bookings."}
+                </p>
+                <Button 
+                  onClick={() => setCreateDialogOpen(true)}
+                  className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-medium"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add Customer
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Pagination Controls */}
         {filteredCustomers.length > 0 && (
@@ -772,6 +775,14 @@ export default function CustomersPage() {
           onCustomerCreated={handleCustomerUpdated}
           mode="edit"
           customer={customerToEdit}
+        />
+
+        {/* Create Customer Dialog */}
+        <CustomerFormDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onCustomerCreated={refresh}
+          mode="create"
         />
       </div>
     </DashboardLayout>

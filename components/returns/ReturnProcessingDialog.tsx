@@ -608,7 +608,7 @@ export function ReturnProcessingDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Process Return - {returnRecord?.return_number}</DialogTitle>
+          <DialogTitle>Process Rental Return - {returnRecord?.return_number}</DialogTitle>
           <DialogDescription>
             <div className="space-y-1">
               <p>Review and process returned items:</p>
@@ -1141,7 +1141,7 @@ export function ReturnProcessingDialog({
             ) : (
               <>
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Process Return
+                Process Rental Return
               </>
             )}
           </Button>
