@@ -22,12 +22,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, Truck, Package, Clock, CheckCircle, CheckCircle2, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban } from "lucide-react"
+import { Search, Plus, Truck, Package, Clock, CheckCircle, CheckCircle2, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban, Phone } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 
 import { UnifiedHandoverDialog } from "@/components/deliveries/UnifiedHandoverDialog"
 import { MarkDeliveredDialog } from "@/components/deliveries/MarkDeliveredDialog"
 import { ProcessReturnDialog } from "@/components/deliveries/ProcessReturnDialog"
+import { ReturnProcessingDialog } from "@/components/returns/ReturnProcessingDialog"
 import { DialogFooter } from "@/components/ui/dialog"
 import { formatTime12Hour } from "@/lib/utils"
 
@@ -122,6 +123,13 @@ export default function DeliveriesPage() {
   const [showMarkDeliveredDialog, setShowMarkDeliveredDialog] = useState(false)
   const [showProcessReturnDialog, setShowProcessReturnDialog] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
+  
+  const [currentUser, setCurrentUser] = useState<any | null>(null)
+  const [returns, setReturns] = useState<any[]>([])
+  const [selectedReturn, setSelectedReturn] = useState<any | null>(null)
+  const [showReturnProcessingDialog, setShowReturnProcessingDialog] = useState(false)
+  const [returnStatusFilter, setReturnStatusFilter] = useState("all")
+  const [returnSearchTerm, setReturnSearchTerm] = useState("")
   const [deliveryItems, setDeliveryItems] = useState<any[]>([])
   const [deliveryPackage, setDeliveryPackage] = useState<any>(null)
   const [loadingDeliveryItems, setLoadingDeliveryItems] = useState(false)
@@ -178,6 +186,59 @@ export default function DeliveriesPage() {
     from: string
     to: string
   } | null>(null)
+
+  const fetchCurrentUser = async () => {
+    try {
+      const userStr = localStorage.getItem("safawala_user")
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        if (user && user.id) {
+          console.log("Loaded user from localStorage:", user)
+          setCurrentUser(user)
+          return
+        }
+      }
+
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser()
+
+      if (authUser) {
+        const { data: userData, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", authUser.id)
+          .single()
+
+        if (!error && userData) {
+          console.log("Loaded user from Supabase auth:", userData)
+          setCurrentUser(userData)
+          localStorage.setItem("safawala_user", JSON.stringify(userData))
+          return
+        }
+      }
+
+      console.log("No active session found. Querying first active user as fallback...")
+      const { data: fallbackUsers, error: fallbackError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("is_active", true)
+        .limit(1)
+
+      if (!fallbackError && fallbackUsers && fallbackUsers.length > 0) {
+        const fallbackUser = fallbackUsers[0]
+        console.log("Using database fallback user:", fallbackUser)
+        setCurrentUser(fallbackUser)
+        localStorage.setItem("safawala_user", JSON.stringify(fallbackUser))
+      }
+    } catch (error) {
+      console.error("Error fetching current user:", error)
+    }
+  }
+
+  useEffect(() => {
+    fetchCurrentUser()
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -294,6 +355,21 @@ export default function DeliveriesPage() {
       } catch (e: any) {
         console.warn("Error fetching deliveries:", e.message)
         setDeliveries([])
+      }
+
+      // Fetch returns from API
+      try {
+        const returnsRes = await fetch("/api/returns", { cache: "no-store" })
+        if (returnsRes.ok) {
+          const returnsJson = await returnsRes.json()
+          setReturns(returnsJson?.returns || [])
+        } else {
+          console.warn("Returns API error:", returnsRes.status)
+          setReturns([])
+        }
+      } catch (e: any) {
+        console.warn("Error fetching returns:", e.message || e)
+        setReturns([])
       }
     } catch (error) {
       console.error("Error in fetchData:", error)
@@ -536,7 +612,17 @@ export default function DeliveriesPage() {
         setShowHandoverDialog(true)
       }
     }
-  }, [searchParams, deliveries, bookings])
+
+    // Handle return actions
+    const rid = searchParams?.get("return_id")
+    if (rid && returns.length) {
+      const r = returns.find((x) => x.id === rid)
+      if (r && action === "process_return" && !showReturnProcessingDialog) {
+        setSelectedReturn(r)
+        setShowReturnProcessingDialog(true)
+      }
+    }
+  }, [searchParams, deliveries, bookings, returns])
 
   // Load saved addresses when customer is selected in schedule form
   useEffect(() => {
@@ -833,24 +919,158 @@ export default function DeliveriesPage() {
     }
   }
 
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      {/* Header */}
-      <div className="flex items-center justify-between space-y-2">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={handleBack} className="flex items-center space-x-2">
+  if (currentUser?.role === 'staff') {
+    const riderDeliveries = deliveries.filter(d => d.assigned_staff === currentUser.id)
+    const riderReturns = returns.filter(r => r.delivery?.assigned_staff_id === currentUser.id || r.processed_by === currentUser.id)
+
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-6 max-w-md mx-auto">
+        {/* Rider Header */}
+        <div className="flex items-center justify-between pb-2 border-b">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">🏍️ Rider Focus Mode</h2>
+            <p className="text-xs text-muted-foreground">Logged in as {currentUser.name}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleBack} className="h-8 w-8 p-0">
             <ArrowLeft className="h-4 w-4" />
-            <span>Back</span>
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : riderDeliveries.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed">
+                <Package className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm font-semibold text-gray-900">No assigned deliveries</p>
+                <p className="text-xs text-gray-500">You are all caught up!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {riderDeliveries.map((delivery) => (
+                  <Card key={delivery.id} className="overflow-hidden border-l-4 border-l-blue-500 shadow-sm">
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-sm">{delivery.delivery_number}</span>
+                        <Badge className={getStatusColor(delivery.status)}>{delivery.status}</Badge>
+                      </div>
+                      <CardTitle className="text-base font-bold mt-1">{delivery.customer_name}</CardTitle>
+                      {delivery.customer_phone && (
+                        <div className="mt-1">
+                          <a
+                            href={`tel:${delivery.customer_phone}`}
+                            className="inline-flex items-center text-xs font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            <Phone className="h-3 w-3 mr-1" />
+                            {delivery.customer_phone}
+                          </a>
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 space-y-3">
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p><strong>Address:</strong> {delivery.delivery_address}</p>
+                        <p><strong>Scheduled:</strong> {delivery.delivery_date} {delivery.delivery_time ? `at ${formatTime12Hour(delivery.delivery_time)}` : ""}</p>
+                        {delivery.special_instructions && (
+                          <p className="bg-yellow-50 text-yellow-800 p-2 rounded text-[11px] border border-yellow-100">
+                            <strong>Note:</strong> {delivery.special_instructions}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="pt-2">
+                        {delivery.status === "pending" && (
+                          <Button
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                            disabled={updatingStatus.has(delivery.id)}
+                            onClick={() => handleStartTransit(delivery.id)}
+                          >
+                            {updatingStatus.has(delivery.id) ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                            ) : (
+                              <Play className="h-4 w-4 mr-1" />
+                            )}
+                            Start Transit
+                          </Button>
+                        )}
+                        {delivery.status === "in_transit" && (
+                          <Button
+                            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium"
+                            onClick={() => {
+                              setSelectedDelivery(delivery)
+                              setShowHandoverDialog(true)
+                            }}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Complete Handover
+                          </Button>
+                        )}
+                        {delivery.status === "delivered" && (
+                          <div className="text-center py-1.5 bg-green-50 text-green-700 rounded text-xs font-semibold flex items-center justify-center">
+                            <CheckCircle2 className="h-4 w-4 mr-1 text-green-500" />
+                            Handover Complete
+                          </div>
+                        )}
+                        {delivery.status === "cancelled" && (
+                          <div className="text-center py-1.5 bg-red-50 text-red-700 rounded text-xs font-semibold">
+                            Cancelled
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+        </div>
+
+        {/* Unified Handover Dialog */}
+        <UnifiedHandoverDialog
+          open={showHandoverDialog}
+          onClose={() => { setShowHandoverDialog(false); clearActionParams() }}
+          delivery={selectedDelivery}
+          onSaved={() => fetchData()}
+        />
+
+        {/* Return Processing Dialog */}
+        <ReturnProcessingDialog
+          open={showReturnProcessingDialog}
+          onClose={() => {
+            setShowReturnProcessingDialog(false)
+            setSelectedReturn(null)
+          }}
+          returnRecord={selectedReturn}
+          onSuccess={async () => {
+            setShowReturnProcessingDialog(false)
+            setSelectedReturn(null)
+            await fetchData()
+          }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-[#FAF8F5] min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-200">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" onClick={handleBack} className="flex items-center space-x-2 text-stone-600 hover:text-stone-900 hover:bg-[#F4F1EA] border border-stone-200 rounded-md px-3 py-1">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="font-sans font-medium text-xs">Back</span>
           </Button>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">📦 Deliveries & Rental Returns</h2>
-            <p className="text-muted-foreground">Schedule deliveries, track fulfillment, and manage rental returns</p>
+            <h2 className="text-3xl font-bold tracking-tight text-[#113c2c] font-serif">📦 Deliveries & Rental Returns</h2>
+            <p className="text-xs text-stone-500 mt-1 font-sans">Schedule deliveries, track fulfillment, and manage rental returns</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
           <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="bg-[#113c2c] hover:bg-[#0c2e22] text-white shadow-sm font-sans font-semibold text-xs tracking-wider uppercase px-4 py-2.5 rounded-lg flex items-center transition-colors">
                 <Plus className="mr-2 h-4 w-4" />
                 Schedule Delivery
               </Button>
@@ -1371,102 +1591,85 @@ export default function DeliveriesPage() {
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-        <Card>
+        <Card className="bg-[#FAF8F5] border border-stone-200 shadow-none hover:border-[#DCD1B4] transition-colors rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Deliveries</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Total Deliveries</CardTitle>
+            <Package className="h-4 w-4 text-stone-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{deliveryOverview.totalDeliveries}</div>
-            <p className="text-xs text-muted-foreground">All scheduled deliveries</p>
+            <div className="text-3xl font-bold text-stone-900 font-serif">{deliveryOverview.totalDeliveries}</div>
+            <p className="text-[10px] text-stone-400 font-sans mt-1">All scheduled deliveries</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-[#FAF8F5] border border-stone-200 shadow-none hover:border-[#DCD1B4] transition-colors rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{deliveryOverview.pending}</div>
-            <p className="text-xs text-muted-foreground">Awaiting pickup</p>
+            <div className="text-3xl font-bold text-amber-800 font-serif">{deliveryOverview.pending}</div>
+            <p className="text-[10px] text-stone-400 font-sans mt-1">Awaiting pickup</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-[#FAF8F5] border border-stone-200 shadow-none hover:border-[#DCD1B4] transition-colors rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Transit</CardTitle>
-            <Truck className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-stone-500 uppercase tracking-wider">In Transit</CardTitle>
+            <Truck className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{deliveryOverview.inTransit}</div>
-            <p className="text-xs text-muted-foreground">On the way</p>
+            <div className="text-3xl font-bold text-blue-900 font-serif">{deliveryOverview.inTransit}</div>
+            <p className="text-[10px] text-stone-400 font-sans mt-1">On the way</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-[#FAF8F5] border border-stone-200 shadow-none hover:border-[#DCD1B4] transition-colors rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Delivered</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Delivered</CardTitle>
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{deliveryOverview.delivered}</div>
-            <p className="text-xs text-muted-foreground">Successfully delivered</p>
+            <div className="text-3xl font-bold text-emerald-800 font-serif">{deliveryOverview.delivered}</div>
+            <p className="text-[10px] text-stone-400 font-sans mt-1">Successfully delivered</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-[#FAF8F5] border border-stone-200 shadow-none hover:border-[#DCD1B4] transition-colors rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Order Completed</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Order Completed</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{deliveryOverview.orderCompleted}</div>
-            <p className="text-xs text-muted-foreground">Rental Return processed</p>
+            <div className="text-3xl font-bold text-[#113c2c] font-serif">{deliveryOverview.orderCompleted}</div>
+            <p className="text-[10px] text-stone-400 font-sans mt-1">Rental Return processed</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-[#FAF8F5] border border-stone-200 shadow-none hover:border-[#DCD1B4] transition-colors rounded-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
-            <XCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Cancelled</CardTitle>
+            <XCircle className="h-4 w-4 text-rose-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{deliveryOverview.cancelled}</div>
-            <p className="text-xs text-muted-foreground">Cancelled orders</p>
+            <div className="text-3xl font-bold text-rose-900 font-serif">{deliveryOverview.cancelled}</div>
+            <p className="text-[10px] text-stone-400 font-sans mt-1">Cancelled orders</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs: Deliveries & Returns */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(val) => {
-          setActiveTab(val)
-          replaceQuery({ tab: val, action: null, delivery_id: null, return_id: null })
-        }}
-        className="space-y-4"
-      >
-        <TabsList className="grid w-full md:w-[400px] grid-cols-1">
-          <TabsTrigger value="deliveries" className="flex items-center gap-2">
-            <Truck className="h-4 w-4" />
-            Deliveries
-          </TabsTrigger>
-        </TabsList>
-
-        {/* DELIVERIES TAB */}
-        <TabsContent value="deliveries" className="space-y-4">
+      <div className="space-y-4">
           {/* Filters */}
-          <div className="flex items-center space-x-2">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-stone-400" />
               <Input
                 placeholder="Search deliveries..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-9 bg-white border-stone-300 focus:border-[#113c2c] focus:ring-1 focus:ring-[#113c2c] rounded-md h-9 text-xs"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] bg-white border-stone-300 text-xs h-9 rounded-md">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-stone-200">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="in_transit">In Transit</SelectItem>
@@ -1475,10 +1678,10 @@ export default function DeliveriesPage() {
               </SelectContent>
             </Select>
             <Select value={deliveryTypeFilter} onValueChange={setDeliveryTypeFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] bg-white border-stone-300 text-xs h-9 rounded-md">
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-stone-200">
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="package_rental">Package Rental</SelectItem>
                 <SelectItem value="product_rental">Product Rental</SelectItem>
@@ -1487,13 +1690,16 @@ export default function DeliveriesPage() {
             </Select>
           </div>
 
-          {/* Deliveries Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>📦 Delivery Orders</CardTitle>
-              <CardDescription>Manage and track all delivery orders</CardDescription>
+          {/* Deliveries Card */}
+          <Card className="bg-white border border-stone-200 shadow-none rounded-xl">
+            <CardHeader className="border-b border-stone-100 pb-4">
+              <CardTitle className="text-lg font-serif font-bold text-stone-900 flex items-center gap-2">
+                <Package className="h-5 w-5 text-[#113c2c]" />
+                Delivery Orders
+              </CardTitle>
+              <CardDescription className="text-xs text-stone-500 font-sans">Manage and track all delivery orders</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
           <div className="space-y-4">
             {tableNotFound ? (
               <div className="text-center py-12 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -1536,232 +1742,240 @@ export default function DeliveriesPage() {
                 const { percentage, missing } = calculateCompleteness(delivery)
                 
                 return (
-                  <div key={delivery.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4 flex-1">
-                      {getStatusIcon(delivery.status)}
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <p className="font-medium">{delivery.delivery_number}</p>
-                          <Badge className={getStatusColor(delivery.status)}>{delivery.status}</Badge>
+                  <div key={delivery.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-stone-200 rounded-xl bg-[#FAF8F5] gap-4 hover:border-[#DCD1B4] transition-all duration-200">
+                    <div className="flex items-start space-x-4 flex-1">
+                      <div className="mt-1 bg-white p-2 rounded-lg border border-stone-200">
+                        {getStatusIcon(delivery.status)}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-stone-900 font-serif text-base">{delivery.delivery_number}</p>
+                          <Badge className={`${getStatusColor(delivery.status)} text-xs border border-transparent font-sans`}>{delivery.status}</Badge>
                           
                           {/* Completeness Indicator */}
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="flex items-center space-x-2 ml-2">
-                                  <Badge variant="outline" className={getCompletenessColor(percentage)}>
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant="outline" className={`${getCompletenessColor(percentage)} border-stone-300 font-mono text-[10px] font-bold`}>
                                     {percentage}% Complete
                                   </Badge>
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs">
+                              <TooltipContent side="top" className="max-w-xs bg-stone-900 text-white rounded-md p-2">
                                 <div className="space-y-2">
-                                  <p className="font-semibold text-sm">Delivery Completeness</p>
-                                  <Progress value={percentage} className="h-2" />
+                                  <p className="font-semibold text-xs">Delivery Completeness</p>
+                                  <Progress value={percentage} className="h-1.5" />
                                   {missing.length > 0 ? (
                                     <div>
-                                      <p className="text-xs font-medium mb-1">Missing fields:</p>
-                                      <ul className="text-xs list-disc list-inside">
+                                      <p className="text-[10px] font-medium mb-1">Missing fields:</p>
+                                      <ul className="text-[10px] list-disc list-inside">
                                         {missing.map((field) => (
                                           <li key={field}>{field}</li>
                                         ))}
                                       </ul>
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-green-600">✓ All fields complete!</p>
+                                    <p className="text-[10px] text-green-400">✓ All fields complete!</p>
                                   )}
                                 </div>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {delivery.customer_name} • {delivery.driver_name} • ₹{delivery.total_amount}
+                        <p className="text-sm text-stone-700 font-medium">
+                          {delivery.customer_name} {delivery.driver_name && `• Rider: ${delivery.driver_name}`} • <span className="font-semibold text-[#113c2c]">₹{delivery.total_amount}</span>
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          Delivery: {delivery.delivery_date}
+                        <p className="text-xs text-stone-500 font-sans">
+                          Delivery: <strong className="text-stone-700">{delivery.delivery_date}</strong>
                           {(() => {
-                          const ret = getCurrentReturnISO(delivery)
-                          if (!ret) return null
-                          try {
-                            const d = new Date(ret)
-                            return ` • Rental Return: ${d.toLocaleDateString()} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
-                          } catch {
-                            return ` • Rental Return: ${ret}`
-                          }
-                        })()}
-                      </p>
+                            const ret = getCurrentReturnISO(delivery)
+                            if (!ret) return null
+                            try {
+                              const d = new Date(ret)
+                              return ` • Rental Return: ${d.toLocaleDateString()} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+                            } catch {
+                              return ` • Rental Return: ${ret}`
+                            }
+                          })()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {delivery.status === "pending" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={updatingStatus.has(delivery.id)}
-                          onClick={() => handleStartTransit(delivery.id)}
-                        >
-                          {updatingStatus.has(delivery.id) ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Play className="h-4 w-4 mr-1" />
-                          )}
-                          Start Transit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={updatingStatus.has(delivery.id)}
-                          onClick={() => handleCancelDelivery(delivery.id)}
-                        >
-                          {updatingStatus.has(delivery.id) ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Ban className="h-4 w-4 mr-1" />
-                          )}
-                          Cancel
-                        </Button>
-                      </>
-                    )}
-                    {delivery.status === "in_transit" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={updatingStatus.has(delivery.id)}
-                          onClick={() => {
-                            setSelectedDelivery(delivery)
-                            setShowMarkDeliveredDialog(true)
-                          }}
-                        >
-                          {updatingStatus.has(delivery.id) ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                          )}
-                          Mark Delivered
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={updatingStatus.has(delivery.id)}
-                          onClick={() => handleCancelDelivery(delivery.id)}
-                        >
-                          {updatingStatus.has(delivery.id) ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Ban className="h-4 w-4 mr-1" />
-                          )}
-                          Cancel
-                        </Button>
-                      </>
-                    )}
-                    {delivery.status === "delivered" && (
-                      <>
-                        {(delivery as any).returned_at ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-300">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Order Completed
-                          </Badge>
-                        ) : (
+                    <div className="flex items-center gap-2 border-t md:border-t-0 pt-2 md:pt-0 border-stone-200">
+                      {delivery.status === "pending" && (
+                        <>
                           <Button
-                            variant="default"
+                            variant="outline"
                             size="sm"
-                            className="bg-blue-600 hover:bg-blue-700"
+                            disabled={updatingStatus.has(delivery.id)}
+                            onClick={() => handleStartTransit(delivery.id)}
+                            className="border-stone-300 text-stone-700 hover:bg-stone-100 h-8 text-xs font-medium rounded-lg"
+                          >
+                            {updatingStatus.has(delivery.id) ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <Play className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                            )}
+                            Start Transit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={updatingStatus.has(delivery.id)}
+                            onClick={() => handleCancelDelivery(delivery.id)}
+                            className="border-stone-300 text-stone-700 hover:bg-stone-100 h-8 text-xs font-medium rounded-lg"
+                          >
+                            {updatingStatus.has(delivery.id) ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <Ban className="h-3.5 w-3.5 mr-1 text-rose-500" />
+                            )}
+                            Cancel
+                          </Button>
+                        </>
+                      )}
+                      {delivery.status === "in_transit" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={updatingStatus.has(delivery.id)}
                             onClick={() => {
                               setSelectedDelivery(delivery)
-                              setShowProcessReturnDialog(true)
+                              setShowMarkDeliveredDialog(true)
                             }}
+                            className="border-stone-300 text-stone-700 hover:bg-stone-100 h-8 text-xs font-medium rounded-lg"
                           >
-                            <RotateCcw className="h-4 w-4 mr-1" />
-                            Process Rental Return
+                            {updatingStatus.has(delivery.id) ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                            )}
+                            Mark Delivered
                           </Button>
-                        )}
-                      </>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedDelivery(delivery)
-                        setShowViewDialog(true)
-                        replaceQuery({ tab: "deliveries", action: "view", delivery_id: delivery.id })
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={async () => {
-                        setSelectedDelivery(delivery)
-                        
-                        // If delivery has no date/time but has a linked booking, fetch from booking
-                        let deliveryDate = delivery.delivery_date
-                        let deliveryTime = delivery.delivery_time || ""
-                        let deliveryAddress = delivery.delivery_address
-                        
-                        if (delivery.booking_id && (!deliveryDate || !deliveryTime)) {
-                          // Fetch booking details to get date/time
-                          const linkedBooking = bookings.find((b: any) => 
-                            b.id === delivery.booking_id && b.source === delivery.booking_source
-                          )
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={updatingStatus.has(delivery.id)}
+                            onClick={() => handleCancelDelivery(delivery.id)}
+                            className="border-stone-300 text-stone-700 hover:bg-stone-100 h-8 text-xs font-medium rounded-lg"
+                          >
+                            {updatingStatus.has(delivery.id) ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <Ban className="h-3.5 w-3.5 mr-1 text-rose-500" />
+                            )}
+                            Cancel
+                          </Button>
+                        </>
+                      )}
+                      {delivery.status === "delivered" && (
+                        <>
+                          {(delivery as any).returned_at ? (
+                            <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 font-sans text-xs py-1 px-2.5 rounded-lg border">
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-600 inline" />
+                              Order Completed
+                            </Badge>
+                          ) : (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="bg-[#113c2c] hover:bg-[#0c2e22] text-white h-8 text-xs font-medium rounded-lg"
+                              onClick={() => {
+                                setSelectedDelivery(delivery)
+                                setShowProcessReturnDialog(true)
+                              }}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                              Process Rental Return
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDelivery(delivery)
+                          setShowViewDialog(true)
+                          replaceQuery({ tab: "deliveries", action: "view", delivery_id: delivery.id })
+                        }}
+                        className="h-8 w-8 p-0 text-stone-500 hover:text-[#113c2c]"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          setSelectedDelivery(delivery)
                           
-                          if (linkedBooking) {
-                            // Use booking's delivery_date and delivery_time if not set in delivery
-                            deliveryDate = deliveryDate || linkedBooking.delivery_date || ""
-                            deliveryTime = deliveryTime || linkedBooking.delivery_time || ""
-                            deliveryAddress = deliveryAddress || linkedBooking.delivery_address || ""
-                          }
-                        }
-                        
-                        setEditForm({
-                          customer_name: delivery.customer_name,
-                          customer_phone: delivery.customer_phone,
-                          customer_id: delivery.customer_id || "",
-                          pickup_address: delivery.pickup_address,
-                          delivery_address: deliveryAddress,
-                          delivery_date: deliveryDate,
-                          delivery_time: deliveryTime,
-                          driver_name: delivery.driver_name,
-                          vehicle_number: delivery.vehicle_number,
-                          delivery_charge: delivery.delivery_charge.toString(),
-                          fuel_cost: delivery.fuel_cost.toString(),
-                          special_instructions: delivery.special_instructions,
-                        })
-                        
-                        // Fetch saved addresses for this customer
-                        if (delivery.customer_id) {
-                          setLoadingAddresses(true)
-                          try {
-                            const { data, error } = await supabase
-                              .from('customer_addresses')
-                              .select('*')
-                              .eq('customer_id', delivery.customer_id)
-                              .order('last_used_at', { ascending: false })
-                              .limit(10)
+                          // If delivery has no date/time but has a linked booking, fetch from booking
+                          let deliveryDate = delivery.delivery_date
+                          let deliveryTime = delivery.delivery_time || ""
+                          let deliveryAddress = delivery.delivery_address
+                          
+                          if (delivery.booking_id && (!deliveryDate || !deliveryTime)) {
+                            // Fetch booking details to get date/time
+                            const linkedBooking = bookings.find((b: any) => 
+                              b.id === delivery.booking_id && b.source === delivery.booking_source
+                            )
                             
-                            if (!error && data) {
-                              setSavedAddresses(data)
+                            if (linkedBooking) {
+                              // Use booking's delivery_date and delivery_time if not set in delivery
+                              deliveryDate = deliveryDate || linkedBooking.delivery_date || ""
+                              deliveryTime = deliveryTime || linkedBooking.delivery_time || ""
+                              deliveryAddress = deliveryAddress || linkedBooking.delivery_address || ""
                             }
-                          } catch (e) {
-                            console.warn('Saved addresses not available yet')
-                          } finally {
-                            setLoadingAddresses(false)
                           }
-                        }
-                        
-                        setShowEditDialog(true)
-                        replaceQuery({ tab: "deliveries", action: "edit", delivery_id: delivery.id })
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                          
+                          setEditForm({
+                            customer_name: delivery.customer_name,
+                            customer_phone: delivery.customer_phone,
+                            customer_id: delivery.customer_id || "",
+                            pickup_address: delivery.pickup_address,
+                            delivery_address: deliveryAddress,
+                            delivery_date: deliveryDate,
+                            delivery_time: deliveryTime,
+                            driver_name: delivery.driver_name,
+                            vehicle_number: delivery.vehicle_number,
+                            delivery_charge: delivery.delivery_charge.toString(),
+                            fuel_cost: delivery.fuel_cost.toString(),
+                            special_instructions: delivery.special_instructions,
+                          })
+                          
+                          // Fetch saved addresses for this customer
+                          if (delivery.customer_id) {
+                            setLoadingAddresses(true)
+                            try {
+                              const { data, error } = await supabase
+                                .from('customer_addresses')
+                                .select('*')
+                                .eq('customer_id', delivery.customer_id)
+                                .order('last_used_at', { ascending: false })
+                                .limit(10)
+                              
+                              if (!error && data) {
+                                setSavedAddresses(data)
+                              }
+                            } catch (e) {
+                              console.warn('Saved addresses not available yet')
+                            } finally {
+                              setLoadingAddresses(false)
+                            }
+                          }
+                          
+                          setShowEditDialog(true)
+                          replaceQuery({ tab: "deliveries", action: "edit", delivery_id: delivery.id })
+                        }}
+                        className="h-8 w-8 p-0 text-stone-500 hover:text-[#113c2c]"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )
-            })
+                )
+              })
             )}
           </div>
         </CardContent>
@@ -1822,8 +2036,7 @@ export default function DeliveriesPage() {
           </CardContent>
         )}
       </Card>
-        </TabsContent>
-      </Tabs>
+      </div>
 
       {/* View Dialog */}
       <Dialog
@@ -2611,6 +2824,22 @@ export default function DeliveriesPage() {
         onSuccess={async () => {
           setShowProcessReturnDialog(false)
           setSelectedDelivery(null)
+          await fetchData()
+        }}
+      />
+
+      {/* Return Processing Dialog (New System) */}
+      <ReturnProcessingDialog
+        open={showReturnProcessingDialog}
+        onClose={() => {
+          setShowReturnProcessingDialog(false)
+          setSelectedReturn(null)
+          clearActionParams()
+        }}
+        returnRecord={selectedReturn}
+        onSuccess={async () => {
+          setShowReturnProcessingDialog(false)
+          setSelectedReturn(null)
           await fetchData()
         }}
       />

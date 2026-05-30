@@ -110,23 +110,41 @@ export async function POST(
       console.log(`✅ Updated ${bookingTable} status to '${newBookingStatus}' for booking ${delivery.booking_id}`)
     }
     
-    // If rental, check if return was auto-created by trigger
+    // If rental, ensure return is created
     let returnCreated = false
     let returnId = null
     if (delivery.booking_type === "rental") {
-      // Wait a moment for trigger to execute
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // Check if return was created
-      const { data: returnRecord } = await supabase
+      const { data: existingReturn } = await supabase
         .from("returns")
-        .select("id, return_number")
+        .select("id")
         .eq("delivery_id", deliveryId)
-        .single()
-      
-      if (returnRecord) {
+        .maybeSingle()
+
+      if (!existingReturn) {
+        const returnNumber = `RET-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
+        const { data: newReturn, error: returnErr } = await supabase
+          .from("returns")
+          .insert({
+            return_number: returnNumber,
+            delivery_id: deliveryId,
+            booking_id: delivery.booking_id,
+            booking_source: delivery.booking_source,
+            customer_id: delivery.customer_id,
+            franchise_id: delivery.franchise_id,
+            status: "pending",
+            return_date: new Date().toISOString().slice(0, 10),
+            notes: `Auto-created on mark delivered on ${new Date().toLocaleString()}`
+          })
+          .select("id")
+          .single()
+
+        if (!returnErr && newReturn) {
+          returnCreated = true
+          returnId = newReturn.id
+        }
+      } else {
         returnCreated = true
-        returnId = returnRecord.id
+        returnId = existingReturn.id
       }
     }
     

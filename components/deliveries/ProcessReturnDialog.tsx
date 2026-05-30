@@ -224,25 +224,19 @@ export function ProcessReturnDialog({
   // Update item quantities
   const updateItemQuantity = (
     itemId: string,
-    field: "lost_damaged" | "used",
-    value: number
+    lostDamagedValue: number
   ) => {
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item
         
-        const newValue = Math.max(0, Math.min(value, item.quantity))
-        const otherField = field === "lost_damaged" ? "used" : "lost_damaged"
-        const otherValue = item[otherField] || 0
-        
-        // Ensure total doesn't exceed quantity
-        const maxAllowed = item.quantity - otherValue
-        const finalValue = Math.min(newValue, maxAllowed)
+        const lost_damaged = Math.max(0, Math.min(lostDamagedValue, item.quantity))
         
         return {
           ...item,
-          [field]: finalValue,
-          fresh: item.quantity - finalValue - otherValue,
+          lost_damaged,
+          used: 0,
+          fresh: item.quantity - lost_damaged,
         }
       })
     )
@@ -381,60 +375,59 @@ export function ProcessReturnDialog({
     (acc, item) => ({
       total: acc.total + item.quantity,
       lostDamaged: acc.lostDamaged + (item.lost_damaged || 0),
-      used: acc.used + (item.used || 0),
       fresh: acc.fresh + (item.fresh || 0),
     }),
-    { total: 0, lostDamaged: 0, used: 0, fresh: 0 }
+    { total: 0, lostDamaged: 0, fresh: 0 }
   )
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-blue-600" />
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white border border-stone-300 rounded-xl p-6 shadow-xl">
+        <DialogHeader className="border-b border-stone-100 pb-4">
+          <DialogTitle className="flex items-center gap-2 text-[#113c2c] text-xl font-bold font-serif">
+            <Package className="h-5 w-5 text-[#113c2c]" />
             Process Rental Return
           </DialogTitle>
-          <DialogDescription>
-            {delivery?.delivery_number} • Specify item conditions and process the rental return
+          <DialogDescription className="text-stone-500 font-sans text-xs">
+            {delivery?.delivery_number} • Confirm items returned and update inventory levels
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
           {/* Client Confirmation */}
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-              <User className="h-4 w-4" />
+          <Card className="p-4 bg-[#FAF8F5] border border-stone-200 shadow-none">
+            <h3 className="font-bold text-stone-900 mb-3 flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-[#113c2c]" />
               Client Confirmation
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm">Client Name *</Label>
+                <Label className="text-xs font-semibold text-stone-600 uppercase tracking-wider">Client Name *</Label>
                 <Input
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   placeholder="Enter client name"
-                  className="mt-1 bg-white"
+                  className="mt-1.5 bg-white border-stone-300 focus:border-[#113c2c] focus:ring-1 focus:ring-[#113c2c]"
                 />
               </div>
               <div>
-                <Label className="text-sm flex items-center gap-1">
+                <Label className="text-xs font-semibold text-stone-600 uppercase tracking-wider flex items-center gap-1">
                   <Phone className="h-3 w-3" /> Phone *
                 </Label>
                 <Input
                   value={clientPhone}
                   onChange={(e) => setClientPhone(e.target.value)}
                   placeholder="Enter phone"
-                  className="mt-1 bg-white"
+                  className="mt-1.5 bg-white border-stone-300 focus:border-[#113c2c] focus:ring-1 focus:ring-[#113c2c]"
                 />
               </div>
             </div>
           </Card>
 
           {/* Photo Capture */}
-          <Card className="p-4">
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Camera className="h-4 w-4" />
+          <Card className="p-4 bg-[#FAF8F5] border border-stone-200 shadow-none">
+            <h3 className="font-bold text-stone-900 mb-3 flex items-center gap-2 text-sm">
+              <Camera className="h-4 w-4 text-[#113c2c]" />
               Rental Return Photo (Optional)
             </h3>
             {showCamera ? (
@@ -446,27 +439,27 @@ export function ProcessReturnDialog({
                   }}
                   autoPlay
                   playsInline
-                  className="w-full rounded-lg bg-black"
+                  className="w-full rounded-lg bg-black aspect-video object-cover border border-stone-300"
                 />
                 <div className="flex gap-2">
-                  <Button onClick={capturePhoto} className="flex-1">
+                  <Button onClick={capturePhoto} className="flex-1 bg-[#113c2c] hover:bg-[#0c2e22] text-white">
                     📸 Capture
                   </Button>
-                  <Button variant="outline" onClick={stopCamera}>
+                  <Button variant="outline" onClick={stopCamera} className="border-stone-300 text-stone-700">
                     Cancel
                   </Button>
                 </div>
               </div>
             ) : photoUrl ? (
               <div className="space-y-2">
-                <img src={photoUrl} alt="Return" className="w-full rounded-lg max-h-48 object-cover" />
-                <Button variant="outline" onClick={() => { setPhotoUrl(null); setPhotoFile(null) }}>
+                <img src={photoUrl} alt="Return" className="w-full rounded-lg max-h-48 object-cover border border-stone-200" />
+                <Button variant="outline" onClick={() => { setPhotoUrl(null); setPhotoFile(null) }} className="border-stone-300 text-stone-700">
                   Retake Photo
                 </Button>
               </div>
             ) : (
-              <Button variant="outline" onClick={startCamera} className="w-full">
-                <Camera className="h-4 w-4 mr-2" />
+              <Button variant="outline" onClick={startCamera} className="w-full border-stone-300 text-stone-700 hover:bg-stone-50">
+                <Camera className="h-4 w-4 mr-2 text-stone-500" />
                 Capture Rental Return Photo
               </Button>
             )}
@@ -474,67 +467,56 @@ export function ProcessReturnDialog({
 
           {/* Products Table */}
           <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Package className="h-4 w-4" />
+            <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm text-stone-800">
+              <Package className="h-4 w-4 text-[#113c2c]" />
               Product Conditions
             </h3>
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
+                <Loader2 className="h-6 w-6 animate-spin text-[#113c2c]" />
               </div>
             ) : items.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No items found</p>
             ) : (
               <div className="space-y-3">
                 {/* Header */}
-                <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-2">
-                  <div className="col-span-4">Product</div>
+                <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-stone-500 uppercase tracking-wider px-2">
+                  <div className="col-span-5">Product</div>
                   <div className="col-span-2 text-center">Total</div>
-                  <div className="col-span-2 text-center text-orange-600">Used</div>
-                  <div className="col-span-2 text-center text-red-600">Lost/Damaged</div>
-                  <div className="col-span-2 text-center text-green-600">Fresh</div>
+                  <div className="col-span-3 text-center text-amber-800">Lost / Damaged</div>
+                  <div className="col-span-2 text-center text-emerald-800">Back to Inventory</div>
                 </div>
 
                 {/* Items */}
                 {items.map((item) => (
-                  <Card key={item.id} className="p-3">
+                  <Card key={item.id} className="p-3 bg-[#FAF8F5] border border-stone-200 shadow-none hover:border-stone-300 transition-colors">
                     <div className="grid grid-cols-12 gap-2 items-center">
-                      <div className="col-span-4">
-                        <p className="font-medium text-sm">{item.product_name}</p>
+                      <div className="col-span-5">
+                        <p className="font-semibold text-stone-900 text-sm">{item.product_name}</p>
                         {item.variant_name && (
-                          <p className="text-xs text-muted-foreground">{item.variant_name}</p>
+                          <p className="text-xs text-stone-500 mt-0.5">{item.variant_name}</p>
                         )}
                       </div>
                       <div className="col-span-2 text-center">
-                        <Badge variant="outline">{item.quantity}</Badge>
+                        <Badge variant="outline" className="border-stone-300 font-mono text-stone-700 bg-white">
+                          {item.quantity}
+                        </Badge>
                       </div>
-                      <div className="col-span-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={item.quantity}
-                          value={item.used || 0}
-                          onChange={(e) =>
-                            updateItemQuantity(item.id, "used", parseInt(e.target.value) || 0)
-                          }
-                          className="h-8 text-center text-orange-600 border-orange-200"
-                        />
-                      </div>
-                      <div className="col-span-2">
+                      <div className="col-span-3 px-2">
                         <Input
                           type="number"
                           min={0}
                           max={item.quantity}
                           value={item.lost_damaged || 0}
                           onChange={(e) =>
-                            updateItemQuantity(item.id, "lost_damaged", parseInt(e.target.value) || 0)
+                            updateItemQuantity(item.id, parseInt(e.target.value) || 0)
                           }
-                          className="h-8 text-center text-red-600 border-red-200"
+                          className="h-8 text-center text-red-700 border-stone-300 focus:border-[#113c2c] focus:ring-1 focus:ring-[#113c2c] bg-white rounded-md font-mono"
                         />
                       </div>
                       <div className="col-span-2 text-center">
-                        <Badge className="bg-green-100 text-green-700 border-green-200">
+                        <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 font-mono">
                           {item.fresh || 0}
                         </Badge>
                       </div>
@@ -543,13 +525,12 @@ export function ProcessReturnDialog({
                 ))}
 
                 {/* Totals Summary */}
-                <Card className="p-3 bg-gray-50">
-                  <div className="grid grid-cols-12 gap-2 items-center font-semibold">
-                    <div className="col-span-4">Totals</div>
-                    <div className="col-span-2 text-center">{totals.total}</div>
-                    <div className="col-span-2 text-center text-orange-600">{totals.used}</div>
-                    <div className="col-span-2 text-center text-red-600">{totals.lostDamaged}</div>
-                    <div className="col-span-2 text-center text-green-600">{totals.fresh}</div>
+                <Card className="p-3 bg-[#F4F1EA] border border-stone-200 shadow-none font-semibold text-stone-900">
+                  <div className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-5 text-stone-700 font-bold uppercase tracking-wider text-xs">Totals</div>
+                    <div className="col-span-2 text-center font-mono">{totals.total}</div>
+                    <div className="col-span-3 text-center text-red-700 font-mono">{totals.lostDamaged}</div>
+                    <div className="col-span-2 text-center text-emerald-800 font-mono">{totals.fresh}</div>
                   </div>
                 </Card>
               </div>
@@ -557,45 +538,43 @@ export function ProcessReturnDialog({
           </div>
 
           {/* Action Summary */}
-          <Card className="p-4 bg-gray-50">
-            <h4 className="font-medium mb-2">What happens when you Process Rental Return:</h4>
-            <div className="space-y-1 text-sm">
-              <div className="flex items-center gap-2 text-orange-700">
-                <Shirt className="h-4 w-4" />
-                <span><strong>{totals.used}</strong> items → Laundry</span>
-              </div>
-              <div className="flex items-center gap-2 text-green-700">
-                <PackagePlus className="h-4 w-4" />
+          <Card className="p-4 bg-[#FAF8F5] border border-stone-200 shadow-none rounded-lg">
+            <h4 className="font-semibold text-stone-900 mb-3 text-sm">Summary of Return actions:</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-3 text-emerald-800 bg-emerald-50/50 px-3 py-2 rounded-md border border-emerald-100/50">
+                <PackagePlus className="h-4 w-4 text-emerald-600" />
                 <span><strong>{totals.fresh}</strong> items → Back to Inventory</span>
               </div>
-              <div className="flex items-center gap-2 text-red-700">
-                <Archive className="h-4 w-4" />
-                <span><strong>{totals.lostDamaged}</strong> items → Lost/Damaged (update booking)</span>
-              </div>
+              {totals.lostDamaged > 0 && (
+                <div className="flex items-center gap-3 text-rose-800 bg-rose-50/50 px-3 py-2 rounded-md border border-rose-100/50">
+                  <Archive className="h-4 w-4 text-rose-600" />
+                  <span><strong>{totals.lostDamaged}</strong> items → Lost/Damaged (archive & update billing)</span>
+                </div>
+              )}
             </div>
           </Card>
 
           {/* Notes */}
           <div>
-            <Label>Notes (Optional)</Label>
+            <Label className="text-xs font-semibold text-stone-600 uppercase tracking-wider">Notes (Optional)</Label>
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any notes about the return..."
-              className="mt-1"
+              className="mt-1.5 bg-white border-stone-300 focus:border-[#113c2c] focus:ring-1 focus:ring-[#113c2c]"
               rows={2}
             />
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={processing}>
+        <DialogFooter className="gap-2 sm:gap-0 border-t border-stone-100 pt-4">
+          <Button variant="outline" onClick={onClose} disabled={processing} className="border-stone-300 text-stone-700">
             Cancel
           </Button>
           <Button
             onClick={handleProcessReturn}
             disabled={processing || items.length === 0}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-[#113c2c] hover:bg-[#0c2e22] text-white"
           >
             {processing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />

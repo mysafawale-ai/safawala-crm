@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
           delivery_address,
           delivered_at,
           driver_name,
-          vehicle_number
+          vehicle_number,
+          assigned_staff_id
         ),
         customer:customers(
           id,
@@ -110,10 +111,17 @@ export async function GET(request: NextRequest) {
       })
     )
     
+    let finalReturns = enrichedReturns
+    if (user.role === 'staff') {
+      finalReturns = enrichedReturns.filter(
+        (r) => r.delivery?.assigned_staff_id === user.id
+      )
+    }
+    
     return NextResponse.json({
       success: true,
-      returns: enrichedReturns,
-      count: enrichedReturns.length
+      returns: finalReturns,
+      count: finalReturns.length
     })
   } catch (error: any) {
     console.error("Error in GET /api/returns:", error)

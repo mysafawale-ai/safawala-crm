@@ -45,6 +45,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Staff role filter: restrict to assigned deliveries only
+    if (user.role === 'staff') {
+      query = query.eq('assigned_staff_id', user.id)
+      console.log('[Deliveries API] Staff user: filtering by assigned_staff_id:', user.id)
+    }
+
     // Optional status filter
     if (status && status !== 'all') {
       query = query.eq('status', status)
@@ -77,6 +83,11 @@ export async function GET(request: NextRequest) {
           fallbackQuery = fallbackQuery.eq('franchise_id', effectiveFranchiseId)
         }
         
+        // Staff filter in fallback
+        if (user.role === 'staff') {
+          fallbackQuery = fallbackQuery.eq('assigned_staff_id', user.id)
+        }
+
         if (status && status !== 'all') {
           fallbackQuery = fallbackQuery.eq('status', status)
         }

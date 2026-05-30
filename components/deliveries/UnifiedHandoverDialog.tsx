@@ -164,8 +164,20 @@ export function UnifiedHandoverDialog({
   }, [open, delivery])
 
   // Signature canvas handlers
-  const startDrawing = () => setIsDrawing(true)
-  const stopDrawing = () => setIsDrawing(false)
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    setIsDrawing(true)
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.beginPath()
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top)
+  }
+
+  const stopDrawing = () => {
+    setIsDrawing(false)
+  }
 
   const drawSignature = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !canvasRef.current) return
@@ -185,6 +197,34 @@ export function UnifiedHandoverDialog({
     ctx.lineTo(x, y)
     ctx.stroke()
 
+    setHasSignature(true)
+  }
+
+  const startTouchDrawing = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    setIsDrawing(true)
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const touch = e.touches[0]
+    ctx.beginPath()
+    ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top)
+  }
+
+  const drawTouchSignature = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !canvasRef.current) return
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const touch = e.touches[0]
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top)
+    ctx.stroke()
     setHasSignature(true)
   }
 
@@ -519,6 +559,40 @@ export function UnifiedHandoverDialog({
                   ))}
                 </div>
               )}
+            </div>
+
+            <Separator />
+
+            {/* SECTION 4: RECIPIENT SIGNATURE */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-semibold text-base">Recipient Signature *</Label>
+                {hasSignature && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSignature}
+                    className="text-red-500 hover:text-red-700 h-8 px-2"
+                  >
+                    Clear Signature
+                  </Button>
+                )}
+              </div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                <canvas
+                  ref={canvasRef}
+                  width={600}
+                  height={200}
+                  className="w-full h-[200px] cursor-crosshair touch-none"
+                  onMouseDown={startDrawing}
+                  onMouseMove={drawSignature}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startTouchDrawing}
+                  onTouchMove={drawTouchSignature}
+                  onTouchEnd={stopDrawing}
+                />
+              </div>
             </div>
 
           </div>

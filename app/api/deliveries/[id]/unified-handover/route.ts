@@ -259,10 +259,8 @@ export async function POST(
             booking_source: delivery.booking_source,
             customer_id: delivery.customer_id,
             franchise_id: delivery.franchise_id,
-            status: "completed",
+            status: "pending",
             return_date: new Date().toISOString().slice(0, 10),
-            processed_at: new Date().toISOString(),
-            processed_by: user.id,
             notes: `Auto-created from unified handover on ${new Date().toLocaleString()}`
           })
           .select("id")
