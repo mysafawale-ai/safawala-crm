@@ -109,6 +109,13 @@ const navigationItems = {
       permission: "vendors",
       description: "Manage supplier relationships, vendor contacts, and procurement processes",
     },
+    {
+      title: "Tasks & Tickets",
+      url: "/tasks",
+      icon: FileCheck,
+      permission: "dashboard",
+      description: "Assign, update, and comment on peer-to-peer tasks and ticket issues",
+    },
   ],
   business: [
     {

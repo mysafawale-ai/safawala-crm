@@ -1,41 +1,101 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
+import { authenticateRequest } from "@/lib/auth-middleware"
+import { supabaseServer } from "@/lib/supabase-server-simple"
+import { ApiResponseBuilder } from "@/lib/api-response"
 
 export async function POST(request: NextRequest) {
   try {
-    const { taskId, status, updatedBy } = await request.json()
-
-    if (!taskId || !status || !updatedBy) {
-      return NextResponse.json({ error: "Missing required fields: taskId, status, updatedBy" }, { status: 400 })
+    const authResult = await authenticateRequest(request)
+    if (!authResult.authorized || !authResult.user) {
+      return NextResponse.json(ApiResponseBuilder.authError(authResult.error?.message || "Authentication required"), { status: 401 })
     }
 
-    // Validate status
-    const validStatuses = ["pending", "in_progress", "completed"]
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: "Invalid status. Must be one of: pending, in_progress, completed" },
-        { status: 400 },
-      )
+    const { user } = authResult
+    const body = await request.json()
+    const { taskId, status, priority, title, description, due_date } = body
+
+    if (!taskId) {
+      return NextResponse.json(ApiResponseBuilder.validationError("Missing required field: taskId"), { status: 400 })
     }
 
-    // Update task status
-    const { data, error } = await supabase
+    // Fetch the task first to check permissions
+    const { data: task, error: fetchError } = await supabaseServer
       .from("tasks")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
+      .select("*")
       .eq("id", taskId)
-      .select()
+      .single()
 
-    if (error) {
-      console.error("Error updating task status:", error)
-      return NextResponse.json({ error: "Failed to update task status", details: error.message }, { status: 500 })
+    if (fetchError || !task) {
+      return NextResponse.json(ApiResponseBuilder.notFoundError("Task"), { status: 404 })
     }
 
-    return NextResponse.json({ success: true, task: data[0] })
+    // Permission checks:
+    // Staff can only update tasks assigned to them or created by them
+    if (user.role === "staff" && task.assigned_to !== user.id && task.assigned_by !== user.id) {
+      return NextResponse.json(ApiResponseBuilder.forbiddenError("You do not have permission to update this task"), { status: 403 })
+    }
+
+    // Franchise admin can only update tasks in their franchise
+    if (user.role === "franchise_admin" && task.franchise_id !== user.franchise_id) {
+      return NextResponse.json(ApiResponseBuilder.forbiddenError("You do not have permission to update tasks outside your franchise"), { status: 403 })
+    }
+
+    // Build the update payload
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    }
+
+    if (status !== undefined) {
+      const validStatuses = ["pending", "in_progress", "completed", "cancelled"]
+      if (!validStatuses.includes(status)) {
+        return NextResponse.json(ApiResponseBuilder.validationError(`Invalid status: ${status}`), { status: 400 })
+      }
+      updateData.status = status
+    }
+
+    if (priority !== undefined) {
+      const validPriorities = ["low", "medium", "high", "urgent"]
+      if (!validPriorities.includes(priority)) {
+        return NextResponse.json(ApiResponseBuilder.validationError(`Invalid priority: ${priority}`), { status: 400 })
+      }
+      updateData.priority = priority
+    }
+
+    if (title !== undefined) {
+      if (typeof title !== "string" || !title.trim()) {
+        return NextResponse.json(ApiResponseBuilder.validationError("Title cannot be empty"), { status: 400 })
+      }
+      updateData.title = title.trim()
+    }
+
+    if (description !== undefined) {
+      updateData.description = description ? description.trim() : null
+    }
+
+    if (due_date !== undefined) {
+      updateData.due_date = due_date
+    }
+
+    // Update task
+    const { data: updatedTask, error: updateError } = await supabaseServer
+      .from("tasks")
+      .update(updateData)
+      .eq("id", taskId)
+      .select(`
+        *,
+        assigned_to_user:users!assigned_to(name, email),
+        assigned_by_user:users!assigned_by(name, email)
+      `)
+      .single()
+
+    if (updateError) {
+      console.error("Error updating task:", updateError)
+      return NextResponse.json(ApiResponseBuilder.databaseError(updateError, "update task"), { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, task: updatedTask })
   } catch (error) {
     console.error("Error in update task status API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(ApiResponseBuilder.serverError(), { status: 500 })
   }
 }

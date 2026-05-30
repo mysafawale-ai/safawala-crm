@@ -26,6 +26,7 @@ interface AssignTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentUser: User
+  onSuccess?: () => void
 }
 
 interface StaffMember {
@@ -36,7 +37,7 @@ interface StaffMember {
   franchise_id: string | null
 }
 
-export function AssignTaskDialog({ open, onOpenChange, currentUser }: AssignTaskDialogProps) {
+export function AssignTaskDialog({ open, onOpenChange, currentUser, onSuccess }: AssignTaskDialogProps) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [assignedTo, setAssignedTo] = useState("")
@@ -74,11 +75,14 @@ export function AssignTaskDialog({ open, onOpenChange, currentUser }: AssignTask
       let query = supabase
         .from("users")
         .select("id, name, email, role, franchise_id")
-        .neq("role", "super_admin")
         .eq("is_active", true)
 
-      if (currentUser.role === "franchise_admin" && currentUser.franchise_id) {
-        query = query.eq("franchise_id", currentUser.franchise_id)
+      if (currentUser.role === "staff" || currentUser.role === "franchise_admin") {
+        if (currentUser.franchise_id) {
+          query = query.or(`franchise_id.eq.${currentUser.franchise_id},role.eq.super_admin`)
+        } else {
+          query = query.eq("role", "super_admin")
+        }
       }
 
       const { data, error } = await query.order("name")
@@ -89,6 +93,8 @@ export function AssignTaskDialog({ open, onOpenChange, currentUser }: AssignTask
         return
       }
 
+      // Filter out current user from assignees list to make it cleaner,
+      // but still let them select themselves if needed. Actually, let's keep all.
       setStaffMembers(data || [])
     } catch (error) {
       console.error("Error fetching staff:", error)
@@ -173,6 +179,7 @@ export function AssignTaskDialog({ open, onOpenChange, currentUser }: AssignTask
 
       toast.success("Task assigned successfully!")
       resetForm()
+      if (onSuccess) onSuccess()
       onOpenChange(false)
     } catch (error) {
       console.error("[v0] Error assigning task:", error)
