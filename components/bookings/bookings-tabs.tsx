@@ -260,29 +260,6 @@ export function BookingsTabs({
                         )
                       }
                       
-                      // For package bookings: show total_safas count (number from package config)
-                      // For rental bookings: count only Barati Safa category items
-                      const getSafaCount = () => {
-                        if (bookingType === 'package') {
-                          return (booking as any).total_safas || items.length || 0
-                        }
-                        // rental: count qty of items in Barati Safa / safa categories only
-                        const SAFA_CATEGORIES = ["BARATI SAFA", "GROOM SAFA", "BRIDE SAFA", "SAFA"]
-                        let safaQty = 0
-                        for (const item of items) {
-                          const catName = (item.product?.category || item.category_name || "").toUpperCase()
-                          const prodName = (item.product_name || item.product?.name || item.name || "").toUpperCase()
-                          const isSafa = SAFA_CATEGORIES.some(s => catName.includes(s)) || 
-                                         SAFA_CATEGORIES.some(s => prodName.includes(s))
-                          if (isSafa) {
-                            safaQty += (item.quantity || 1)
-                          }
-                        }
-                        return safaQty > 0 ? safaQty : (items.length || 0)
-                      }
-                      
-                      const safaCount = getSafaCount()
-                      
                       return (
                         <Popover>
                           <PopoverTrigger asChild>
@@ -290,7 +267,7 @@ export function BookingsTabs({
                               variant="default"
                               className="bg-green-600 hover:bg-green-700 border-green-700 text-xs font-semibold py-0.5 px-2 cursor-pointer shadow-sm hover:shadow transition-all flex items-center gap-1 w-fit"
                             >
-                              👑 {safaCount} Safas
+                              ✓ Items Selected ({items.length || (booking as any).total_safas || 0})
                               <ChevronDown className="h-3 w-3 opacity-70" />
                             </Badge>
                           </PopoverTrigger>

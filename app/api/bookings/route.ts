@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
         event_type, venue_address, venue_name, total_amount, amount_paid, notes, created_at, from_quote_id,
         groom_name, groom_address, groom_whatsapp, bride_name, bride_address, bride_whatsapp, event_participant,
         subtotal_amount, distance_amount, distance_km, discount_amount, coupon_code, coupon_discount, 
-        tax_amount, gst_percentage, security_deposit, event_time, is_archived,
+        tax_amount, gst_percentage, security_deposit, event_time, is_archived, category_id,
         customer:customers(id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, created_at)
       `)
       .eq('franchise_id', franchiseId)
@@ -302,6 +302,39 @@ export async function GET(request: NextRequest) {
           const extra = Number(row.extra_safas) || 0
           packageTotals[row.booking_id] = (packageTotals[row.booking_id] || 0) + base + extra
         }
+      }
+    }
+
+    // FALLBACK: For package bookings that still have 0 safas (no items assigned yet),
+    // use the category_id directly from the booking record to get the safa count.
+    if (packageIds.length > 0) {
+      // Collect category_ids from bookings that have no total yet
+      const missingPackageIds = (packageRes.data || []).filter((r: any) => !packageTotals[r.id] && r.category_id)
+      const missingCategoryIds = [...new Set(missingPackageIds.map((r: any) => r.category_id).filter(Boolean))]
+      
+      if (missingCategoryIds.length > 0) {
+        const { data: fallbackCats } = await supabase
+          .from('packages_categories')
+          .select('id, name')
+          .in('id', missingCategoryIds)
+        
+        const fallbackCatMap: Record<string, string> = {}
+        for (const cat of fallbackCats || []) {
+          fallbackCatMap[cat.id] = cat.name
+        }
+        
+        // Extract safa number from category name and store in categoryMap too
+        for (const r of missingPackageIds) {
+          const catName = fallbackCatMap[r.category_id] || ''
+          if (!categoryMap[r.category_id]) {
+            categoryMap[r.category_id] = catName
+          }
+          const match = catName.match(/(\d+)/)
+          if (match) {
+            packageTotals[r.id] = parseInt(match[1])
+          }
+        }
+        console.log(`[Bookings API] Fallback category totals applied for ${missingPackageIds.length} packages`)
       }
     }
 
