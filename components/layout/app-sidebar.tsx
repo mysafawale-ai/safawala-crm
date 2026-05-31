@@ -126,6 +126,13 @@ const navigationItems = {
       description: "Create new booking with invoice, print, save as quote, or confirm order",
     },
     {
+      title: "Challans",
+      url: "/challans",
+      icon: FileText,
+      permission: "bookings",
+      description: "Create, view, and print delivery/pickup challans with signatory options",
+    },
+    {
       title: "Laundry",
       url: "/laundry",
       icon: Shirt,
