@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth-middleware"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 import { sendMessage, sendMedia, sendTemplateMessage } from "@/lib/services/wati-service"
 import jsPDF from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 import { format } from "date-fns"
 
 export const dynamic = "force-dynamic"
@@ -499,7 +499,7 @@ function generateInvoicePDF(
       `₹${(item.total_price || 0).toLocaleString("en-IN")}`,
     ])
 
-    ;(doc as any).autoTable({
+    autoTable(doc, {
       head: tableHead,
       body: tableBody,
       startY: y,

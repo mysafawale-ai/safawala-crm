@@ -116,8 +116,16 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
       }),
     })
 
-    const data = await response.json()
-    console.log("[WATI] sendSessionMessage response:", data)
+    const responseText = await response.text()
+    console.log(`[WATI] sendSessionMessage response (status ${response.status}):`, responseText)
+
+    let data: any
+    try {
+      data = JSON.parse(responseText)
+    } catch (e) {
+      console.error("[WATI] Failed to parse sendSessionMessage JSON response:", e.message)
+      return { success: false, error: `WATI server returned status ${response.status}: ${responseText}` }
+    }
 
     if (response.ok && data.result === true) {
       // Log the message
@@ -238,7 +246,16 @@ export async function sendTemplateMessage(params: SendTemplateParams): Promise<{
       }),
     })
 
-    const data: WATIResponse = await response.json()
+    const responseText = await response.text()
+    console.log(`[WATI] sendTemplateMessage response (status ${response.status}):`, responseText)
+
+    let data: WATIResponse
+    try {
+      data = JSON.parse(responseText)
+    } catch (e) {
+      console.error("[WATI] Failed to parse sendTemplateMessage JSON response:", e.message)
+      return { success: false, error: `WATI server returned status ${response.status}: ${responseText}` }
+    }
 
     if (!response.ok || !data.result) {
       console.error("[WATI] Send template failed:", data)
@@ -293,7 +310,16 @@ export async function sendMedia(params: SendMediaParams): Promise<{ success: boo
       }),
     })
 
-    const data: WATIResponse = await response.json()
+    const responseText = await response.text()
+    console.log(`[WATI] sendMedia response (status ${response.status}):`, responseText)
+
+    let data: WATIResponse
+    try {
+      data = JSON.parse(responseText)
+    } catch (e) {
+      console.error("[WATI] Failed to parse sendMedia JSON response:", e.message)
+      return { success: false, error: `WATI server returned status ${response.status}: ${responseText}` }
+    }
 
     if (!response.ok || !data.result) {
       console.error("[WATI] Send media failed:", data)
