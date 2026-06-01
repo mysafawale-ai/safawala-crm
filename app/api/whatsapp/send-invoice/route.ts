@@ -120,6 +120,7 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     ? `Advance ₹${orderData.amount_paid.toLocaleString("en-IN")} Paid`
     : "Pending"
 
+  // Send booking_confirmation template with PDF attached via mediaUrl
   const templateResult = await sendTemplateMessage({
     phone,
     templateName: "booking_confirmation",
@@ -133,31 +134,13 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
       totalAmount,
       paymentStatus,
     ],
-  })
-
-  console.log("[WhatsApp Invoice] booking_confirmation template result:", templateResult)
-
-  // Try sending PDF as a session file first; fallback to sending the public URL as a text link
-  // (sendSessionFile only works if customer messaged within 24hrs)
-  let sendResult = await sendMedia({
-    phone,
     mediaUrl: publicUrl,
-    caption: `📄 Invoice ${invoiceNumber} - ${companySettings?.company_name || "Safawala"}`,
-    mediaType: "document",
   })
 
-  if (!sendResult.success) {
-    console.log("[WhatsApp Invoice] sendSessionFile failed, sending PDF link as text:", sendResult.error)
-    // Fallback: send PDF as a clickable link via session message
-    sendResult = await sendMessage({
-      phone,
-      message: `📄 *Invoice ${invoiceNumber}*\nDownload your invoice here:\n${publicUrl}`,
-    })
-  }
+  console.log("[WhatsApp Invoice] booking_confirmation + PDF result:", templateResult)
 
-  // Consider success if either template OR pdf/link was sent
-  if (!templateResult.success && !sendResult.success) {
-    throw new Error(`Template: ${templateResult.error}; PDF: ${sendResult.error}`)
+  if (!templateResult.success) {
+    throw new Error(templateResult.error || "Failed to send WhatsApp message")
   }
 
   // 8. Log the WhatsApp invoice send

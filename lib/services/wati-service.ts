@@ -24,6 +24,7 @@ export interface SendTemplateParams {
   templateName: string
   parameters: string[]
   broadcastName?: string
+  mediaUrl?: string  // optional PDF/image URL to attach with template
 }
 
 export interface SendMediaParams {
@@ -252,6 +253,7 @@ export async function sendTemplateMessage(params: SendTemplateParams): Promise<{
               name: `${index + 1}`,
               value,
             })),
+            ...(params.mediaUrl ? { mediaUrl: params.mediaUrl } : {}),
           },
         ],
       }),
