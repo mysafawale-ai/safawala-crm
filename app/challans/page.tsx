@@ -14,6 +14,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { createPortal } from "react-dom"
 
 interface ChallanItem {
   id?: string
@@ -70,6 +71,26 @@ export default function ChallansPage() {
   const [preparedBy, setPreparedBy] = useState("")
   const [items, setItems] = useState<ChallanItem[]>([{ item_details: "", qty: 1, rate: 0, amount: 0 }])
 
+  const [companySettings, setCompanySettings] = useState<any>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Load company settings for branding
+  const loadCompanySettings = async (userFranchiseId?: string) => {
+    try {
+      let apiUrl = '/api/settings/all'
+      if (userFranchiseId) {
+        apiUrl += `?franchise_id=${encodeURIComponent(userFranchiseId)}`
+      }
+      const response = await fetch(apiUrl, { cache: "no-store" })
+      if (response.ok) {
+        const data = await response.json()
+        setCompanySettings(data.merged || data.company)
+      }
+    } catch (error) {
+      console.error("Failed to load company settings:", error)
+    }
+  }
+
   // Load user from localStorage or API
   useEffect(() => {
     try {
@@ -78,6 +99,7 @@ export default function ChallansPage() {
         const user = JSON.parse(userStr)
         setCurrentUser(user)
         setPreparedBy(user.name || "")
+        loadCompanySettings(user.franchise_id)
       } else {
         // Fallback to fetch from endpoint
         fetch('/api/auth/user')
@@ -86,12 +108,21 @@ export default function ChallansPage() {
             if (user) {
               setCurrentUser(user)
               setPreparedBy(user.name || "")
+              loadCompanySettings(user.franchise_id)
+            } else {
+              loadCompanySettings()
             }
           })
-          .catch(err => console.error('Failed to load user info:', err))
+          .catch(err => {
+            console.error('Failed to load user info:', err)
+            loadCompanySettings()
+          })
       }
     } catch (error) {
       console.error("Failed to load user data:", error)
+      loadCompanySettings()
+    } finally {
+      setMounted(true)
     }
   }, [])
 
@@ -343,25 +374,19 @@ export default function ChallansPage() {
       {/* CSS Stylesheet injected for handling high-fidelity bill print */}
       <style jsx global>{`
         @media print {
-          /* Hide everything except the print container */
-          body * {
-            visibility: hidden;
+          body > *:not(#print-root-challan) {
+            display: none !important;
           }
           
-          #print-section, #print-section * {
-            visibility: visible;
-          }
-
-          #print-section {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: auto;
-            margin: 0;
-            padding: 20px;
+          #print-root-challan {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
             background-color: white !important;
             color: black !important;
+            padding: 20px !important;
             font-size: 12px;
           }
 
@@ -393,7 +418,7 @@ export default function ChallansPage() {
       `}</style>
 
       {/* Main Page Layout */}
-      <div className="space-y-6">
+      <div className="space-y-6 no-print">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-serif font-semibold text-gray-900 tracking-tight">Delivery Challans</h1>
@@ -830,15 +855,24 @@ export default function ChallansPage() {
                 <div className="flex justify-between items-start border-b-2 border-gray-900 pb-4 mb-4">
                   <div className="flex items-center gap-3">
                     <img 
-                      src="/safawalalogo.png" 
+                      src={companySettings?.logo_url || "/safawalalogo.png"} 
                       alt="Safawala Logo" 
                       className="h-16 w-auto object-contain" 
                     />
                     <div>
-                      <h1 className="text-xl font-bold tracking-wider text-gray-900">SAFAWALA</h1>
+                      <h1 className="text-xl font-bold tracking-wider text-gray-900">{companySettings?.company_name || "SAFAWALA"}</h1>
                       <p className="text-[10px] text-gray-600 font-medium">Premium Wedding Turbans & Accessories</p>
                       <p className="text-[9px] text-gray-500 max-w-xs mt-1">
-                        Sardar Patel Ring Road, Ahmedabad, Gujarat, India.
+                        {companySettings?.address ? (
+                          <>
+                            {companySettings.address}
+                            {companySettings.city ? `, ${companySettings.city}` : ''}
+                            {companySettings.state ? `, ${companySettings.state}` : ''}
+                            {companySettings.phone ? ` | Phone: ${companySettings.phone}` : ''}
+                          </>
+                        ) : (
+                          "Sardar Patel Ring Road, Ahmedabad, Gujarat, India."
+                        )}
                       </p>
                     </div>
                   </div>
@@ -925,21 +959,32 @@ export default function ChallansPage() {
 
                 {/* Signatures Section */}
                 <div className="grid grid-cols-3 gap-6 pt-12 mt-12 border-t border-dashed">
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center justify-end">
+                    <div className="h-12 mb-1"></div>
                     <div className="w-40 border-b border-gray-600 mb-1.5"></div>
                     <span className="text-[10px] font-semibold text-gray-700 uppercase">Receiver Signature</span>
                     <span className="text-[9px] text-gray-400 mt-0.5">(Sign on Delivery)</span>
                   </div>
 
-                  <div className="flex flex-col items-center justify-center">
+                  <div className="flex flex-col items-center justify-end pb-0.5">
                     <span className="text-xs font-semibold text-gray-900">{viewingChallan.prepared_by || 'Staff'}</span>
                     <span className="text-[10px] font-semibold text-gray-500 uppercase mt-1">Prepared By</span>
                   </div>
 
-                  <div className="flex flex-col items-center">
-                    <div className="w-40 border-b border-gray-600 mb-1.5"></div>
+                  <div className="flex flex-col items-center justify-end">
+                    {companySettings?.signature_url ? (
+                      <div className="h-12 w-32 flex items-center justify-center mb-1">
+                        <img 
+                          src={companySettings.signature_url} 
+                          alt="Authorised Signature" 
+                          className="max-h-12 max-w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-40 border-b border-gray-600 mb-1.5 h-12"></div>
+                    )}
                     <span className="text-[10px] font-semibold text-gray-700 uppercase">Authorised Signature</span>
-                    <span className="text-[9px] text-gray-400 mt-0.5">(For Safawala)</span>
+                    <span className="text-[9px] text-gray-400 mt-0.5">(For {companySettings?.company_name || 'Safawala'})</span>
                   </div>
                 </div>
 
@@ -965,6 +1010,151 @@ export default function ChallansPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* React Portal for Print - Direct child of body to bypass modal overlays during printing */}
+      {mounted && viewingChallan && createPortal(
+        <div id="print-root-challan" className="hidden print:block bg-white text-black p-4 font-sans">
+          
+          {/* Header Section */}
+          <div className="flex justify-between items-start border-b-2 border-gray-900 pb-4 mb-4">
+            <div className="flex items-center gap-3">
+              <img 
+                src={companySettings?.logo_url || "/safawalalogo.png"} 
+                alt="Safawala Logo" 
+                className="h-16 w-auto object-contain" 
+              />
+              <div>
+                <h1 className="text-xl font-bold tracking-wider text-gray-900">{companySettings?.company_name || "SAFAWALA"}</h1>
+                <p className="text-[10px] text-gray-600 font-medium">Premium Wedding Turbans & Accessories</p>
+                <p className="text-[9px] text-gray-500 max-w-xs mt-1">
+                  {companySettings?.address ? (
+                    <>
+                      {companySettings.address}
+                      {companySettings.city ? `, ${companySettings.city}` : ''}
+                      {companySettings.state ? `, ${companySettings.state}` : ''}
+                      {companySettings.phone ? ` | Phone: ${companySettings.phone}` : ''}
+                    </>
+                  ) : (
+                    "Sardar Patel Ring Road, Ahmedabad, Gujarat, India."
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-bold text-gray-800 tracking-wide border-b pb-0.5 mb-1.5 uppercase">
+                Delivery Challan
+              </div>
+              <div className="text-[10px] space-y-0.5 text-gray-700">
+                <div><span className="text-gray-500">Challan No:</span> <strong className="font-mono text-gray-900">{viewingChallan.challan_number}</strong></div>
+                <div><span className="text-gray-500">Date:</span> <strong className="text-gray-900">
+                  {new Date(viewingChallan.challan_date).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                </strong></div>
+                <div><span className="text-gray-500">Challan Status:</span> <strong className="text-gray-900 capitalize">{viewingChallan.status}</strong></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Details Box */}
+          <div className="grid grid-cols-2 gap-4 bg-gray-50 border rounded-lg p-3 text-xs mb-4">
+            <div className="space-y-1">
+              <div className="text-gray-500 font-medium uppercase text-[9px] tracking-wider">Party Details</div>
+              <div className="font-bold text-gray-900 text-sm">{viewingChallan.party_name}</div>
+              {viewingChallan.mobile_number && (
+                <div className="flex items-center gap-1 text-gray-700">
+                  <Phone className="h-3 w-3 text-gray-400" />
+                  <span>{viewingChallan.mobile_number}</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-1 text-right">
+              <div className="text-gray-500 font-medium uppercase text-[9px] tracking-wider">Authentication Log</div>
+              <div className="text-gray-700">Prepared By: <span className="font-semibold text-gray-900">{viewingChallan.prepared_by || 'Staff'}</span></div>
+              <div className="text-gray-500 text-[10px]">Printed: {new Date().toLocaleString('en-IN')}</div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <table className="w-full text-xs text-left border-collapse my-4">
+            <thead>
+              <tr className="bg-gray-100 border-b border-gray-300">
+                <th className="p-2 border font-bold text-gray-800 w-12 text-center">S.No</th>
+                <th className="p-2 border font-bold text-gray-800">Item Details / Description</th>
+                <th className="p-2 border font-bold text-gray-800 w-20 text-center">Qty</th>
+                <th className="p-2 border font-bold text-gray-800 w-28 text-right">Rate</th>
+                <th className="p-2 border font-bold text-gray-800 w-32 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {viewingChallan.challan_items && viewingChallan.challan_items.length > 0 ? (
+                viewingChallan.challan_items.map((item, index) => (
+                  <tr key={item.id || index} className="border-b">
+                    <td className="p-2 border text-center text-gray-600">{index + 1}</td>
+                    <td className="p-2 border font-medium text-gray-900">{item.item_details}</td>
+                    <td className="p-2 border text-center text-gray-800 font-medium">{item.qty}</td>
+                    <td className="p-2 border text-right text-gray-700">{formatCurrency(item.rate)}</td>
+                    <td className="p-2 border text-right text-gray-900 font-bold">{formatCurrency(item.qty * item.rate)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="p-4 border text-center text-gray-500">No items specified</td>
+                </tr>
+              )}
+              {/* Totals Row */}
+              <tr className="bg-gray-50/50">
+                <td colSpan={3} className="p-2 border"></td>
+                <td className="p-2 border text-right font-bold text-gray-700">Total Amount:</td>
+                <td className="p-2 border text-right font-bold text-[#102516] text-sm">{formatCurrency(viewingChallan.total_amount)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Narration Section */}
+          {viewingChallan.narration && (
+            <div className="border rounded-lg p-3 text-xs mb-8">
+              <div className="text-[10px] text-gray-500 font-bold uppercase mb-1">Narration / Remarks</div>
+              <p className="text-gray-700 whitespace-pre-wrap">{viewingChallan.narration}</p>
+            </div>
+          )}
+
+          {/* Signatures Section */}
+          <div className="grid grid-cols-3 gap-6 pt-12 mt-12 border-t border-dashed font-sans">
+            <div className="flex flex-col items-center justify-end text-center">
+              <div className="h-12 mb-1"></div>
+              <div className="w-40 border-b border-gray-600 mb-1.5"></div>
+              <span className="text-[10px] font-semibold text-gray-700 uppercase">Receiver Signature</span>
+              <span className="text-[9px] text-gray-400 mt-0.5">(Sign on Delivery)</span>
+            </div>
+
+            <div className="flex flex-col items-center justify-end pb-0.5 text-center">
+              <span className="text-xs font-semibold text-gray-900">{viewingChallan.prepared_by || 'Staff'}</span>
+              <span className="text-[10px] font-semibold text-gray-500 uppercase mt-1">Prepared By</span>
+            </div>
+
+            <div className="flex flex-col items-center justify-end text-center">
+              {companySettings?.signature_url ? (
+                <div className="h-12 w-32 flex items-center justify-center mb-1">
+                  <img 
+                    src={companySettings.signature_url} 
+                    alt="Authorised Signature" 
+                    className="max-h-12 max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-40 border-b border-gray-600 mb-1.5 h-12"></div>
+              )}
+              <span className="text-[10px] font-semibold text-gray-700 uppercase">Authorised Signature</span>
+              <span className="text-[9px] text-gray-400 mt-0.5">(For {companySettings?.company_name || 'Safawala'})</span>
+            </div>
+          </div>
+
+        </div>,
+        document.body
+      )}
     </DashboardLayout>
   )
 }

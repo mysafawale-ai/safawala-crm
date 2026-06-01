@@ -10,6 +10,8 @@ import {
   sendDeliveryReminder,
   sendReturnReminder,
   sendPaymentReminder,
+  sendBookingCancelled,
+  sendBookingStatusUpdate,
 } from "@/lib/services/wati-service"
 import { format, differenceInDays } from "date-fns"
 
@@ -81,15 +83,120 @@ function isWithinBusinessHours(settings: NotificationSettings): boolean {
 }
 
 /**
+ * Helper to fetch complete booking/order/sale details dynamically
+ */
+async function fetchBookingDetails(bookingId: string) {
+  // 1. Try package_bookings first
+  const { data: pkgBooking } = await supabase
+    .from("package_bookings")
+    .select(`*, customer:customers(*)`)
+    .eq("id", bookingId)
+    .maybeSingle()
+
+  if (pkgBooking) {
+    // Fetch package name if available
+    let itemsSummary = "Wedding Accessories"
+    if (pkgBooking.package_id) {
+      const { data: pkgSet } = await supabase
+        .from("package_sets")
+        .select("name")
+        .eq("id", pkgBooking.package_id)
+        .maybeSingle()
+      if (pkgSet) {
+        itemsSummary = pkgSet.name
+      }
+    }
+    return {
+      bookingId: pkgBooking.id,
+      bookingNumber: pkgBooking.package_number,
+      customerPhone: pkgBooking.customer?.whatsapp || pkgBooking.customer?.phone,
+      customerName: pkgBooking.customer?.name || "Customer",
+      eventDate: pkgBooking.event_date,
+      eventTime: pkgBooking.event_time,
+      venueName: pkgBooking.venue_name || pkgBooking.venue_address || "TBD",
+      totalAmount: Number(pkgBooking.total_amount) || 0,
+      amountPaid: Number(pkgBooking.amount_paid) || 0,
+      paymentStatus: (pkgBooking.amount_paid >= pkgBooking.total_amount) ? "Paid" : (pkgBooking.amount_paid > 0 ? "Advance Paid" : "Pending"),
+      itemsSummary,
+      type: "package_booking" as const
+    }
+  }
+
+  // 2. Try product_orders
+  const { data: prodOrder } = await supabase
+    .from("product_orders")
+    .select(`*, customer:customers(*)`)
+    .eq("id", bookingId)
+    .maybeSingle()
+
+  if (prodOrder) {
+    // Fetch items
+    let itemsSummary = "Wedding Accessories"
+    const { data: items } = await supabase
+      .from("product_order_items")
+      .select("product_name_copy, quantity")
+      .eq("order_id", bookingId)
+    if (items && items.length > 0) {
+      itemsSummary = items.map(it => `${it.product_name_copy} (x${it.quantity})`).join(", ")
+    }
+
+    return {
+      bookingId: prodOrder.id,
+      bookingNumber: prodOrder.order_number,
+      customerPhone: prodOrder.customer?.whatsapp || prodOrder.customer?.phone,
+      customerName: prodOrder.customer?.name || "Customer",
+      eventDate: prodOrder.event_date,
+      eventTime: prodOrder.event_time || "10:00",
+      venueName: prodOrder.venue_address || "TBD",
+      totalAmount: Number(prodOrder.total_amount) || 0,
+      amountPaid: Number(prodOrder.amount_paid) || 0,
+      paymentStatus: (prodOrder.amount_paid >= prodOrder.total_amount) ? "Paid" : (prodOrder.amount_paid > 0 ? "Advance Paid" : "Pending"),
+      itemsSummary,
+      type: "product_order" as const
+    }
+  }
+
+  // 3. Try direct_sales_orders
+  const { data: directSale } = await supabase
+    .from("direct_sales_orders")
+    .select(`*, customer:customers(*)`)
+    .eq("id", bookingId)
+    .maybeSingle()
+
+  if (directSale) {
+    let itemsSummary = "Direct Sale"
+    const { data: items } = await supabase
+      .from("direct_sales_items")
+      .select("product_name, quantity")
+      .eq("sale_id", bookingId)
+    if (items && items.length > 0) {
+      itemsSummary = items.map(it => `${it.product_name || 'Item'} (x${it.quantity})`).join(", ")
+    }
+
+    return {
+      bookingId: directSale.id,
+      bookingNumber: directSale.sale_number,
+      customerPhone: directSale.customer?.whatsapp || directSale.customer?.phone,
+      customerName: directSale.customer?.name || "Customer",
+      eventDate: directSale.sale_date || directSale.created_at,
+      eventTime: "10:00",
+      venueName: directSale.venue_address || "TBD",
+      totalAmount: Number(directSale.total_amount) || 0,
+      amountPaid: Number(directSale.amount_paid) || 0,
+      paymentStatus: (directSale.amount_paid >= directSale.total_amount) ? "Paid" : (directSale.amount_paid > 0 ? "Advance Paid" : "Pending"),
+      itemsSummary,
+      type: "direct_sale" as const
+    }
+  }
+
+  return null
+}
+
+/**
  * Trigger: New booking created
  */
 export async function onBookingCreated(params: {
   bookingId: string
-  bookingNumber: string
-  customerPhone: string
-  customerName: string
-  eventDate: string
-  totalAmount: number
   franchiseId: string
 }): Promise<{ sent: boolean; error?: string }> {
   try {
@@ -103,12 +210,25 @@ export async function onBookingCreated(params: {
       return { sent: false, error: "Outside business hours" }
     }
 
+    const booking = await fetchBookingDetails(params.bookingId)
+    if (!booking) {
+      return { sent: false, error: "Booking details not found in database" }
+    }
+
+    if (!booking.customerPhone) {
+      return { sent: false, error: "Customer phone number not available" }
+    }
+
     const result = await sendBookingConfirmation({
-      phone: params.customerPhone,
-      customerName: params.customerName,
-      bookingNumber: params.bookingNumber,
-      bookingDate: format(new Date(params.eventDate), "dd MMM yyyy"),
-      totalAmount: params.totalAmount,
+      phone: booking.customerPhone,
+      customerName: booking.customerName,
+      bookingNumber: booking.bookingNumber,
+      eventDate: booking.eventDate ? format(new Date(booking.eventDate), "dd MMM yyyy") : "TBD",
+      eventTime: booking.eventTime || "TBD",
+      venueName: booking.venueName,
+      itemsSummary: booking.itemsSummary,
+      totalAmount: booking.totalAmount,
+      paymentStatus: booking.paymentStatus,
     })
 
     // Update message with booking reference
@@ -126,15 +246,123 @@ export async function onBookingCreated(params: {
 }
 
 /**
+ * Trigger: Booking status updated
+ */
+export async function onBookingStatusChange(params: {
+  bookingId: string
+  newStatus: string
+  franchiseId: string
+}): Promise<{ sent: boolean; error?: string }> {
+  try {
+    const settings = await getNotificationSettings(params.franchiseId)
+    // Map dashboard toggles to triggers
+    if (!settings?.booking_confirmation) {
+      return { sent: false, error: "Booking update notifications disabled" }
+    }
+
+    if (!isWithinBusinessHours(settings)) {
+      return { sent: false, error: "Outside business hours" }
+    }
+
+    const booking = await fetchBookingDetails(params.bookingId)
+    if (!booking) {
+      return { sent: false, error: "Booking details not found in database" }
+    }
+
+    if (!booking.customerPhone) {
+      return { sent: false, error: "Customer phone number not available" }
+    }
+
+    // Friendly status labels
+    const statusLabels: Record<string, string> = {
+      pending_payment: "Pending Payment",
+      pending_selection: "Pending Item Selection",
+      confirmed: "Confirmed",
+      delivered: "Delivered",
+      returned: "Returned / Completed",
+      order_complete: "Order Completed",
+      cancelled: "Cancelled",
+      quote: "Quote Generated"
+    }
+
+    const friendlyStatus = statusLabels[params.newStatus] || params.newStatus.replace(/_/g, " ")
+
+    const result = await sendBookingStatusUpdate({
+      phone: booking.customerPhone,
+      customerName: booking.customerName,
+      bookingNumber: booking.bookingNumber,
+      newStatus: friendlyStatus.toUpperCase(),
+      updatedDate: format(new Date(), "dd MMM yyyy HH:mm"),
+      nextAction: params.newStatus === 'confirmed' ? "Preparing accessories for handover" : "Contact store for any questions"
+    })
+
+    if (result.success && result.messageId) {
+      await supabase.from("whatsapp_messages")
+        .update({ booking_id: params.bookingId, franchise_id: params.franchiseId })
+        .eq("wati_message_id", result.messageId)
+    }
+
+    return { sent: result.success, error: result.error }
+  } catch (error: any) {
+    console.error("[WhatsApp Triggers] onBookingStatusChange error:", error)
+    return { sent: false, error: error.message }
+  }
+}
+
+/**
+ * Trigger: Booking cancelled
+ */
+export async function onBookingCancelled(params: {
+  bookingId: string
+  reason?: string
+  refundAmount?: number
+  refundStatus?: string
+  franchiseId: string
+}): Promise<{ sent: boolean; error?: string }> {
+  try {
+    const settings = await getNotificationSettings(params.franchiseId)
+    if (!settings?.booking_confirmation) {
+      return { sent: false, error: "Cancellation alerts disabled" }
+    }
+
+    const booking = await fetchBookingDetails(params.bookingId)
+    if (!booking) {
+      return { sent: false, error: "Booking details not found in database" }
+    }
+
+    if (!booking.customerPhone) {
+      return { sent: false, error: "Customer phone number not available" }
+    }
+
+    const result = await sendBookingCancelled({
+      phone: booking.customerPhone,
+      customerName: booking.customerName,
+      bookingNumber: booking.bookingNumber,
+      cancellationDate: format(new Date(), "dd MMM yyyy"),
+      reason: params.reason || "Order cancelled as requested",
+      refundAmount: params.refundAmount || 0,
+      refundStatus: params.refundStatus || "N/A"
+    })
+
+    if (result.success && result.messageId) {
+      await supabase.from("whatsapp_messages")
+        .update({ booking_id: params.bookingId, franchise_id: params.franchiseId })
+        .eq("wati_message_id", result.messageId)
+    }
+
+    return { sent: result.success, error: result.error }
+  } catch (error: any) {
+    console.error("[WhatsApp Triggers] onBookingCancelled error:", error)
+    return { sent: false, error: error.message }
+  }
+}
+
+/**
  * Trigger: Payment received
  */
 export async function onPaymentReceived(params: {
   bookingId: string
-  bookingNumber: string
-  customerPhone: string
-  customerName: string
   amountPaid: number
-  remainingBalance: number
   franchiseId: string
 }): Promise<{ sent: boolean; error?: string }> {
   try {
@@ -147,12 +375,23 @@ export async function onPaymentReceived(params: {
       return { sent: false, error: "Outside business hours" }
     }
 
+    const booking = await fetchBookingDetails(params.bookingId)
+    if (!booking) {
+      return { sent: false, error: "Booking details not found in database" }
+    }
+
+    if (!booking.customerPhone) {
+      return { sent: false, error: "Customer phone number not available" }
+    }
+
+    const remainingBalance = Math.max(0, booking.totalAmount - booking.amountPaid)
+
     const result = await sendPaymentReceived({
-      phone: params.customerPhone,
-      customerName: params.customerName,
-      bookingNumber: params.bookingNumber,
+      phone: booking.customerPhone,
+      customerName: booking.customerName,
+      bookingNumber: booking.bookingNumber,
       amountPaid: params.amountPaid,
-      remainingBalance: params.remainingBalance,
+      remainingBalance: remainingBalance,
     })
 
     if (result.success && result.messageId) {
@@ -250,10 +489,10 @@ export async function onReturnDue(params: {
 export async function onInvoiceCreated(params: {
   orderId: string
   orderType: "product_order" | "package_booking" | "direct_sale"
-  orderNumber: string
-  customerPhone: string
-  customerName: string
-  totalAmount: number
+  orderNumber?: string
+  customerPhone?: string
+  customerName?: string
+  totalAmount?: number
   franchiseId: string
 }): Promise<{ sent: boolean; error?: string }> {
   try {
@@ -268,7 +507,7 @@ export async function onInvoiceCreated(params: {
     }
 
     // Call the server-side API to generate PDF & send via WhatsApp
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"
     const response = await fetch(`${baseUrl}/api/whatsapp/send-invoice`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

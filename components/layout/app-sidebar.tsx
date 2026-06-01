@@ -133,6 +133,13 @@ const navigationItems = {
       description: "Create, view, and print delivery/pickup challans with signatory options",
     },
     {
+      title: "Vouchers",
+      url: "/vouchers",
+      icon: Receipt,
+      permission: "bookings",
+      description: "Create and print payment/receipt vouchers for expenses and customer payments",
+    },
+    {
       title: "Laundry",
       url: "/laundry",
       icon: Shirt,

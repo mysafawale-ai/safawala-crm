@@ -420,8 +420,12 @@ export async function sendBookingConfirmation(params: {
   phone: string
   customerName: string
   bookingNumber: string
-  bookingDate: string
+  eventDate: string
+  eventTime?: string
+  venueName?: string
+  itemsSummary?: string
   totalAmount: number
+  paymentStatus?: string
 }): Promise<{ success: boolean; error?: string }> {
   return sendTemplateMessage({
     phone: params.phone,
@@ -429,8 +433,62 @@ export async function sendBookingConfirmation(params: {
     parameters: [
       params.customerName,
       params.bookingNumber,
-      params.bookingDate,
-      `₹${params.totalAmount.toLocaleString()}`,
+      params.eventDate,
+      params.eventTime || "TBD",
+      params.venueName || "TBD",
+      params.itemsSummary || "Wedding Accessories",
+      `₹${params.totalAmount.toLocaleString('en-IN')}`,
+      params.paymentStatus || "Confirmed",
+    ],
+  })
+}
+
+/**
+ * Send booking status update to customer
+ */
+export async function sendBookingStatusUpdate(params: {
+  phone: string
+  customerName: string
+  bookingNumber: string
+  newStatus: string
+  updatedDate: string
+  nextAction?: string
+}): Promise<{ success: boolean; error?: string }> {
+  return sendTemplateMessage({
+    phone: params.phone,
+    templateName: 'booking_status_update',
+    parameters: [
+      params.customerName,
+      params.bookingNumber,
+      params.newStatus,
+      params.updatedDate,
+      params.nextAction || "Contact store for details",
+    ],
+  })
+}
+
+/**
+ * Send booking cancellation to customer
+ */
+export async function sendBookingCancelled(params: {
+  phone: string
+  customerName: string
+  bookingNumber: string
+  cancellationDate: string
+  reason?: string
+  refundAmount?: number
+  refundStatus?: string
+}): Promise<{ success: boolean; error?: string }> {
+  return sendTemplateMessage({
+    phone: params.phone,
+    templateName: 'booking_cancelled',
+    parameters: [
+      params.customerName,
+      params.bookingNumber,
+      params.cancellationDate,
+      params.reason || "Cancelled as requested",
+      `₹${(params.refundAmount || 0).toLocaleString('en-IN')}`,
+      params.refundStatus || "N/A",
     ],
   })
 }
@@ -451,8 +509,8 @@ export async function sendPaymentReceived(params: {
     parameters: [
       params.customerName,
       params.bookingNumber,
-      `₹${params.amountPaid.toLocaleString()}`,
-      `₹${params.remainingBalance.toLocaleString()}`,
+      `₹${params.amountPaid.toLocaleString('en-IN')}`,
+      `₹${params.remainingBalance.toLocaleString('en-IN')}`,
     ],
   })
 }
@@ -466,6 +524,7 @@ export async function sendDeliveryReminder(params: {
   bookingNumber: string
   deliveryDate: string
   deliveryTime: string
+  itemsList?: string
 }): Promise<{ success: boolean; error?: string }> {
   return sendTemplateMessage({
     phone: params.phone,
@@ -475,6 +534,8 @@ export async function sendDeliveryReminder(params: {
       params.bookingNumber,
       params.deliveryDate,
       params.deliveryTime,
+      "As specified in booking",
+      params.itemsList || "Wedding Accessories",
     ],
   })
 }
@@ -487,6 +548,8 @@ export async function sendReturnReminder(params: {
   customerName: string
   bookingNumber: string
   returnDate: string
+  returnTime?: string
+  itemsList?: string
 }): Promise<{ success: boolean; error?: string }> {
   return sendTemplateMessage({
     phone: params.phone,
@@ -495,6 +558,8 @@ export async function sendReturnReminder(params: {
       params.customerName,
       params.bookingNumber,
       params.returnDate,
+      params.returnTime || "18:00",
+      params.itemsList || "Wedding Accessories",
     ],
   })
 }
@@ -507,6 +572,8 @@ export async function sendInvoice(params: {
   customerName: string
   bookingNumber: string
   invoiceUrl: string
+  totalAmount?: number
+  dueDate?: string
 }): Promise<{ success: boolean; error?: string }> {
   // First send the template message
   const templateResult = await sendTemplateMessage({
@@ -515,6 +582,8 @@ export async function sendInvoice(params: {
     parameters: [
       params.customerName,
       params.bookingNumber,
+      `₹${(params.totalAmount || 0).toLocaleString('en-IN')}`,
+      params.dueDate || "N/A",
     ],
   })
 
