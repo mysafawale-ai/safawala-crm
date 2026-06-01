@@ -506,25 +506,15 @@ export async function onInvoiceCreated(params: {
       return { sent: false, error: "Outside business hours" }
     }
 
-    // Call the server-side API to generate PDF & send via WhatsApp
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"
-    const response = await fetch(`${baseUrl}/api/whatsapp/send-invoice`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orderId: params.orderId,
-        orderType: params.orderType,
-      }),
+    // Call the server-side internal function directly to bypass cookie auth issues
+    const { sendInvoicePDFAndWhatsAppInternal } = await import("@/app/api/whatsapp/send-invoice/route")
+    const result = await sendInvoicePDFAndWhatsAppInternal({
+      orderId: params.orderId,
+      orderType: params.orderType,
+      franchiseId: params.franchiseId,
     })
 
-    const result = await response.json()
-
-    if (!response.ok || !result.success) {
-      console.error("[WhatsApp Triggers] Invoice send failed:", result.error)
-      return { sent: false, error: result.error || "Failed to send invoice" }
-    }
-
-    return { sent: true }
+    return { sent: result.success }
   } catch (error: any) {
     console.error("[WhatsApp Triggers] onInvoiceCreated error:", error)
     return { sent: false, error: error.message }

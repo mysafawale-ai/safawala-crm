@@ -582,8 +582,6 @@ export async function sendInvoice(params: {
     parameters: [
       params.customerName,
       params.bookingNumber,
-      `₹${(params.totalAmount || 0).toLocaleString('en-IN')}`,
-      params.dueDate || "N/A",
     ],
   })
 

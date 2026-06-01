@@ -10,6 +10,7 @@ interface SendInvoiceWhatsAppParams {
   orderId: string
   orderType: OrderType
   extraPhones?: string[]
+  sendConfirmation?: boolean
 }
 
 /**

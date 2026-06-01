@@ -1439,7 +1439,7 @@ export default function BookPackageWizard() {
 
   // Auto-send invoice via WhatsApp (fire & forget, only for orders not quotes)
   if (!asQuote && booking?.id) {
-    sendInvoiceViaWhatsApp({ orderId: booking.id, orderType: "package_booking" })
+    sendInvoiceViaWhatsApp({ orderId: booking.id, orderType: "package_booking", sendConfirmation: true })
       .then(r => r.success && toast.success("Invoice sent on WhatsApp!"))
   }
   

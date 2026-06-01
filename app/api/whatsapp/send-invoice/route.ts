@@ -16,6 +16,203 @@ export const dynamic = "force-dynamic"
  *
  * Body: { orderId: string, orderType: "product_order" | "package_booking" | "direct_sale" }
  */
+export async function sendInvoicePDFAndWhatsAppInternal(params: {
+  orderId: string
+  orderType: "product_order" | "package_booking" | "direct_sale"
+  franchiseId?: string
+  extraPhones?: string[]
+  sendConfirmation?: boolean
+}) {
+  const { orderId, orderType, extraPhones, franchiseId, sendConfirmation } = params
+
+  // 1. Fetch order/booking data
+  const orderData = await fetchOrderData(orderId, orderType)
+  if (!orderData) {
+    throw new Error("Order not found")
+  }
+
+  // 2. Fetch customer data
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("id", orderData.customer_id)
+    .single()
+
+  if (!customer) {
+    throw new Error("Customer not found for this order")
+  }
+
+  // Get phone number (prefer whatsapp field, then phone)
+  const phone = customer.whatsapp || customer.phone
+  if (!phone) {
+    throw new Error("Customer has no phone/WhatsApp number")
+  }
+
+  // 3. Fetch order items
+  const items = await fetchOrderItems(orderId, orderType)
+
+  // 4. Fetch company settings
+  const finalFranchiseId = orderData.franchise_id || franchiseId
+  const companySettings = await fetchCompanySettings(finalFranchiseId)
+
+  // -- If sendConfirmation is true, trigger the booking confirmation template message first --
+  if (sendConfirmation) {
+    try {
+      const { onBookingCreated } = await import("@/lib/services/whatsapp-triggers")
+      if (finalFranchiseId) {
+        await onBookingCreated({
+          bookingId: orderId,
+          franchiseId: finalFranchiseId,
+        })
+      }
+    } catch (err) {
+      console.error("[WhatsApp Invoice] Failed to send booking confirmation template:", err)
+    }
+  }
+
+  // 5. Generate PDF
+  const pdfBuffer = generateInvoicePDF(orderData, customer, items, companySettings)
+
+  // 6. Upload to Supabase Storage
+  const invoiceNumber =
+    orderData.order_number || orderData.package_number || orderData.sale_number || orderId
+  const customerName = customer.name || "Customer"
+  const eventDate = orderData.event_date
+    ? format(new Date(orderData.event_date), "dd/MM/yy")
+    : ""
+  const customerPhone = customer.whatsapp || customer.phone || ""
+  const invoiceLabel = [invoiceNumber, customerName, eventDate].filter(Boolean).join(" | ")
+  const safeFileName = [invoiceNumber, customerName.replace(/[^a-zA-Z0-9]/g, "_"), eventDate?.replace(/[^a-zA-Z0-9-]/g, "")].filter(Boolean).join("_")
+  const bucket = process.env.NEXT_PUBLIC_INVOICES_BUCKET || "uploads"
+  const filePath = `invoices/whatsapp/${safeFileName}_${Date.now()}.pdf`
+
+  const { error: uploadErr } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, pdfBuffer, {
+      contentType: "application/pdf",
+      upsert: true,
+    })
+
+  if (uploadErr) {
+    console.error("[WhatsApp Invoice] Upload error:", uploadErr)
+    throw new Error("Failed to upload invoice PDF")
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(bucket).getPublicUrl(filePath)
+
+  if (!publicUrl) {
+    throw new Error("Failed to get public URL for invoice")
+  }
+
+  // 7. Send via WhatsApp (try template first, then session message + PDF)
+  let sendResult: { success: boolean; error?: string }
+
+  // Try sending template message first (works outside 24hr window)
+  const templateResult = await sendTemplateMessage({
+    phone,
+    templateName: "invoice_sent",
+    parameters: [customerName, invoiceNumber],
+  })
+
+  if (templateResult.success) {
+    // Template sent, now send the PDF document
+    sendResult = await sendMedia({
+      phone,
+      mediaUrl: publicUrl,
+      caption: `${invoiceLabel} - ${companySettings?.company_name || "Safawala"}`,
+      mediaType: "document",
+    })
+  } else {
+    // Fallback: try session message with PDF
+    console.log("[WhatsApp Invoice] Template failed, trying session message:", templateResult.error)
+
+    const messageText = [
+      `📄 *Invoice - ${companySettings?.company_name || "Safawala"}*`,
+      "",
+      `Dear ${customerName},`,
+      "",
+      `Your invoice *${invoiceNumber}* is ready.`,
+      eventDate ? `📅 Event Date: ${eventDate}` : "",
+      customerPhone ? `📱 Customer: ${customerPhone}` : "",
+      "",
+      `💰 Total: ₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`,
+      orderData.amount_paid
+        ? `✅ Paid: ₹${orderData.amount_paid.toLocaleString("en-IN")}`
+        : "",
+      orderData.pending_amount && orderData.pending_amount > 0
+        ? `⏳ Balance: ₹${orderData.pending_amount.toLocaleString("en-IN")}`
+        : "",
+      "",
+      "Thank you for your business! 🙏",
+    ]
+      .filter(Boolean)
+      .join("\n")
+
+    const msgResult = await sendMessage({ phone, message: messageText })
+
+    // Send the PDF regardless of whether text message succeeded
+    const mediaResult = await sendMedia({
+      phone,
+      mediaUrl: publicUrl,
+      caption: invoiceLabel,
+      mediaType: "document",
+    })
+
+    sendResult = {
+      success: msgResult.success || mediaResult.success,
+      error:
+        !msgResult.success && !mediaResult.success
+          ? `Text: ${msgResult.error}; PDF: ${mediaResult.error}`
+          : undefined,
+    }
+  }
+
+  if (!sendResult.success) {
+    throw new Error(sendResult.error || "Failed to send WhatsApp message")
+  }
+
+  // 8. Log the WhatsApp invoice send
+  try {
+    await supabase.from("whatsapp_messages").insert({
+      phone: phone.replace(/\D/g, ""),
+      message_type: "invoice",
+      content: `${invoiceLabel} sent`,
+      status: "sent",
+      booking_id: orderId,
+      franchise_id: finalFranchiseId,
+      sent_at: new Date().toISOString(),
+    })
+  } catch (logErr) {
+    console.warn("[WhatsApp Invoice] Failed to log message:", logErr)
+  }
+
+  // Also send to extra phone numbers (e.g. business owner)
+  if (Array.isArray(extraPhones) && extraPhones.length > 0) {
+    for (const extraPhone of extraPhones) {
+      if (extraPhone && extraPhone.replace(/\D/g, "") !== phone.replace(/\D/g, "")) {
+        try {
+          await sendMedia({
+            phone: extraPhone,
+            mediaUrl: publicUrl,
+            caption: `${invoiceLabel} - ${companySettings?.company_name || "Safawala"}`,
+            mediaType: "document",
+          })
+        } catch (e) {
+          console.warn(`[WhatsApp Invoice] Failed to send to extra phone ${extraPhone}:`, e)
+        }
+      }
+    }
+  }
+
+  return {
+    success: true,
+    message: `${invoiceLabel} sent to ${phone} via WhatsApp`,
+    pdfUrl: publicUrl,
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Authenticate
@@ -25,7 +222,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { orderId, orderType, extraPhones } = body
+    const { orderId, orderType, extraPhones, sendConfirmation } = body
 
     if (!orderId || !orderType) {
       return NextResponse.json(
@@ -42,200 +239,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 1. Fetch order/booking data
-    const orderData = await fetchOrderData(orderId, orderType)
-    if (!orderData) {
-      return NextResponse.json(
-        { error: "Order not found" },
-        { status: 404 }
-      )
-    }
-
-    // 2. Fetch customer data
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("id", orderData.customer_id)
-      .single()
-
-    if (!customer) {
-      return NextResponse.json(
-        { error: "Customer not found for this order" },
-        { status: 404 }
-      )
-    }
-
-    // Get phone number (prefer whatsapp field, then phone)
-    const phone = customer.whatsapp || customer.phone
-    if (!phone) {
-      return NextResponse.json(
-        { error: "Customer has no phone/WhatsApp number" },
-        { status: 400 }
-      )
-    }
-
-    // 3. Fetch order items
-    const items = await fetchOrderItems(orderId, orderType)
-
-    // 4. Fetch company settings
     const franchiseId =
-      orderData.franchise_id ||
+      body.franchiseId ||
       authResult.authContext?.user?.franchise_id
-    const companySettings = await fetchCompanySettings(franchiseId)
 
-    // 5. Generate PDF
-    const pdfBuffer = generateInvoicePDF(orderData, customer, items, companySettings)
-
-    // 6. Upload to Supabase Storage
-    const invoiceNumber =
-      orderData.order_number || orderData.package_number || orderData.sale_number || orderId
-    const customerName = customer.name || "Customer"
-    const eventDate = orderData.event_date
-      ? format(new Date(orderData.event_date), "dd/MM/yy")
-      : ""
-    const customerPhone = customer.whatsapp || customer.phone || ""
-    const invoiceLabel = [invoiceNumber, customerName, eventDate].filter(Boolean).join(" | ")
-    const safeFileName = [invoiceNumber, customerName.replace(/[^a-zA-Z0-9]/g, "_"), eventDate?.replace(/[^a-zA-Z0-9-]/g, "")].filter(Boolean).join("_")
-    const bucket = process.env.NEXT_PUBLIC_INVOICES_BUCKET || "uploads"
-    const filePath = `invoices/whatsapp/${safeFileName}_${Date.now()}.pdf`
-
-    const { error: uploadErr } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, pdfBuffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      })
-
-    if (uploadErr) {
-      console.error("[WhatsApp Invoice] Upload error:", uploadErr)
-      return NextResponse.json(
-        { error: "Failed to upload invoice PDF" },
-        { status: 500 }
-      )
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from(bucket).getPublicUrl(filePath)
-
-    if (!publicUrl) {
-      return NextResponse.json(
-        { error: "Failed to get public URL for invoice" },
-        { status: 500 }
-      )
-    }
-
-    // 7. Send via WhatsApp (try template first, then session message + PDF)
-    let sendResult: { success: boolean; error?: string }
-
-    // Try sending template message first (works outside 24hr window)
-    const templateResult = await sendTemplateMessage({
-      phone,
-      templateName: "invoice_sent",
-      parameters: [customerName, invoiceNumber],
+    const result = await sendInvoicePDFAndWhatsAppInternal({
+      orderId,
+      orderType,
+      franchiseId,
+      extraPhones,
+      sendConfirmation,
     })
 
-    if (templateResult.success) {
-      // Template sent, now send the PDF document
-      sendResult = await sendMedia({
-        phone,
-        mediaUrl: publicUrl,
-        caption: `${invoiceLabel} - ${companySettings?.company_name || "Safawala"}`,
-        mediaType: "document",
-      })
-    } else {
-      // Fallback: try session message with PDF
-      console.log("[WhatsApp Invoice] Template failed, trying session message:", templateResult.error)
-
-      const messageText = [
-        `📄 *Invoice - ${companySettings?.company_name || "Safawala"}*`,
-        "",
-        `Dear ${customerName},`,
-        "",
-        `Your invoice *${invoiceNumber}* is ready.`,
-        eventDate ? `📅 Event Date: ${eventDate}` : "",
-        customerPhone ? `📱 Customer: ${customerPhone}` : "",
-        "",
-        `💰 Total: ₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`,
-        orderData.amount_paid
-          ? `✅ Paid: ₹${orderData.amount_paid.toLocaleString("en-IN")}`
-          : "",
-        orderData.pending_amount && orderData.pending_amount > 0
-          ? `⏳ Balance: ₹${orderData.pending_amount.toLocaleString("en-IN")}`
-          : "",
-        "",
-        "Thank you for your business! 🙏",
-      ]
-        .filter(Boolean)
-        .join("\n")
-
-      const msgResult = await sendMessage({ phone, message: messageText })
-
-      // Send the PDF regardless of whether text message succeeded
-      const mediaResult = await sendMedia({
-        phone,
-        mediaUrl: publicUrl,
-        caption: invoiceLabel,
-        mediaType: "document",
-      })
-
-      sendResult = {
-        success: msgResult.success || mediaResult.success,
-        error:
-          !msgResult.success && !mediaResult.success
-            ? `Text: ${msgResult.error}; PDF: ${mediaResult.error}`
-            : undefined,
-      }
-    }
-
-    if (!sendResult.success) {
-      return NextResponse.json(
-        {
-          error: sendResult.error || "Failed to send WhatsApp message",
-          pdfUrl: publicUrl,
-        },
-        { status: 500 }
-      )
-    }
-
-    // 8. Log the WhatsApp invoice send
-    try {
-      await supabase.from("whatsapp_messages").insert({
-        phone: phone.replace(/\D/g, ""),
-        message_type: "invoice",
-        content: `${invoiceLabel} sent`,
-        status: "sent",
-        booking_id: orderId,
-        franchise_id: franchiseId,
-        sent_at: new Date().toISOString(),
-      })
-    } catch (logErr) {
-      console.warn("[WhatsApp Invoice] Failed to log message:", logErr)
-    }
-
-    // Also send to extra phone numbers (e.g. business owner)
-    if (Array.isArray(extraPhones) && extraPhones.length > 0) {
-      for (const extraPhone of extraPhones) {
-        if (extraPhone && extraPhone.replace(/\D/g, "") !== phone.replace(/\D/g, "")) {
-          try {
-            await sendMedia({
-              phone: extraPhone,
-              mediaUrl: publicUrl,
-              caption: `${invoiceLabel} - ${companySettings?.company_name || "Safawala"}`,
-              mediaType: "document",
-            })
-          } catch (e) {
-            console.warn(`[WhatsApp Invoice] Failed to send to extra phone ${extraPhone}:`, e)
-          }
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `${invoiceLabel} sent to ${phone} via WhatsApp`,
-      pdfUrl: publicUrl,
-    })
+    return NextResponse.json(result)
   } catch (error: any) {
     console.error("[WhatsApp Invoice] Error:", error)
     return NextResponse.json(

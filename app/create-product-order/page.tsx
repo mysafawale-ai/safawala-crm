@@ -1210,7 +1210,7 @@ export default function CreateProductOrderPage() {
 
       // Auto-send invoice via WhatsApp (fire & forget, only for orders not quotes)
       if (!isQuote && order?.id) {
-        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order" })
+        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order", sendConfirmation: true })
           .then(r => r.success && toast.success("Invoice sent on WhatsApp!"))
       }
 

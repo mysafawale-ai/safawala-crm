@@ -94,10 +94,10 @@ export async function PATCH(
     if (type === 'product_order') table = 'product_orders'
     if (type === 'package_booking') table = 'package_bookings'
 
-    // Check franchise ownership before update
+    // Check franchise ownership and fetch previous status/amount_paid before update
     const { data: existing, error: fetchErr } = await supabase
       .from(table)
-      .select('id, franchise_id')
+      .select('id, franchise_id, status, amount_paid')
       .eq('id', params.id)
       .single()
     if (fetchErr || !existing) {
@@ -116,6 +116,50 @@ export async function PATCH(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Trigger WhatsApp notification events asynchronously
+    const oldStatus = existing?.status
+    const oldAmountPaid = Number(existing?.amount_paid) || 0
+    const newStatus = booking?.status
+    const newAmountPaid = Number(booking?.amount_paid) || 0
+    const finalFranchiseId = booking?.franchise_id || existing?.franchise_id || franchiseId
+
+    if (booking && finalFranchiseId) {
+      (async () => {
+        try {
+          const { onBookingStatusChange, onBookingCancelled, onPaymentReceived } = await import("@/lib/services/whatsapp-triggers")
+
+          // 1. Status changes
+          if (newStatus && oldStatus && newStatus !== oldStatus) {
+            if (newStatus === "cancelled") {
+              await onBookingCancelled({
+                bookingId: booking.id,
+                franchiseId: finalFranchiseId,
+                reason: body.cancellation_reason || "Booking status changed to cancelled",
+              })
+            } else {
+              await onBookingStatusChange({
+                bookingId: booking.id,
+                newStatus: newStatus,
+                franchiseId: finalFranchiseId,
+              })
+            }
+          }
+
+          // 2. Payment changes (amount_paid increased)
+          if (newAmountPaid > oldAmountPaid) {
+            const increment = newAmountPaid - oldAmountPaid
+            await onPaymentReceived({
+              bookingId: booking.id,
+              amountPaid: increment,
+              franchiseId: finalFranchiseId,
+            })
+          }
+        } catch (err) {
+          console.error("[WhatsApp Trigger Error in PATCH]:", err)
+        }
+      })()
     }
 
     return NextResponse.json({ booking })
@@ -182,6 +226,22 @@ export async function DELETE(
     // Franchise ownership check
     if (!isSuperAdmin && existing.franchise_id && existing.franchise_id !== franchiseId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Trigger WhatsApp notification for booking cancellation before deleting records
+    const finalFranchiseId = existing.franchise_id || franchiseId
+    if (finalFranchiseId) {
+      try {
+        const { onBookingCancelled } = await import("@/lib/services/whatsapp-triggers")
+        // Await to ensure database query inside the trigger finishes before records are deleted
+        await onBookingCancelled({
+          bookingId: id,
+          franchiseId: finalFranchiseId,
+          reason: "Booking record deleted from CRM",
+        })
+      } catch (err) {
+        console.error("[WhatsApp Trigger Error in DELETE]:", err)
+      }
     }
 
     // Delete related items first based on actual table
