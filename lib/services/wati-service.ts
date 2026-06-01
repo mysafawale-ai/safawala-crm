@@ -45,6 +45,12 @@ let cachedConfig: WATIConfig | null = null
 let configLastFetched: number = 0
 const CONFIG_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
+/** Call after updating the WATI API key to force the next request to re-read from DB */
+export function invalidateWATIConfigCache() {
+  cachedConfig = null
+  configLastFetched = 0
+}
+
 /**
  * Get WATI configuration from database
  */
@@ -229,7 +235,7 @@ export async function sendTemplateMessage(params: SendTemplateParams): Promise<{
   const phone = formatPhone(params.phone)
 
   try {
-    const response = await fetch(`${config.base_url}/api/v1/sendTemplateMessage`, {
+    const response = await fetch(`${config.base_url}/api/v1/sendTemplateMessage?whatsappNumber=${phone}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.api_key}`,
@@ -292,22 +298,41 @@ export async function sendMedia(params: SendMediaParams): Promise<{ success: boo
   const phone = formatPhone(params.phone)
 
   try {
-    const endpoint = params.mediaType === 'image' 
-      ? 'sendSessionFile' 
-      : params.mediaType === 'document'
-      ? 'sendSessionFile'
-      : 'sendSessionFile'
+    const endpoint = 'sendSessionFile'
+
+    // 1. Download the media file from the public URL
+    const fileResponse = await fetch(params.mediaUrl)
+    if (!fileResponse.ok) {
+      return { success: false, error: `Failed to download media file from URL: ${fileResponse.statusText}` }
+    }
+    const arrayBuffer = await fileResponse.arrayBuffer()
+    
+    // Determine the content-type and filename extension
+    let mimeType = 'application/pdf'
+    let filename = 'invoice.pdf'
+    if (params.mediaType === 'image') {
+      mimeType = 'image/jpeg'
+      filename = 'image.jpg'
+    } else if (params.mediaType === 'video') {
+      mimeType = 'video/mp4'
+      filename = 'video.mp4'
+    }
+
+    const blob = new Blob([arrayBuffer], { type: mimeType })
+
+    // 2. Build FormData for multipart/form-data upload
+    const formData = new FormData()
+    formData.append('file', blob, filename)
+    if (params.caption) {
+      formData.append('caption', params.caption)
+    }
 
     const response = await fetch(`${config.base_url}/api/v1/${endpoint}/${phone}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.api_key}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        url: params.mediaUrl,
-        caption: params.caption || '',
-      }),
+      body: formData,
     })
 
     const responseText = await response.text()
