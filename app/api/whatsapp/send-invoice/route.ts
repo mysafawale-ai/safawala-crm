@@ -106,68 +106,44 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     throw new Error("Failed to get public URL for invoice")
   }
 
-  // 7. Send via WhatsApp (try template first, then session message + PDF)
-  let sendResult: { success: boolean; error?: string }
+  // 7. Send booking_confirmation template + PDF
+  const eventDateFormatted = orderData.event_date
+    ? format(new Date(orderData.event_date), "dd MMM yyyy")
+    : "TBD"
+  const eventTime = orderData.delivery_time || orderData.event_time || "TBD"
+  const venue = orderData.venue_name || orderData.venue_address || "TBD"
+  const itemsSummary = items.length > 0
+    ? items.slice(0, 3).map((i: any) => i.product_name || i.category || "Item").join(", ") + (items.length > 3 ? ` +${items.length - 3} more` : "")
+    : "Wedding Accessories"
+  const totalAmount = `₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`
+  const paymentStatus = orderData.amount_paid > 0
+    ? `Advance ₹${orderData.amount_paid.toLocaleString("en-IN")} Paid`
+    : "Pending"
 
-  // Try sending template message first (works outside 24hr window)
   const templateResult = await sendTemplateMessage({
     phone,
-    templateName: "invoice_sent",
-    parameters: [customerName, invoiceNumber],
+    templateName: "booking_confirmation",
+    parameters: [
+      customerName,
+      invoiceNumber,
+      eventDateFormatted,
+      eventTime,
+      venue,
+      itemsSummary,
+      totalAmount,
+      paymentStatus,
+    ],
   })
 
-  if (templateResult.success) {
-    // Template sent, now send the PDF document
-    sendResult = await sendMedia({
-      phone,
-      mediaUrl: publicUrl,
-      caption: `${invoiceLabel} - ${companySettings?.company_name || "Safawala"}`,
-      mediaType: "document",
-    })
-  } else {
-    // Fallback: try session message with PDF
-    console.log("[WhatsApp Invoice] Template failed, trying session message:", templateResult.error)
+  console.log("[WhatsApp Invoice] booking_confirmation template result:", templateResult)
 
-    const messageText = [
-      `📄 *Invoice - ${companySettings?.company_name || "Safawala"}*`,
-      "",
-      `Dear ${customerName},`,
-      "",
-      `Your invoice *${invoiceNumber}* is ready.`,
-      eventDate ? `📅 Event Date: ${eventDate}` : "",
-      customerPhone ? `📱 Customer: ${customerPhone}` : "",
-      "",
-      `💰 Total: ₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`,
-      orderData.amount_paid
-        ? `✅ Paid: ₹${orderData.amount_paid.toLocaleString("en-IN")}`
-        : "",
-      orderData.pending_amount && orderData.pending_amount > 0
-        ? `⏳ Balance: ₹${orderData.pending_amount.toLocaleString("en-IN")}`
-        : "",
-      "",
-      "Thank you for your business! 🙏",
-    ]
-      .filter(Boolean)
-      .join("\n")
-
-    const msgResult = await sendMessage({ phone, message: messageText })
-
-    // Send the PDF regardless of whether text message succeeded
-    const mediaResult = await sendMedia({
-      phone,
-      mediaUrl: publicUrl,
-      caption: invoiceLabel,
-      mediaType: "document",
-    })
-
-    sendResult = {
-      success: msgResult.success || mediaResult.success,
-      error:
-        !msgResult.success && !mediaResult.success
-          ? `Text: ${msgResult.error}; PDF: ${mediaResult.error}`
-          : undefined,
-    }
-  }
+  // Send PDF regardless of template success
+  const sendResult = await sendMedia({
+    phone,
+    mediaUrl: publicUrl,
+    caption: `📄 Invoice ${invoiceNumber} - ${companySettings?.company_name || "Safawala"}`,
+    mediaType: "document",
+  })
 
   if (!sendResult.success) {
     throw new Error(sendResult.error || "Failed to send WhatsApp message")

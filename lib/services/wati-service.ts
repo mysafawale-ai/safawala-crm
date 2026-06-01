@@ -626,13 +626,15 @@ export async function sendInvoice(params: {
   totalAmount?: number
   dueDate?: string
 }): Promise<{ success: boolean; error?: string }> {
-  // First send the template message
+  // First send the template message (invoice_sent needs 4 params)
   const templateResult = await sendTemplateMessage({
     phone: params.phone,
     templateName: 'invoice_sent',
     parameters: [
       params.customerName,
       params.bookingNumber,
+      params.totalAmount ? `₹${params.totalAmount.toLocaleString('en-IN')}` : "As per booking",
+      params.dueDate || "On delivery",
     ],
   })
 
