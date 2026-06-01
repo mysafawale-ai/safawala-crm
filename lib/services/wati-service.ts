@@ -235,37 +235,42 @@ export async function sendTemplateMessage(params: SendTemplateParams): Promise<{
   const phone = formatPhone(params.phone)
 
   try {
-    const response = await fetch(`${config.base_url}/api/v1/sendTemplateMessage?whatsappNumber=${phone}`, {
+    // Use sendTemplateMessages (broadcast API) — correctly substitutes {{params}}
+    const response = await fetch(`${config.base_url}/api/v1/sendTemplateMessages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.api_key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        whatsappNumber: phone,
-        template_name: params.templateName,
         broadcast_name: params.broadcastName || `broadcast_${Date.now()}`,
-        parameters: params.parameters.map((value, index) => ({
-          name: `${index + 1}`,
-          value,
-        })),
+        template_name: params.templateName,
+        receivers: [
+          {
+            whatsappNumber: phone,
+            customParams: params.parameters.map((value, index) => ({
+              name: `${index + 1}`,
+              value,
+            })),
+          },
+        ],
       }),
     })
 
     const responseText = await response.text()
-    console.log(`[WATI] sendTemplateMessage response (status ${response.status}):`, responseText)
+    console.log(`[WATI] sendTemplateMessages response (status ${response.status}):`, responseText)
 
-    let data: WATIResponse
+    let data: any
     try {
       data = JSON.parse(responseText)
     } catch (e) {
-      console.error("[WATI] Failed to parse sendTemplateMessage JSON response:", e.message)
+      console.error("[WATI] Failed to parse sendTemplateMessages JSON response:", e.message)
       return { success: false, error: `WATI server returned status ${response.status}: ${responseText}` }
     }
 
     if (!response.ok || !data.result) {
       console.error("[WATI] Send template failed:", data)
-      return { success: false, error: data.info || "Failed to send template message" }
+      return { success: false, error: data.errors?.error || data.info || "Failed to send template message" }
     }
 
     // Log the message
