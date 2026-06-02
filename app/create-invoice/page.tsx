@@ -406,28 +406,21 @@ export default function CreateInvoicePage() {
         setCompanySettings(data.merged || data.company)
       }
 
-      // Load primary bank account for invoice
+      // Load primary bank account for invoice from banking_details table
       try {
-        const bankRes = await fetch('/api/banks', { cache: "no-store" })
+        const bankRes = await fetch(`/api/settings/banking?franchise_id=${userFranchiseId}`, { cache: "no-store" })
         if (bankRes.ok) {
           const bankData = await bankRes.json()
-          const banks = bankData.banks || []
-          // Prefer primary + show_on_invoices, fallback to just primary
-          const bank = banks.find((b: any) => b.is_primary && b.show_on_invoices)
+          const banks = bankData.data || []
+          // Prefer primary + show_on_invoice, fallback to just primary, then first
+          const bank = banks.find((b: any) => b.is_primary && b.show_on_invoice)
             || banks.find((b: any) => b.is_primary)
             || banks[0]
           if (bank) {
             setPrimaryBank(bank)
-            // Generate QR from UPI ID dynamically
-            if (bank.upi_id) {
-              try {
-                const QRCode = (await import("qrcode")).default
-                const upiUrl = `upi://pay?pa=${bank.upi_id}&pn=${encodeURIComponent(bank.account_holder || "")}&cu=INR`
-                const qrUrl = await QRCode.toDataURL(upiUrl, { width: 120, margin: 1, color: { dark: "#000000", light: "#ffffff" } })
-                setBankQrDataUrl(qrUrl)
-              } catch (e) {
-                console.warn("[CreateInvoice] QR generation failed:", e)
-              }
+            // Use stored QR image if available (base64 or URL)
+            if (bank.qr_file_path) {
+              setBankQrDataUrl(bank.qr_file_path)
             }
           }
         }
@@ -3825,7 +3818,7 @@ export default function CreateInvoicePage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">A/C Holder:</span>
-                      <span className="font-medium">{primaryBank.account_holder}</span>
+                      <span className="font-medium">{primaryBank.account_holder_name || primaryBank.account_holder}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">A/C No:</span>
