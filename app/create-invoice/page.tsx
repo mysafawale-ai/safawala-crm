@@ -3743,55 +3743,6 @@ export default function CreateInvoicePage() {
             </div>
             )}
 
-            {/* Bank Details + QR - Print Only */}
-            {primaryBank && (
-              <div className="bg-blue-50 px-2 py-1.5 rounded border border-blue-200">
-                <div className="text-[9px] text-blue-700 font-semibold mb-1 uppercase tracking-wide">Payment Details</div>
-                <div className="flex gap-3 items-start">
-                  <div className="flex-1 space-y-0.5 text-[10px]">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Bank:</span>
-                      <span className="font-semibold">{primaryBank.bank_name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">A/C Holder:</span>
-                      <span className="font-medium">{primaryBank.account_holder}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">A/C Number:</span>
-                      <span className="font-medium">{primaryBank.account_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">IFSC:</span>
-                      <span className="font-medium">{primaryBank.ifsc_code}</span>
-                    </div>
-                    {primaryBank.branch_name && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Branch:</span>
-                        <span className="font-medium">{primaryBank.branch_name}</span>
-                      </div>
-                    )}
-                    {primaryBank.upi_id && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">UPI:</span>
-                        <span className="font-semibold text-blue-700">{primaryBank.upi_id}</span>
-                      </div>
-                    )}
-                  </div>
-                  {primaryBank.qr_file_path && (
-                    <div className="shrink-0">
-                      <img
-                        src={primaryBank.qr_file_path}
-                        alt="UPI QR"
-                        className="w-16 h-16 object-contain border border-blue-200 rounded bg-white"
-                      />
-                      <div className="text-[8px] text-center text-gray-500 mt-0.5">Scan to Pay</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Financial Summary */}
             <div className="bg-amber-50 px-2 py-1.5 rounded border border-amber-200">
               <div className="text-[9px] text-amber-700 font-semibold mb-1 uppercase tracking-wide">Summary</div>
@@ -3846,6 +3797,55 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
             </div>
+
+            {/* Bank Details + QR - Print Only */}
+            {primaryBank && (
+              <div className="bg-blue-50 px-2 py-1.5 rounded border border-blue-200">
+                <div className="text-[9px] text-blue-700 font-semibold mb-1 uppercase tracking-wide">Payment Details</div>
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1 space-y-0.5 text-[10px]">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Bank:</span>
+                      <span className="font-semibold">{primaryBank.bank_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">A/C Holder:</span>
+                      <span className="font-medium">{primaryBank.account_holder}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">A/C Number:</span>
+                      <span className="font-medium">{primaryBank.account_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">IFSC:</span>
+                      <span className="font-medium">{primaryBank.ifsc_code}</span>
+                    </div>
+                    {primaryBank.branch_name && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Branch:</span>
+                        <span className="font-medium">{primaryBank.branch_name}</span>
+                      </div>
+                    )}
+                    {primaryBank.upi_id && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">UPI:</span>
+                        <span className="font-semibold text-blue-700">{primaryBank.upi_id}</span>
+                      </div>
+                    )}
+                  </div>
+                  {primaryBank.qr_file_path && (
+                    <div className="shrink-0">
+                      <img
+                        src={primaryBank.qr_file_path}
+                        alt="UPI QR"
+                        className="w-16 h-16 object-contain border border-blue-200 rounded bg-white"
+                      />
+                      <div className="text-[8px] text-center text-gray-500 mt-0.5">Scan to Pay</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Terms & Conditions - Print */}
