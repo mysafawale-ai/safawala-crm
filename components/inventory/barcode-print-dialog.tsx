@@ -94,25 +94,25 @@ async function doPrint(
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <style>
   @page { size: 100mm 25mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; font-weight: 700; }
-  html, body { width: 100mm; height: 25mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Barlow Condensed', Arial Narrow, Arial, sans-serif; font-weight: 700; }
+  html, body { width: 100mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
-  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
+  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm 1mm 1mm 1mm; padding-top: 2pt; gap: 0.2mm; border: 0.5mm solid #ddd; overflow: hidden; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 8pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
-  .meta { font-size: 6.5pt; font-weight: 700; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
-  .mrp-price { text-decoration: line-through; margin-right: 2px; }
-  .sale-price { font-size: 8pt; font-weight: 800; color: #000; margin-right: 2px; }
+  .name { font-size: 8.5pt; font-weight: 800; color: #000; text-align: center; width: 48mm; overflow: hidden; line-height: 1.15; word-break: break-word; letter-spacing: -0.2px; }
+  .meta { font-size: 7pt; font-weight: 700; color: #222; text-align: center; width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; letter-spacing: 0; }
+  .pricing-row { font-size: 7pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
+  .mrp-price { text-decoration: line-through; margin-right: 2px; color: #555; }
+  .sale-price { font-size: 8.5pt; font-weight: 800; color: #000; margin-right: 2px; }
   .you-save { font-size: 6.5pt; font-weight: 700; color: #000; }
-  .barcode { width: 42mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-size: 7.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1; }
-  .website { font-size: 6.5pt; font-weight: 700; color: #000; line-height: 1; margin-top: 0.5mm; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  .barcode { width: 44mm; height: 6mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .code { font-size: 7pt; font-weight: 700; color: #000; text-align: center; letter-spacing: 0.5px; line-height: 1.1; }
+  .website { font-size: 6.5pt; font-weight: 700; color: #000; line-height: 1.1; }
+  @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
   const win = window.open("", "_blank")
