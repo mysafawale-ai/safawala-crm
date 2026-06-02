@@ -111,7 +111,7 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 3mm 1mm 1mm 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
   .name { font-size: 6.7pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
-  .meta { font-size: 6.5pt; font-weight: 700; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
+  .meta { font-size: 6.5pt; font-weight: 500; color: #888; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
   .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
   .mrp-price { text-decoration: line-through; margin-right: 2px; }
   .sale-price { font-size: 8pt; font-weight: 800; color: #000; margin-right: 2px; }
