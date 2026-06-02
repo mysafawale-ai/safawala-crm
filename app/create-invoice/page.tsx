@@ -2784,7 +2784,7 @@ export default function CreateInvoicePage() {
                             }))}
                             bookingType={invoiceData.invoice_type}
                             eventDate={invoiceData.event_date}
-                            onProductSelect={(product) => addProduct(product as Product)}
+                            onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
                             onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
                           />
                         </div>
@@ -2834,7 +2834,7 @@ export default function CreateInvoicePage() {
                           }))}
                           bookingType={invoiceData.invoice_type}
                           eventDate={invoiceData.event_date}
-                          onProductSelect={(product) => addProduct(product as Product)}
+                          onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
                           onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
                         />
                       </div>
