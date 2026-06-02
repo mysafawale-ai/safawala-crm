@@ -65,7 +65,7 @@ interface ProductSelectorProps {
   selectedItems?: SelectedItem[]
   bookingType: "rental" | "sale"
   eventDate?: string
-  onProductSelect: (product: Product) => void
+  onProductSelect: (product: Product, quantity?: number) => void
   onCheckAvailability?: (productId: string, productName: string) => void
   onOpenCustomProductDialog?: () => void
   className?: string
@@ -273,12 +273,10 @@ export function ProductSelector({
     setCardQty(prev => ({ ...prev, [productId]: clamped }))
   }
 
-  // Handle add to cart with quantity
+  // Handle add to cart with quantity — pass qty directly, no loop
   const handleAddToCart = (product: Product) => {
     const qty = getCardQty(product.id)
-    for (let i = 0; i < qty; i++) {
-      onProductSelect(product)
-    }
+    onProductSelect(product, qty)
     // Reset qty back to 1 after adding
     setCardQty(prev => ({ ...prev, [product.id]: 1 }))
   }

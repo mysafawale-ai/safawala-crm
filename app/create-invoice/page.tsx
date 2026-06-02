@@ -1154,7 +1154,7 @@ export default function CreateInvoicePage() {
   }
 
   // Add product to invoice
-  const addProduct = (product: Product) => {
+  const addProduct = (product: Product, quantity: number = 1) => {
     console.log("=== ADD PRODUCT ===")
     console.log("Product:", product.name)
     console.log("Category:", product.category)
@@ -1203,7 +1203,7 @@ export default function CreateInvoicePage() {
       }
       
       const updated = [...invoiceItems]
-      updated[existingIndex].quantity += 1
+      updated[existingIndex].quantity += quantity
       updated[existingIndex].total_price = updated[existingIndex].quantity * updated[existingIndex].unit_price
       setInvoiceItems(updated)
     } else {
@@ -1216,9 +1216,9 @@ export default function CreateInvoicePage() {
         barcode: product.barcode,
         category: product.category,
         image_url: product.image_url,
-        quantity: 1,
+        quantity: quantity,
         unit_price: unitPrice,
-        total_price: unitPrice,
+        total_price: unitPrice * quantity,
       }
       setInvoiceItems([...invoiceItems, newItem])
     }
