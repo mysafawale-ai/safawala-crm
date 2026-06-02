@@ -74,7 +74,7 @@ async function doPrint(
         const barcodeImg = canvas.toDataURL("image/png")
         labelsHTML += `
           <div class="label">
-            <div class="name">${label.substring(0, 22)}</div>
+            <div class="name">${label}</div>
             ${metaLine1 ? `<div class="meta">${metaLine1}</div>` : ""}
             ${metaLine2 ? `<div class="meta">${metaLine2}</div>` : ""}
             ${(regularPrice || salePrice) ? `<div class="pricing-row">
