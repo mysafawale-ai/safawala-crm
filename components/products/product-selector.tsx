@@ -89,8 +89,8 @@ export function ProductSelector({
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const [barcodeInput, setBarcodeInput] = useState("")
   const [isScanning, setIsScanning] = useState(false)
-  // Per-card quantity state: productId -> qty
-  const [cardQty, setCardQty] = useState<Record<string, number>>({})
+  // Per-card quantity state: productId -> qty (string to allow empty while typing)
+  const [cardQty, setCardQty] = useState<Record<string, string>>({})
   const gridRef = useRef<HTMLDivElement>(null)
   const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
   const barcodeInputRef = useRef<HTMLInputElement>(null)
@@ -264,21 +264,40 @@ export function ProductSelector({
     return getAvailableStock(product) <= 0
   }
 
-  // Get card quantity (default 1)
-  const getCardQty = (productId: string) => cardQty[productId] ?? 1
+  // Get display value (string, may be empty while user is typing)
+  const getCardQtyStr = (productId: string) => cardQty[productId] ?? "1"
 
-  // Set card quantity clamped between 1 and available stock
-  const setQty = (productId: string, value: number, maxStock: number) => {
-    const clamped = Math.max(1, Math.min(value, maxStock))
-    setCardQty(prev => ({ ...prev, [productId]: clamped }))
+  // Get resolved numeric qty (fallback 1)
+  const getCardQtyNum = (productId: string) => Math.max(1, parseInt(cardQty[productId] || "1") || 1)
+
+  // +/- buttons: operate on numeric value, clamp between 1 and maxStock
+  const stepQty = (productId: string, delta: number, maxStock: number) => {
+    const current = getCardQtyNum(productId)
+    const next = Math.max(1, Math.min(current + delta, maxStock))
+    setCardQty(prev => ({ ...prev, [productId]: String(next) }))
+  }
+
+  // Typing: allow any string (including empty) so backspace works freely
+  const handleQtyInput = (productId: string, value: string) => {
+    // Only allow digits
+    if (/^\d*$/.test(value)) {
+      setCardQty(prev => ({ ...prev, [productId]: value }))
+    }
+  }
+
+  // On blur: if empty or 0, reset to "1"
+  const handleQtyBlur = (productId: string, maxStock: number) => {
+    const num = parseInt(cardQty[productId] || "1") || 1
+    const clamped = Math.max(1, Math.min(num, maxStock))
+    setCardQty(prev => ({ ...prev, [productId]: String(clamped) }))
   }
 
   // Handle add to cart with quantity — pass qty directly, no loop
   const handleAddToCart = (product: Product) => {
-    const qty = getCardQty(product.id)
+    const qty = getCardQtyNum(product.id)
     onProductSelect(product, qty)
     // Reset qty back to 1 after adding
-    setCardQty(prev => ({ ...prev, [product.id]: 1 }))
+    setCardQty(prev => ({ ...prev, [product.id]: "1" }))
   }
 
   // Keyboard navigation
@@ -600,26 +619,26 @@ export function ProductSelector({
                             size="sm"
                             variant="outline"
                             className="h-8 w-8 p-0 shrink-0"
-                            onClick={(e) => { e.stopPropagation(); setQty(product.id, getCardQty(product.id) - 1, availableStock) }}
-                            disabled={getCardQty(product.id) <= 1}
+                            onClick={(e) => { e.stopPropagation(); stepQty(product.id, -1, availableStock) }}
+                            disabled={getCardQtyNum(product.id) <= 1}
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
                           <Input
-                            type="number"
-                            min={1}
-                            max={availableStock}
-                            value={getCardQty(product.id)}
-                            onChange={(e) => setQty(product.id, parseInt(e.target.value) || 1, availableStock)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="h-8 text-center px-1 font-semibold text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            type="text"
+                            inputMode="numeric"
+                            value={getCardQtyStr(product.id)}
+                            onChange={(e) => handleQtyInput(product.id, e.target.value)}
+                            onBlur={() => handleQtyBlur(product.id, availableStock)}
+                            onClick={(e) => { e.stopPropagation(); (e.target as HTMLInputElement).select() }}
+                            className="h-8 text-center px-1 font-semibold text-sm"
                           />
                           <Button
                             size="sm"
                             variant="outline"
                             className="h-8 w-8 p-0 shrink-0"
-                            onClick={(e) => { e.stopPropagation(); setQty(product.id, getCardQty(product.id) + 1, availableStock) }}
-                            disabled={getCardQty(product.id) >= availableStock}
+                            onClick={(e) => { e.stopPropagation(); stepQty(product.id, +1, availableStock) }}
+                            disabled={getCardQtyNum(product.id) >= availableStock}
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
