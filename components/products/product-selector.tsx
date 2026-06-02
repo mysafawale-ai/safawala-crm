@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Package, AlertCircle, Eye, Plus, Scan } from "lucide-react"
+import { Search, Package, AlertCircle, Eye, Plus, Scan, Minus } from "lucide-react"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 import { toast } from "sonner"
 
@@ -89,6 +89,8 @@ export function ProductSelector({
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const [barcodeInput, setBarcodeInput] = useState("")
   const [isScanning, setIsScanning] = useState(false)
+  // Per-card quantity state: productId -> qty
+  const [cardQty, setCardQty] = useState<Record<string, number>>({})
   const gridRef = useRef<HTMLDivElement>(null)
   const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
   const barcodeInputRef = useRef<HTMLInputElement>(null)
@@ -260,6 +262,25 @@ export function ProductSelector({
   // Check if product is out of stock
   const isOutOfStock = (product: Product): boolean => {
     return getAvailableStock(product) <= 0
+  }
+
+  // Get card quantity (default 1)
+  const getCardQty = (productId: string) => cardQty[productId] ?? 1
+
+  // Set card quantity clamped between 1 and available stock
+  const setQty = (productId: string, value: number, maxStock: number) => {
+    const clamped = Math.max(1, Math.min(value, maxStock))
+    setCardQty(prev => ({ ...prev, [productId]: clamped }))
+  }
+
+  // Handle add to cart with quantity
+  const handleAddToCart = (product: Product) => {
+    const qty = getCardQty(product.id)
+    for (let i = 0; i < qty; i++) {
+      onProductSelect(product)
+    }
+    // Reset qty back to 1 after adding
+    setCardQty(prev => ({ ...prev, [product.id]: 1 }))
   }
 
   // Keyboard navigation
@@ -573,13 +594,47 @@ export function ProductSelector({
                           </Button>
                         </InventoryAvailabilityPopup>
                       )}
+
+                      {/* Quantity Stepper */}
+                      {!outOfStock && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0 shrink-0"
+                            onClick={(e) => { e.stopPropagation(); setQty(product.id, getCardQty(product.id) - 1, availableStock) }}
+                            disabled={getCardQty(product.id) <= 1}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={availableStock}
+                            value={getCardQty(product.id)}
+                            onChange={(e) => setQty(product.id, parseInt(e.target.value) || 1, availableStock)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-8 text-center px-1 font-semibold text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0 shrink-0"
+                            onClick={(e) => { e.stopPropagation(); setQty(product.id, getCardQty(product.id) + 1, availableStock) }}
+                            disabled={getCardQty(product.id) >= availableStock}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+
                       <Button
                         size="sm"
-                        onClick={() => onProductSelect(product)}
+                        onClick={() => handleAddToCart(product)}
                         disabled={outOfStock}
                         className="w-full"
                       >
-                        {outOfStock ? "Out of Stock" : "Add to Cart"}
+                        {outOfStock ? "Out of Stock" : `Add to Cart`}
                       </Button>
                     </div>
                   </div>
