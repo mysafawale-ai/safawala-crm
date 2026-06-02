@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertCircle, Loader2, DollarSign, Package, Image, Layers, Barcode } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { PricingPanel } from "./pricing-panel"
@@ -34,6 +35,7 @@ interface Product {
   stock_available: number
   reorder_level: number
   category_id?: string
+  subcategory_id?: string
   image_url?: string
   barcode?: string
 }
@@ -65,6 +67,47 @@ export function ProductEditorModal({
   const [images, setImages] = useState<ProductImage[]>([])
   const [variants, setVariants] = useState<ProductVariant[]>([])
   const [loadingImages, setLoadingImages] = useState(false)
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
+  const [subcategories, setSubcategories] = useState<{ id: string; name: string }[]>([])
+
+  // Load categories on mount
+  useEffect(() => {
+    supabase
+      .from("product_categories")
+      .select("id, name")
+      .eq("is_active", true)
+      .is("parent_id", null)
+      .order("name")
+      .then(({ data }) => { if (data) setCategories(data) })
+  }, [])
+
+  // Load subcategories when category changes
+  const handleCategoryChange = async (categoryId: string) => {
+    setFormData(prev => ({ ...prev, category_id: categoryId, subcategory_id: "" }))
+    setSubcategories([])
+    if (categoryId) {
+      const { data } = await supabase
+        .from("product_categories")
+        .select("id, name")
+        .eq("parent_id", categoryId)
+        .eq("is_active", true)
+        .order("name")
+      if (data) setSubcategories(data)
+    }
+  }
+
+  // When product loads, also load its subcategories
+  useEffect(() => {
+    if (product?.category_id) {
+      supabase
+        .from("product_categories")
+        .select("id, name")
+        .eq("parent_id", product.category_id)
+        .eq("is_active", true)
+        .order("name")
+        .then(({ data }) => { if (data) setSubcategories(data) })
+    }
+  }, [product?.category_id])
 
   const [formData, setFormData] = useState<Product>({
     name: "",
@@ -137,6 +180,8 @@ export function ProductEditorModal({
       size: "",
       color: "",
       material: "",
+      category_id: "",
+      subcategory_id: "",
       price: 0,
       regular_price: 0,
       rental_price: 0,
@@ -148,6 +193,7 @@ export function ProductEditorModal({
     })
     setImages([])
     setVariants([])
+    setSubcategories([])
     setActiveTab("info")
   }
 
@@ -256,6 +302,43 @@ export function ProductEditorModal({
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="mt-1"
                 />
+              </div>
+
+              {/* Category & Subcategory */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm">Category *</Label>
+                  <Select
+                    value={formData.category_id || ""}
+                    onValueChange={handleCategoryChange}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm">Subcategory</Label>
+                  <Select
+                    value={formData.subcategory_id || ""}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, subcategory_id: value }))}
+                    disabled={subcategories.length === 0}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder={subcategories.length === 0 ? "Select category first" : "Select subcategory"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories.map(sub => (
+                        <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
