@@ -103,7 +103,7 @@ async function doPrint(
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 3mm 1mm 0 1mm; gap: 0; border: 0.5mm solid #ddd; overflow: hidden; }
   .label.empty { visibility: hidden; }
   .name { font-size: 6.7pt; font-weight: 900; color: #000; text-align: center; width: 48mm; overflow: hidden; line-height: 1.15; word-break: break-word; margin-bottom: 0.4mm; }
-  .meta { font-size: 6.5pt; font-weight: 500; color: #888; text-align: center; width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+  .meta { font-size: 6.5pt; font-weight: 500; color: #000; text-align: center; width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
   .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.15; white-space: nowrap; margin-top: 0.4mm; }
   .mrp-price { text-decoration: line-through; margin-right: 2px; color: #555; }
   .sale-price { font-size: 8pt; font-weight: 900; color: #000; margin-right: 2px; }
