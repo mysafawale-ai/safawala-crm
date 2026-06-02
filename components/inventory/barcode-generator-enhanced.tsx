@@ -108,17 +108,17 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
   html, body { width: 100mm; height: 25mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
-  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 2mm 1mm 0.5mm 1mm; gap: 0; border: 0.5mm solid #ddd; }
+  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 3mm 1mm 1mm 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 6.7pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.0; word-break: break-word; }
-  .meta { font-size: 6.5pt; font-weight: 500; color: #000; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
-  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.0; white-space: nowrap; }
+  .name { font-size: 6.7pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
+  .meta { font-size: 6.5pt; font-weight: 500; color: #888; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
+  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
   .mrp-price { text-decoration: line-through; margin-right: 2px; }
   .sale-price { font-size: 8pt; font-weight: 800; color: #000; margin-right: 2px; }
   .you-save { font-size: 6.5pt; font-weight: 700; color: #000; }
   .barcode { width: 42mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-size: 7.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1; }
-  .website { font-size: 6.5pt; font-weight: 700; color: #000; line-height: 1; margin-top: 0; }
+  .website { font-size: 6.5pt; font-weight: 700; color: #000; line-height: 1; margin-top: 0.5mm; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
