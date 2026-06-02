@@ -191,6 +191,7 @@ export default function CreateInvoicePage() {
   // Company Settings for PDF
   const [companySettings, setCompanySettings] = useState<any>(null)
   const [primaryBank, setPrimaryBank] = useState<any>(null)
+  const [bankQrDataUrl, setBankQrDataUrl] = useState<string>("")
 
   // Franchise ID for data isolation
   const [franchiseId, setFranchiseId] = useState<string | null>(null)
@@ -415,7 +416,20 @@ export default function CreateInvoicePage() {
           const bank = banks.find((b: any) => b.is_primary && b.show_on_invoices)
             || banks.find((b: any) => b.is_primary)
             || banks[0]
-          if (bank) setPrimaryBank(bank)
+          if (bank) {
+            setPrimaryBank(bank)
+            // Generate QR from UPI ID dynamically
+            if (bank.upi_id) {
+              try {
+                const QRCode = (await import("qrcode")).default
+                const upiUrl = `upi://pay?pa=${bank.upi_id}&pn=${encodeURIComponent(bank.account_holder || "")}&cu=INR`
+                const qrUrl = await QRCode.toDataURL(upiUrl, { width: 120, margin: 1, color: { dark: "#000000", light: "#ffffff" } })
+                setBankQrDataUrl(qrUrl)
+              } catch (e) {
+                console.warn("[CreateInvoice] QR generation failed:", e)
+              }
+            }
+          }
         }
       } catch (e) {
         console.warn("[CreateInvoice] Failed to load bank details:", e)
@@ -3663,8 +3677,9 @@ export default function CreateInvoicePage() {
                           )}
                         </td>
                         <td className="px-1.5 py-0.5">
-                          <span className="font-medium text-gray-900">{item.product_name}</span>
-                          {item.barcode && <span className="text-[8px] text-gray-400 ml-1">#{item.barcode}</span>}
+                          <span className="font-medium text-[8px] text-gray-900 leading-tight block">{item.product_name}</span>
+                          {item.category && <span className="text-[7px] text-gray-400 leading-tight block">{item.category}</span>}
+                          {item.barcode && <span className="text-[7px] text-gray-400 leading-tight">#{item.barcode}</span>}
                         </td>
                         <td className="px-1.5 py-0.5 text-center font-medium">{item.quantity}</td>
                         <td className="px-1.5 py-0.5 text-right font-medium text-gray-900">
@@ -3802,45 +3817,41 @@ export default function CreateInvoicePage() {
             {primaryBank && (
               <div className="bg-blue-50 px-2 py-1.5 rounded border border-blue-200">
                 <div className="text-[9px] text-blue-700 font-semibold mb-1 uppercase tracking-wide">Payment Details</div>
-                <div className="flex gap-3 items-start">
-                  <div className="flex-1 space-y-0.5 text-[10px]">
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1 space-y-0 text-[9px]">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Bank:</span>
+                      <span className="text-gray-500">Bank:</span>
                       <span className="font-semibold">{primaryBank.bank_name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">A/C Holder:</span>
+                      <span className="text-gray-500">A/C Holder:</span>
                       <span className="font-medium">{primaryBank.account_holder}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">A/C Number:</span>
+                      <span className="text-gray-500">A/C No:</span>
                       <span className="font-medium">{primaryBank.account_number}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">IFSC:</span>
+                      <span className="text-gray-500">IFSC:</span>
                       <span className="font-medium">{primaryBank.ifsc_code}</span>
                     </div>
                     {primaryBank.branch_name && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Branch:</span>
+                        <span className="text-gray-500">Branch:</span>
                         <span className="font-medium">{primaryBank.branch_name}</span>
                       </div>
                     )}
                     {primaryBank.upi_id && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">UPI:</span>
+                        <span className="text-gray-500">UPI:</span>
                         <span className="font-semibold text-blue-700">{primaryBank.upi_id}</span>
                       </div>
                     )}
                   </div>
-                  {primaryBank.qr_file_path && (
-                    <div className="shrink-0">
-                      <img
-                        src={primaryBank.qr_file_path}
-                        alt="UPI QR"
-                        className="w-16 h-16 object-contain border border-blue-200 rounded bg-white"
-                      />
-                      <div className="text-[8px] text-center text-gray-500 mt-0.5">Scan to Pay</div>
+                  {bankQrDataUrl && (
+                    <div className="shrink-0 text-center">
+                      <img src={bankQrDataUrl} alt="UPI QR" className="w-14 h-14 object-contain bg-white rounded border border-blue-200" />
+                      <div className="text-[7px] text-gray-500 mt-0.5">Scan to Pay</div>
                     </div>
                   )}
                 </div>
