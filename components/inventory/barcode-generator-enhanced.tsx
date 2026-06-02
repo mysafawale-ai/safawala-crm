@@ -108,7 +108,7 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
   html, body { width: 100mm; height: 25mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
-  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
+  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 3mm 1mm 1mm 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
   .name { font-size: 6.7pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
   .meta { font-size: 6.5pt; font-weight: 700; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
