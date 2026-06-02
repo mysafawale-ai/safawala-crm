@@ -55,8 +55,9 @@ async function doPrint(
   const rows = Math.ceil(qty / labelsPerRow)
   let labelsHTML = ""
 
-  const metaParts = [color, size, material].filter(Boolean)
-  const metaLine = metaParts.length > 0 ? metaParts.join(" | ") : ""
+  // Split meta into 2 lines so it doesn't overflow the label
+  const metaLine1 = [color, size].filter(Boolean).join(" | ")
+  const metaLine2 = material || ""
   const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
 
   for (let row = 0; row < rows; row++) {
@@ -74,7 +75,8 @@ async function doPrint(
         labelsHTML += `
           <div class="label">
             <div class="name">${label.substring(0, 22)}</div>
-            ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
+            ${metaLine1 ? `<div class="meta">${metaLine1}</div>` : ""}
+            ${metaLine2 ? `<div class="meta">${metaLine2}</div>` : ""}
             ${(regularPrice || salePrice) ? `<div class="pricing-row">
               ${regularPrice ? `MRP: <span class="mrp-price">&#8377;${regularPrice}</span>` : ""}
               ${salePrice ? `<span class="sale-price">&#8377;${salePrice}</span>` : ""}
@@ -102,7 +104,7 @@ async function doPrint(
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
   .name { font-size: 8pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
-  .meta { font-size: 6.5pt; font-weight: 700; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
+  .meta { font-size: 6.5pt; font-weight: 700; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
   .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
   .mrp-price { text-decoration: line-through; margin-right: 2px; }
   .sale-price { font-size: 8pt; font-weight: 800; color: #000; margin-right: 2px; }

@@ -509,7 +509,7 @@ export default function CreateInvoicePage() {
         category_id: p.category_id,
         subcategory_id: undefined,
         rental_price: p.rental_price || 0,
-        sale_price: p.sale_price || 0,
+        sale_price: (p as any).price || (p as any).sale_price || 0,
         security_deposit: p.security_deposit || 0,
         stock_available: p.stock_available || 0,
         image_url: (p as any).image_url || undefined,
