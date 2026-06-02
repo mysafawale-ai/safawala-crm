@@ -240,6 +240,9 @@ export function ProductEditorModal({
 
       const payload = {
         ...formData,
+        // Convert empty strings to null for UUID fields
+        category_id: formData.category_id || null,
+        subcategory_id: formData.subcategory_id || null,
         image_url: mainImage?.url,
         images,
         variants,
