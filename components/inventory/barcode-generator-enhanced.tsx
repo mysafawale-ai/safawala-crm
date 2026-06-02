@@ -110,7 +110,7 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
   .row:last-child { page-break-after: avoid; }
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 6pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
+  .name { font-size: 6.7pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
   .meta { font-size: 6.5pt; font-weight: 700; color: #333; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
   .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
   .mrp-price { text-decoration: line-through; margin-right: 2px; }
