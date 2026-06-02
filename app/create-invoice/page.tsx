@@ -418,9 +418,21 @@ export default function CreateInvoicePage() {
             || banks[0]
           if (bank) {
             setPrimaryBank(bank)
-            // Use stored QR image if available (base64 or URL)
+            // Fetch QR image and convert to base64 so it renders in print
             if (bank.qr_file_path) {
-              setBankQrDataUrl(bank.qr_file_path)
+              try {
+                const imgRes = await fetch(bank.qr_file_path)
+                const blob = await imgRes.blob()
+                const reader = new FileReader()
+                reader.onloadend = () => {
+                  if (reader.result) setBankQrDataUrl(reader.result as string)
+                }
+                reader.readAsDataURL(blob)
+              } catch (e) {
+                // fallback: use URL directly
+                setBankQrDataUrl(bank.qr_file_path)
+                console.warn("[CreateInvoice] QR preload failed, using URL:", e)
+              }
             }
           }
         }
