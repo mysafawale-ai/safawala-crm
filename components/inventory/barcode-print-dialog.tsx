@@ -94,24 +94,23 @@ async function doPrint(
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <style>
   @page { size: 100mm 25mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Barlow Condensed', Arial Narrow, Arial, sans-serif; font-weight: 700; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial Black', Arial, sans-serif; }
   html, body { width: 100mm; height: 25mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow: hidden; }
   .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
   .row:last-child { page-break-after: avoid; }
-  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 1.5pt 1mm 0.5mm 1mm; gap: 0; border: 0.5mm solid #ddd; overflow: hidden; }
+  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 2.5pt 1mm 0 1mm; gap: 0; border: 0.5mm solid #ddd; overflow: hidden; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 8pt; font-weight: 800; color: #000; text-align: center; width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; letter-spacing: -0.2px; margin-bottom: 0.3mm; }
-  .meta { font-size: 6.5pt; font-weight: 700; color: #222; text-align: center; width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
-  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.1; white-space: nowrap; margin-top: 0.3mm; }
+  .name { font-size: 8pt; font-weight: 900; color: #000; text-align: center; width: 48mm; overflow: hidden; line-height: 1.15; word-break: break-word; margin-bottom: 0.4mm; }
+  .meta { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.15; white-space: nowrap; margin-top: 0.4mm; }
   .mrp-price { text-decoration: line-through; margin-right: 2px; color: #555; }
-  .sale-price { font-size: 8pt; font-weight: 800; color: #000; margin-right: 2px; }
+  .sale-price { font-size: 8pt; font-weight: 900; color: #000; margin-right: 2px; }
   .you-save { font-size: 6pt; font-weight: 700; color: #000; }
-  .barcode { width: 43mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; margin-top: 0.3mm; }
-  .code { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; letter-spacing: 0.5px; line-height: 1.1; }
-  .website { font-size: 6pt; font-weight: 700; color: #000; line-height: 1.1; }
+  .barcode { width: 43mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; margin-top: 0.4mm; }
+  .code { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; letter-spacing: 0.5px; line-height: 1.1; font-family: 'Courier New', monospace; }
+  .website { font-size: 6pt; font-weight: 700; color: #000; line-height: 1.1; font-family: Arial, sans-serif; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
@@ -119,7 +118,7 @@ async function doPrint(
   if (!win) { toast.error("Please allow popups for printing"); return }
   win.document.write(html)
   win.document.close()
-  setTimeout(() => { win.focus(); win.print() }, 500)
+  setTimeout(() => { win.focus(); win.print() }, 200)
 }
 
 export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialogProps) {
