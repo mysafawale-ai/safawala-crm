@@ -11,7 +11,7 @@
  * - Automatic reuse in future orders
  */
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AlertCircle, Loader2, Check, Upload, X, Camera } from "lucide-react"
 import { toast } from "sonner"
 import { uploadWithProgress } from "@/lib/upload-with-progress"
+import { supabase } from "@/lib/supabase"
 
 interface CustomProductDialogProps {
   open: boolean
@@ -51,7 +52,9 @@ export function CustomProductDialog({
 
   const [formData, setFormData] = useState({
     name: "",
-    category: "Miscellaneous",
+    category: "",
+    category_id: "",
+    subcategory_id: "",
     description: "",
     rental_price: 0,
     sale_price: 0,
@@ -59,6 +62,37 @@ export function CustomProductDialog({
     stock_available: 999,
     barcode_number: "",
   })
+
+  const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([])
+  const [dbSubcategories, setDbSubcategories] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase
+        .from("product_categories")
+        .select("id, name")
+        .eq("is_active", true)
+        .is("parent_id", null)
+        .order("name")
+      if (data) setDbCategories(data)
+    }
+    fetchCategories()
+  }, [])
+
+  const handleCategoryChange = async (categoryId: string) => {
+    const cat = dbCategories.find(c => c.id === categoryId)
+    setFormData(prev => ({ ...prev, category_id: categoryId, category: cat?.name || "", subcategory_id: "" }))
+    setDbSubcategories([])
+    if (categoryId) {
+      const { data } = await supabase
+        .from("product_categories")
+        .select("id, name")
+        .eq("parent_id", categoryId)
+        .eq("is_active", true)
+        .order("name")
+      if (data) setDbSubcategories(data)
+    }
+  }
 
   // Compress image to base64 with size optimization
   const compressImageToBase64 = async (file: File): Promise<string> => {
@@ -109,17 +143,6 @@ export function CustomProductDialog({
       reader.readAsDataURL(file)
     })
   }
-
-  const categories = [
-    "Miscellaneous",
-    "Decoration",
-    "Furniture",
-    "Lighting",
-    "Audio/Video",
-    "Catering",
-    "Transportation",
-    "Other",
-  ]
 
   const handleGenerateBarcode = () => {
     // Generate a simple barcode: CUSTOM-{timestamp}-{random}
@@ -173,6 +196,8 @@ export function CustomProductDialog({
         body: JSON.stringify({
           name: formData.name,
           category: formData.category,
+          category_id: formData.category_id || null,
+          subcategory_id: formData.subcategory_id || null,
           description: formData.description,
           rental_price: bookingType === "rental" ? formData.rental_price : 0,
           sale_price: bookingType === "sale" ? formData.sale_price : 0,
@@ -240,7 +265,9 @@ export function CustomProductDialog({
       // Reset form
       setFormData({
         name: "",
-        category: "Miscellaneous",
+        category: "",
+        category_id: "",
+        subcategory_id: "",
         description: "",
         rental_price: 0,
         sale_price: 0,
@@ -248,6 +275,7 @@ export function CustomProductDialog({
         stock_available: 999,
         barcode_number: "",
       })
+      setDbSubcategories([])
       setGenerateBarcode(false)
       setImageFile(null)
       setImagePreview(null)
@@ -347,20 +375,43 @@ export function CustomProductDialog({
           </div>
 
           {/* Category */}
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={formData.category} onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}>
-              <SelectTrigger id="category">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="category">Category *</Label>
+              <Select value={formData.category_id} onValueChange={handleCategoryChange}>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dbCategories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dbSubcategories.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="subcategory">Subcategory</Label>
+                <Select
+                  value={formData.subcategory_id}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, subcategory_id: value }))}
+                >
+                  <SelectTrigger id="subcategory">
+                    <SelectValue placeholder="Select subcategory" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dbSubcategories.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.id}>
+                        {sub.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Description */}
