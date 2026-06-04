@@ -143,6 +143,23 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     throw new Error(templateResult.error || "Failed to send WhatsApp message")
   }
 
+  // 7.5. Since booking_confirmation has a text header, the mediaUrl inside templateResult is ignored by WATI.
+  // We will also send the PDF document directly using sendMedia.
+  try {
+    const mediaResult = await sendMedia({
+      phone,
+      mediaUrl: publicUrl,
+      caption: `Invoice #${invoiceNumber} - ${customerName}`,
+      mediaType: "document",
+    })
+    console.log("[WhatsApp Invoice] Direct PDF document result:", mediaResult)
+  } catch (mediaErr: any) {
+    console.warn(
+      "[WhatsApp Invoice] Failed to send direct PDF document to customer (customer may be outside 24h session window):",
+      mediaErr.message || mediaErr
+    )
+  }
+
   // 8. Log the WhatsApp invoice send
   try {
     await supabase.from("whatsapp_messages").insert({
