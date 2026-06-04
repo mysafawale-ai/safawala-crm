@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 import { sendMessage, sendMedia, sendTemplateMessage } from "@/lib/services/wati-service"
-import { urlToPdfBuffer, htmlToPdfBuffer } from "@/lib/puppeteer-pdf"
+import { htmlToPdfBuffer, urlToPdfBuffer } from "@/lib/puppeteer-pdf"
 import { generateInvoiceHTML } from "@/lib/invoice-html-template"
 import { mapToInvoiceData } from "@/lib/map-invoice-data"
+import { generatePdfToken } from "@/lib/pdf-token"
 import { format } from "date-fns"
-import { cookies } from "next/headers"
 
 export const dynamic = "force-dynamic"
 
@@ -72,29 +72,18 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     }
   }
 
-  // 5. Generate PDF — render the LIVE invoice page so WhatsApp PDF = Print Invoice PDF
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000"
+  // 5. Generate PDF — render the EXACT same invoice page the user sees when they click Print
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mysafawala.com"
+  const token = generatePdfToken(orderId, orderType)
+  const invoicePageUrl = `${appBaseUrl}/create-invoice?mode=edit&id=${orderId}&pdfToken=${token}&print=true`
 
-  // Map orderType to the mode param create-invoice expects
-  const invoicePageMode = "edit"
-  const invoicePageUrl = `${appBaseUrl}/create-invoice?mode=${invoicePageMode}&id=${orderId}&print=true`
-
-  // Pass session cookies so the page renders authenticated
   let pdfBuffer: Buffer
   try {
-    const cookieStore = cookies()
-    const allCookies = cookieStore.getAll().map(c => ({
-      name: c.name,
-      value: c.value,
-      domain: new URL(appBaseUrl).hostname,
-    }))
-    pdfBuffer = await urlToPdfBuffer(invoicePageUrl, allCookies)
-    console.log("[WhatsApp Invoice] PDF generated from live page:", invoicePageUrl)
-  } catch (pdfErr) {
-    // Fallback to legacy HTML template if live-page render fails
-    console.warn("[WhatsApp Invoice] Live-page PDF failed, falling back to HTML template:", pdfErr)
+    pdfBuffer = await urlToPdfBuffer(invoicePageUrl)
+    console.log("[WhatsApp Invoice] PDF generated from live invoice page:", invoicePageUrl)
+  } catch (err) {
+    // Fallback to HTML template if live-page render fails
+    console.warn("[WhatsApp Invoice] Live-page failed, falling back to HTML template:", err)
     const invoiceData = mapToInvoiceData(orderData, customer, items, companySettings, orderType)
     const htmlContent = generateInvoiceHTML(invoiceData)
     pdfBuffer = await htmlToPdfBuffer(htmlContent)

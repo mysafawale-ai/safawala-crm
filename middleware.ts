@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { verifyPdfToken } from "@/lib/pdf-token"
 
 // Unified middleware: protect all pages by default; allow public paths and API
 const PUBLIC_PATH_PREFIXES = [
@@ -51,6 +52,11 @@ export function middleware(request: NextRequest) {
   }
 
   if (!isAuthed) {
+    // Check for valid PDF token — allows Puppeteer to render invoice without login
+    const pdfToken = request.nextUrl.searchParams.get("pdfToken")
+    if (pdfToken && verifyPdfToken(pdfToken)) {
+      return NextResponse.next()
+    }
     const loginUrl = new URL("/", request.url)
     loginUrl.searchParams.set("redirect", pathname)
     return NextResponse.redirect(loginUrl)

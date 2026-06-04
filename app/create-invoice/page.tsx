@@ -187,6 +187,8 @@ export default function CreateInvoicePage() {
   // Mode: 'new' | 'edit' | 'quote' | 'final-bill'
   const mode = searchParams.get("mode") || "new"
   const orderId = searchParams.get("id")
+  // pdfToken: when present and valid, skip auth check (used by WhatsApp PDF generation)
+  const pdfToken = searchParams.get("pdfToken")
 
   // Company Settings for PDF
   const [companySettings, setCompanySettings] = useState<any>(null)
@@ -319,6 +321,8 @@ export default function CreateInvoicePage() {
   // Load next invoice number from sequence
   const loadNextInvoiceNumber = async () => {
     try {
+      // Skip auth API when rendering via PDF token (Puppeteer)
+      if (pdfToken) return
       // Get current user to get franchise_id and permissions
       const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
       const user = userRes.ok ? await userRes.json() : null
@@ -380,20 +384,25 @@ export default function CreateInvoicePage() {
     }
   }
 
-  // Load customers and products
+  // Load customers and products (skip non-essential loads when rendering PDF via token)
   useEffect(() => {
-    loadCustomers()
-    loadProductsAndCategories()
-    loadStaffMembers()
+    if (!pdfToken) {
+      loadCustomers()
+      loadProductsAndCategories()
+      loadStaffMembers()
+    }
     loadCompanySettings()
   }, [])
 
   // Load company settings for PDF header
   const loadCompanySettings = async () => {
     try {
-      const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
-      const user = userRes.ok ? await userRes.json() : null
-      const userFranchiseId = user?.franchise_id
+      let userFranchiseId: string | null = null
+      if (!pdfToken) {
+        const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
+        const user = userRes.ok ? await userRes.json() : null
+        userFranchiseId = user?.franchise_id
+      }
 
       let apiUrl = '/api/settings/all'
       if (userFranchiseId) {
@@ -2250,40 +2259,7 @@ export default function CreateInvoicePage() {
           </div>
         </div>
 
-        {/* ========== WEB-ONLY HEADER ========== */}
-        <div className="print:hidden bg-white border-b border-slate-200 px-6 py-4 rounded-t-xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {companySettings?.logo_url && (
-              <img src={companySettings.logo_url} alt="Logo" className="h-10 w-10 object-contain rounded" />
-            )}
-            <div>
-              <div className="text-base font-bold text-slate-900">{companySettings?.company_name || "SAFAWALA"}</div>
-              <div className="text-xs text-slate-400">Premium Wedding Turbans &amp; Accessories</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right mr-1">
-              <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">
-                {mode === "final-bill" ? "Final Bill" : invoiceData.invoice_type === "rental" ? "Rental Invoice" : "Sale Invoice"}
-              </div>
-              {invoiceData.invoice_number && (
-                <div className="text-sm font-bold text-indigo-700 font-mono">{invoiceData.invoice_number}</div>
-              )}
-            </div>
-            <Select
-              value={invoiceData.invoice_type}
-              onValueChange={(v) => setInvoiceData({ ...invoiceData, invoice_type: v as any })}
-            >
-              <SelectTrigger className="w-28 h-8 text-xs border-slate-200">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="rental">Rental</SelectItem>
-                <SelectItem value="sale">Sale</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        {/* WEB-ONLY HEADER — removed duplicate, merged into Company Logo section below */}
 
         {/* ================= PRINT-ONLY COMPREHENSIVE SECTION ================= */}
         <div className="hidden print:block px-3 py-2 space-y-2 border-b border-slate-200">
@@ -2348,44 +2324,45 @@ export default function CreateInvoicePage() {
 
         {/* ================= WEB-ONLY CONTENT START ================= */}
         <div className="p-4 md:p-6 space-y-4 md:space-y-6 print:hidden">
-          {/* Company Logo & Invoice Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
-            {/* Logo & Company Name */}
-            <div className="flex items-center gap-3">
-              <img 
-                src={companySettings?.logo_url || DEFAULT_LOGO_URL} 
-                alt="Logo" 
-                className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" 
+          {/* Company Logo & Invoice Header — single combined row */}
+          <div className="flex items-center justify-between gap-3 border-b pb-3">
+            {/* Logo + Name */}
+            <div className="flex items-center gap-2">
+              <img
+                src={companySettings?.logo_url || DEFAULT_LOGO_URL}
+                alt="Logo"
+                className="h-9 w-9 object-contain rounded"
               />
-              <div>
-                <div className="font-bold text-base md:text-lg text-gray-800">
-                  {companySettings?.company_name || "SAFAWALA"}
-                </div>
-                <div className="text-[10px] md:text-xs text-gray-500">
-                  {companySettings?.phone && <span>📞 {companySettings.phone}</span>}
-                </div>
+              <div className="font-bold text-sm text-slate-900">
+                {companySettings?.company_name || "SAFAWALA"}
               </div>
             </div>
-            {/* Invoice Info */}
-            <div className="flex items-center gap-3 sm:gap-6">
-              <div className="flex-1">
-                <Label className="text-[10px] md:text-xs text-gray-500 block mb-1">Invoice #</Label>
-                <Input
-                  value={invoiceData.invoice_number}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, invoice_number: e.target.value })}
-                  className="font-mono font-bold text-sm md:text-base h-8 md:h-9"
-                  placeholder="e.g., ORD001"
-                />
-              </div>
-              <div className="text-right flex-1">
-                <Label className="text-[10px] md:text-xs text-gray-500 block mb-1">Date</Label>
-                <Input
-                  type="date"
-                  value={invoiceData.invoice_date}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, invoice_date: e.target.value })}
-                  className="font-medium text-sm md:text-base h-8 md:h-9"
-                />
-              </div>
+            {/* Invoice # + Date + Type selector */}
+            <div className="flex items-center gap-2">
+              <Select
+                value={invoiceData.invoice_type}
+                onValueChange={(v) => setInvoiceData({ ...invoiceData, invoice_type: v as any })}
+              >
+                <SelectTrigger className="w-24 h-8 text-xs border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rental">Rental</SelectItem>
+                  <SelectItem value="sale">Sale</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                value={invoiceData.invoice_number}
+                onChange={(e) => setInvoiceData({ ...invoiceData, invoice_number: e.target.value })}
+                className="font-mono font-bold text-sm h-8 w-28"
+                placeholder="INV001"
+              />
+              <Input
+                type="date"
+                value={invoiceData.invoice_date}
+                onChange={(e) => setInvoiceData({ ...invoiceData, invoice_date: e.target.value })}
+                className="text-xs h-8 w-36"
+              />
             </div>
           </div>
 
