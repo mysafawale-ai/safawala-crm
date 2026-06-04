@@ -195,10 +195,10 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     itemsSummary, totalAmountStr, paymentStatus, pdfUrl: publicUrl,
   })
 
-  // Use the approved template. Try the newer UTILITY template (booking_invoice_document_v2) first.
+  // Use the approved template. Try the newer UTILITY template (booking_invoice_document_v3) first.
   let templateResult = await sendTemplateMessage({
     phone,
-    templateName: "booking_invoice_document_v2",
+    templateName: "booking_invoice_document_v3",
     parameters: [
       customerName,        // {{1}} - Customer name
       invoiceNumber,       // {{2}} - Booking/Invoice ID
@@ -213,21 +213,40 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
   })
 
   if (!templateResult.success) {
+    console.log("[WhatsApp Invoice] booking_invoice_document_v3 failed/pending, trying booking_invoice_document_v2 fallback")
+    templateResult = await sendTemplateMessage({
+      phone,
+      templateName: "booking_invoice_document_v2",
+      parameters: [
+        customerName,
+        invoiceNumber,
+        eventDateFormatted,
+        eventTime,
+        venue,
+        itemsSummary,
+        totalAmountStr,
+        paymentStatus,
+      ],
+      mediaUrl: publicUrl,
+    })
+  }
+
+  if (!templateResult.success) {
     console.log("[WhatsApp Invoice] booking_invoice_document_v2 failed/pending, trying booking_invoice_document fallback")
     templateResult = await sendTemplateMessage({
       phone,
       templateName: "booking_invoice_document",
       parameters: [
-        customerName,        // {{1}} - Customer name
-        invoiceNumber,       // {{2}} - Booking/Invoice ID
-        eventDateFormatted,  // {{3}} - Event Date
-        eventTime,           // {{4}} - Event Time
-        venue,               // {{5}} - Venue
-        itemsSummary,        // {{6}} - Items summary
-        totalAmountStr,      // {{7}} - Total amount
-        paymentStatus,       // {{8}} - Payment status
+        customerName,
+        invoiceNumber,
+        eventDateFormatted,
+        eventTime,
+        venue,
+        itemsSummary,
+        totalAmountStr,
+        paymentStatus,
       ],
-      mediaUrl: publicUrl,   // PDF attached as document header
+      mediaUrl: publicUrl,
     })
   }
 

@@ -1732,10 +1732,20 @@ export default function DeliveriesPage() {
                 ))}
               </div>
             ) : filteredDeliveries.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-semibold text-gray-900">No deliveries found</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by scheduling a new delivery.</p>
+              <div className="text-center py-16">
+                <Truck className="mx-auto h-14 w-14 text-slate-300 mb-3" />
+                <h3 className="text-base font-semibold text-slate-700">No deliveries found</h3>
+                <p className="mt-1 text-sm text-slate-500 max-w-xs mx-auto">
+                  {searchTerm
+                    ? `No deliveries match "${searchTerm}". Try a different search term.`
+                    : "No deliveries match the current filters. Try adjusting or resetting the filters."}
+                </p>
+                <button
+                  onClick={() => { setSearchTerm(""); setStatusFilter("all") }}
+                  className="mt-4 text-sm text-indigo-600 hover:text-indigo-800 font-medium underline underline-offset-2"
+                >
+                  Clear all filters
+                </button>
               </div>
             ) : (
               paginatedDeliveries.map((delivery) => {

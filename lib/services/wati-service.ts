@@ -249,10 +249,13 @@ export async function sendTemplateMessage(params: SendTemplateParams): Promise<{
         receivers: [
           {
             whatsappNumber: phone,
-            customParams: params.parameters.map((value, index) => ({
-              name: `${index + 1}`,
-              value,
-            })),
+            customParams: [
+              ...params.parameters.map((value, index) => ({
+                name: `${index + 1}`,
+                value,
+              })),
+              ...(params.mediaUrl ? [{ name: "mediaUrl", value: params.mediaUrl }] : []),
+            ],
             ...(params.mediaUrl ? { mediaUrl: params.mediaUrl } : {}),
           },
         ],
@@ -485,10 +488,10 @@ export async function sendBookingConfirmation(params: {
   totalAmount: number
   paymentStatus?: string
 }): Promise<{ success: boolean; error?: string }> {
-  // Use the approved template. Try the newer UTILITY template (booking_invoice_document_v2) first.
+  // Use the approved template. Try the newer UTILITY template (booking_invoice_document_v3) first.
   let res = await sendTemplateMessage({
     phone: params.phone,
-    templateName: 'booking_invoice_document_v2',
+    templateName: 'booking_invoice_document_v3',
     parameters: [
       params.customerName,                                         // {{1}}
       params.bookingNumber,                                        // {{2}}
@@ -502,19 +505,37 @@ export async function sendBookingConfirmation(params: {
   })
 
   if (!res.success) {
+    console.log("[WATI] booking_invoice_document_v3 failed/pending, trying booking_invoice_document_v2 fallback")
+    res = await sendTemplateMessage({
+      phone: params.phone,
+      templateName: 'booking_invoice_document_v2',
+      parameters: [
+        params.customerName,
+        params.bookingNumber,
+        params.eventDate,
+        params.eventTime || "TBD",
+        params.venueName || "TBD",
+        params.itemsSummary || "Wedding Accessories",
+        `₹${params.totalAmount.toLocaleString('en-IN')}`,
+        params.paymentStatus || "Confirmed",
+      ],
+    })
+  }
+
+  if (!res.success) {
     console.log("[WATI] booking_invoice_document_v2 failed/pending, trying booking_invoice_document fallback")
     res = await sendTemplateMessage({
       phone: params.phone,
       templateName: 'booking_invoice_document',
       parameters: [
-        params.customerName,                                         // {{1}}
-        params.bookingNumber,                                        // {{2}}
-        params.eventDate,                                            // {{3}}
-        params.eventTime || "TBD",                                   // {{4}}
-        params.venueName || "TBD",                                   // {{5}}
-        params.itemsSummary || "Wedding Accessories",                // {{6}}
-        `₹${params.totalAmount.toLocaleString('en-IN')}`,              // {{7}}
-        params.paymentStatus || "Confirmed",                         // {{8}}
+        params.customerName,
+        params.bookingNumber,
+        params.eventDate,
+        params.eventTime || "TBD",
+        params.venueName || "TBD",
+        params.itemsSummary || "Wedding Accessories",
+        `₹${params.totalAmount.toLocaleString('en-IN')}`,
+        params.paymentStatus || "Confirmed",
       ],
     })
   }

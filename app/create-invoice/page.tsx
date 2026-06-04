@@ -2004,8 +2004,14 @@ export default function CreateInvoicePage() {
 
       // Auto-send invoice via WhatsApp (fire & forget, only when checkbox is ON)
       if (order?.id && sendWhatsAppInvoice && (!isUpdate || isConvertFromQuote)) {
-        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order", extraPhones: ["919725295691"], sendConfirmation: true })
-          .then(r => r.success && toast({ title: "WhatsApp", description: "Invoice sent on WhatsApp!" }))
+        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order", sendConfirmation: true })
+          .then(r => {
+            if (r.success) {
+              toast({ title: "WhatsApp", description: "Invoice sent on WhatsApp!" })
+            } else {
+              toast({ title: "WhatsApp Failed", description: "Invoice not sent — please resend manually.", variant: "destructive" })
+            }
+          })
       }
 
       router.push("/bookings?refresh=" + Date.now())

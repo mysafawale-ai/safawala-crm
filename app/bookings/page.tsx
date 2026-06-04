@@ -72,23 +72,32 @@ export default function BookingsPage() {
   const [productFilter, setProductFilter] = useState<string>("all")
   const [safaQuantitySort, setSafaQuantitySort] = useState<string>("all")
   const [distanceSort, setDistanceSort] = useState<string>("all")
-  // Pending filters (UI staging)
+  // pendingFilters mirrors applied filters for UI sync (live-update mode)
   const [pendingFilters, setPendingFilters] = useState<{status:string; type:string; products:string; safaSort:string; distanceSort:string}>({ status:'all', type:'all', products:'all', safaSort:'all', distanceSort:'all' })
-  const applyFilters = () => { 
+  const applyFilters = () => {
     setStatusFilter(pendingFilters.status)
     setTypeFilter(pendingFilters.type)
     setProductFilter(pendingFilters.products)
     setSafaQuantitySort(pendingFilters.safaSort)
     setDistanceSort(pendingFilters.distanceSort)
-    toast({ title:'Filters applied' })
   }
-  const resetFilters = () => { 
-    setPendingFilters({status:'all', type:'all', products:'all', safaSort:'all', distanceSort:'all'})
+  const resetFilters = () => {
+    const empty = {status:'all', type:'all', products:'all', safaSort:'all', distanceSort:'all'}
+    setPendingFilters(empty)
     setStatusFilter('all')
     setTypeFilter('all')
     setProductFilter('all')
     setSafaQuantitySort('all')
     setDistanceSort('all')
+  }
+  // Live-update helper: updates both pending and applied state immediately
+  const updateFilter = (key: string, value: string) => {
+    setPendingFilters(p => ({ ...p, [key]: value }))
+    if (key === 'status') setStatusFilter(value)
+    if (key === 'type') setTypeFilter(value)
+    if (key === 'products') setProductFilter(value)
+    if (key === 'safaSort') setSafaQuantitySort(value)
+    if (key === 'distanceSort') setDistanceSort(value)
   }
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table")
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -1132,17 +1141,36 @@ export default function BookingsPage() {
             <p className="text-muted-foreground">Manage your customer bookings and orders</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <ManageOffersDialog />
-          <Button variant="outline" onClick={refresh} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" onClick={()=>exportBookings('csv')}>CSV</Button>
-          <Button variant="outline" size="sm" onClick={()=>exportBookings('pdf')}>PDF</Button>
+        <div className="flex items-center gap-2">
+          {/* Secondary actions — collapsed into dropdown on mobile */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="ml-1 hidden sm:inline">More</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={refresh} disabled={loading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportBookings('csv')}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportBookings('pdf')}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <span><ManageOffersDialog /></span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Link href="/create-invoice">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" />
               New Booking
             </Button>
           </Link>
@@ -1264,7 +1292,7 @@ export default function BookingsPage() {
           
           {/* Filter row - wraps on smaller screens */}
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={pendingFilters.status} onValueChange={(v)=>setPendingFilters(p=>({...p,status:v}))}>
+            <Select value={pendingFilters.status} onValueChange={(v)=>updateFilter('status',v)}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
@@ -1279,8 +1307,7 @@ export default function BookingsPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            {/* Optional Type filter placeholder if type exists */}
-            <Select value={pendingFilters.type} onValueChange={(v)=>setPendingFilters(p=>({...p,type:v}))}>
+            <Select value={pendingFilters.type} onValueChange={(v)=>updateFilter('type',v)}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
@@ -1291,7 +1318,7 @@ export default function BookingsPage() {
                 <SelectItem value="package">Package</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={pendingFilters.products} onValueChange={(v)=>setPendingFilters(p=>({...p,products:v}))}>
+            <Select value={pendingFilters.products} onValueChange={(v)=>updateFilter('products',v)}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Product Status" />
               </SelectTrigger>
@@ -1301,7 +1328,7 @@ export default function BookingsPage() {
                 <SelectItem value="pending">Selection Pending</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={pendingFilters.safaSort} onValueChange={(v)=>setPendingFilters(p=>({...p,safaSort:v}))}>
+            <Select value={pendingFilters.safaSort} onValueChange={(v)=>updateFilter('safaSort',v)}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Safa Quantity" />
               </SelectTrigger>
@@ -1311,7 +1338,7 @@ export default function BookingsPage() {
                 <SelectItem value="high-to-low">Safa: High→Low</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={pendingFilters.distanceSort} onValueChange={(v)=>setPendingFilters(p=>({...p,distanceSort:v}))}>
+            <Select value={pendingFilters.distanceSort} onValueChange={(v)=>updateFilter('distanceSort',v)}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="Distance" />
               </SelectTrigger>
@@ -1321,10 +1348,7 @@ export default function BookingsPage() {
                 <SelectItem value="high-to-low">Far→Near</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={applyFilters}>Apply</Button>
-              <Button variant="ghost" size="sm" onClick={resetFilters}>Reset</Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={resetFilters}>Reset</Button>
           </div>
         </div>
 

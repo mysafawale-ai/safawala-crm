@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { AppSidebar } from "./app-sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { getCurrentUser, signOut } from "@/lib/auth"
@@ -134,8 +134,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-indigo-600"></div>
       </div>
     )
   }
@@ -144,7 +144,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     <SidebarProvider defaultOpen={true}>
       <AppSidebar userRole={user.role} />
       <SidebarInset>
-        <header className="heritage-header flex h-14 sm:h-16 shrink-0 items-center justify-between border-b px-3 sm:px-4">
+        <header className="bg-white border-b border-slate-200 flex h-12 shrink-0 items-center justify-between px-3 sm:px-4">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="p-1 h-8 w-8 sm:h-9 sm:w-9" />
             <CompanyHeader className="hidden sm:flex" />
@@ -159,7 +159,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="btn-heritage-outline gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9 bg-transparent"
+                  className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
                 >
                   <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">Create Order</span>
@@ -215,8 +215,41 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
           </div>
         </header>
 
-        <main className="heritage-container flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">{children}</main>
+        <main className="bg-slate-50 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 pb-20 md:pb-6">{children}</main>
+
+        {/* Mobile bottom navigation */}
+        <MobileBottomNav />
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+function MobileBottomNav() {
+  const pathname = usePathname()
+  const tabs = [
+    { href: "/dashboard",   icon: "🏠", label: "Home" },
+    { href: "/bookings",    icon: "📅", label: "Bookings" },
+    { href: "/customers",   icon: "👥", label: "Customers" },
+    { href: "/deliveries",  icon: "🚚", label: "Deliveries" },
+    { href: "/create-invoice", icon: "➕", label: "New" },
+  ]
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 flex items-center justify-around h-14 px-1 safe-b">
+      {tabs.map(tab => {
+        const isActive = pathname === tab.href || (tab.href !== "/dashboard" && tab.href !== "/create-invoice" && pathname.startsWith(tab.href))
+        return (
+          <a
+            key={tab.href}
+            href={tab.href}
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-[10px] font-medium transition-colors ${
+              isActive ? "text-indigo-600" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span className="text-lg leading-none">{tab.icon}</span>
+            <span>{tab.label}</span>
+          </a>
+        )
+      })}
+    </nav>
   )
 }

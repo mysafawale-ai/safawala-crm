@@ -13,19 +13,12 @@ import { signIn } from "@/lib/auth"
 import { toast } from "sonner"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("admin@safawala.com")
-  const [password, setPassword] = useState("admin123")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
-
-  const handleDemoLogin = (demoEmail: string, demoPassword: string) => {
-    setEmail(demoEmail)
-    setPassword(demoPassword)
-    setError("")
-    toast.success("Demo credentials filled! Click Sign In to continue.")
-  }
 
   useEffect(() => {
     // Auto-login disabled - users must manually enter credentials
@@ -39,14 +32,10 @@ export default function LoginPage() {
     setError("")
 
     try {
-      console.log("[v0] Attempting login with:", email)
       await signIn(email, password)
-      
+
       // Wait a bit for session to be properly set
       await new Promise(resolve => setTimeout(resolve, 300))
-      
-      toast.success("Logged in successfully")
-      console.log("[v0] Login successful, redirecting to dashboard")
       
       const urlParams = new URLSearchParams(window.location.search)
       const redirectTo = urlParams.get("redirect") || "/dashboard"
@@ -114,7 +103,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="admin@safawala.com"
+                  placeholder="Enter your email"
                   disabled={isLoading}
                   className="h-10 bg-slate-50/50 border border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-400 rounded-lg text-sm"
                 />
@@ -133,6 +122,32 @@ export default function LoginPage() {
                   disabled={isLoading}
                   className="h-10 bg-slate-50/50 border border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-400 rounded-lg text-sm"
                 />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!email.trim()) {
+                      setError("Please enter your email address first.")
+                      return
+                    }
+                    try {
+                      const { createClient } = await import("@/lib/supabase/client")
+                      const supabase = createClient()
+                      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                        redirectTo: `${window.location.origin}/auth/reset-password`,
+                      })
+                      if (resetError) throw resetError
+                      setError("")
+                      alert(`Password reset link sent to ${email}. Please check your inbox.`)
+                    } catch (err: any) {
+                      setError(err.message || "Failed to send reset email.")
+                    }
+                  }}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium mb-2"
+                >
+                  Forgot password?
+                </button>
               </div>
               <Button
                 type="submit"

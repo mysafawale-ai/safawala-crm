@@ -30,10 +30,10 @@ async function main() {
 
   const payload = {
     broadcast_name: `test_fixed_${Date.now()}`,
-    template_name: 'booking_invoice_document_v2',
+    template_name: 'booking_invoice_document_v3',
     receivers: [
       {
-        whatsappNumber: TEST_PHONE,
+        whatsappNumber: '917016020144',
         customParams: [
           { name: '1', value: 'Rahul Test' },
           { name: '2', value: 'INV-TEST-002' },
@@ -46,6 +46,20 @@ async function main() {
         ],
         mediaUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
       },
+      {
+        whatsappNumber: '916353583148',
+        customParams: [
+          { name: '1', value: 'Rahul Test' },
+          { name: '2', value: 'INV-TEST-002' },
+          { name: '3', value: '04 Jun 2026' },
+          { name: '4', value: '10:00' },
+          { name: '5', value: 'TBD' },
+          { name: '6', value: 'Royal Turban x1, Kalgi x1' },
+          { name: '7', value: '₹5,000' },  // Include ₹ since template has just {{7}}
+          { name: '8', value: 'Pending' },
+        ],
+        mediaUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      }
     ],
   };
 

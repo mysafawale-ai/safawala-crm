@@ -214,7 +214,13 @@ export default function DashboardPage() {
     }
   }, [])
 
-  if (!user) return null
+  if (!user) return (
+    <DashboardErrorBoundary>
+      <DashboardLayout>
+        <DashboardSkeleton />
+      </DashboardLayout>
+    </DashboardErrorBoundary>
+  )
 
   return (
     <DashboardErrorBoundary>

@@ -23,19 +23,23 @@ async function getWatiConfig() {
 async function main() {
   const config = await getWatiConfig();
 
-  // 1. Fetch templates
-  const res = await fetch(`${config.base_url}/api/v1/getMessageTemplates`, {
+  const resV1 = await fetch(`${config.base_url}/api/v1/getMessages/${TEST_PHONE}?pageSize=10&pageNumber=1`, {
     headers: { Authorization: `Bearer ${config.api_key}` },
   });
-  const data = await res.json();
-  const templates = data.messageTemplates || [];
-
-  const turbanTemplate = templates.find(t => t.name === 'booking_invoice_document_v3' || t.elementName === 'booking_invoice_document_v3');
-  if (turbanTemplate) {
-    console.log('━━━ Found booking_invoice_document_v3 template ━━━');
-    console.log(JSON.stringify(turbanTemplate, null, 2));
+  const data = await resV1.json();
+  
+  if (data.messages && data.messages.items) {
+    console.log('--- WATI MESSAGE HISTORY DETAILS ---');
+    data.messages.items.forEach((item, idx) => {
+      console.log(`\n[Message ${idx+1}]`);
+      console.log(`- Time: ${item.created || item.time}`);
+      console.log(`- Status: ${item.status || item.messageStatus || item.statusString}`);
+      console.log(`- eventDescription: ${item.eventDescription}`);
+      console.log(`- type: ${item.type}`);
+      console.log(`- text: ${item.text || item.finalText?.slice(0, 80) + '...'}`);
+    });
   } else {
-    console.log('booking_invoice_document_v3 template not found!');
+    console.log('No messages found:', JSON.stringify(data, null, 2));
   }
 }
 

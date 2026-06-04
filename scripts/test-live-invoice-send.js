@@ -204,9 +204,10 @@ async function main() {
   const config = await getWatiConfig();
   const payload = {
     broadcast_name: `live_test_${Date.now()}`,
-    template_name: 'booking_invoice_document',
+    template_name: 'booking_invoice_document_v3',
     receivers: [{
       whatsappNumber: phone,
+      mediaUrl: 'https://pdfobject.com/pdf/sample.pdf',
       customParams: [
         { name: '1', value: customer.name },
         { name: '2', value: order.order_number || order.package_number || orderId.slice(0,8) },
@@ -216,6 +217,7 @@ async function main() {
         { name: '6', value: itemsSummary },
         { name: '7', value: total },
         { name: '8', value: payStatus },
+        { name: 'mediaUrl', value: 'https://pdfobject.com/pdf/sample.pdf' },
       ],
     }],
   };
