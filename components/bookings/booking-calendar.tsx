@@ -57,6 +57,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const [showDateDetails, setShowDateDetails] = React.useState(false)
   const [bookings, setBookings] = React.useState<BookingData[]>([])
   const [dateBookings, setDateBookings] = React.useState<BookingData[]>([])
+  const [lockedDates, setLockedDates] = React.useState<string[]>([])
   const [modificationBookings, setModificationBookings] = React.useState<BookingData[]>([])
   const [activeTab, setActiveTab] = React.useState<'events' | 'modifications'>('events')
   const [loading, setLoading] = React.useState(true)
@@ -84,6 +85,13 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   React.useEffect(() => {
     fetchBookings()
     fetchProductsAndCategories()
+    // Fetch locked dates for calendar display
+    fetch("/api/locked-dates")
+      .then(r => r.json())
+      .then(d => {
+        if (d.data) setLockedDates(d.data.map((ld: any) => ld.locked_date as string))
+      })
+      .catch(() => {})
   }, [franchiseId])
 
   // Fetch products and categories for items selection
@@ -480,14 +488,18 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             renderDayBadge={(date) => {
               const count = getBookingsForDate(date).length
               const modifications = getModificationsForDate(date).length
-              
-              // Show both booking count and modification indicator
-              if (count > 0 || modifications > 0) {
+              const dateStr = format(date, "yyyy-MM-dd")
+              const isLocked = lockedDates.includes(dateStr)
+
+              if (count > 0 || modifications > 0 || isLocked) {
                 return (
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center gap-0.5 flex-wrap justify-center">
                     {count > 0 && <span>{count}</span>}
                     {modifications > 0 && (
                       <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-orange-400 text-[8px] font-bold text-white">🔧</span>
+                    )}
+                    {isLocked && (
+                      <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-red-500 text-[8px] text-white">🔒</span>
                     )}
                   </div>
                 )
@@ -619,32 +631,51 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                           </div>
                         </td>
                         <td className="border-r border-muted px-4 py-3 text-sm text-foreground">
-                          <div className="text-center">
+                          <div className="text-center min-w-[100px]">
                             {(() => {
                               const bookingType = (booking as any).type
-                              const totalSafas = booking.total_safas ?? booking.booking_items.reduce((sum, item) => sum + item.quantity, 0)
-                              
-                              // For packages: show category name with quantity
+                              const safaCount = Number(booking.total_safas) || 0
+                              const items = booking.booking_items || []
+                              const totalQty = items.reduce((s: number, i: any) => s + (i.quantity || 0), 0)
+
+                              // Package: show package name + variant + safa count
                               if (bookingType === 'package') {
                                 const packageDetails = (booking as any).package_details
                                 const variantName = (booking as any).variant_name
                                 const categoryName = packageDetails?.name || 'Package'
-                                
                                 return (
-                                  <>
-                                    <div className="text-lg font-bold text-primary">{totalSafas}</div>
-                                    <div className="text-xs text-gray-600 mt-1">{categoryName}</div>
-                                    {variantName && <div className="text-xs text-muted-foreground mt-0.5">{variantName}</div>}
-                                  </>
+                                  <div className="text-left">
+                                    <div className="text-xs font-bold text-indigo-700 leading-tight">{categoryName}</div>
+                                    {variantName && <div className="text-[10px] text-slate-500 leading-tight">{variantName}</div>}
+                                    <div className="text-xs font-semibold text-slate-700 mt-0.5">👑 {safaCount} Safas</div>
+                                  </div>
                                 )
                               }
-                              
-                              // For product rentals/sales: show Safa count only
+
+                              // Individual product rental: show items if loaded, else total qty
+                              if (items.length > 0) {
+                                return (
+                                  <div className="text-left space-y-0.5">
+                                    {items.slice(0, 3).map((item: any, i: number) => (
+                                      <div key={i} className="text-[10px] text-slate-700 leading-tight">
+                                        <span className="font-medium">{item.product_name || item.name || 'Item'}</span>
+                                        <span className="text-slate-500"> ×{item.quantity}</span>
+                                      </div>
+                                    ))}
+                                    {items.length > 3 && (
+                                      <div className="text-[10px] text-slate-400">+{items.length - 3} more</div>
+                                    )}
+                                  </div>
+                                )
+                              }
+
+                              // Fallback: show safa count or total qty
+                              const display = safaCount > 0 ? safaCount : totalQty
                               return (
-                                <>
-                                  <div className="text-2xl font-bold text-primary">{totalSafas}</div>
-                                  <div className="text-xs text-gray-500 mt-1">Safas</div>
-                                </>
+                                <div>
+                                  <div className="text-xl font-bold text-primary">{display > 0 ? display : '—'}</div>
+                                  <div className="text-[10px] text-gray-500">{safaCount > 0 ? 'Safas' : display > 0 ? 'Items' : 'No items'}</div>
+                                </div>
                               )
                             })()}
                           </div>

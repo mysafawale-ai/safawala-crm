@@ -9,7 +9,8 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { getCurrentUser, signOut } from "@/lib/auth"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { LogOut, Plus, Bell } from "lucide-react"
+import { LogOut, Plus, Bell, Lock } from "lucide-react"
+import { LockDateDialog } from "@/components/lock-date/lock-date-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
   const [user, setUser] = useState<User | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [profilePhoto, setProfilePhoto] = useState<string>("")
+  const [showLockDate, setShowLockDate] = useState(false)
+  const [lockedDates, setLockedDates] = useState<any[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -154,6 +157,18 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            {/* Lock Date button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLockDate(true)}
+              className="gap-1 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50"
+              title="Lock a date"
+            >
+              <Lock className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Lock Date</span>
+            </Button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -220,6 +235,15 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         {/* Mobile bottom navigation */}
         <MobileBottomNav />
       </SidebarInset>
+
+      {/* Lock Date Dialog */}
+      <LockDateDialog
+        open={showLockDate}
+        onOpenChange={setShowLockDate}
+        lockedDates={lockedDates}
+        onLocked={(ld) => setLockedDates(prev => [...prev, ld])}
+        onUnlocked={(id) => setLockedDates(prev => prev.filter(d => d.id !== id))}
+      />
     </SidebarProvider>
   )
 }
