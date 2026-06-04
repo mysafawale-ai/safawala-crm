@@ -120,10 +120,10 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     ? `Advance ₹${orderData.amount_paid.toLocaleString("en-IN")} Paid`
     : "Pending"
 
-  // Send booking_confirmation template with PDF attached via mediaUrl
-  const templateResult = await sendTemplateMessage({
+  // Try sending using the media-based template booking_invoice_document first
+  let templateResult = await sendTemplateMessage({
     phone,
-    templateName: "booking_confirmation",
+    templateName: "booking_invoice_document",
     parameters: [
       customerName,
       invoiceNumber,
@@ -137,27 +137,52 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     mediaUrl: publicUrl,
   })
 
-  console.log("[WhatsApp Invoice] booking_confirmation + PDF result:", templateResult)
+  let isMediaTemplate = true
+
+  if (!templateResult.success) {
+    console.log(
+      "[WhatsApp Invoice] booking_invoice_document template failed or not approved yet, falling back to booking_confirmation"
+    )
+    isMediaTemplate = false
+    templateResult = await sendTemplateMessage({
+      phone,
+      templateName: "booking_confirmation",
+      parameters: [
+        customerName,
+        invoiceNumber,
+        eventDateFormatted,
+        eventTime,
+        venue,
+        itemsSummary,
+        totalAmount,
+        paymentStatus,
+      ],
+      mediaUrl: publicUrl,
+    })
+  }
+
+  console.log("[WhatsApp Invoice] Template message result:", templateResult)
 
   if (!templateResult.success) {
     throw new Error(templateResult.error || "Failed to send WhatsApp message")
   }
 
-  // 7.5. Since booking_confirmation has a text header, the mediaUrl inside templateResult is ignored by WATI.
-  // We will also send the PDF document directly using sendMedia.
-  try {
-    const mediaResult = await sendMedia({
-      phone,
-      mediaUrl: publicUrl,
-      caption: `Invoice #${invoiceNumber} - ${customerName}`,
-      mediaType: "document",
-    })
-    console.log("[WhatsApp Invoice] Direct PDF document result:", mediaResult)
-  } catch (mediaErr: any) {
-    console.warn(
-      "[WhatsApp Invoice] Failed to send direct PDF document to customer (customer may be outside 24h session window):",
-      mediaErr.message || mediaErr
-    )
+  // Only send the PDF separately if the template was not a media template (otherwise they'd get it twice)
+  if (!isMediaTemplate) {
+    try {
+      const mediaResult = await sendMedia({
+        phone,
+        mediaUrl: publicUrl,
+        caption: `Invoice #${invoiceNumber} - ${customerName}`,
+        mediaType: "document",
+      })
+      console.log("[WhatsApp Invoice] Direct PDF document result:", mediaResult)
+    } catch (mediaErr: any) {
+      console.warn(
+        "[WhatsApp Invoice] Failed to send direct PDF document to customer (customer may be outside 24h session window):",
+        mediaErr.message || mediaErr
+      )
+    }
   }
 
   // 8. Log the WhatsApp invoice send
