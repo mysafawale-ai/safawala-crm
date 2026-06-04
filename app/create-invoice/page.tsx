@@ -1634,6 +1634,7 @@ export default function CreateInvoicePage() {
         modification_date: invoiceData.has_modifications && invoiceData.modification_date 
           ? new Date(`${invoiceData.modification_date.split('T')[0]}T${invoiceData.modification_time || '10:00'}:00`).toISOString()
           : null,
+        pdf_url: null, // Reset PDF url on update to force regeneration on next send
       }
 
       let order: any
@@ -1839,6 +1840,7 @@ export default function CreateInvoicePage() {
         modification_date: invoiceData.has_modifications && invoiceData.modification_date 
           ? new Date(`${invoiceData.modification_date.split('T')[0]}T${invoiceData.modification_time || '10:00'}:00`).toISOString()
           : null,
+        pdf_url: null, // Reset PDF url on update to force regeneration on next send
       }
 
       let order: any
