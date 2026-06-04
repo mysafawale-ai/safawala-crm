@@ -106,7 +106,7 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     throw new Error("Failed to get public URL for invoice")
   }
 
-  // 7. Send booking_confirmation template + PDF
+  // 7. Send booking_invoice_document template (approved, with PDF as document header)
   const eventDateFormatted = orderData.event_date
     ? format(new Date(orderData.event_date), "dd MMM yyyy")
     : "TBD"
@@ -115,51 +115,36 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
   const itemsSummary = items.length > 0
     ? items.slice(0, 3).map((i: any) => i.product_name || i.category || "Item").join(", ") + (items.length > 3 ? ` +${items.length - 3} more` : "")
     : "Wedding Accessories"
-  const totalAmount = `₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`
+  // Template body has: • Total Amount: {{7}}  (NO ₹ prefix in template)
+  // So we include ₹ in the value we send
+  const totalAmountStr = `₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`
   const paymentStatus = orderData.amount_paid > 0
     ? `Advance ₹${orderData.amount_paid.toLocaleString("en-IN")} Paid`
     : "Pending"
 
-  // Try sending using the media-based template booking_invoice_document first
-  let templateResult = await sendTemplateMessage({
+  console.log("[WhatsApp Invoice] Sending booking_invoice_document template to:", phone)
+  console.log("[WhatsApp Invoice] Parameters:", {
+    customerName, invoiceNumber, eventDateFormatted, eventTime, venue,
+    itemsSummary, totalAmountStr, paymentStatus, pdfUrl: publicUrl,
+  })
+
+  // Use the approved booking_invoice_document template
+  // This template has a DOCUMENT header — the PDF is attached as the header
+  const templateResult = await sendTemplateMessage({
     phone,
     templateName: "booking_invoice_document",
     parameters: [
-      customerName,
-      invoiceNumber,
-      eventDateFormatted,
-      eventTime,
-      venue,
-      itemsSummary,
-      totalAmount,
-      paymentStatus,
+      customerName,        // {{1}} - Customer name
+      invoiceNumber,       // {{2}} - Booking/Invoice ID
+      eventDateFormatted,  // {{3}} - Event Date
+      eventTime,           // {{4}} - Event Time
+      venue,               // {{5}} - Venue
+      itemsSummary,        // {{6}} - Items summary
+      totalAmountStr,      // {{7}} - Total amount (template has ₹ prefix already)
+      paymentStatus,       // {{8}} - Payment status
     ],
-    mediaUrl: publicUrl,
+    mediaUrl: publicUrl,   // PDF attached as document header
   })
-
-  let isMediaTemplate = true
-
-  if (!templateResult.success) {
-    console.log(
-      "[WhatsApp Invoice] booking_invoice_document template failed or not approved yet, falling back to booking_confirmation"
-    )
-    isMediaTemplate = false
-    templateResult = await sendTemplateMessage({
-      phone,
-      templateName: "booking_confirmation",
-      parameters: [
-        customerName,
-        invoiceNumber,
-        eventDateFormatted,
-        eventTime,
-        venue,
-        itemsSummary,
-        totalAmount,
-        paymentStatus,
-      ],
-      mediaUrl: publicUrl,
-    })
-  }
 
   console.log("[WhatsApp Invoice] Template message result:", templateResult)
 
@@ -167,23 +152,10 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     throw new Error(templateResult.error || "Failed to send WhatsApp message")
   }
 
-  // Only send the PDF separately if the template was not a media template (otherwise they'd get it twice)
-  if (!isMediaTemplate) {
-    try {
-      const mediaResult = await sendMedia({
-        phone,
-        mediaUrl: publicUrl,
-        caption: `Invoice #${invoiceNumber} - ${customerName}`,
-        mediaType: "document",
-      })
-      console.log("[WhatsApp Invoice] Direct PDF document result:", mediaResult)
-    } catch (mediaErr: any) {
-      console.warn(
-        "[WhatsApp Invoice] Failed to send direct PDF document to customer (customer may be outside 24h session window):",
-        mediaErr.message || mediaErr
-      )
-    }
-  }
+
+  // NOTE: No separate sendMedia needed — the PDF is attached as the DOCUMENT header
+  // in the booking_invoice_document template (via mediaUrl in the receiver)
+
 
   // 8. Log the WhatsApp invoice send
   try {
@@ -304,35 +276,61 @@ async function fetchOrderData(orderId: string, orderType: string) {
 }
 
 async function fetchOrderItems(orderId: string, orderType: string) {
-  let table: string
-  let fkColumn: string
-  switch (orderType) {
-    case "product_order":
-      table = "product_order_items"
-      fkColumn = "order_id"
-      break
-    case "package_booking":
-      table = "package_booking_items"
-      fkColumn = "booking_id"
-      break
-    case "direct_sale":
-      table = "direct_sales_order_items"
-      fkColumn = "order_id"
-      break
-    default:
+  if (orderType === "product_order") {
+    const { data, error } = await supabase
+      .from("product_order_items")
+      .select(`
+        id, quantity, unit_price, total_price,
+        products ( id, name, category )
+      `)
+      .eq("order_id", orderId)
+    if (error) {
+      console.warn(`[WhatsApp Invoice] Items fetch error from product_order_items:`, error)
       return []
+    }
+    // Flatten: expose product_name at top level
+    return (data || []).map((item: any) => ({
+      ...item,
+      product_name: item.products?.name || item.products?.category || "Item",
+      category: item.products?.category,
+    }))
   }
 
-  const { data, error } = await supabase
-    .from(table)
-    .select("*")
-    .eq(fkColumn, orderId)
-
-  if (error) {
-    console.warn(`[WhatsApp Invoice] Items fetch error from ${table}:`, error)
-    return []
+  if (orderType === "package_booking") {
+    const { data, error } = await supabase
+      .from("package_booking_items")
+      .select(`
+        id, quantity, unit_price, total_price,
+        products ( id, name, category )
+      `)
+      .eq("booking_id", orderId)
+    if (error) {
+      console.warn(`[WhatsApp Invoice] Items fetch error from package_booking_items:`, error)
+      return []
+    }
+    return (data || []).map((item: any) => ({
+      ...item,
+      product_name: item.products?.name || item.products?.category || "Item",
+      category: item.products?.category,
+    }))
   }
-  return data || []
+
+  if (orderType === "direct_sale") {
+    const { data, error } = await supabase
+      .from("direct_sales_order_items")
+      .select("*")
+      .eq("order_id", orderId)
+    if (error) {
+      console.warn(`[WhatsApp Invoice] Items fetch error from direct_sales_order_items:`, error)
+      return []
+    }
+    return (data || []).map((item: any) => ({
+      ...item,
+      product_name: item.product_name || item.name || item.category || "Item",
+    }))
+  }
+
+  return []
 }
 
 async function fetchCompanySettings(franchiseId?: string) {

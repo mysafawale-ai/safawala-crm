@@ -134,10 +134,13 @@ async function fetchBookingDetails(bookingId: string) {
     let itemsSummary = "Wedding Accessories"
     const { data: items } = await supabase
       .from("product_order_items")
-      .select("product_name_copy, quantity")
+      .select(`quantity, products ( name, category )`)
       .eq("order_id", bookingId)
     if (items && items.length > 0) {
-      itemsSummary = items.map(it => `${it.product_name_copy} (x${it.quantity})`).join(", ")
+      itemsSummary = items.map((it: any) => {
+        const name = (it.products as any)?.name || (it.products as any)?.category || "Item"
+        return `${name} (x${it.quantity})`
+      }).join(", ")
     }
 
     return {

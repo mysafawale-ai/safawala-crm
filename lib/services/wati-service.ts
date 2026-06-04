@@ -485,21 +485,26 @@ export async function sendBookingConfirmation(params: {
   totalAmount: number
   paymentStatus?: string
 }): Promise<{ success: boolean; error?: string }> {
+  // Use the approved booking_invoice_document template
+  // Body: Dear {{1}}, Booking ID: {{2}}, Event Date: {{3}}, Event Time: {{4}},
+  //       Venue: {{5}}, Items: {{6}}, Total Amount: {{7}}, Payment Status: {{8}}
   return sendTemplateMessage({
     phone: params.phone,
-    templateName: 'booking_confirmation',
+    templateName: 'booking_invoice_document',
     parameters: [
-      params.customerName,
-      params.bookingNumber,
-      params.eventDate,
-      params.eventTime || "TBD",
-      params.venueName || "TBD",
-      params.itemsSummary || "Wedding Accessories",
-      `₹${params.totalAmount.toLocaleString('en-IN')}`,
-      params.paymentStatus || "Confirmed",
+      params.customerName,                                         // {{1}}
+      params.bookingNumber,                                        // {{2}}
+      params.eventDate,                                            // {{3}}
+      params.eventTime || "TBD",                                   // {{4}}
+      params.venueName || "TBD",                                   // {{5}}
+      params.itemsSummary || "Wedding Accessories",                // {{6}}
+      `₹${params.totalAmount.toLocaleString('en-IN')}`,              // {{7}} - include ₹ since template body has plain {{7}}
+      params.paymentStatus || "Confirmed",                         // {{8}}
     ],
+    // No mediaUrl here — this path is triggered by booking events, not invoice sends
   })
 }
+
 
 /**
  * Send booking status update to customer
