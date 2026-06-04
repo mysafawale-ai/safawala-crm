@@ -1,7 +1,6 @@
 import { supabaseServer as defaultSupabase } from "@/lib/supabase-server-simple"
-import { htmlToPdfBuffer } from "@/lib/puppeteer-pdf"
-import { generateInvoiceHTML } from "@/lib/invoice-html-template"
-import { mapToInvoiceData } from "@/lib/map-invoice-data"
+import { urlToPdfBuffer } from "@/lib/puppeteer-pdf"
+import { generatePdfToken } from "@/lib/pdf-token"
 import { format } from "date-fns"
 
 /**
@@ -32,22 +31,13 @@ export async function generateAndSaveInvoicePDF(
     throw new Error(`Customer not found for this order: ${customerErr?.message || 'No record'}`)
   }
 
-  // 3. Fetch order items
-  const items = await fetchOrderItems(orderId, orderType, supabaseClient)
-  console.log(`[PDF Service] Fetched ${items.length} items for ${orderType} ${orderId}`)
+  // 3. Generate PDF by navigating to the live URL with a pdfToken
+  const token = generatePdfToken(orderId, orderType)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mysafawala.com"
+  const invoicePageUrl = `${appUrl}/create-invoice?mode=edit&id=${orderId}&print=true&pdfToken=${token}`
 
-  // 4. Fetch company settings
-  const companySettings = await fetchCompanySettings(orderData.franchise_id, supabaseClient)
-
-  // 5. Map to standard InvoiceData format
-  const invoiceData = mapToInvoiceData(orderData, customer, items, companySettings, orderType)
-
-  // 6. Generate HTML content
-  const htmlContent = generateInvoiceHTML(invoiceData)
-
-  // 7. Convert HTML directly to PDF Buffer using Puppeteer (no live page navigation)
-  console.log("[PDF Service] Converting HTML template to PDF buffer...")
-  const pdfBuffer = await htmlToPdfBuffer(htmlContent)
+  console.log(`[PDF Service] Navigating to URL: ${invoicePageUrl}`)
+  const pdfBuffer = await urlToPdfBuffer(invoicePageUrl)
 
   // 8. Determine file name and storage paths
   const invoiceNumber =
@@ -157,109 +147,4 @@ async function fetchOrderData(orderId: string, orderType: string, supabase: any)
   return data
 }
 
-async function fetchOrderItems(orderId: string, orderType: string, supabase: any) {
-  if (orderType === "product_order" || orderType === "product_orders") {
-    const { data, error } = await supabase
-      .from("product_order_items")
-      .select(`
-        id, quantity, unit_price, total_price,
-        products ( id, name, category, product_code )
-      `)
-      .eq("order_id", orderId)
 
-    if (error) {
-      console.warn(`[PDF Service] Items fetch error from product_order_items, trying fallback:`, error)
-      const { data: fallback, error: fallbackErr } = await supabase
-        .from("product_order_items")
-        .select("*")
-        .eq("order_id", orderId)
-      
-      if (fallbackErr || !fallback) return []
-      return fallback.map((item: any) => ({
-        ...item,
-        product_name: item.product_name || item.name || "Item",
-        category: item.category || "",
-      }))
-    }
-
-    return (data || []).map((item: any) => ({
-      ...item,
-      product_name: item.product_name || item.products?.name || item.products?.category || "Item",
-      category: item.category || item.products?.category || "",
-    }))
-  }
-
-  if (orderType === "package_booking" || orderType === "package_bookings") {
-    const { data, error } = await supabase
-      .from("package_booking_items")
-      .select(`
-        id, quantity, unit_price, total_price,
-        variant_name, variant_inclusions, reserved_products
-      `)
-      .eq("booking_id", orderId)
-
-    if (error) {
-      console.warn(`[PDF Service] Items fetch error from package_booking_items:`, error)
-      return []
-    }
-
-    return (data || []).map((item: any) => ({
-      ...item,
-      product_name: item.variant_name || "Package Item",
-      inclusions: item.variant_inclusions,
-      reserved_products: item.reserved_products,
-    }))
-  }
-
-  if (orderType === "direct_sale" || orderType === "direct_sales_orders") {
-    const { data, error } = await supabase
-      .from("direct_sales_order_items")
-      .select("*")
-      .eq("order_id", orderId)
-
-    if (error) {
-      console.warn(`[PDF Service] Items fetch error from direct_sales_order_items:`, error)
-      return []
-    }
-
-    return (data || []).map((item: any) => ({
-      ...item,
-      product_name: item.product_name || item.name || item.category || "Item",
-    }))
-  }
-
-  if (orderType === "booking" || orderType === "bookings") {
-    const { data, error } = await supabase
-      .from("booking_items")
-      .select(`
-        id, quantity, unit_price, total_price,
-        products ( id, name, category, product_code )
-      `)
-      .eq("booking_id", orderId)
-
-    if (error) {
-      console.warn(`[PDF Service] Items fetch error from booking_items:`, error)
-      return []
-    }
-
-    return (data || []).map((item: any) => ({
-      ...item,
-      product_name: item.products?.name || item.products?.category || "Item",
-      category: item.products?.category,
-    }))
-  }
-
-  return []
-}
-
-async function fetchCompanySettings(franchiseId: string | undefined, supabase: any) {
-  if (!franchiseId) return null
-
-  const { data } = await supabase
-    .from("company_settings")
-    .select("*")
-    .eq("franchise_id", franchiseId)
-    .single()
-
-  return data
-}
