@@ -30,12 +30,12 @@ async function main() {
   const data = await res.json();
   const templates = data.messageTemplates || [];
 
-  const turbanTemplate = templates.find(t => t.name === 'booking_invoice_document_v3' || t.elementName === 'booking_invoice_document_v3');
+  const turbanTemplate = templates.find(t => t.name === 'booking_invoice_document_v2' || t.elementName === 'booking_invoice_document_v2');
   if (turbanTemplate) {
-    console.log('━━━ Found booking_invoice_document_v3 template ━━━');
+    console.log('━━━ Found booking_invoice_document_v2 template ━━━');
     console.log(JSON.stringify(turbanTemplate, null, 2));
   } else {
-    console.log('booking_invoice_document_v3 template not found!');
+    console.log('booking_invoice_document_v2 template not found!');
   }
 }
 

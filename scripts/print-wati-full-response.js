@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const TEST_PHONE = '917016020144';
+const TEST_PHONE = '916353583148';
 
 async function getWatiConfig() {
   const { data } = await supabase

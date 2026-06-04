@@ -35,6 +35,7 @@ async function main() {
       {
         whatsappNumber: '917016020144',
         customParams: [
+          { name: 'mediaUrl', value: 'https://pdfobject.com/pdf/sample.pdf' },
           { name: '1', value: 'Rahul Test' },
           { name: '2', value: 'INV-TEST-002' },
           { name: '3', value: '04 Jun 2026' },
@@ -44,11 +45,12 @@ async function main() {
           { name: '7', value: '₹5,000' },  // Include ₹ since template has just {{7}}
           { name: '8', value: 'Pending' },
         ],
-        mediaUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+        mediaUrl: 'https://pdfobject.com/pdf/sample.pdf'
       },
       {
         whatsappNumber: '916353583148',
         customParams: [
+          { name: 'mediaUrl', value: 'https://pdfobject.com/pdf/sample.pdf' },
           { name: '1', value: 'Rahul Test' },
           { name: '2', value: 'INV-TEST-002' },
           { name: '3', value: '04 Jun 2026' },
@@ -58,7 +60,7 @@ async function main() {
           { name: '7', value: '₹5,000' },  // Include ₹ since template has just {{7}}
           { name: '8', value: 'Pending' },
         ],
-        mediaUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+        mediaUrl: 'https://pdfobject.com/pdf/sample.pdf'
       }
     ],
   };
