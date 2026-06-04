@@ -7,11 +7,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateProfessionalQuotePDF } from '@/lib/pdf/generate-quote-pdf-professional'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    return NextResponse.json(
+      { error: 'Supabase environment variables are not configured' },
+      { status: 500 }
+    )
+  }
+
+  const supabase = createClient(url, key)
   try {
     const searchParams = request.nextUrl.searchParams
     const quoteId = searchParams.get('id')
