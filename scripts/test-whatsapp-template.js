@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const TEST_PHONE = '916353583148';
+const TEST_PHONE = '917016020144';
 
 async function getWatiConfig() {
   const { data } = await supabase
@@ -30,7 +30,7 @@ async function main() {
 
   const payload = {
     broadcast_name: `test_fixed_${Date.now()}`,
-    template_name: 'booking_invoice_document',
+    template_name: 'booking_invoice_document_v2',
     receivers: [
       {
         whatsappNumber: TEST_PHONE,
@@ -40,10 +40,11 @@ async function main() {
           { name: '3', value: '04 Jun 2026' },
           { name: '4', value: '10:00' },
           { name: '5', value: 'TBD' },
-          { name: '6', value: 'Royal Turban (x1), Kalgi (x1)' },
+          { name: '6', value: 'Royal Turban x1, Kalgi x1' },
           { name: '7', value: '₹5,000' },  // Include ₹ since template has just {{7}}
           { name: '8', value: 'Pending' },
         ],
+        mediaUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
       },
     ],
   };
