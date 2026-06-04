@@ -21,6 +21,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     customerPincode,
     packageName,
     variantName,
+    variantInclusions,
     categoryName,
     extraSafas,
     packageDescription,
