@@ -627,13 +627,14 @@ export default function BookingsPage() {
       booking.customer?.phone?.includes(searchLower) ||
       booking.venue_name?.toLowerCase().includes(searchLower)
     
-    const matchesProducts = productFilter === 'all' || 
+    const matchesProducts = productFilter === 'all' ||
       (productFilter === 'selected' && (booking as any).has_items) ||
       (productFilter === 'pending' && !(booking as any).has_items)
 
     const matchesStatus = statusFilter === "all" || booking.status === statusFilter
-  // booking.type: 'rental' | 'sale' for product orders, 'package' for packages
-  const matchesType = typeFilter === "all" || (booking as any).type === typeFilter
+
+    // booking.type: 'rental' | 'sale' for product orders, 'package' for packages
+    const matchesType = typeFilter === "all" || (booking as any).type === typeFilter
 
     return matchesSearch && matchesStatus && matchesType && matchesProducts
   })
@@ -1349,6 +1350,12 @@ export default function BookingsPage() {
               </SelectContent>
             </Select>
             <Button variant="ghost" size="sm" onClick={resetFilters}>Reset</Button>
+            {/* Active filter result count */}
+            {(statusFilter !== 'all' || typeFilter !== 'all' || productFilter !== 'all') && (
+              <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2 py-1 rounded-full border border-indigo-200">
+                {filteredBookings.length} result{filteredBookings.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         </div>
 
