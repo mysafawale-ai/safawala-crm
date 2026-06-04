@@ -195,11 +195,10 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     itemsSummary, totalAmountStr, paymentStatus, pdfUrl: publicUrl,
   })
 
-  // Use the approved booking_invoice_document template
-  // This template has a DOCUMENT header — the PDF is attached as the header
-  const templateResult = await sendTemplateMessage({
+  // Use the approved template. Try the newer UTILITY template (booking_invoice_document_v2) first.
+  let templateResult = await sendTemplateMessage({
     phone,
-    templateName: "booking_invoice_document",
+    templateName: "booking_invoice_document_v2",
     parameters: [
       customerName,        // {{1}} - Customer name
       invoiceNumber,       // {{2}} - Booking/Invoice ID
@@ -207,11 +206,30 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
       eventTime,           // {{4}} - Event Time
       venue,               // {{5}} - Venue
       itemsSummary,        // {{6}} - Items summary
-      totalAmountStr,      // {{7}} - Total amount (template has ₹ prefix already)
+      totalAmountStr,      // {{7}} - Total amount
       paymentStatus,       // {{8}} - Payment status
     ],
     mediaUrl: publicUrl,   // PDF attached as document header
   })
+
+  if (!templateResult.success) {
+    console.log("[WhatsApp Invoice] booking_invoice_document_v2 failed/pending, trying booking_invoice_document fallback")
+    templateResult = await sendTemplateMessage({
+      phone,
+      templateName: "booking_invoice_document",
+      parameters: [
+        customerName,        // {{1}} - Customer name
+        invoiceNumber,       // {{2}} - Booking/Invoice ID
+        eventDateFormatted,  // {{3}} - Event Date
+        eventTime,           // {{4}} - Event Time
+        venue,               // {{5}} - Venue
+        itemsSummary,        // {{6}} - Items summary
+        totalAmountStr,      // {{7}} - Total amount
+        paymentStatus,       // {{8}} - Payment status
+      ],
+      mediaUrl: publicUrl,   // PDF attached as document header
+    })
+  }
 
   console.log("[WhatsApp Invoice] Template message result:", templateResult)
 

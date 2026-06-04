@@ -485,12 +485,10 @@ export async function sendBookingConfirmation(params: {
   totalAmount: number
   paymentStatus?: string
 }): Promise<{ success: boolean; error?: string }> {
-  // Use the approved booking_invoice_document template
-  // Body: Dear {{1}}, Booking ID: {{2}}, Event Date: {{3}}, Event Time: {{4}},
-  //       Venue: {{5}}, Items: {{6}}, Total Amount: {{7}}, Payment Status: {{8}}
-  return sendTemplateMessage({
+  // Use the approved template. Try the newer UTILITY template (booking_invoice_document_v2) first.
+  let res = await sendTemplateMessage({
     phone: params.phone,
-    templateName: 'booking_invoice_document',
+    templateName: 'booking_invoice_document_v2',
     parameters: [
       params.customerName,                                         // {{1}}
       params.bookingNumber,                                        // {{2}}
@@ -501,8 +499,26 @@ export async function sendBookingConfirmation(params: {
       `₹${params.totalAmount.toLocaleString('en-IN')}`,              // {{7}} - include ₹ since template body has plain {{7}}
       params.paymentStatus || "Confirmed",                         // {{8}}
     ],
-    // No mediaUrl here — this path is triggered by booking events, not invoice sends
   })
+
+  if (!res.success) {
+    console.log("[WATI] booking_invoice_document_v2 failed/pending, trying booking_invoice_document fallback")
+    res = await sendTemplateMessage({
+      phone: params.phone,
+      templateName: 'booking_invoice_document',
+      parameters: [
+        params.customerName,                                         // {{1}}
+        params.bookingNumber,                                        // {{2}}
+        params.eventDate,                                            // {{3}}
+        params.eventTime || "TBD",                                   // {{4}}
+        params.venueName || "TBD",                                   // {{5}}
+        params.itemsSummary || "Wedding Accessories",                // {{6}}
+        `₹${params.totalAmount.toLocaleString('en-IN')}`,              // {{7}}
+        params.paymentStatus || "Confirmed",                         // {{8}}
+      ],
+    })
+  }
+  return res
 }
 
 
