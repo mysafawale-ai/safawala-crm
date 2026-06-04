@@ -334,7 +334,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
 
   return (
     <TooltipProvider>
-      <Sidebar variant="inset" collapsible="icon" className="heritage-sidebar" {...props}>
+      <Sidebar variant="inset" collapsible="icon" className="bg-white border-r border-slate-200" {...props}>
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -342,7 +342,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                 size="lg"
                 asChild
                 isActive={isActiveItem("/dashboard")}
-                className="heritage-sidebar-item"
+                className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
               >
                 <Link href="/dashboard" className="w-full">
                   <div className="flex w-full items-center justify-start py-4 pl-4">
@@ -364,7 +364,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
 
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel className="vintage-subtitle">Main</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Main</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterItemsByRole(navigationItems.main).map((item) => (
@@ -373,7 +373,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       asChild
                       isActive={isActiveItem(item.url)}
                       tooltip={item.title}
-                      className="heritage-sidebar-item"
+                      className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
@@ -397,7 +397,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
           </SidebarGroup>
 
           <SidebarGroup>
-            <SidebarGroupLabel className="vintage-subtitle">Business</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Business</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterItemsByRole(navigationItems.business).map((item) => (
@@ -406,7 +406,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       asChild
                       isActive={isActiveItem(item.url)}
                       tooltip={item.title}
-                      className="heritage-sidebar-item"
+                      className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
@@ -430,7 +430,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
           </SidebarGroup>
 
           <SidebarGroup>
-            <SidebarGroupLabel className="vintage-subtitle">Analytics</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Analytics</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterItemsByRole(navigationItems.reports).map((item) => (
@@ -439,7 +439,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       asChild
                       isActive={isActiveItem(item.url)}
                       tooltip={item.title}
-                      className="heritage-sidebar-item"
+                      className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
@@ -464,7 +464,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
 
           {(userRole === "super_admin" || userRole === "franchise_admin") && (
             <SidebarGroup>
-              <SidebarGroupLabel className="vintage-subtitle">Administration</SidebarGroupLabel>
+              <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Administration</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {filterItemsByRole(navigationItems.admin).map((item) => (
@@ -473,7 +473,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                         asChild
                         isActive={isActiveItem(item.url)}
                         tooltip={item.title}
-                        className="heritage-sidebar-item"
+                        className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
                       >
                         <Link href={item.url} className="flex items-center justify-between w-full">
                           <div className="flex items-center gap-2">
@@ -505,7 +505,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
                     size="lg"
-                    className="heritage-sidebar-item data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                    className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors data-[state=open]:bg-indigo-50 data-[state=open]:text-indigo-700"
                   >
                     <Avatar className="h-8 w-8 rounded-lg">
                       {userAvatar && <AvatarImage src={userAvatar} alt={userName} />}
@@ -514,8 +514,8 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold vintage-title">{userName}</span>
-                      <span className="truncate text-xs capitalize vintage-subtitle">{userRole.replace("_", " ")}</span>
+                      <span className="truncate font-semibold font-semibold text-slate-900">{userName}</span>
+                      <span className="truncate text-xs capitalize text-slate-500">{userRole.replace("_", " ")}</span>
                     </div>
                     <ChevronUp className="ml-auto size-4" />
                   </SidebarMenuButton>

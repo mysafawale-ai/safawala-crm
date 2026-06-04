@@ -427,7 +427,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     // 20+ bookings → red
     high: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm font-semibold",
     // Has modifications → amber
-    modification: "!bg-amber-400 !text-amber-950 hover:!bg-amber-500 !cursor-pointer !border !border-amber-500/30 shadow-sm font-semibold",
+    modification: "!bg-orange-400 !text-white hover:!bg-orange-500 !cursor-pointer !border !border-orange-500/30 shadow-sm font-semibold",
   }
 
   return (
@@ -453,7 +453,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                 <span className="text-muted-foreground font-medium">20+ Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 rounded-sm bg-amber-400 border border-amber-500/30 shadow-sm flex items-center justify-center text-[8px]">🔧</span>
+                <span className="inline-block w-3 h-3 rounded-sm bg-orange-400 border border-orange-500/30 shadow-sm flex items-center justify-center text-[8px]">🔧</span>
                 <span className="text-muted-foreground font-medium">Modifications</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -487,7 +487,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                   <div className="flex items-center gap-0.5">
                     {count > 0 && <span>{count}</span>}
                     {modifications > 0 && (
-                      <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-amber-400 text-[8px] font-bold text-amber-900">🔧</span>
+                      <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-orange-400 text-[8px] font-bold text-white">🔧</span>
                     )}
                   </div>
                 )
@@ -656,9 +656,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                               return <span className="text-green-600 font-semibold">✅ Confirmed</span>
                             } else {
                               return (
-                                <div className="text-amber-600 font-semibold">
+                                <div className="text-amber-700 font-semibold">
                                   <div>⏳ Pending Payment</div>
-                                  <div className="text-xs text-amber-500">₹{payment.pendingAmount.toLocaleString()}</div>
+                                  <div className="text-xs text-amber-600">₹{payment.pendingAmount.toLocaleString()}</div>
                                 </div>
                               )
                             }
@@ -684,7 +684,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             <TabsContent value="modifications" className="space-y-4">
               {modificationBookings.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
-                  <Badge className="bg-amber-500">{modificationBookings.length} modifications pending</Badge>
+                  <Badge className="bg-orange-500">{modificationBookings.length} modifications pending</Badge>
                 </div>
               )}
 
@@ -737,7 +737,7 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                             </div>
                           </td>
                           <td className="border-muted px-4 py-3 text-sm text-foreground max-w-sm">
-                            <div className="text-xs bg-amber-50 p-2 rounded border border-amber-200 text-amber-900">
+                            <div className="text-xs bg-orange-50 p-2 rounded border border-orange-200 text-orange-900">
                               {booking.modifications_details || "No details provided"}
                             </div>
                           </td>

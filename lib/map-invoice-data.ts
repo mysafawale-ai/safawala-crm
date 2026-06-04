@@ -85,14 +85,18 @@ export function mapToInvoiceData(
     items: mappedItems,
 
     companyName: company?.company_name || company?.name || "Safawala",
-    companyPhone: company?.phone || "",
+    companyPhone: "+91 97252 95691 | +91 97252 95692 | +91 95103 66393 (Office)",
     companyEmail: company?.email || "",
-    companyAddress: company?.address || "",
-    companyCity: company?.city || "",
-    companyState: company?.state || "",
+    companyAddress: "Delhi · Vadodara · Ahmedabad · Mumbai · Bangalore",
+    companyCity: "",
+    companyState: "",
     companyGST: company?.gst_number || "",
     companyLogo: company?.logo_url || "",
-    termsAndConditions: company?.terms_conditions || "",
+    termsAndConditions: company?.terms_conditions || (
+      bookingType === 'product_sale' || bookingType === 'direct_sale'
+        ? "1. Products purchased under the sale category are non-returnable and non-exchangeable.\n2. This agreement and any related matters shall be governed by the jurisdiction of Vadodara, Gujarat."
+        : "1. All product selections and order details are considered approved by the customer at the time of booking. Any changes after confirmation may not be possible, especially close to the event date.\n2. For the best service experience, Safa Wale bookings should preferably be confirmed at least 30 days before the event.\n3. The remaining payment, including the Security Deposit, must be completed before the event date.\n4. Safas and rental items remain the customer's responsibility until collected by our team. Any lost, damaged, torn, burnt, or unreturned items will be charged as per the applicable lost/damage rates.\n5. Our team will arrange collection of safas after the event. If items are unavailable on the agreed date, additional rental charges may be adjusted from the Security Deposit.\n6. Safa Wale service includes up to 5 hours of assistance. Additional hours will be charged at Rs.1,500 per hour.\n7. Local city services include up to 1 hour; outstation services up to 4 hours and until 9:30 PM. Any additional time may be adjusted against the Security Deposit.\n8. Sold products are non-returnable and non-exchangeable. All bookings and services are subject to Vadodara jurisdiction."
+    ),
     primaryColor: company?.primary_color || "#102516",
     secondaryColor: company?.secondary_color || "#FDECC8",
   };

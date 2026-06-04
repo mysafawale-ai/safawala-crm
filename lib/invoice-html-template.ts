@@ -790,7 +790,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       ${bankingDetails.find((b: any) => b.qrCodeUrl && b.qrCodeUrl.trim()) ? `
       <div style="display: flex; justify-content: center; align-items: center;">
         <div style="background: white; padding: 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center;">
-          <img src="${bankingDetails.find((b: any) => b.qrCodeUrl && b.qrCodeUrl.trim())?.qrCodeUrl}" alt="QR Code" style="width: 80px; height: 80px; object-fit: contain;" onerror="this.style.display='none'" />
+          <img src="${bankingDetails.find((b: any) => b.qrCodeUrl && b.qrCodeUrl.trim())?.qrCodeUrl}" alt="QR Code" style="width: 120px; height: 120px; object-fit: contain;" onerror="this.style.display='none'" />
           <div style="text-align: center; font-size: 10px; color: #666; margin-top: 2px;">Scan to Pay</div>
         </div>
       </div>

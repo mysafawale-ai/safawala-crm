@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 import { sendMessage, sendMedia, sendTemplateMessage } from "@/lib/services/wati-service"
+import { urlToPdfBuffer, htmlToPdfBuffer } from "@/lib/puppeteer-pdf"
 import { generateInvoiceHTML } from "@/lib/invoice-html-template"
-import { htmlToPdfBuffer } from "@/lib/puppeteer-pdf"
 import { mapToInvoiceData } from "@/lib/map-invoice-data"
 import { format } from "date-fns"
+import { cookies } from "next/headers"
 
 export const dynamic = "force-dynamic"
 
@@ -71,10 +72,33 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     }
   }
 
-  // 5. Generate PDF
-  const invoiceData = mapToInvoiceData(orderData, customer, items, companySettings, orderType)
-  const htmlContent = generateInvoiceHTML(invoiceData)
-  const pdfBuffer = await htmlToPdfBuffer(htmlContent)
+  // 5. Generate PDF — render the LIVE invoice page so WhatsApp PDF = Print Invoice PDF
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000"
+
+  // Map orderType to the mode param create-invoice expects
+  const invoicePageMode = "edit"
+  const invoicePageUrl = `${appBaseUrl}/create-invoice?mode=${invoicePageMode}&id=${orderId}&print=true`
+
+  // Pass session cookies so the page renders authenticated
+  let pdfBuffer: Buffer
+  try {
+    const cookieStore = cookies()
+    const allCookies = cookieStore.getAll().map(c => ({
+      name: c.name,
+      value: c.value,
+      domain: new URL(appBaseUrl).hostname,
+    }))
+    pdfBuffer = await urlToPdfBuffer(invoicePageUrl, allCookies)
+    console.log("[WhatsApp Invoice] PDF generated from live page:", invoicePageUrl)
+  } catch (pdfErr) {
+    // Fallback to legacy HTML template if live-page render fails
+    console.warn("[WhatsApp Invoice] Live-page PDF failed, falling back to HTML template:", pdfErr)
+    const invoiceData = mapToInvoiceData(orderData, customer, items, companySettings, orderType)
+    const htmlContent = generateInvoiceHTML(invoiceData)
+    pdfBuffer = await htmlToPdfBuffer(htmlContent)
+  }
 
   // 6. Upload to Supabase Storage
   const invoiceNumber =

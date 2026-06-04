@@ -1438,34 +1438,39 @@ export default function BookingsPage() {
             <DialogTitle>📋 Booking Details</DialogTitle>
             <DialogDescription>Complete booking information and timeline</DialogDescription>
           </DialogHeader>
-          
-          {selectedBooking && (
-            <>
-              {/* NEW: Direct Sales Order (DSL*) - Using New Dedicated DirectSalesOrderDetails Component */}
-              {(selectedBooking as any).source === 'direct_sales' ? (
-                <DirectSalesOrderDetails 
-                  booking={{
-                    ...selectedBooking,
-                    bookingItems: bookingItems[selectedBooking.id] || []
-                  }}
-                />
-              ) : /* Direct Sales Order - Using Rental Sales Component */
-              ((selectedBooking as any).booking_type === 'sale' || (selectedBooking as any).booking_subtype === 'sale' || (selectedBooking as any).source === 'product_orders' || (selectedBooking.booking_number && (selectedBooking.booking_number as string).startsWith('ORD'))) ? (
-                <DirectSalesBookingDetails 
-                  booking={{
-                    ...selectedBooking,
-                    bookingItems: bookingItems[selectedBooking.id] || []
-                  }}
-                />
-              ) : (
-                /* Rental/Package Booking - Simplified View */
-                <PackageBookingView 
-                  booking={selectedBooking}
-                  bookingItems={bookingItems[selectedBooking.id] || []}
-                />
-              )}
-            </>
-          )}
+
+          {selectedBooking && (() => {
+            // Wait for items to finish loading before rendering — this fixes the double-click issue
+            const isItemsLoading = itemsLoading[selectedBooking.id] === true
+            const items = bookingItems[selectedBooking.id] || []
+            // Only show loading if items are actively being fetched (not already loaded)
+            if (isItemsLoading && items.length === 0) {
+              return (
+                <div className="flex items-center justify-center py-16 gap-3">
+                  <RefreshCw className="h-5 w-5 animate-spin text-indigo-500" />
+                  <span className="text-sm text-slate-500">Loading booking details...</span>
+                </div>
+              )
+            }
+            return (
+              <>
+                {(selectedBooking as any).source === 'direct_sales' ? (
+                  <DirectSalesOrderDetails
+                    booking={{ ...selectedBooking, bookingItems: items }}
+                  />
+                ) : ((selectedBooking as any).booking_type === 'sale' || (selectedBooking as any).booking_subtype === 'sale' || (selectedBooking as any).source === 'product_orders' || (selectedBooking.booking_number && (selectedBooking.booking_number as string).startsWith('ORD'))) ? (
+                  <DirectSalesBookingDetails
+                    booking={{ ...selectedBooking, bookingItems: items }}
+                  />
+                ) : (
+                  <PackageBookingView
+                    booking={selectedBooking}
+                    bookingItems={items}
+                  />
+                )}
+              </>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 

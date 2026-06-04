@@ -1,48 +1,86 @@
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
-export async function htmlToPdfBuffer(htmlContent: string): Promise<Buffer> {
+async function launchBrowser() {
   const isLocal = process.env.NODE_ENV === 'development' || !process.env.VERCEL;
 
-  let executablePath;
+  let executablePath: string | undefined;
   if (isLocal) {
-    // Local Mac Chrome path for dev
     executablePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   } else {
-    // Vercel serverless environment (x64)
-    // Download and extract the chromium binary at runtime to bypass 50MB function limits
     executablePath = await chromium.executablePath(
       'https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar'
     );
   }
 
-  const browser = await puppeteer.launch({
+  return puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
     executablePath: executablePath || undefined,
     headless: chromium.headless === true ? true : (chromium.headless === 'new' ? 'new' : true),
   });
+}
 
+/**
+ * Render arbitrary HTML string to a PDF buffer.
+ * Used as fallback only.
+ */
+export async function htmlToPdfBuffer(htmlContent: string): Promise<Buffer> {
+  const browser = await launchBrowser();
   const page = await browser.newPage();
 
-  // Set content and wait for network to be idle
   await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-
-  // Emulate print media type to ensure print styles are applied
   await page.emulateMediaType('print');
 
   const pdfBuffer = await page.pdf({
     format: 'A4',
     printBackground: true,
-    margin: {
-      top: '20px',
-      right: '20px',
-      bottom: '20px',
-      left: '20px'
-    }
+    margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
   });
 
   await browser.close();
+  return Buffer.from(pdfBuffer);
+}
 
+/**
+ * Navigate to the LIVE invoice page (create-invoice?mode=edit&id=X&print=true)
+ * and capture it as PDF — this is the EXACT same PDF the user gets when they
+ * click Print Invoice in the browser.
+ *
+ * @param invoicePageUrl  Full URL e.g. http://localhost:3000/create-invoice?mode=edit&id=...&print=true
+ * @param authCookies     Session cookies to authenticate the headless browser (required for SSR pages)
+ */
+export async function urlToPdfBuffer(
+  invoicePageUrl: string,
+  authCookies?: Array<{ name: string; value: string; domain: string }>
+): Promise<Buffer> {
+  const browser = await launchBrowser();
+  const page = await browser.newPage();
+
+  // Set cookies so the page loads authenticated
+  if (authCookies && authCookies.length > 0) {
+    await page.setCookie(...authCookies);
+  }
+
+  // Navigate to the actual invoice page
+  await page.goto(invoicePageUrl, {
+    waitUntil: 'networkidle0',
+    timeout: 30000,
+  });
+
+  // Wait for the invoice content to fully render
+  // The print-only sections are `hidden print:block` — emulating print reveals them
+  await page.emulateMediaType('print');
+
+  // Wait for async data: QR codes (base64 fetch), company settings, product images
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  const pdfBuffer = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    margin: { top: '0', right: '0', bottom: '0', left: '0' },
+  });
+
+  await browser.close();
   return Buffer.from(pdfBuffer);
 }

@@ -2094,12 +2094,20 @@ export default function CreateInvoicePage() {
   }
 
   // Auto-trigger print if requested via query parameter
+  // Wait for: order data, company settings, QR code, and product images
   useEffect(() => {
-    if (!loading && orderId && searchParams.get("print") === "true" && invoiceData.invoice_number) {
+    if (
+      !loading &&
+      orderId &&
+      searchParams.get("print") === "true" &&
+      invoiceData.invoice_number &&
+      companySettings !== null  // company settings have loaded
+    ) {
       console.log("[CreateInvoice] Auto-triggering print for invoice:", invoiceData.invoice_number)
+      // 2.5s gives enough time for QR base64 load + product images
       const timer = setTimeout(() => {
         handlePrint()
-      }, 1000)
+      }, 2500)
       return () => clearTimeout(timer)
     }
   }, [loading, orderId, searchParams, invoiceData.invoice_number, selectedCustomer])
@@ -2218,12 +2226,14 @@ export default function CreateInvoicePage() {
               <div>
                 <h1 className="text-base font-bold text-amber-800">{companySettings?.company_name || "SAFAWALA"}</h1>
                 <p className="text-[9px] text-gray-600">Premium Wedding Turbans & Accessories</p>
-                <div className="text-[8px] text-gray-500 flex flex-wrap gap-x-3">
-                  {companySettings?.phone && <span>📞 {companySettings.phone}</span>}
-                  {companySettings?.email && <span>✉️ {companySettings.email}</span>}
-                  {companySettings?.website && <span>🌐 {companySettings.website}</span>}
+                <div className="text-[8px] text-gray-500">
+                  🏢 Delhi · Vadodara · Ahmedabad · Mumbai · Bangalore
                 </div>
-                {companySettings?.address && <div className="text-[8px] text-gray-500">📍 {companySettings.address}{companySettings?.city ? `, ${companySettings.city}` : ''}</div>}
+                <div className="text-[8px] text-gray-500 flex flex-wrap gap-x-2 mt-0.5">
+                  <span>📞 +91 97252 95691</span>
+                  <span>📞 +91 97252 95692</span>
+                  <span>🏢 +91 95103 66393 (Office)</span>
+                </div>
               </div>
             </div>
             {/* Invoice Info */}
@@ -3256,26 +3266,22 @@ export default function CreateInvoicePage() {
                         <div className="text-[10px] text-gray-600 max-h-40 overflow-y-auto leading-relaxed">
                           {invoiceData.invoice_type === "sale" ? (
                             <ul className="list-disc list-inside space-y-1">
-                              <li>Sold products will not be returned or exchanged.</li>
-                              <li>Subject to Vadodara jurisdiction.</li>
+                              <li>Products purchased under the sale category are non-returnable and non-exchangeable.</li>
+                              <li>This agreement and any related matters shall be governed by the jurisdiction of Vadodara, Gujarat.</li>
                             </ul>
                           ) : (
                             companySettings?.terms_conditions ? (
                               <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
                             ) : (
                               <ol className="list-decimal list-inside space-y-0.5">
-                                <li>Sold products will not be returned or exchanged.</li>
-                                <li>Please book the Safa Wale service at least 1 month in advance.</li>
-                                <li>We will not allow any last-minute changes in placed orders.</li>
-                                <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
-                                <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
-                                <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
-                                <li>Our staff team will not ask guests to return safas (as per company reputation & policies).</li>
-                                <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
-                                <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
-                                <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
-                                <li>I hereby declare that all the above products are selected and checked by me.</li>
-                                <li>Subject to Vadodara jurisdiction.</li>
+                                <li>All product selections and order details are considered approved by the customer at the time of booking. Any changes requested after confirmation may not be possible, especially close to the event date.</li>
+                                <li>For the best service experience, Safa Wale bookings should preferably be confirmed at least 30 days before the event.</li>
+                                <li>The remaining payment, including the Security Deposit, must be completed before the event date.</li>
+                                <li>Safas and rental items remain the responsibility of the customer until they are collected by our team. Any lost, damaged, torn, burnt, or unreturned items will be charged as per the applicable lost/damage rates.</li>
+                                <li>Our team will arrange the collection of safas after the event. If items are not available for collection on the agreed date, additional rental charges may apply and can be adjusted from the Security Deposit.</li>
+                                <li>Safa Wale service includes up to 5 hours of assistance. Additional hours, if required, will be charged at ₹1,500 per hour.</li>
+                                <li>Service timings are subject to the booking location. Local city services include up to 1 hour of assistance, while outstation services are available for up to 4 hours and until 9:30 PM. Any additional time may be adjusted against the Security Deposit.</li>
+                                <li>Sold products are non-returnable and non-exchangeable. All bookings and services are subject to Vadodara jurisdiction.</li>
                               </ol>
                             )
                           )}
@@ -3707,32 +3713,64 @@ export default function CreateInvoicePage() {
             </div>
           )}
 
-          {/* Lost/Damaged Items - Print Only */}
-          {lostDamagedItems.length > 0 && (
-            <div className="mt-2">
-              <div className="text-[9px] text-red-700 font-semibold mb-1 uppercase tracking-wide">Additional Products</div>
-              <table className="w-full text-[10px] border border-red-200 rounded">
+          {/* Lost/Damaged Charges + Policy - Always shown on invoice */}
+          <div className="mt-2 border border-red-200 rounded overflow-hidden">
+            <div className="bg-red-600 px-2 py-1 flex items-center justify-between">
+              <span className="text-[9px] font-bold text-white uppercase tracking-wide">⚠ Lost / Damage Policy &amp; Charges</span>
+              {lostDamagedItems.length > 0 && (
+                <span className="text-[9px] font-bold text-white">{lostDamagedItems.length} item(s) charged</span>
+              )}
+            </div>
+            {/* Policy notice */}
+            <div className="bg-red-50 px-2 py-1 text-[8px] text-red-800 border-b border-red-200">
+              In case of any loss or damage to rented items, charges will be applied as per the rate card below.
+              Customer is responsible for all items from delivery to return.
+            </div>
+            {/* Booked items with their lost/damage rate */}
+            {invoiceItems.length > 0 && (
+              <table className="w-full text-[9px]">
                 <thead className="bg-red-50">
                   <tr>
-                    <th className="text-left px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200">Item</th>
-                    <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200 w-16">Type</th>
-                    <th className="text-center px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200 w-12">Qty</th>
-                    <th className="text-right px-1.5 py-1 text-[9px] font-semibold text-red-800 border-b border-red-200 w-20">Charge</th>
+                    <th className="text-left px-1.5 py-0.5 font-semibold text-red-800 border-b border-red-200">Item</th>
+                    <th className="text-center px-1.5 py-0.5 font-semibold text-red-800 border-b border-red-200 w-16">Lost Rate</th>
+                    <th className="text-center px-1.5 py-0.5 font-semibold text-red-800 border-b border-red-200 w-16">Damage Rate</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lostDamagedItems.map((item) => (
-                    <tr key={item.id} className="border-b border-red-100">
-                      <td className="px-1.5 py-0.5 font-medium text-gray-900">{item.product_name}</td>
-                      <td className="px-1.5 py-0.5 text-center capitalize">{item.type}</td>
-                      <td className="px-1.5 py-0.5 text-center">{item.quantity}</td>
-                      <td className="px-1.5 py-0.5 text-right text-red-600 font-medium">{formatCurrency(item.total_charge)}</td>
+                  {invoiceItems.map((item) => (
+                    <tr key={item.id} className="border-b border-red-50">
+                      <td className="px-1.5 py-0.5 text-gray-800">{item.product_name}</td>
+                      <td className="px-1.5 py-0.5 text-center text-red-700 font-semibold">{formatCurrency(item.unit_price)}</td>
+                      <td className="px-1.5 py-0.5 text-center text-orange-700 font-semibold">{formatCurrency(Math.round(item.unit_price * 0.5))}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+            {/* Actual charged items if any */}
+            {lostDamagedItems.length > 0 && (
+              <div className="border-t-2 border-red-300">
+                <div className="bg-red-100 px-1.5 py-0.5 text-[8px] font-bold text-red-800 uppercase">Charged Items</div>
+                <table className="w-full text-[9px]">
+                  <tbody>
+                    {lostDamagedItems.map((item) => (
+                      <tr key={item.id} className="border-b border-red-100">
+                        <td className="px-1.5 py-0.5 font-medium text-gray-900">{item.product_name}</td>
+                        <td className="px-1.5 py-0.5 text-center capitalize text-red-700">{item.type}</td>
+                        <td className="px-1.5 py-0.5 text-center">{item.quantity} × {formatCurrency(item.charge_per_item)}</td>
+                        <td className="px-1.5 py-0.5 text-right text-red-700 font-bold">{formatCurrency(item.total_charge)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Customer signature line */}
+            <div className="bg-red-50 px-2 py-1 flex justify-between items-end text-[8px] text-red-700">
+              <span>Customer Signature: ___________________________</span>
+              <span>I agree to the above lost/damage policy</span>
             </div>
-          )}
+          </div>
 
           {/* Notes - Print */}
           {invoiceData.notes && (
@@ -3861,8 +3899,8 @@ export default function CreateInvoicePage() {
                   </div>
                   {bankQrDataUrl && (
                     <div className="shrink-0 text-center">
-                      <img src={bankQrDataUrl} alt="UPI QR" className="w-14 h-14 object-contain bg-white rounded border border-blue-200" />
-                      <div className="text-[7px] text-gray-500 mt-0.5">Scan to Pay</div>
+                      <img src={bankQrDataUrl} alt="UPI QR" className="w-20 h-20 object-contain bg-white rounded border border-blue-200" />
+                      <div className="text-[8px] text-gray-500 mt-0.5 font-medium">Scan to Pay</div>
                     </div>
                   )}
                 </div>
@@ -3871,31 +3909,27 @@ export default function CreateInvoicePage() {
           </div>
 
           {/* Terms & Conditions - Print */}
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <div className="text-xs text-amber-700 font-semibold mb-2 uppercase tracking-wide">Terms & Conditions</div>
-            <div className="text-[9px] text-gray-600">
+          <div className="mt-3 p-2 bg-gray-50 rounded border border-gray-200">
+            <div className="text-[9px] text-gray-700 font-bold mb-1 uppercase tracking-wide border-b border-gray-300 pb-0.5">Terms &amp; Conditions</div>
+            <div className="text-[8px] text-gray-600 leading-tight">
               {invoiceData.invoice_type === "sale" ? (
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Sold products will not be returned or exchanged.</li>
-                  <li>Subject to Vadodara jurisdiction.</li>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>Products purchased under the sale category are non-returnable and non-exchangeable.</li>
+                  <li>This agreement and any related matters shall be governed by the jurisdiction of Vadodara, Gujarat.</li>
                 </ul>
               ) : (
                 companySettings?.terms_conditions ? (
                   <div className="whitespace-pre-wrap">{companySettings.terms_conditions}</div>
                 ) : (
-                  <ol className="list-decimal list-inside space-y-0.5 leading-tight">
-                    <li>Sold products will not be returned or exchanged.</li>
-                    <li>Please book the Safa Wale service at least 1 month in advance.</li>
-                    <li>We will not allow any last-minute changes in placed orders.</li>
-                    <li>Your responsibility shall remain to tie the turban at the venue before the wedding date.</li>
-                    <li>Total outstanding with Security Deposit needs to be paid before the wedding date.</li>
-                    <li>If safa is lost / torn / burnt, it is mandatory to pay ₹400 / ₹600 / ₹800 per safa by the party.</li>
-                    <li>Our staff team will not ask guests to return safas (as per company reputation &amp; policies).</li>
-                    <li>All safas will be collected by the next day. Otherwise, extra rent will be charged and claimed from the given Security Deposit amount.</li>
-                    <li>Safawala&apos;s service will be a maximum of 5 hours only. Overtime charges of ₹1500 per hour will be the responsibility of the party to wear the safa on time.</li>
-                    <li>We assure you of providing 1-hour service in the local city, and our outstation services are just 4 hours only till 9:30 pm. In case of late overtime, charges will be deducted from the Security Deposit.</li>
-                    <li>I hereby declare that all the above products are selected and checked by me.</li>
-                    <li>Subject to Vadodara jurisdiction.</li>
+                  <ol className="list-decimal list-inside space-y-0.5">
+                    <li>All product selections and order details are considered approved by the customer at the time of booking. Any changes after confirmation may not be possible, especially close to the event date.</li>
+                    <li>For the best service experience, Safa Wale bookings should preferably be confirmed at least 30 days before the event.</li>
+                    <li>The remaining payment, including the Security Deposit, must be completed before the event date.</li>
+                    <li>Safas and rental items remain the customer&apos;s responsibility until collected by our team. Any lost, damaged, torn, burnt, or unreturned items will be charged as per the applicable lost/damage rates.</li>
+                    <li>Our team will arrange collection of safas after the event. If items are unavailable on the agreed date, additional rental charges may be adjusted from the Security Deposit.</li>
+                    <li>Safa Wale service includes up to 5 hours of assistance. Additional hours will be charged at ₹1,500 per hour.</li>
+                    <li>Local city services include up to 1 hour; outstation services up to 4 hours and until 9:30 PM. Any additional time may be adjusted against the Security Deposit.</li>
+                    <li>Sold products are non-returnable and non-exchangeable. All bookings and services are subject to Vadodara jurisdiction.</li>
                   </ol>
                 )
               )}

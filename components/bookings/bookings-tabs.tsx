@@ -117,14 +117,14 @@ export function BookingsTabs({
   }
 
   const getAvatarColor = (name?: string) => {
-    if (!name) return "from-amber-500/20 to-amber-700/20 text-amber-900 border-amber-500/30"
+    if (!name) return "from-indigo-500/20 to-indigo-700/20 text-indigo-900 border-indigo-300"
     const charCodeSum = name.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)
     const colors = [
-      "from-amber-500/20 to-amber-700/20 text-amber-900 border-amber-500/30",
-      "from-emerald-500/20 to-emerald-700/20 text-emerald-900 border-emerald-500/30",
-      "from-blue-500/20 to-blue-700/20 text-blue-900 border-blue-500/30",
-      "from-purple-500/20 to-purple-700/20 text-purple-900 border-purple-500/30",
-      "from-rose-500/20 to-rose-700/20 text-rose-900 border-rose-500/30",
+      "from-indigo-500/20 to-indigo-700/20 text-indigo-900 border-indigo-300",
+      "from-emerald-500/20 to-emerald-700/20 text-emerald-900 border-emerald-300",
+      "from-blue-500/20 to-blue-700/20 text-blue-900 border-blue-300",
+      "from-violet-500/20 to-violet-700/20 text-violet-900 border-violet-300",
+      "from-rose-500/20 to-rose-700/20 text-rose-900 border-rose-300",
     ]
     return colors[charCodeSum % colors.length]
   }
@@ -146,9 +146,9 @@ export function BookingsTabs({
           </Link>
         </div>
       ) : (
-        <div className="w-full overflow-hidden rounded-xl border border-amber-900/10 bg-white/50 backdrop-blur-md shadow-inner">
+        <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {/* Header Row */}
-          <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 bg-heritage-cream-medium/70 border-b border-amber-900/10 text-xs font-semibold text-heritage-accent/80 tracking-wider uppercase font-serif">
+          <div className="hidden lg:grid grid-cols-12 gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 tracking-wider uppercase">
             <div className="col-span-2">Booking #</div>
             <div className="col-span-2">Customer</div>
             <div className="col-span-2">Type</div>
@@ -158,18 +158,18 @@ export function BookingsTabs({
             <div className="col-span-1 text-center">Event Date</div>
             <div className="col-span-1 text-right">Actions</div>
           </div>
-          
+
           {/* Body Rows */}
-          <div className="divide-y divide-amber-900/5">
+          <div className="divide-y divide-slate-100">
             {bookingsList.map((booking) => (
               <div 
                 key={booking.id}
-                className="grid grid-cols-1 lg:grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-amber-50/20 transition-all duration-300 relative group hover:shadow-sm"
+                className="grid grid-cols-1 lg:grid-cols-12 gap-4 px-5 py-3 items-center hover:bg-slate-50 transition-colors relative group"
               >
                 {/* Mobile labels shown only on small screens */}
                 <div className="col-span-2 flex items-center justify-between lg:block">
                   <span className="lg:hidden text-xs font-semibold text-muted-foreground uppercase">Booking #</span>
-                  <span className="font-mono text-sm tracking-wider font-semibold text-heritage-accent bg-amber-50 px-2.5 py-1 rounded border border-amber-200/50">
+                  <span className="font-mono text-sm tracking-wider font-semibold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded border border-indigo-200/60">
                     {booking.booking_number}
                   </span>
                 </div>
@@ -177,7 +177,7 @@ export function BookingsTabs({
                 <div className="col-span-2 flex items-center justify-between lg:block">
                   <span className="lg:hidden text-xs font-semibold text-muted-foreground uppercase">Customer</span>
                   <div className="flex items-center gap-3 text-left">
-                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${getAvatarColor(booking.customer?.name)} flex items-center justify-center text-xs font-bold font-serif border shadow-sm`}>
+                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${getAvatarColor(booking.customer?.name)} flex items-center justify-center text-xs font-bold border shadow-sm`}>
                       {getInitials(booking.customer?.name)}
                     </div>
                     <div>
@@ -198,7 +198,7 @@ export function BookingsTabs({
                         const variantName = b.variant_name
                         return (
                           <div className="flex flex-col gap-1 items-start">
-                            <Badge className="bg-amber-100 text-amber-900 border-amber-200 text-[10px] uppercase font-bold py-0.5 px-2">
+                            <Badge className="bg-violet-100 text-violet-800 border-violet-200 text-[10px] uppercase font-bold py-0.5 px-2">
                               Package
                             </Badge>
                             {packageDetails?.name && (
@@ -211,7 +211,7 @@ export function BookingsTabs({
                                 Variant: {variantName}
                               </span>
                             )}
-                            <span className="text-xs text-gray-600 font-medium bg-amber-50/50 px-1.5 py-0.5 rounded border border-amber-100 mt-0.5">
+                            <span className="text-xs text-slate-600 font-medium bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 mt-0.5">
                               👑 {totalSafas} Safas
                             </span>
                           </div>
@@ -273,7 +273,7 @@ export function BookingsTabs({
                           </PopoverTrigger>
                           <PopoverContent className="w-64 p-3 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl z-50">
                             <div className="space-y-2">
-                              <h4 className="font-serif font-bold text-xs text-heritage-accent border-b pb-1.5 flex justify-between items-center">
+                              <h4 className="font-semibold text-xs text-slate-700 border-b pb-1.5 flex justify-between items-center">
                                 <span>Selected Products</span>
                                 <Badge className="bg-green-100 text-green-900 border-green-200 text-[10px] font-semibold py-0 px-1.5">
                                   {items.length || 0} items
@@ -332,7 +332,7 @@ export function BookingsTabs({
                 <div className="col-span-1 flex items-center justify-between lg:block text-center">
                   <span className="lg:hidden text-xs font-semibold text-muted-foreground uppercase">Event Date</span>
                   <div className="flex items-center justify-end lg:justify-center gap-1 text-xs text-gray-800 font-medium">
-                    <Calendar className="h-3.5 w-3.5 text-heritage-accent/60 hidden lg:inline" />
+                    <Calendar className="h-3.5 w-3.5 text-slate-400 hidden lg:inline" />
                     <span>{new Date(booking.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
                   </div>
                 </div>
@@ -352,16 +352,16 @@ export function BookingsTabs({
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-8 w-8 hover:bg-amber-50 hover:text-amber-900 border border-transparent hover:border-amber-200/50 transition-all rounded-lg"
+                      className="h-8 w-8 hover:bg-slate-100 hover:text-slate-900 transition-colors rounded-lg"
                       onClick={() => handleEditBooking?.(booking.id, (booking as any).source)}
                       title="Edit Booking"
                     >
-                      <Edit className="h-4 w-4 text-gray-700"/>
+                      <Edit className="h-4 w-4 text-slate-500"/>
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border border-transparent hover:border-amber-200/50 transition-all rounded-lg"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg"
                       onClick={() => handleArchiveBooking?.(booking.id, (booking as any).source)}
                       title="Archive Booking"
                     >
@@ -383,32 +383,32 @@ export function BookingsTabs({
       setActiveTab(val)
       onTabChange?.(val)
     }} className="w-full">
-      <TabsList className="grid w-full grid-cols-3 bg-heritage-cream-medium/70 border border-amber-900/10 p-1.5 rounded-xl h-auto">
-        <TabsTrigger 
-          value="all" 
-          className="data-[state=active]:bg-heritage-accent data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-medium text-heritage-accent py-2 transition-all duration-200"
+      <TabsList className="grid w-full grid-cols-3 bg-slate-100 border border-slate-200 p-1 rounded-lg h-auto">
+        <TabsTrigger
+          value="all"
+          className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm rounded-md font-medium text-slate-500 py-1.5 transition-all"
         >
           All ({allBookings.length})
         </TabsTrigger>
-        <TabsTrigger 
+        <TabsTrigger
           value="product-rental"
-          className="data-[state=active]:bg-heritage-accent data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-medium text-heritage-accent py-2 transition-all duration-200"
+          className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm rounded-md font-medium text-slate-500 py-1.5 transition-all"
         >
           Rentals ({productRentals.length})
         </TabsTrigger>
-        <TabsTrigger 
+        <TabsTrigger
           value="direct-sale"
-          className="data-[state=active]:bg-heritage-accent data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-medium text-heritage-accent py-2 transition-all duration-200"
+          className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm rounded-md font-medium text-slate-500 py-1.5 transition-all"
         >
-          Direct Sales ({directSales.length})
+          Sales ({directSales.length})
         </TabsTrigger>
       </TabsList>
 
       {/* All Bookings Tab */}
       <TabsContent value="all" className="mt-4">
-        <Card className="border border-amber-900/10 bg-white/70 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:border-amber-900/20">
-          <CardHeader className="border-b border-amber-900/5 bg-heritage-cream-light/40 px-6 py-4">
-            <CardTitle className="font-serif text-lg font-bold text-heritage-accent tracking-wide">All Bookings ({allBookings.length})</CardTitle>
+        <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <CardTitle className="text-base font-semibold text-slate-800">All Bookings ({allBookings.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <BookingsTableContent bookingsList={allBookings} />
@@ -418,9 +418,9 @@ export function BookingsTabs({
 
       {/* Product Rentals Tab */}
       <TabsContent value="product-rental" className="mt-4">
-        <Card className="border border-amber-900/10 bg-white/70 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:border-amber-900/20">
-          <CardHeader className="border-b border-amber-900/5 bg-heritage-cream-light/40 px-6 py-4">
-            <CardTitle className="font-serif text-lg font-bold text-heritage-accent tracking-wide">Product Rentals ({productRentals.length})</CardTitle>
+        <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <CardTitle className="text-base font-semibold text-slate-800">Product Rentals ({productRentals.length})</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">Shows Quote Status & Invoice</p>
           </CardHeader>
           <CardContent className="p-6">
@@ -431,9 +431,9 @@ export function BookingsTabs({
 
       {/* Direct Sales Tab */}
       <TabsContent value="direct-sale" className="mt-4">
-        <Card className="border border-amber-900/10 bg-white/70 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:border-amber-900/20">
-          <CardHeader className="border-b border-amber-900/5 bg-heritage-cream-light/40 px-6 py-4">
-            <CardTitle className="font-serif text-lg font-bold text-heritage-accent tracking-wide">Direct Sales ({directSales.length})</CardTitle>
+        <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
+          <CardHeader className="border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <CardTitle className="text-base font-semibold text-slate-800">Direct Sales ({directSales.length})</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">Shows Invoice only (no quotes)</p>
           </CardHeader>
           <CardContent className="p-6">
@@ -451,14 +451,14 @@ export function BookingsTabs({
         onClick={() => setShowArchived(!showArchived)}
       >
         <div className="flex items-center gap-2">
-          <Archive className="h-4 w-4 text-amber-600" />
+          <Archive className="h-4 w-4 text-slate-400" />
           <span className="font-medium">Archived Bookings ({archivedBookings.length})</span>
         </div>
         {showArchived ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </Button>
 
       {showArchived && archivedBookings.length > 0 && (
-        <Card className="mt-2 border-amber-200 bg-amber-50/30">
+        <Card className="mt-2 border-slate-200 bg-slate-50">
           <CardContent className="pt-4">
             <Table>
               <TableHeader>
@@ -473,7 +473,7 @@ export function BookingsTabs({
               </TableHeader>
               <TableBody>
                 {archivedBookings.map((booking: any) => (
-                  <TableRow key={booking.id} className="bg-amber-50/50">
+                  <TableRow key={booking.id} className="bg-slate-50/80">
                     <TableCell className="font-mono text-sm">
                       {booking.booking_number || booking.order_number || booking.package_number || 'N/A'}
                     </TableCell>

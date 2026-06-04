@@ -160,11 +160,10 @@ const Sidebar = React.forwardRef<
         <SheetContent
           data-sidebar="sidebar"
           data-mobile="true"
-          className="w-[--sidebar-width] p-0 text-sidebar-foreground [&>button]:hidden heritage-sidebar"
+          className="w-[--sidebar-width] p-0 text-sidebar-foreground [&>button]:hidden bg-white border-r border-slate-200"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-              background: "linear-gradient(180deg, #fefaf6 0%, #fcf7f0 100%)",
             } as React.CSSProperties
           }
           side={side}
