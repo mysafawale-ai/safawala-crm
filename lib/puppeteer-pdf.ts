@@ -4,14 +4,16 @@ import puppeteer from 'puppeteer-core';
 async function launchBrowser() {
   const isLocal = process.env.NODE_ENV === 'development' || !process.env.VERCEL;
 
-  let executablePath: string | undefined;
   if (isLocal) {
-    executablePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  } else {
-    executablePath = await chromium.executablePath(
-      'https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar'
-    );
+    return puppeteer.launch({
+      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      headless: true,
+    });
   }
+
+  const executablePath = await chromium.executablePath(
+    'https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar'
+  );
 
   return puppeteer.launch({
     args: chromium.args,

@@ -168,14 +168,24 @@ async function fetchOrderItems(orderId: string, orderType: string, supabase: any
       .eq("order_id", orderId)
 
     if (error) {
-      console.warn(`[PDF Service] Items fetch error from product_order_items:`, error)
-      return []
+      console.warn(`[PDF Service] Items fetch error from product_order_items, trying fallback:`, error)
+      const { data: fallback, error: fallbackErr } = await supabase
+        .from("product_order_items")
+        .select("*")
+        .eq("order_id", orderId)
+      
+      if (fallbackErr || !fallback) return []
+      return fallback.map((item: any) => ({
+        ...item,
+        product_name: item.product_name || item.name || "Item",
+        category: item.category || "",
+      }))
     }
 
     return (data || []).map((item: any) => ({
       ...item,
       product_name: item.product_name || item.products?.name || item.products?.category || "Item",
-      category: item.category || item.products?.category,
+      category: item.category || item.products?.category || "",
     }))
   }
 
