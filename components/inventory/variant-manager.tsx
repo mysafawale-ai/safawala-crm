@@ -72,7 +72,7 @@ async function printVariantBarcode(barcode: string, label: string) {
         const barcodeImg = canvas.toDataURL("image/png")
         labelsHTML += `
           <div class="label">
-            <div class="name">${label.substring(0, 20)}</div>
+            <div class="name">${label}</div>
             <img src="${barcodeImg}" class="barcode" />
             <div class="code">${barcode}</div>
             <div class="website">www.safawala.com</div>
@@ -93,7 +93,7 @@ async function printVariantBarcode(barcode: string, label: string) {
   .row:last-child { page-break-after: avoid; }
   .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1mm; gap: 0.3mm; border: 0.5mm solid #ddd; }
   .label.empty { visibility: hidden; }
-  .name { font-size: 9pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; height: 5mm; overflow: hidden; line-height: 1.1; }
+  .name { font-size: 8.5pt; font-weight: bold; color: #000; text-align: center; max-width: 48mm; max-height: 8mm; overflow: hidden; line-height: 1.1; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .barcode { width: 42mm; height: 10mm; display: block; image-rendering: pixelated; }
   .code { font-size: 9pt; font-weight: bold; color: #000; text-align: center; height: 3mm; line-height: 1; }
   .website { font-family: Arial, sans-serif; font-size: 8pt; font-weight: bold; color: #000; height: 2mm; line-height: 1; margin-top: 1mm; }
@@ -315,7 +315,10 @@ export function VariantManager({
                         size="sm"
                         variant="ghost"
                         className="h-6 px-2 text-blue-600 text-[10px]"
-                        onClick={() => printVariantBarcode(variant.barcode!, getVariantLabel(variant))}
+                        onClick={() => {
+                          if (onPrintBarcode) onPrintBarcode(variant)
+                          else printVariantBarcode(variant.barcode!, getVariantLabel(variant))
+                        }}
                         title="Print barcode label"
                       >
                         <Printer className="w-3 h-3 mr-1" />

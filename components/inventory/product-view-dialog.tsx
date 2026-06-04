@@ -21,6 +21,7 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
 import { generateBarcode, generateBarcodeLabel } from "@/lib/barcode-generator"
+import { doPrint } from "./barcode-print-dialog"
 import { BarcodePrinter } from "@/components/inventory/barcode-printer"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 // Fixed import path for ProductItemService
@@ -126,33 +127,16 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
   const handlePrintBarcode = async () => {
     setPrinting(true)
     try {
-      const labelImage = generateBarcodeLabel({
-        barcodeText: product.barcode || "",
-        variationName: product.name,
-        mrp: product.price,
-      })
-
-      const printWindow = window.open("", "_blank")
-      if (printWindow) {
-        printWindow.document.write(`
-        <html>
-          <head>
-            <title>Print Barcode - ${product.name}</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; }
-              img { max-width: 100%; height: auto; }
-              @media print { body { margin: 0; padding: 10px; } }
-            </style>
-          </head>
-          <body>
-            <img src="${labelImage}" alt="Barcode Label" />
-          </body>
-        </html>
-      `)
-        printWindow.document.close()
-        printWindow.print()
-        printWindow.close()
-      }
+      await doPrint(
+        product.barcode || "",
+        product.name,
+        1,
+        product.regular_price || undefined,
+        product.price || undefined,
+        product.color,
+        product.size,
+        product.material
+      )
       toast({
         title: "Success",
         description: "Barcode sent to printer",

@@ -16,7 +16,7 @@ import { PricingPanel } from "./pricing-panel"
 import { PhotoGallery } from "./photo-gallery"
 import { VariantManager, ProductVariant } from "./variant-manager"
 import { BarcodeGenerator } from "./barcode-generator-enhanced"
-import { printBarcodes } from "@/lib/barcode-print-service"
+import { doPrint, getCleanVariantName } from "./barcode-print-dialog"
 
 interface Product {
   id?: string
@@ -480,18 +480,21 @@ export function ProductEditorModal({
                   return
                 }
                 try {
-                  const variantName = variant.variation_name || formData.name
-                  const regularPrice = formData.regular_price + (variant.price_adjustment || 0)
-                  const salePrice = formData.price + (variant.price_adjustment || 0)
-                  await printBarcodes({
-                    barcodes: [{
-                      code: variant.barcode,
-                      productName: variantName,
-                      regularPrice: regularPrice,
-                      price: salePrice,
-                    }],
-                    columns: 2,
-                  })
+                  const variantName = variant.variation_name
+                    ? getCleanVariantName(formData.name, variant.variation_name)
+                    : formData.name
+                  const regularPrice = (formData.regular_price ?? 0) + (variant.regular_price_adjustment ?? 0) || undefined
+                  const salePrice = (formData.price ?? 0) + (variant.price_adjustment ?? 0) || undefined
+                  await doPrint(
+                    variant.barcode,
+                    variantName,
+                    1,
+                    regularPrice,
+                    salePrice,
+                    variant.color || formData.color,
+                    variant.size || formData.size,
+                    variant.material || formData.material
+                  )
                   toast.success("Barcode sent to printer")
                 } catch (error) {
                   toast.error("Failed to print barcode")

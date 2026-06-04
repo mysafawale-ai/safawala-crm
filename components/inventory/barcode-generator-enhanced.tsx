@@ -8,6 +8,7 @@ import { AlertCircle, Printer, Download, Loader2, RefreshCw } from "lucide-react
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
+import { doPrint } from "./barcode-print-dialog"
 
 interface Product {
   id: string
@@ -58,76 +59,17 @@ export function BarcodeGenerator({ product, onBarcodeGenerated }: BarcodeGenerat
     if (quantity < 1) { toast.error("Enter at least 1 label"); return }
     setPrinting(true)
     try {
-      const JsBarcode = (await import("jsbarcode")).default
-      const labelsPerRow = 2
-      const rows = Math.ceil(quantity / labelsPerRow)
-      let labelsHTML = ""
-
-      const metaParts = [product.color, product.size, product.material].filter(Boolean)
-      const metaLine = metaParts.join(" | ")
-      const savings = product.regular_price && product.price && product.regular_price > product.price
-        ? product.regular_price - product.price : 0
-
-      for (let row = 0; row < rows; row++) {
-        labelsHTML += `<div class="row">`
-        for (let col = 0; col < labelsPerRow; col++) {
-          const idx = row * labelsPerRow + col
-          if (idx < quantity) {
-            const canvas = document.createElement("canvas")
-            JsBarcode(canvas, currentBarcode, {
-              format: "CODE128", width: 3, height: 80,
-              displayValue: false, margin: 4,
-              background: "#FFFFFF", lineColor: "#000000",
-            })
-            const barcodeImg = canvas.toDataURL("image/png")
-            labelsHTML += `
-              <div class="label">
-                <div class="name">${product.name.substring(0, 22)}</div>
-                ${metaLine ? `<div class="meta">${metaLine}</div>` : ""}
-                ${(product.regular_price || product.price) ? `<div class="pricing-row">
-                  ${product.regular_price ? `MRP: <span class="mrp-price">&#8377;${product.regular_price}</span>` : ""}
-                  ${product.price ? `<span class="sale-price">&#8377;${product.price}</span>` : ""}
-                  ${savings > 0 ? `<span class="you-save">You save &#8377;${savings}</span>` : ""}
-                </div>` : ""}
-                <img src="${barcodeImg}" class="barcode" />
-                <div class="code">${currentBarcode}</div>
-                <div class="website">www.safawala.com</div>
-              </div>`
-          } else {
-            labelsHTML += `<div class="label empty"></div>`
-          }
-        }
-        labelsHTML += `</div>`
-      }
-
-      const printHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&display=swap" rel="stylesheet">
-<style>
-  @page { size: 100mm 25mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; font-weight: 700; }
-  html, body { width: 100mm; height: 25mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .row { width: 100mm; height: 25mm; display: flex; page-break-after: always; page-break-inside: avoid; }
-  .row:last-child { page-break-after: avoid; }
-  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 3mm 1mm 1mm 1mm; gap: 0.15mm; border: 0.5mm solid #ddd; }
-  .label.empty { visibility: hidden; }
-  .name { font-size: 6.7pt; font-weight: 800; color: #000; text-align: center; max-width: 48mm; overflow: hidden; line-height: 1.1; word-break: break-word; }
-  .meta { font-size: 6.5pt; font-weight: 500; color: #000; text-align: center; max-width: 48mm; white-space: nowrap; overflow: hidden; line-height: 1.1; }
-  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.2; white-space: nowrap; }
-  .mrp-price { text-decoration: line-through; margin-right: 2px; }
-  .sale-price { font-size: 8pt; font-weight: 800; color: #000; margin-right: 2px; }
-  .you-save { font-size: 6.5pt; font-weight: 700; color: #000; }
-  .barcode { width: 42mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-size: 7.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1; }
-  .website { font-size: 6.5pt; font-weight: 700; color: #000; line-height: 1; margin-top: 0.5mm; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-</style></head><body>${labelsHTML}</body></html>`
-
-      const printWindow = window.open("", "_blank")
-      if (!printWindow) { toast.error("Please allow popups for printing"); return }
-      printWindow.document.write(printHTML)
-      printWindow.document.close()
-      setTimeout(() => { printWindow.focus(); printWindow.print() }, 500)
-      toast.success(`Sent ${quantity} labels to printer`)
+      await doPrint(
+        currentBarcode,
+        product.name,
+        quantity,
+        product.regular_price,
+        product.price,
+        product.color,
+        product.size,
+        product.material
+      )
+      toast.success(`Sent ${quantity} label${quantity > 1 ? "s" : ""} to printer`)
     } catch (error) {
       console.error("Print error:", error)
       toast.error("Print failed")

@@ -46,6 +46,7 @@ interface FormData {
   material: string
   description: string
   price: string | number
+  regular_price: string | number
   rental_price: string | number
   cost_price: string | number
   lost_safa_price: string | number
@@ -83,6 +84,7 @@ export default function AddProductPage() {
     material: "",
     description: "",
     price: "",
+    regular_price: "",
     rental_price: "",
     cost_price: "",
     lost_safa_price: "",
@@ -365,6 +367,7 @@ export default function AddProductPage() {
         material: formData.material.trim().substring(0, 100) || null,
         description: formData.description.trim().substring(0, 1000) || null,
         price: Number(formData.price) || 0,
+        regular_price: Number(formData.regular_price) || 0,
         rental_price: Number(formData.rental_price) || 0,
         cost_price: Number(formData.cost_price) || 0,
         security_deposit: Number(formData.lost_safa_price) || 0,
@@ -798,6 +801,25 @@ export default function AddProductPage() {
                         onChange={(e) =>
                           handleInputChange(
                             "rental_price",
+                            e.target.value === "" ? "" : Number.parseFloat(e.target.value) || "",
+                          )
+                        }
+                        placeholder="0.00"
+                        className="placeholder:text-muted-foreground/30"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="regular_price">Regular Price (MRP) (₹)</Label>
+                      <Input
+                        id="regular_price"
+                        type="number"
+                        value={formData.regular_price}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "regular_price",
                             e.target.value === "" ? "" : Number.parseFloat(e.target.value) || "",
                           )
                         }

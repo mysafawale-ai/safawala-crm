@@ -27,6 +27,7 @@ interface ProductFormData {
   color: string
   material: string
   price: number
+  regular_price: number
   rental_price: number
   cost_price: number
   security_deposit: number
@@ -59,6 +60,7 @@ export default function EditProductPage() {
     color: "",
     material: "",
     price: 0,
+    regular_price: 0,
     rental_price: 0,
     cost_price: 0,
     security_deposit: 0,
@@ -123,6 +125,7 @@ export default function EditProductPage() {
           color: data.color || "",
           material: data.material || "",
           price: data.price || 0,
+          regular_price: data.regular_price || 0,
           rental_price: data.rental_price || 0,
           cost_price: data.cost_price || 0,
           security_deposit: data.security_deposit || 0,
@@ -338,6 +341,7 @@ export default function EditProductPage() {
         color: formData.color || null,
         material: formData.material || null,
         price: formData.price,
+        regular_price: formData.regular_price,
         rental_price: formData.rental_price,
         cost_price: formData.cost_price,
         security_deposit: formData.security_deposit,
@@ -733,6 +737,28 @@ export default function EditProductPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
+                  <Label htmlFor="regular_price">Regular Price (MRP) (₹)</Label>
+                  <Input
+                    id="regular_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.regular_price === 0 ? "" : formData.regular_price}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (value === "") {
+                        handleInputChange("regular_price", 0)
+                      } else {
+                        const cleanValue = value.replace(/^0+(?=\d)/, "")
+                        handleInputChange("regular_price", Number.parseFloat(cleanValue) || 0)
+                      }
+                    }}
+                    placeholder="0.00"
+                    className="placeholder:opacity-30"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="price">Sale Price (₹) *</Label>
                   <Input
                     id="price"
@@ -873,6 +899,7 @@ export default function EditProductPage() {
                 franchiseId={franchiseId}
                 productName={formData.name}
                 productPrice={Number(formData.price) || undefined}
+                productRegularPrice={Number(formData.regular_price) || undefined}
               />
 
               <div className="flex justify-end space-x-4">

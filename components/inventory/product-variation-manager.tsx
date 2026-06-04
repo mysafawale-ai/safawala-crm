@@ -18,6 +18,7 @@ import {
 import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon, Camera } from "lucide-react"
 import { toast } from "sonner"
 import { generateBarcode, generateBarcodeLabel, generateQRCode } from "@/lib/barcode-generator"
+import { doPrint, getCleanVariantName } from "./barcode-print-dialog"
 
 export interface VariationData {
   id?: string
@@ -28,6 +29,7 @@ export interface VariationData {
   size: string
   sku: string
   price_adjustment: number | string
+  regular_price_adjustment: number | string
   rental_price_adjustment: number | string
   stock_total: number
   stock_available: number
@@ -44,6 +46,7 @@ interface ProductVariationManagerProps {
   readOnly?: boolean
   productName?: string
   productPrice?: number
+  productRegularPrice?: number
   // For new products: manage variations in local state before product is saved
   localVariations?: VariationData[]
   onLocalVariationsChange?: (variations: VariationData[]) => void
@@ -57,6 +60,7 @@ const emptyVariation: VariationData = {
   size: "",
   sku: "",
   price_adjustment: "",
+  regular_price_adjustment: "",
   rental_price_adjustment: "",
   stock_total: 0,
   stock_available: 0,
@@ -71,6 +75,7 @@ export function ProductVariationManager({
   readOnly = false,
   productName,
   productPrice,
+  productRegularPrice,
   localVariations,
   onLocalVariationsChange,
 }: ProductVariationManagerProps) {
@@ -137,6 +142,7 @@ export function ProductVariationManager({
           size: v.size || "",
           sku: v.sku || "",
           price_adjustment: v.price_adjustment || 0,
+          regular_price_adjustment: v.regular_price_adjustment || 0,
           rental_price_adjustment: v.rental_price_adjustment || 0,
           stock_total: v.stock_total || 0,
           stock_available: v.stock_available || 0,
@@ -203,6 +209,7 @@ export function ProductVariationManager({
               size: formData.size.trim() || null,
               sku: formData.sku.trim() || null,
               price_adjustment: Number(formData.price_adjustment) || 0,
+              regular_price_adjustment: Number(formData.regular_price_adjustment) || 0,
               rental_price_adjustment: Number(formData.rental_price_adjustment) || 0,
               stock_total: formData.stock_total,
               stock_available: formData.stock_available,
@@ -229,6 +236,7 @@ export function ProductVariationManager({
               size: formData.size.trim() || null,
               sku: formData.sku.trim() || null,
               price_adjustment: Number(formData.price_adjustment) || 0,
+              regular_price_adjustment: Number(formData.regular_price_adjustment) || 0,
               rental_price_adjustment: Number(formData.rental_price_adjustment) || 0,
               stock_total: formData.stock_total,
               stock_available: formData.stock_available,
@@ -289,30 +297,33 @@ export function ProductVariationManager({
     return productPrice + adj
   }
 
-  const handlePrintBarcode = (barcode: string, name: string, variation?: VariationData) => {
-    const labelName = productName ? `${productName} | ${name}` : name
-    const mrp = variation ? getVariationMRP(variation) : productPrice
-    const labelImage = generateBarcodeLabel({ barcodeText: barcode, variationName: labelName, mrp })
-    const printWindow = window.open("", "_blank")
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Print Barcode - ${name}</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 20px; margin: 0; }
-              img { max-width: 100%; height: auto; }
-              @media print { body { margin: 0; padding: 10px; } }
-            </style>
-          </head>
-          <body>
-            <img src="${labelImage}" alt="Barcode Label" />
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.print()
-      printWindow.close()
+  const handlePrintBarcode = async (barcode: string, name: string, variation?: VariationData) => {
+    try {
+      const regPrice = productRegularPrice !== undefined
+        ? productRegularPrice + (Number(variation?.regular_price_adjustment) || 0)
+        : undefined
+      const salePrice = productPrice !== undefined
+        ? productPrice + (Number(variation?.price_adjustment) || 0)
+        : undefined
+
+      const variantName = productName && name
+        ? getCleanVariantName(productName, name)
+        : name
+
+      await doPrint(
+        barcode,
+        variantName,
+        1,
+        regPrice,
+        salePrice,
+        variation?.color,
+        variation?.size,
+        variation?.material
+      )
+      toast.success("Barcode sent to printer")
+    } catch (error) {
+      console.error("Print error:", error)
+      toast.error("Print failed")
     }
   }
 
@@ -631,7 +642,21 @@ export function ProductVariationManager({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="var-reg-price-adj">Regular Price Adj. (₹)</Label>
+                  <Input
+                    id="var-reg-price-adj"
+                    type="number"
+                    value={formData.regular_price_adjustment}
+                    onChange={(e) =>
+                      handleFormChange("regular_price_adjustment", e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                    placeholder="0"
+                    step="0.01"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Added to regular price</p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="var-price-adj">Price Adjustment (₹)</Label>
                   <Input
@@ -644,7 +669,7 @@ export function ProductVariationManager({
                     placeholder="0"
                     step="0.01"
                   />
-                  <p className="text-xs text-muted-foreground">Added to base product price</p>
+                  <p className="text-[10px] text-muted-foreground">Added to base product price</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="var-rental-adj">Rental Price Adj. (₹)</Label>
@@ -658,7 +683,7 @@ export function ProductVariationManager({
                     placeholder="0"
                     step="0.01"
                   />
-                  <p className="text-xs text-muted-foreground">Added to base rental price</p>
+                  <p className="text-[10px] text-muted-foreground">Added to base rental price</p>
                 </div>
               </div>
 
