@@ -1,26 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-)
-
-interface Product {
-  id: string
-  name: string
-  barcode: string
-  description?: string
-  price?: number
-  rental_price?: number
-  stock?: number
-  [key: string]: any
-}
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  )
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })

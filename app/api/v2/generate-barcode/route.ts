@@ -1,11 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-)
-
 type ResponseData = {
   success?: boolean
   barcode?: string
@@ -26,7 +21,7 @@ function generateRandomBarcode(): string {
 /**
  * Generate unique barcode by checking existing ones
  */
-async function generateUniqueBarcode(): Promise<string> {
+async function generateUniqueBarcode(supabase: any): Promise<string> {
   let attempts = 0
   const maxAttempts = 100
 
@@ -52,8 +47,12 @@ async function generateUniqueBarcode(): Promise<string> {
 }
 
 export async function GET(request: Request) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  )
   try {
-    const barcode = await generateUniqueBarcode()
+    const barcode = await generateUniqueBarcode(supabase)
 
     return new Response(
       JSON.stringify({
@@ -74,6 +73,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  )
   try {
     const body = await request.json()
     const { product_id } = body
@@ -86,7 +89,7 @@ export async function POST(request: Request) {
     }
 
     // Generate unique barcode
-    const barcode = await generateUniqueBarcode()
+    const barcode = await generateUniqueBarcode(supabase)
 
     // Update product with barcode
     const { data: product, error } = await supabase
