@@ -94,18 +94,57 @@ async function fetchBookingDetails(bookingId: string) {
     .maybeSingle()
 
   if (pkgBooking) {
-    // Fetch package name if available
+    // 1. Fetch package booking items
+    const { data: bookingItems } = await supabase
+      .from("package_booking_items")
+      .select("variant_name, variant_inclusions, reserved_products")
+      .eq("booking_id", bookingId)
+    
+    // 2. Fetch selected products from database
+    const { data: productItems } = await supabase
+      .from("package_booking_product_items")
+      .select(`
+        quantity,
+        products ( name, category )
+      `)
+      .eq("package_booking_id", bookingId)
+
     let itemsSummary = "Wedding Accessories"
-    if (pkgBooking.package_id) {
-      const { data: pkgSet } = await supabase
-        .from("package_sets")
-        .select("name")
-        .eq("id", pkgBooking.package_id)
-        .maybeSingle()
-      if (pkgSet) {
-        itemsSummary = pkgSet.name
-      }
+    if (bookingItems && bookingItems.length > 0) {
+      itemsSummary = bookingItems.map((item: any) => {
+        const inclusionsStr = Array.isArray(item.variant_inclusions)
+          ? item.variant_inclusions.join(", ")
+          : (typeof item.variant_inclusions === "string" ? item.variant_inclusions : "")
+
+        let productsStr = ""
+        const reserved = Array.isArray(item.reserved_products)
+          ? item.reserved_products
+          : (typeof item.reserved_products === "string" ? JSON.parse(item.reserved_products) : [])
+        if (reserved.length > 0) {
+          productsStr = reserved.map((p: any) => `${p.name} x${p.qty || p.quantity || 1}`).join(", ")
+        } else if (productItems && productItems.length > 0) {
+          productsStr = productItems.map((p: any) => `${p.products?.name || p.products?.category || "Item"} x${p.quantity}`).join(", ")
+        }
+
+        let summary = `${item.variant_name || "Package Item"}`
+        const details: string[] = []
+        if (inclusionsStr) {
+          details.push(`Inclusions: ${inclusionsStr}`)
+        }
+        if (productsStr) {
+          details.push(`Products: ${productsStr}`)
+        }
+        if (details.length > 0) {
+          summary += ` (${details.join("; ")})`
+        }
+        return summary
+      }).join(", ")
     }
+
+    if (itemsSummary.length > 900) {
+      itemsSummary = itemsSummary.slice(0, 900) + "..."
+    }
+
     return {
       bookingId: pkgBooking.id,
       bookingNumber: pkgBooking.package_number,
@@ -131,16 +170,46 @@ async function fetchBookingDetails(bookingId: string) {
 
   if (prodOrder) {
     // Fetch items
-    let itemsSummary = "Wedding Accessories"
     const { data: items } = await supabase
       .from("product_order_items")
-      .select(`quantity, products ( name, category )`)
+      .select(`quantity, product_name, products ( name, category )`)
       .eq("order_id", bookingId)
-    if (items && items.length > 0) {
-      itemsSummary = items.map((it: any) => {
-        const name = (it.products as any)?.name || (it.products as any)?.category || "Item"
-        return `${name} (x${it.quantity})`
-      }).join(", ")
+
+    const finalItems = (items || []).map((it: any) => ({
+      product_name: it.product_name || it.products?.name || it.products?.category || "Item",
+      quantity: it.quantity
+    }))
+
+    let itemsSummary = "Wedding Accessories"
+    if (prodOrder.package_id) {
+      const { data: pkgSet } = await supabase.from("package_sets").select("name").eq("id", prodOrder.package_id).maybeSingle()
+      const { data: pkgVar } = await supabase.from("package_variants").select("name, inclusions").eq("id", prodOrder.variant_id).maybeSingle()
+      
+      const pkgName = `${pkgSet?.name || "Package"} - ${pkgVar?.name || "Variant"}`
+      const inclusionsStr = pkgVar?.inclusions ? (Array.isArray(pkgVar.inclusions) ? pkgVar.inclusions.join(", ") : String(pkgVar.inclusions)) : ""
+      
+      const productsStr = finalItems.map((i: any) => `${i.product_name || "Item"} x${i.quantity || 1}`).join(", ")
+      
+      let summary = pkgName
+      const details: string[] = []
+      if (inclusionsStr) {
+        details.push(`Inclusions: ${inclusionsStr}`)
+      }
+      if (productsStr) {
+        details.push(`Products: ${productsStr}`)
+      }
+      if (details.length > 0) {
+        summary += ` (${details.join("; ")})`
+      }
+      itemsSummary = summary
+    } else {
+      if (finalItems.length > 0) {
+        itemsSummary = finalItems.map((it: any) => `${it.product_name || "Item"} x${it.quantity}`).join(", ")
+      }
+    }
+
+    if (itemsSummary.length > 900) {
+      itemsSummary = itemsSummary.slice(0, 900) + "..."
     }
 
     return {

@@ -112,9 +112,76 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     : "TBD"
   const eventTime = orderData.delivery_time || orderData.event_time || "TBD"
   const venue = orderData.venue_name || orderData.venue_address || "TBD"
-  const itemsSummary = items.length > 0
-    ? items.slice(0, 3).map((i: any) => i.product_name || i.category || "Item").join(", ") + (items.length > 3 ? ` +${items.length - 3} more` : "")
-    : "Wedding Accessories"
+  let itemsSummary = ""
+  if (orderType === "package_booking") {
+    const { data: productItems } = await supabase
+      .from("package_booking_product_items")
+      .select(`
+        quantity,
+        products ( name, category )
+      `)
+      .eq("package_booking_id", orderId)
+
+    itemsSummary = items.map((item: any) => {
+      const inclusionsStr = Array.isArray(item.inclusions)
+        ? item.inclusions.join(", ")
+        : (typeof item.inclusions === "string" ? item.inclusions : "")
+
+      let productsStr = ""
+      const reserved = Array.isArray(item.reserved_products)
+        ? item.reserved_products
+        : (typeof item.reserved_products === "string" ? JSON.parse(item.reserved_products) : [])
+      if (reserved.length > 0) {
+        productsStr = reserved.map((p: any) => `${p.name} x${p.qty || p.quantity || 1}`).join(", ")
+      } else if (productItems && productItems.length > 0) {
+        productsStr = productItems.map((p: any) => `${p.products?.name || p.products?.category || "Item"} x${p.quantity}`).join(", ")
+      }
+
+      let summary = `${item.product_name || "Package Item"}`
+      const details: string[] = []
+      if (inclusionsStr) {
+        details.push(`Inclusions: ${inclusionsStr}`)
+      }
+      if (productsStr) {
+        details.push(`Products: ${productsStr}`)
+      }
+      if (details.length > 0) {
+        summary += ` (${details.join("; ")})`
+      }
+      return summary
+    }).join(", ")
+  } else {
+    if (orderData.package_id) {
+      const { data: pkgSet } = await supabase.from("package_sets").select("name").eq("id", orderData.package_id).maybeSingle()
+      const { data: pkgVar } = await supabase.from("package_variants").select("name, inclusions").eq("id", orderData.variant_id).maybeSingle()
+      
+      const pkgName = `${pkgSet?.name || "Package"} - ${pkgVar?.name || "Variant"}`
+      const inclusionsStr = pkgVar?.inclusions ? (Array.isArray(pkgVar.inclusions) ? pkgVar.inclusions.join(", ") : String(pkgVar.inclusions)) : ""
+      
+      const productsStr = items.map((i: any) => `${i.product_name || "Item"} x${i.quantity || 1}`).join(", ")
+      
+      let summary = pkgName
+      const details: string[] = []
+      if (inclusionsStr) {
+        details.push(`Inclusions: ${inclusionsStr}`)
+      }
+      if (productsStr) {
+        details.push(`Products: ${productsStr}`)
+      }
+      if (details.length > 0) {
+        summary += ` (${details.join("; ")})`
+      }
+      itemsSummary = summary
+    } else {
+      itemsSummary = items.length > 0
+        ? items.map((i: any) => `${i.product_name || "Item"} x${i.quantity || 1}`).join(", ")
+        : "Wedding Accessories"
+    }
+  }
+
+  if (itemsSummary.length > 900) {
+    itemsSummary = itemsSummary.slice(0, 900) + "..."
+  }
   // Template body has: • Total Amount: {{7}}  (NO ₹ prefix in template)
   // So we include ₹ in the value we send
   const totalAmountStr = `₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`
@@ -301,7 +368,7 @@ async function fetchOrderItems(orderId: string, orderType: string) {
       .from("package_booking_items")
       .select(`
         id, quantity, unit_price, total_price,
-        products ( id, name, category )
+        variant_name, variant_inclusions, reserved_products
       `)
       .eq("booking_id", orderId)
     if (error) {
@@ -310,8 +377,9 @@ async function fetchOrderItems(orderId: string, orderType: string) {
     }
     return (data || []).map((item: any) => ({
       ...item,
-      product_name: item.products?.name || item.products?.category || "Item",
-      category: item.products?.category,
+      product_name: item.variant_name || "Package Item",
+      inclusions: item.variant_inclusions,
+      reserved_products: item.reserved_products,
     }))
   }
 
