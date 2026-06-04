@@ -92,14 +92,25 @@ export function mapToInvoiceData(
 
   } else {
     // Product orders / direct sales
-    mappedItems = items.map((item: any) => ({
-      name: item.product_name || item.name || "Item",
-      description: item.barcode ? `#${item.barcode}` : (item.product_code || ""),
-      quantity: item.quantity || 1,
-      unitPrice: item.unit_price || item.price || 0,
-      totalPrice: item.total_price || (item.quantity * (item.unit_price || item.price || 0)),
-      category: item.category || "",
-    }));
+    // items may come from bookings-items API (nested product obj) or direct DB query (flat)
+    mappedItems = items.map((item: any) => {
+      // Handle both nested (item.product.name) and flat (item.product_name) structures
+      const productObj = item.product || {}
+      const name = item.product_name || productObj.name || item.name || "Item"
+      const barcode = item.barcode || productObj.barcode || productObj.product_code || item.product_code || ""
+      const category = item.category || productObj.category || ""
+      const imageUrl = item.image_url || productObj.image_url || ""
+
+      return {
+        name,
+        description: barcode ? `#${barcode}` : "",
+        quantity: item.quantity || 1,
+        unitPrice: item.unit_price || item.price || productObj.rental_price || 0,
+        totalPrice: item.total_price || ((item.quantity || 1) * (item.unit_price || item.price || 0)),
+        category,
+        imageUrl,
+      }
+    });
   }
 
   const isNewTerms = true; // always use new official T&C

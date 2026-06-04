@@ -15,6 +15,7 @@ import { format } from "date-fns"
 import { toast } from "sonner"
 import { fetchProductsWithBarcodes, findProductByAnyBarcode } from "@/lib/product-barcode-service"
 import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
+import { triggerPDFGeneration } from "@/lib/generate-pdf-helper"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1059,6 +1060,11 @@ export default function CreateProductOrderPage() {
 
         toast.success("Direct sale created successfully")
 
+        // Trigger PDF generation in background
+        if (result?.id) {
+          triggerPDFGeneration(result.id, "direct_sale")
+        }
+
         // Auto-send invoice via WhatsApp (fire & forget)
         if (result?.id) {
           sendInvoiceViaWhatsApp({ orderId: result.id, orderType: "direct_sale" })
@@ -1207,6 +1213,11 @@ export default function CreateProductOrderPage() {
         ? `Quote ${orderNumber} created successfully`
         : `Order ${orderNumber} created successfully`
       toast.success(successMsg)
+
+      // Trigger PDF generation in background
+      if (order?.id) {
+        triggerPDFGeneration(order.id, "product_order")
+      }
 
       // Auto-send invoice via WhatsApp (fire & forget, only for orders not quotes)
       if (!isQuote && order?.id) {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
+import { triggerPDFGeneration } from "@/lib/generate-pdf-helper"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -1586,6 +1587,12 @@ export default function CreateInvoicePage() {
 
       const message = isUpdate ? `Quote ${order.order_number} updated` : `Quote ${order.order_number} created`
       toast({ title: isUpdate ? "Quote Updated" : "Quote Saved", description: message })
+
+      // Trigger background PDF generation (fire & forget)
+      if (order?.id) {
+        triggerPDFGeneration(order.id, "product_order")
+      }
+
       router.push("/bookings?refresh=" + Date.now())
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
@@ -1912,6 +1919,11 @@ export default function CreateInvoicePage() {
       }
       
       toast({ title: isUpdate ? "Booking Updated" : "Booking Created", description: message })
+
+      // Trigger background PDF generation (fire & forget)
+      if (order?.id && (!isUpdate || isConvertFromQuote)) {
+        triggerPDFGeneration(order.id, "product_order")
+      }
 
       // Auto-send invoice via WhatsApp (fire & forget, only when checkbox is ON)
       if (order?.id && sendWhatsAppInvoice && (!isUpdate || isConvertFromQuote)) {

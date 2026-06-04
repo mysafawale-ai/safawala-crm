@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
+import { triggerPDFGeneration } from "@/lib/generate-pdf-helper"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -1436,6 +1437,11 @@ export default function BookPackageWizard() {
       // If you need analytics, consider implementing server-side logging or re-adding a coupon_usage table.
 
   toast.success(asQuote ? "Quote created!" : "Order created!")
+
+  // Trigger background PDF generation (fire & forget)
+  if (booking?.id) {
+    triggerPDFGeneration(booking.id, "package_booking")
+  }
 
   // Auto-send invoice via WhatsApp (fire & forget, only for orders not quotes)
   if (!asQuote && booking?.id) {

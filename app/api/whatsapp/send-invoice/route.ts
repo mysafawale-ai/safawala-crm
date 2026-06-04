@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 import { sendMessage, sendMedia, sendTemplateMessage } from "@/lib/services/wati-service"
-import { htmlToPdfBuffer, urlToPdfBuffer } from "@/lib/puppeteer-pdf"
-import { generateInvoiceHTML } from "@/lib/invoice-html-template"
-import { mapToInvoiceData } from "@/lib/map-invoice-data"
-import { generatePdfToken } from "@/lib/pdf-token"
+import { generateAndSaveInvoicePDF } from "@/lib/services/invoice-pdf-service"
 import { format } from "date-fns"
 
 export const dynamic = "force-dynamic"
@@ -50,8 +47,10 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     throw new Error("Customer has no phone/WhatsApp number")
   }
 
-  // 3. Fetch order items
-  const items = await fetchOrderItems(orderId, orderType)
+  // 3. Fetch order items directly from DB (reliable, with all product details)
+  let items: any[] = []
+  items = await fetchOrderItems(orderId, orderType)
+  console.log(`[WhatsApp Invoice] Fetched ${items.length} items for ${orderType} ${orderId}`)
 
   // 4. Fetch company settings
   const finalFranchiseId = orderData.franchise_id || franchiseId
@@ -72,128 +71,31 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
     }
   }
 
-  // 5. Generate PDF — render the EXACT same invoice page the user sees when they click Print
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mysafawala.com"
-  const token = generatePdfToken(orderId, orderType)
-  const invoicePageUrl = `${appBaseUrl}/create-invoice?mode=edit&id=${orderId}&pdfToken=${token}&print=true`
-
-  let pdfBuffer: Buffer
-  try {
-    pdfBuffer = await urlToPdfBuffer(invoicePageUrl)
-    console.log("[WhatsApp Invoice] PDF generated from live invoice page:", invoicePageUrl)
-  } catch (err) {
-    // Fallback to HTML template if live-page render fails
-    console.warn("[WhatsApp Invoice] Live-page failed, falling back to HTML template:", err)
-    const invoiceData = mapToInvoiceData(orderData, customer, items, companySettings, orderType)
-    const htmlContent = generateInvoiceHTML(invoiceData)
-    pdfBuffer = await htmlToPdfBuffer(htmlContent)
+  // 5. Retrieve or Generate PDF
+  let publicUrl = orderData.pdf_url
+  if (!publicUrl) {
+    console.log("[WhatsApp Invoice] pdf_url not found on order, generating synchronously...")
+    publicUrl = await generateAndSaveInvoicePDF(orderId, orderType, supabase)
+  } else {
+    console.log("[WhatsApp Invoice] Found pre-generated pdf_url:", publicUrl)
   }
 
-  // 6. Upload to Supabase Storage
   const invoiceNumber =
     orderData.order_number || orderData.package_number || orderData.sale_number || orderId
   const customerName = customer.name || "Customer"
   const eventDate = orderData.event_date
     ? format(new Date(orderData.event_date), "dd/MM/yy")
     : ""
-  const customerPhone = customer.whatsapp || customer.phone || ""
   const invoiceLabel = [invoiceNumber, customerName, eventDate].filter(Boolean).join(" | ")
-  const safeFileName = [invoiceNumber, customerName.replace(/[^a-zA-Z0-9]/g, "_"), eventDate?.replace(/[^a-zA-Z0-9-]/g, "")].filter(Boolean).join("_")
-  const bucket = process.env.NEXT_PUBLIC_INVOICES_BUCKET || "uploads"
-  const filePath = `invoices/whatsapp/${safeFileName}_${Date.now()}.pdf`
 
-  const { error: uploadErr } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, pdfBuffer, {
-      contentType: "application/pdf",
-      upsert: true,
-    })
-
-  if (uploadErr) {
-    console.error("[WhatsApp Invoice] Upload error:", uploadErr)
-    throw new Error("Failed to upload invoice PDF")
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(bucket).getPublicUrl(filePath)
-
-  if (!publicUrl) {
-    throw new Error("Failed to get public URL for invoice")
-  }
-
-  // 7. Send booking_invoice_document template (approved, with PDF as document header)
+  // 6. Build rich items summary for WhatsApp template
   const eventDateFormatted = orderData.event_date
     ? format(new Date(orderData.event_date), "dd MMM yyyy")
     : "TBD"
   const eventTime = orderData.delivery_time || orderData.event_time || "TBD"
   const venue = orderData.venue_name || orderData.venue_address || "TBD"
-  let itemsSummary = ""
-  if (orderType === "package_booking") {
-    const { data: productItems } = await supabase
-      .from("package_booking_product_items")
-      .select(`
-        quantity,
-        products ( name, category )
-      `)
-      .eq("package_booking_id", orderId)
 
-    itemsSummary = items.map((item: any) => {
-      const inclusionsStr = Array.isArray(item.inclusions)
-        ? item.inclusions.join(", ")
-        : (typeof item.inclusions === "string" ? item.inclusions : "")
-
-      let productsStr = ""
-      const reserved = Array.isArray(item.reserved_products)
-        ? item.reserved_products
-        : (typeof item.reserved_products === "string" ? JSON.parse(item.reserved_products) : [])
-      if (reserved.length > 0) {
-        productsStr = reserved.map((p: any) => `${p.name} x${p.qty || p.quantity || 1}`).join(", ")
-      } else if (productItems && productItems.length > 0) {
-        productsStr = productItems.map((p: any) => `${p.products?.name || p.products?.category || "Item"} x${p.quantity}`).join(", ")
-      }
-
-      let summary = `${item.product_name || "Package Item"}`
-      const details: string[] = []
-      if (inclusionsStr) {
-        details.push(`Inclusions: ${inclusionsStr}`)
-      }
-      if (productsStr) {
-        details.push(`Products: ${productsStr}`)
-      }
-      if (details.length > 0) {
-        summary += ` (${details.join("; ")})`
-      }
-      return summary
-    }).join(", ")
-  } else {
-    if (orderData.package_id) {
-      const { data: pkgSet } = await supabase.from("package_sets").select("name").eq("id", orderData.package_id).maybeSingle()
-      const { data: pkgVar } = await supabase.from("package_variants").select("name, inclusions").eq("id", orderData.variant_id).maybeSingle()
-      
-      const pkgName = `${pkgSet?.name || "Package"} - ${pkgVar?.name || "Variant"}`
-      const inclusionsStr = pkgVar?.inclusions ? (Array.isArray(pkgVar.inclusions) ? pkgVar.inclusions.join(", ") : String(pkgVar.inclusions)) : ""
-      
-      const productsStr = items.map((i: any) => `${i.product_name || "Item"} x${i.quantity || 1}`).join(", ")
-      
-      let summary = pkgName
-      const details: string[] = []
-      if (inclusionsStr) {
-        details.push(`Inclusions: ${inclusionsStr}`)
-      }
-      if (productsStr) {
-        details.push(`Products: ${productsStr}`)
-      }
-      if (details.length > 0) {
-        summary += ` (${details.join("; ")})`
-      }
-      itemsSummary = summary
-    } else {
-      itemsSummary = items.length > 0
-        ? items.map((i: any) => `${i.product_name || "Item"} x${i.quantity || 1}`).join(", ")
-        : "Wedding Accessories"
-    }
-  }
+  let itemsSummary = await buildItemsSummary(orderId, orderType, orderData, items)
 
   if (itemsSummary.length > 900) {
     itemsSummary = itemsSummary.slice(0, 900) + "..."
@@ -397,31 +299,46 @@ async function fetchOrderData(orderId: string, orderType: string) {
 
 async function fetchOrderItems(orderId: string, orderType: string) {
   if (orderType === "product_order") {
+    // Select ALL columns including denormalized product_name, category, barcode, image_url
+    // that are stored directly on product_order_items during order creation
     const { data, error } = await supabase
       .from("product_order_items")
       .select(`
-        id, quantity, unit_price, total_price,
-        products ( id, name, category )
+        id, order_id, product_id, quantity, unit_price, total_price,
+        product_name, barcode, category, image_url,
+        products ( id, name, category, product_code, barcode )
       `)
       .eq("order_id", orderId)
     if (error) {
       console.warn(`[WhatsApp Invoice] Items fetch error from product_order_items:`, error)
-      return []
+      // Fallback: try selecting without the join (in case products FK is missing)
+      const { data: fallback, error: fallbackErr } = await supabase
+        .from("product_order_items")
+        .select("*")
+        .eq("order_id", orderId)
+      if (fallbackErr || !fallback) return []
+      return fallback.map((item: any) => ({
+        ...item,
+        product_name: item.product_name || item.name || "Item",
+      }))
     }
-    // Flatten: expose product_name at top level
+    // Flatten: prefer denormalized fields, fallback to joined products table
     return (data || []).map((item: any) => ({
       ...item,
-      product_name: item.products?.name || item.products?.category || "Item",
-      category: item.products?.category,
+      product_name: item.product_name || item.products?.name || item.products?.category || "Item",
+      category: item.category || item.products?.category || "",
+      barcode: item.barcode || item.products?.barcode || item.products?.product_code || "",
     }))
   }
 
   if (orderType === "package_booking") {
+    // Fetch package booking variant-level items (has variant_name, inclusions, reserved_products)
     const { data, error } = await supabase
       .from("package_booking_items")
       .select(`
-        id, quantity, unit_price, total_price,
-        variant_name, variant_inclusions, reserved_products
+        id, booking_id, category_id, variant_id, quantity, unit_price, total_price,
+        variant_name, variant_inclusions, reserved_products,
+        extra_safas, security_deposit, distance_addon
       `)
       .eq("booking_id", orderId)
     if (error) {
@@ -454,6 +371,142 @@ async function fetchOrderItems(orderId: string, orderType: string) {
   return []
 }
 
+/**
+ * Build a rich items summary string for the WhatsApp template message.
+ * Handles product orders (with and without package selection), package bookings,
+ * and direct sales — always showing actual product/variant names.
+ */
+async function buildItemsSummary(
+  orderId: string,
+  orderType: string,
+  orderData: any,
+  items: any[]
+): Promise<string> {
+  // ─── PACKAGE BOOKING ───────────────────────────────────────────────
+  if (orderType === "package_booking") {
+    // Also fetch the product-level items (separate junction table)
+    const { data: productItems } = await supabase
+      .from("package_booking_product_items")
+      .select(`
+        quantity,
+        products ( name, category )
+      `)
+      .eq("package_booking_id", orderId)
+
+    if (items.length === 0 && (!productItems || productItems.length === 0)) {
+      return orderData.event_type || "Package Booking"
+    }
+
+    const summaryParts = items.map((item: any) => {
+      // Variant/category name
+      const variantLabel = item.product_name || item.variant_name || "Package"
+      
+      // Inclusions
+      const inclusions = Array.isArray(item.inclusions)
+        ? item.inclusions
+        : (typeof item.inclusions === "string" && item.inclusions
+            ? item.inclusions.split(",").map((s: string) => s.trim()).filter(Boolean)
+            : [])
+
+      // Reserved products (selected during booking)
+      let reservedProducts: Array<{name: string; qty: number}> = []
+      try {
+        const raw = Array.isArray(item.reserved_products)
+          ? item.reserved_products
+          : (typeof item.reserved_products === "string" && item.reserved_products
+              ? JSON.parse(item.reserved_products)
+              : [])
+        reservedProducts = raw.map((p: any) => ({
+          name: p.name || p.product_name || "Item",
+          qty: p.qty || p.quantity || 1,
+        }))
+      } catch { reservedProducts = [] }
+
+      // Build the line
+      let line = `${variantLabel} x${item.quantity || 1}`
+      const details: string[] = []
+
+      if (inclusions.length > 0) {
+        details.push(inclusions.join(", "))
+      }
+      if (reservedProducts.length > 0) {
+        details.push(reservedProducts.map(p => `${p.name} x${p.qty}`).join(", "))
+      }
+
+      if (details.length > 0) {
+        line += ` (${details.join("; ")})`
+      }
+      return line
+    })
+
+    // If we have product-level items but no variant items were returned
+    if (summaryParts.length === 0 && productItems && productItems.length > 0) {
+      return productItems
+        .map((p: any) => `${p.products?.name || p.products?.category || "Item"} x${p.quantity}`)
+        .join(", ")
+    }
+
+    return summaryParts.join(", ")
+  }
+
+  // ─── PRODUCT ORDER (with package selection mode) ───────────────────
+  if (orderType === "product_order" && (orderData.selection_mode === "packages" || orderData.variant_id)) {
+    // Order was created using a package variant — show package name + selected products
+    let pkgLabel = ""
+    if (orderData.variant_id) {
+      const { data: pkgVar } = await supabase
+        .from("package_variants")
+        .select("name, inclusions, package_id")
+        .eq("id", orderData.variant_id)
+        .maybeSingle()
+
+      if (pkgVar) {
+        let setName = ""
+        if (pkgVar.package_id) {
+          const { data: pkgSet } = await supabase
+            .from("package_sets")
+            .select("name")
+            .eq("id", pkgVar.package_id)
+            .maybeSingle()
+          setName = pkgSet?.name || ""
+        }
+        pkgLabel = setName ? `${setName} — ${pkgVar.name || "Variant"}` : (pkgVar.name || "Package")
+
+        const inclusions = Array.isArray(pkgVar.inclusions)
+          ? pkgVar.inclusions
+          : (typeof pkgVar.inclusions === "string" && pkgVar.inclusions
+              ? pkgVar.inclusions.split(",").map((s: string) => s.trim()).filter(Boolean)
+              : [])
+
+        if (inclusions.length > 0) {
+          pkgLabel += ` (${inclusions.join(", ")})`
+        }
+      }
+    }
+
+    // Also list the individual products selected
+    const productsStr = items.length > 0
+      ? items.map((i: any) => `${i.product_name || "Item"} x${i.quantity || 1}`).join(", ")
+      : ""
+
+    const parts = [pkgLabel, productsStr].filter(Boolean)
+    return parts.join(" | Products: ") || orderData.event_type || "Order"
+  }
+
+  // ─── PRODUCT ORDER (standard products selection) ──────────────────
+  if (orderType === "product_order" || orderType === "direct_sale") {
+    if (items.length > 0) {
+      return items
+        .map((i: any) => `${i.product_name || "Item"} x${i.quantity || 1}`)
+        .join(", ")
+    }
+    // Absolute last resort — use event type or generic label
+    return orderData.event_type || "Order Items"
+  }
+
+  return "Order Items"
+}
+
 async function fetchCompanySettings(franchiseId?: string) {
   if (!franchiseId) return null
 
@@ -466,5 +519,3 @@ async function fetchCompanySettings(franchiseId?: string) {
   return data
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Server-side PDF generation with jsPDF
