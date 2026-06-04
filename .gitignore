@@ -31,3 +31,6 @@ next-env.d.ts
 
 # claude code
 .claude/
+
+# puppeteer profile
+.puppeteer-chrome-profile/

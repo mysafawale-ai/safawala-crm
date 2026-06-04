@@ -1,13 +1,21 @@
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
+import path from 'path';
 
 async function launchBrowser() {
   const isLocal = process.env.NODE_ENV === 'development' || !process.env.VERCEL;
 
   if (isLocal) {
+    const profileDir = path.join(process.cwd(), '.puppeteer-chrome-profile');
     return puppeteer.launch({
       executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        `--user-data-dir=${profileDir}`,
+        '--remote-debugging-port=0',
+      ]
     });
   }
 
