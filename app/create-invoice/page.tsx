@@ -190,6 +190,9 @@ export default function CreateInvoicePage() {
   const orderId = searchParams.get("id")
   // pdfToken: when present and valid, skip auth check (used by WhatsApp PDF generation)
   const pdfToken = searchParams.get("pdfToken")
+  const qCustomerName = searchParams.get("customerName")
+  const qCustomerPhone = searchParams.get("customerPhone")
+  const qCustomerEmail = searchParams.get("customerEmail")
 
   // Company Settings for PDF
   const [companySettings, setCompanySettings] = useState<any>(null)
@@ -396,10 +399,10 @@ export default function CreateInvoicePage() {
   }, [])
 
   // Load company settings for PDF header
-  const loadCompanySettings = async () => {
+  const loadCompanySettings = async (forcedFranchiseId?: string | null) => {
     try {
-      let userFranchiseId: string | null = null
-      if (!pdfToken) {
+      let userFranchiseId: string | null = forcedFranchiseId || null
+      if (!userFranchiseId && !pdfToken) {
         const userRes = await fetch('/api/auth/user', { cache: 'no-store' })
         const user = userRes.ok ? await userRes.json() : null
         userFranchiseId = user?.franchise_id
@@ -418,30 +421,32 @@ export default function CreateInvoicePage() {
 
       // Load primary bank account for invoice from banking_details table
       try {
-        const bankRes = await fetch(`/api/settings/banking?franchise_id=${userFranchiseId}`, { cache: "no-store" })
-        if (bankRes.ok) {
-          const bankData = await bankRes.json()
-          const banks = bankData.data || []
-          // Prefer primary + show_on_invoice, fallback to just primary, then first
-          const bank = banks.find((b: any) => b.is_primary && b.show_on_invoice)
-            || banks.find((b: any) => b.is_primary)
-            || banks[0]
-          if (bank) {
-            setPrimaryBank(bank)
-            // Fetch QR image and convert to base64 so it renders in print
-            if (bank.qr_file_path) {
-              try {
-                const imgRes = await fetch(bank.qr_file_path)
-                const blob = await imgRes.blob()
-                const reader = new FileReader()
-                reader.onloadend = () => {
-                  if (reader.result) setBankQrDataUrl(reader.result as string)
+        if (userFranchiseId) {
+          const bankRes = await fetch(`/api/settings/banking?franchise_id=${userFranchiseId}`, { cache: "no-store" })
+          if (bankRes.ok) {
+            const bankData = await bankRes.json()
+            const banks = bankData.data || []
+            // Prefer primary + show_on_invoice, fallback to just primary, then first
+            const bank = banks.find((b: any) => b.is_primary && b.show_on_invoice)
+              || banks.find((b: any) => b.is_primary)
+              || banks[0]
+            if (bank) {
+              setPrimaryBank(bank)
+              // Fetch QR image and convert to base64 so it renders in print
+              if (bank.qr_file_path) {
+                try {
+                  const imgRes = await fetch(bank.qr_file_path)
+                  const blob = await imgRes.blob()
+                  const reader = new FileReader()
+                  reader.onloadend = () => {
+                    if (reader.result) setBankQrDataUrl(reader.result as string)
+                  }
+                  reader.readAsDataURL(blob)
+                } catch (e) {
+                  // fallback: use URL directly
+                  setBankQrDataUrl(bank.qr_file_path)
+                  console.warn("[CreateInvoice] QR preload failed, using URL:", e)
                 }
-                reader.readAsDataURL(blob)
-              } catch (e) {
-                // fallback: use URL directly
-                setBankQrDataUrl(bank.qr_file_path)
-                console.warn("[CreateInvoice] QR preload failed, using URL:", e)
               }
             }
           }
@@ -843,8 +848,31 @@ export default function CreateInvoicePage() {
         // Store the customer ID to match later
         setEditingOrderCustomerId(customerId)
         console.log("[EditOrder] Will auto-select customer ID:", customerId)
+
+        // Proactively fetch customer details directly (essential when pdfToken bypasses loadCustomers)
+        try {
+          const { data: directCust, error: custError } = await supabase
+            .from("customers")
+            .select("*")
+            .eq("id", customerId)
+            .single()
+          if (directCust) {
+            console.log("[EditOrder] Loaded customer directly:", directCust.name)
+            setSelectedCustomer(directCust)
+          } else if (custError) {
+            console.warn("[EditOrder] Error loading customer directly:", custError)
+          }
+        } catch (e) {
+          console.error("[EditOrder] Failed loading customer directly:", e)
+        }
       } else {
         console.log("[EditOrder] Order has no customer_id")
+      }
+
+      // Load company settings and banking using order's franchise_id
+      if (order.franchise_id) {
+        console.log("[EditOrder] Loading company settings for franchise:", order.franchise_id)
+        loadCompanySettings(order.franchise_id)
       }
       
       // Clean notes - remove legacy [PACKAGE: ...] prefix if present
@@ -2270,11 +2298,14 @@ export default function CreateInvoicePage() {
         {/* ================= PRINT-ONLY COMPREHENSIVE SECTION ================= */}
         <div className="hidden print:block px-3 py-2 space-y-2 border-b border-slate-200">
           {/* Customer Info */}
-          {selectedCustomer && (
+          {(selectedCustomer || qCustomerName) && (
             <div className="bg-slate-50 px-2 py-1.5 rounded">
               <div className="text-[9px] text-slate-600 font-medium">Customer</div>
-              <div className="font-semibold text-xs text-gray-900">{selectedCustomer.name}</div>
-              <div className="text-[10px] text-gray-600">{selectedCustomer.phone}{selectedCustomer.email ? ` | ${selectedCustomer.email}` : ''}</div>
+              <div className="font-semibold text-xs text-gray-900">{selectedCustomer?.name || qCustomerName}</div>
+              <div className="text-[10px] text-gray-600">
+                {selectedCustomer?.phone || qCustomerPhone}
+                {(selectedCustomer?.email || qCustomerEmail) ? ` | ${selectedCustomer?.email || qCustomerEmail}` : ''}
+              </div>
             </div>
           )}
 

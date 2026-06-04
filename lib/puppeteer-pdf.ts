@@ -83,7 +83,7 @@ export async function urlToPdfBuffer(
   await page.emulateMediaType('print');
 
   // Wait for async data: QR codes (base64 fetch), company settings, product images
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  await new Promise(resolve => setTimeout(resolve, 5000));
 
   const pdfBuffer = await page.pdf({
     format: 'A4',

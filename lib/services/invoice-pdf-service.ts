@@ -31,10 +31,13 @@ export async function generateAndSaveInvoicePDF(
     throw new Error(`Customer not found for this order: ${customerErr?.message || 'No record'}`)
   }
 
-  // 3. Generate PDF by navigating to the live URL with a pdfToken
+  // 3. Generate PDF by navigating to the live URL with a pdfToken and customer details
   const token = generatePdfToken(orderId, orderType)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mysafawala.com"
-  const invoicePageUrl = `${appUrl}/create-invoice?mode=edit&id=${orderId}&print=true&pdfToken=${token}`
+  const cName = customer.name || "Customer"
+  const cPhone = customer.phone || ""
+  const cEmail = customer.email || ""
+  const invoicePageUrl = `${appUrl}/create-invoice?mode=edit&id=${orderId}&print=true&pdfToken=${token}&customerName=${encodeURIComponent(cName)}&customerPhone=${encodeURIComponent(cPhone)}&customerEmail=${encodeURIComponent(cEmail)}`
 
   console.log(`[PDF Service] Navigating to URL: ${invoicePageUrl}`)
   const pdfBuffer = await urlToPdfBuffer(invoicePageUrl)

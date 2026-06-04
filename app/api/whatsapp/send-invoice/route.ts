@@ -6,6 +6,7 @@ import { generateAndSaveInvoicePDF } from "@/lib/services/invoice-pdf-service"
 import { format } from "date-fns"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 60 // Allow up to 60 seconds for Puppeteer PDF rendering and WATI sending
 
 /**
  * POST /api/whatsapp/send-invoice

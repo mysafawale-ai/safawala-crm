@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase-server-simple"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
+export const maxDuration = 60 // Allow up to 60 seconds for Puppeteer PDF rendering
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,23 +26,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fire-and-forget: Spawns the PDF generation asynchronously in the background
-    // so the client gets an immediate response.
-    console.log(`[PDF API] Spawning background PDF generation for ${orderType} ${orderId}...`)
-    
-    // We execute the async process in a non-awaited IIFE
-    ;(async () => {
-      try {
-        const publicUrl = await generateAndSaveInvoicePDF(orderId, orderType, supabaseServer)
-        console.log(`[PDF API] Background generation succeeded. URL: ${publicUrl}`)
-      } catch (err: any) {
-        console.error(`[PDF API] Background generation failed for ${orderType} ${orderId}:`, err.message || err)
-      }
-    })()
+    console.log(`[PDF API] Generating PDF for ${orderType} ${orderId}...`)
+    const publicUrl = await generateAndSaveInvoicePDF(orderId, orderType, supabaseServer)
+    console.log(`[PDF API] Generation succeeded. URL: ${publicUrl}`)
 
     return NextResponse.json(
-      { success: true, message: "Invoice PDF generation initiated in the background" },
-      { status: 202 }
+      { success: true, message: "Invoice PDF generated successfully", pdfUrl: publicUrl },
+      { status: 200 }
     )
   } catch (error: any) {
     console.error("[PDF API] Route error:", error)
