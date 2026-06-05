@@ -142,11 +142,11 @@ export async function doPrint(
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
-  const win = window.open("", "_blank")
-  if (!win) { toast.error("Please allow popups for printing"); return }
-  win.document.write(html)
-  win.document.close()
-  setTimeout(() => { win.focus(); win.print() }, 200)
+  const win1 = window.open("", "_blank")
+  if (!win1) { toast.error("Please allow popups for printing"); return }
+  win1.document.write(html)
+  win1.document.close()
+  setTimeout(() => { win1.focus(); win1.print() }, 200)
 }
 
 // ── Style 2: 100mm × 15mm, 1-up ─────────────────────────────────────────────
@@ -185,6 +185,12 @@ export async function doPrintStyle2(
     color    ? `<div class="feat-row"><span class="fk">Colour</span><span class="fv">${color}</span></div>` : "",
   ].join("")
 
+  // Open window immediately — must happen synchronously from user gesture
+  // before any awaits, otherwise popup blockers will kill it
+  const win = window.open("", "_blank")
+  if (!win) { toast.error("Please allow popups for printing"); return }
+  win.document.write("<html><body style='font-family:Arial;padding:20px'>Preparing labels…</body></html>")
+
   // Generate barcode image once, reuse for all labels
   const canvas = document.createElement("canvas")
   JsBarcode(canvas, barcode, {
@@ -219,7 +225,7 @@ export async function doPrintStyle2(
       </div>`
   }
 
-  // 18mm per page = 15mm label content + 3mm gap between labels
+  // 18mm per page = 15mm label + 3mm gap
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
   @page { size: 100mm 18mm; margin: 0; }
@@ -258,11 +264,10 @@ export async function doPrintStyle2(
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
-  const win = window.open("", "_blank")
-  if (!win) { toast.error("Please allow popups for printing"); return }
+  win.document.open()
   win.document.write(html)
   win.document.close()
-  setTimeout(() => { win.focus(); win.print() }, 200)
+  setTimeout(() => { win.focus(); win.print() }, 300)
 }
 
 // ── Dialog ───────────────────────────────────────────────────────────────────
