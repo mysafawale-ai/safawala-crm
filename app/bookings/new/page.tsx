@@ -2028,8 +2028,14 @@ export default function CreateInvoicePage() {
     <>
       <style>{`
         @page {
-          margin: 0;
           size: A4;
+          margin: 10mm;
+          @bottom-left { content: none; }
+          @bottom-center { content: none; }
+          @bottom-right { content: none; }
+          @top-left { content: none; }
+          @top-center { content: none; }
+          @top-right { content: none; }
         }
         @media print {
           html, body {
@@ -2037,16 +2043,6 @@ export default function CreateInvoicePage() {
             padding: 0;
             height: auto;
             font-size: 11px;
-          }
-          /* Remove browser print headers/footers */
-          @page {
-            margin: 6mm;
-            @bottom-left { content: none; }
-            @bottom-center { content: none; }
-            @bottom-right { content: none; }
-            @top-left { content: none; }
-            @top-center { content: none; }
-            @top-right { content: none; }
           }
         }
       `}</style>
