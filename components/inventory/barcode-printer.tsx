@@ -186,7 +186,7 @@ export function BarcodePrinter({
 <meta charset="UTF-8">
 <title>Labels</title>
 <style>
-  @page { size: 100mm 18mm; margin: 0; }
+  @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { width: 100mm; margin: 0; padding: 0; background: #fff; }
 
@@ -195,9 +195,8 @@ export function BarcodePrinter({
     display: flex; flex-direction: row;
     page-break-after: always; page-break-inside: avoid;
     overflow: hidden;
-    margin-bottom: 3mm;
   }
-  .label:last-child { page-break-after: avoid; margin-bottom: 0; }
+  .label:last-child { page-break-after: avoid; }
 
   /* Section 1 — 35mm */
   .sec-pricing {
