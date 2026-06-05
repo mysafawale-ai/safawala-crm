@@ -236,7 +236,7 @@ export async function doPrintStyle2(
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; margin-bottom: 3mm; }
   .row:last-child { page-break-after: avoid; margin-bottom: 0; }
-  .s1 { width: 35mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
+  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
   .prow { font-size: 5pt; font-weight: 850; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
   .mrp { position: relative; display: inline-block; color: #000; font-weight: 500; margin-right: 0.5mm; }
   .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1.2px; background: #000; }
@@ -247,7 +247,7 @@ export async function doPrintStyle2(
   .code { font-family: 'Courier New', monospace; font-size: 4.8pt; font-weight: 900; color: #000; text-align: center; letter-spacing: 0.2px; }
   .web { font-size: 4.2pt; font-weight: 900; color: #000; text-align: center; }
   .sep { width: 0.2mm; background: #000; align-self: stretch; margin: 1mm 0; }
-  .s2 { width: 35mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
+  .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
   .logo { display: flex; align-items: center; justify-content: center; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   .hr { width: 80%; height: 0.2mm; background: #000; }

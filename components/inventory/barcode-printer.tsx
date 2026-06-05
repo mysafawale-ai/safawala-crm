@@ -201,12 +201,12 @@ export function BarcodePrinter({
 
   /* Section 1 — 35mm */
   .sec-pricing {
-    width: 35mm; height: 100%;
+    width: 34.9mm; height: 100%;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 0.5mm 1mm; gap: 0.2mm;
   }
-  .price { font-size: 8.5pt; font-weight: 950; color: #000; line-height: 1; }
+  .price { font-size: 8.5pt; font-weight: 955; color: #000; line-height: 1; }
   .currency { font-size: 5pt; vertical-align: super; font-weight: bold; }
   .barcode-img { width: 32mm; height: 5.2mm; display: block;
                  image-rendering: pixelated; image-rendering: crisp-edges; }
@@ -219,7 +219,7 @@ export function BarcodePrinter({
 
   /* Section 2 — 35mm */
   .sec-info {
-    width: 35mm; height: 100%;
+    width: 34.9mm; height: 100%;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 0.5mm 1mm; gap: 0.3mm;
