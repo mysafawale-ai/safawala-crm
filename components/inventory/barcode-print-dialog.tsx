@@ -154,6 +154,7 @@ export async function doPrintStyle2(
   barcode: string,
   label: string,
   qty: number,
+  regularPrice?: number,
   salePrice?: number,
   color?: string,
   size?: string,
@@ -176,56 +177,64 @@ export async function doPrintStyle2(
     }
   } catch { /* use text fallback */ }
 
+  const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+
   const features = [
     material ? `<div class="feat-row"><span class="fk">Material</span><span class="fv">${material}</span></div>` : "",
     size     ? `<div class="feat-row"><span class="fk">Size</span><span class="fv">${size}</span></div>` : "",
     color    ? `<div class="feat-row"><span class="fk">Colour</span><span class="fv">${color}</span></div>` : "",
   ].join("")
 
+  // Generate barcode image once, reuse for all labels
+  const canvas = document.createElement("canvas")
+  JsBarcode(canvas, barcode, {
+    format: "CODE128", width: 3, height: 80,
+    displayValue: false, margin: 2,
+    background: "#FFFFFF", lineColor: "#000000",
+  })
+  const barcodeImg = canvas.toDataURL("image/png")
+
   let labelsHTML = ""
   for (let i = 0; i < qty; i++) {
-    const canvas = document.createElement("canvas")
-    JsBarcode(canvas, barcode, {
-      format: "CODE128", width: 3, height: 80,
-      displayValue: false, margin: 2,
-      background: "#FFFFFF", lineColor: "#000000",
-    })
-    const barcodeImg = canvas.toDataURL("image/png")
-
     labelsHTML += `
       <div class="label">
-        <!-- 35mm: pricing + barcode + code + website -->
         <div class="s1">
-          ${salePrice ? `<div class="price"><span class="cur">₹</span>${salePrice}</div>` : ""}
+          <div class="pricing-row">
+            ${regularPrice ? `<span class="mrp">₹${regularPrice}</span>` : ""}
+            ${salePrice   ? `<span class="sale"><span class="cur">₹</span>${salePrice}</span>` : ""}
+          </div>
+          ${savings > 0 ? `<div class="you-save">You save ₹${savings}</div>` : ""}
           <img src="${barcodeImg}" class="bc-img" />
           <div class="code">${barcode}</div>
           <div class="web">www.safawala.com</div>
         </div>
         <div class="sep"></div>
-        <!-- 35mm: logo + name + features -->
         <div class="s2">
           <div class="logo-wrap">${logoHTML}</div>
           <div class="hr"></div>
           <div class="pname">${label}</div>
           ${features ? `<div class="feats">${features}</div>` : ""}
         </div>
-        <!-- 30mm: blank -->
         <div class="s3"></div>
       </div>`
   }
 
+  // Single continuous page — no page-break gaps between labels
+  const totalH = qty * 15
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  @page { size: 100mm 15mm; margin: 0; }
+  @page { size: 100mm ${totalH}mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .label { width: 100mm; height: 15mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
-  .label:last-child { page-break-after: avoid; }
+  .label { width: 100mm; height: 15mm; display: flex; flex-direction: row; overflow: hidden; }
 
   /* Section 1 — 35mm */
-  .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; font-family: Arial, sans-serif; }
-  .price { font-size: 9pt; font-weight: 900; color: #111; line-height: 1; }
-  .cur { font-size: 5.5pt; vertical-align: super; font-weight: bold; }
+  .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; font-family: Arial, sans-serif; }
+  .pricing-row { display: flex; align-items: baseline; gap: 1.5mm; }
+  .mrp { font-size: 5pt; color: #aaa; text-decoration: line-through; font-family: Arial, sans-serif; }
+  .sale { font-size: 9pt; font-weight: 900; color: #111; line-height: 1; }
+  .cur { font-size: 5pt; vertical-align: super; font-weight: bold; }
+  .you-save { font-size: 4pt; color: #555; font-family: Arial, sans-serif; }
   .bc-img { width: 31mm; height: 5.5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-family: 'Courier New', monospace; font-size: 4.5pt; color: #333; text-align: center; }
   .web { font-size: 4pt; color: #888; text-align: center; }
@@ -234,7 +243,7 @@ export async function doPrintStyle2(
   .sep { width: 0.2mm; background: #ddd; align-self: stretch; margin: 1.5mm 0; }
 
   /* Section 2 — 35mm */
-  .s2 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.5mm; font-family: Arial, sans-serif; }
+  .s2 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; font-family: Arial, sans-serif; }
   .logo-wrap { display: flex; align-items: center; justify-content: center; height: 5mm; }
   .hr { width: 80%; height: 0.2mm; background: #ddd; }
   .pname { font-size: 5pt; font-weight: 900; color: #111; text-align: center; line-height: 1.2; max-width: 33mm; word-break: break-word; }
@@ -304,7 +313,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     setPrinting(true)
     try {
       if (printStyle === 2) {
-        await doPrintStyle2(barcode, label, quantity, salePrice, color, size, material)
+        await doPrintStyle2(barcode, label, quantity, regularPrice, salePrice, color, size, material)
       } else {
         await doPrint(barcode, label, quantity, regularPrice, salePrice, color, size, material)
       }
