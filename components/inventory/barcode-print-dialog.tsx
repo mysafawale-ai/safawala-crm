@@ -398,7 +398,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
             {/* mini sec 3 blank */}
             <div className="w-4 bg-gray-50" />
           </div>
-          <div className="text-[8px] text-gray-400 text-center mt-1">100mm × 1 per row · 15mm tall</div>
+          <div className="text-[8px] text-gray-400 text-center mt-1">100mm × 1 per row · 25mm tall</div>
         </button>
       </div>
     </div>
@@ -438,7 +438,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                   {/* Preview */}
                   <div className="border rounded-lg p-3 bg-gray-50">
                     <p className="text-xs text-muted-foreground mb-2">
-                      {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 15mm)"}
+                      {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 25mm)"}
                     </p>
                     {printStyle === 1 ? (
                       <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
@@ -530,7 +530,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                         </>
                       ) : (
                         <>
-                          <li>• Paper Size: 100mm × 15mm</li>
+                          <li>• Paper Size: 100mm × 25mm</li>
                           <li>• Margins: None (0mm) · Scale: 100%</li>
                         </>
                       )}
@@ -594,7 +594,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                       {/* Preview */}
                       <div className="border rounded-lg p-3 bg-gray-50">
                         <p className="text-xs text-muted-foreground mb-2">
-                          {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 15mm)"}
+                          {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 25mm)"}
                         </p>
                         {printStyle === 1 ? (
                           <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
@@ -681,7 +681,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                             </>
                           ) : (
                             <>
-                              <li>• Paper Size: 100mm × 15mm</li>
+                              <li>• Paper Size: 100mm × 25mm</li>
                               <li>• Margins: None (0mm) · Scale: 100%</li>
                             </>
                           )}

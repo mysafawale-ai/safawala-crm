@@ -183,13 +183,13 @@ export function BarcodePrinter({
 <meta charset="UTF-8">
 <title>Labels</title>
 <style>
-  @page { size: 100mm 30mm; margin: 0; }
+  @page { size: 100mm 25mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Arial, sans-serif; width: 100mm; background: #fff;
          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .label {
-    width: 100mm; height: 30mm;
+    width: 100mm; height: 25mm;
     display: flex; flex-direction: row;
     page-break-after: always; page-break-inside: avoid;
     overflow: hidden;
@@ -198,14 +198,14 @@ export function BarcodePrinter({
 
   /* Section 1 — 35mm */
   .sec-pricing {
-    width: 35mm; height: 30mm;
+    width: 35mm; height: 25mm;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 1mm 1.5mm; gap: 0.5mm;
+    padding: 1mm 1.5mm; gap: 0.4mm;
   }
-  .price { font-size: 14pt; font-weight: 900; color: #111; line-height: 1; }
-  .currency { font-size: 8pt; vertical-align: super; font-weight: bold; }
-  .barcode-img { width: 32mm; height: 12mm; display: block;
+  .price { font-size: 12pt; font-weight: 900; color: #111; line-height: 1; }
+  .currency { font-size: 7pt; vertical-align: super; font-weight: bold; }
+  .barcode-img { width: 32mm; height: 8mm; display: block;
                  image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-family: 'Courier New', monospace; font-size: 5.5pt; color: #333;
           text-align: center; letter-spacing: 0.3px; }
@@ -216,12 +216,12 @@ export function BarcodePrinter({
 
   /* Section 2 — 35mm */
   .sec-info {
-    width: 35mm; height: 30mm;
+    width: 35mm; height: 25mm;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 1.5mm; gap: 1mm;
+    padding: 1mm 1.5mm; gap: 0.8mm;
   }
-  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 7mm; }
+  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 6mm; }
   .hr { width: 80%; height: 0.2mm; background: #ddd; }
   .prod-name { font-size: 7pt; font-weight: 900; color: #111;
                text-align: center; line-height: 1.2; max-width: 33mm; word-break: break-word; }
@@ -231,7 +231,7 @@ export function BarcodePrinter({
   .feat-val { font-size: 5.5pt; font-weight: bold; color: #222; }
 
   /* Section 3 — 30mm blank */
-  .sec-blank { width: 30mm; height: 30mm; }
+  .sec-blank { width: 30mm; height: 25mm; }
 </style>
 </head>
 <body>${labelsHTML}</body>
@@ -345,8 +345,8 @@ export function BarcodePrinter({
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {style === 1
-                ? `${quantity} labels = ${rows} rows (2 per row)`
-                : `${quantity} labels = ${quantity} rows (1 per row)`}
+                ? `${quantity} labels = ${rows} rows (2 per row) · 100mm × 25mm`
+                : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 25mm`}
             </p>
           </div>
 
@@ -360,9 +360,7 @@ export function BarcodePrinter({
           </Button>
 
           <p className="text-[10px] text-gray-400 text-center">
-            {style === 1
-              ? "Paper: 100mm × 25mm · Margins: None · Scale: 100%"
-              : "Paper: 100mm × 30mm · Margins: None · Scale: 100%"}
+            Paper: 100mm × 25mm · Margins: None · Scale: 100% · Select thermal printer
           </p>
         </div>
       </DialogContent>
