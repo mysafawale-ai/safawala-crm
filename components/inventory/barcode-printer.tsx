@@ -193,7 +193,7 @@ export function BarcodePrinter({
          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .label {
-    width: 100mm; height: 15mm;
+    width: 100mm; height: 14mm;
     display: flex; flex-direction: row;
     page-break-after: always; page-break-inside: avoid;
     overflow: hidden;

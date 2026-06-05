@@ -234,7 +234,7 @@ export async function doPrintStyle2(
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .row { width: 100mm; height: 15mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
+  .row { width: 100mm; height: 14mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 35mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
   .prow { font-size: 4.5pt; font-weight: 700; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
