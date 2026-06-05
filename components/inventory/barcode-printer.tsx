@@ -141,8 +141,8 @@ export function BarcodePrinter({
     }
 
     const logoHTML = logoSrc
-      ? `<img src="${logoSrc}" style="max-width:28mm;max-height:7mm;object-fit:contain;display:block;" />`
-      : `<div style="font-size:9pt;font-weight:900;color:#c8a84b;letter-spacing:1px;">SAFAWALA</div>`
+      ? `<img src="${logoSrc}" style="max-width:22mm;max-height:4mm;object-fit:contain;display:block;" />`
+      : `<div style="font-size:6pt;font-weight:900;color:#c8a84b;letter-spacing:0.5px;">SAFAWALA</div>`
 
     const features = [
       productMaterial ? `<div class="feat-row"><span class="feat-key">Material</span><span class="feat-val">${productMaterial}</span></div>` : "",
@@ -183,13 +183,13 @@ export function BarcodePrinter({
 <meta charset="UTF-8">
 <title>Labels</title>
 <style>
-  @page { size: 100mm 25mm; margin: 0; }
+  @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Arial, sans-serif; width: 100mm; background: #fff;
          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .label {
-    width: 100mm; height: 25mm;
+    width: 100mm; height: 15mm;
     display: flex; flex-direction: row;
     page-break-after: always; page-break-inside: avoid;
     overflow: hidden;
@@ -198,40 +198,41 @@ export function BarcodePrinter({
 
   /* Section 1 — 35mm */
   .sec-pricing {
-    width: 35mm; height: 25mm;
+    width: 35mm; height: 15mm;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 1mm 1.5mm; gap: 0.4mm;
+    padding: 0.5mm 1mm; gap: 0.2mm;
   }
-  .price { font-size: 12pt; font-weight: 900; color: #111; line-height: 1; }
-  .currency { font-size: 7pt; vertical-align: super; font-weight: bold; }
-  .barcode-img { width: 32mm; height: 8mm; display: block;
+  .price { font-size: 8pt; font-weight: 900; color: #111; line-height: 1; }
+  .currency { font-size: 5pt; vertical-align: super; font-weight: bold; }
+  .barcode-img { width: 32mm; height: 5mm; display: block;
                  image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: 'Courier New', monospace; font-size: 5.5pt; color: #333;
-          text-align: center; letter-spacing: 0.3px; }
-  .website { font-size: 5pt; color: #888; text-align: center; }
+  .code { font-family: 'Courier New', monospace; font-size: 4pt; color: #333;
+          text-align: center; letter-spacing: 0.2px; }
+  .website { font-size: 3.5pt; color: #888; text-align: center; }
 
   /* Divider */
-  .divider { width: 0.2mm; background: #ddd; align-self: stretch; margin: 2mm 0; }
+  .divider { width: 0.2mm; background: #ddd; align-self: stretch; margin: 1mm 0; }
 
   /* Section 2 — 35mm */
   .sec-info {
-    width: 35mm; height: 25mm;
+    width: 35mm; height: 15mm;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 1mm 1.5mm; gap: 0.8mm;
+    padding: 0.5mm 1mm; gap: 0.3mm;
   }
-  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 6mm; }
-  .hr { width: 80%; height: 0.2mm; background: #ddd; }
-  .prod-name { font-size: 7pt; font-weight: 900; color: #111;
-               text-align: center; line-height: 1.2; max-width: 33mm; word-break: break-word; }
-  .features { display: flex; flex-direction: column; gap: 0.8mm; align-items: flex-start; width: 100%; }
-  .feat-row { display: flex; gap: 1.5mm; align-items: center; }
-  .feat-key { font-size: 5pt; color: #999; text-transform: uppercase; min-width: 11mm; }
-  .feat-val { font-size: 5.5pt; font-weight: bold; color: #222; }
+  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 4mm; }
+  .hr { width: 80%; height: 0.15mm; background: #ddd; }
+  .prod-name { font-size: 5pt; font-weight: 900; color: #111;
+               text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word;
+               overflow: hidden; max-height: 3.5mm; }
+  .features { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
+  .feat-row { display: flex; gap: 1mm; align-items: center; }
+  .feat-key { font-size: 3.5pt; color: #999; text-transform: uppercase; min-width: 9mm; }
+  .feat-val { font-size: 4pt; font-weight: bold; color: #222; }
 
   /* Section 3 — 30mm blank */
-  .sec-blank { width: 30mm; height: 25mm; }
+  .sec-blank { width: 30mm; height: 15mm; }
 </style>
 </head>
 <body>${labelsHTML}</body>
@@ -346,7 +347,7 @@ export function BarcodePrinter({
             <p className="text-xs text-gray-500 mt-1">
               {style === 1
                 ? `${quantity} labels = ${rows} rows (2 per row) · 100mm × 25mm`
-                : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 25mm`}
+                : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 15mm`}
             </p>
           </div>
 
@@ -360,7 +361,9 @@ export function BarcodePrinter({
           </Button>
 
           <p className="text-[10px] text-gray-400 text-center">
-            Paper: 100mm × 25mm · Margins: None · Scale: 100% · Select thermal printer
+            {style === 1
+              ? "Paper: 100mm × 25mm · Margins: None · Scale: 100%"
+              : "Paper: 100mm × 15mm · Margins: None · Scale: 100%"}
           </p>
         </div>
       </DialogContent>
