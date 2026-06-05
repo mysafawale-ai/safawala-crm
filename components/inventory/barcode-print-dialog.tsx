@@ -159,6 +159,7 @@ export async function doPrintStyle2(
   color?: string,
   size?: string,
   material?: string,
+  topOffset: number = 15,
 ) {
   // Identical flow to doPrint — only the label HTML differs
   const JsBarcode = (await import("jsbarcode")).default
@@ -230,7 +231,7 @@ export async function doPrintStyle2(
 <style>
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
-  html, body { width: 100mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { width: 100mm; background: #fff; padding-top: ${topOffset}mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .row { width: 100mm; height: 15mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
@@ -272,6 +273,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("main")
   const [printStyle, setPrintStyle] = useState<1 | 2>(1)
+  const [topOffset, setTopOffset] = useState(15) // mm offset for first label alignment
 
   useEffect(() => {
     if (open && product?.id) {
@@ -311,7 +313,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     setPrinting(true)
     try {
       if (printStyle === 2) {
-        await doPrintStyle2(barcode, label, quantity, regularPrice, salePrice, color, size, material)
+        await doPrintStyle2(barcode, label, quantity, regularPrice, salePrice, color, size, material, topOffset)
       } else {
         await doPrint(barcode, label, quantity, regularPrice, salePrice, color, size, material)
       }
@@ -398,7 +400,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
             {/* mini sec 3 blank */}
             <div className="w-4 bg-gray-50" />
           </div>
-          <div className="text-[8px] text-gray-400 text-center mt-1">100mm × 1 per row · 25mm tall</div>
+          <div className="text-[8px] text-gray-400 text-center mt-1">100mm × 1 per row · 15mm tall</div>
         </button>
       </div>
     </div>
@@ -438,7 +440,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                   {/* Preview */}
                   <div className="border rounded-lg p-3 bg-gray-50">
                     <p className="text-xs text-muted-foreground mb-2">
-                      {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 25mm)"}
+                      {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 15mm)"}
                     </p>
                     {printStyle === 1 ? (
                       <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
@@ -537,6 +539,36 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                     </ul>
                   </div>
 
+                  {/* Top Offset — only for Style 2 */}
+                  {printStyle === 2 && (
+                    <div>
+                      <Label className="text-xs">Top Offset (alignment)</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="50"
+                          step="1"
+                          value={topOffset}
+                          onChange={(e) => setTopOffset(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-16 h-8 text-sm"
+                        />
+                        <span className="text-xs text-gray-500">mm</span>
+                        <div className="flex gap-1">
+                          {[0, 5, 10, 15, 20].map((n) => (
+                            <Button key={n} type="button" size="sm" variant={topOffset === n ? "default" : "outline"}
+                              className="h-7 px-2 text-[10px]" onClick={() => setTopOffset(n)}>
+                              {n}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Adjust if labels print between stickers. Default: 15mm.
+                      </p>
+                    </div>
+                  )}
+
                   <Button
                     onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
                     disabled={printing}
@@ -594,7 +626,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                       {/* Preview */}
                       <div className="border rounded-lg p-3 bg-gray-50">
                         <p className="text-xs text-muted-foreground mb-2">
-                          {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 25mm)"}
+                          {printStyle === 1 ? "Label preview (50mm × 25mm)" : "Label preview (100mm × 15mm)"}
                         </p>
                         {printStyle === 1 ? (
                           <div className="bg-white border-2 border-gray-400 rounded p-2 inline-block">
@@ -687,6 +719,36 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                           )}
                         </ul>
                       </div>
+
+                      {/* Top Offset — only for Style 2 */}
+                      {printStyle === 2 && (
+                        <div>
+                          <Label className="text-xs">Top Offset (alignment)</Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="50"
+                              step="1"
+                              value={topOffset}
+                              onChange={(e) => setTopOffset(Math.max(0, parseFloat(e.target.value) || 0))}
+                              className="w-16 h-8 text-sm"
+                            />
+                            <span className="text-xs text-gray-500">mm</span>
+                            <div className="flex gap-1">
+                              {[0, 5, 10, 15, 20].map((n) => (
+                                <Button key={n} type="button" size="sm" variant={topOffset === n ? "default" : "outline"}
+                                  className="h-7 px-2 text-[10px]" onClick={() => setTopOffset(n)}>
+                                  {n}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            Adjust if labels print between stickers. Default: 15mm.
+                          </p>
+                        </div>
+                      )}
 
                       <Button
                         type="button"

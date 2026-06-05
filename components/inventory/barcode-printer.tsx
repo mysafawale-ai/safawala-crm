@@ -32,6 +32,7 @@ export function BarcodePrinter({
   const [quantity, setQuantity] = useState(10)
   const [isPrinting, setIsPrinting] = useState(false)
   const [style, setStyle] = useState<1 | 2>(1)
+  const [topOffset, setTopOffset] = useState(15) // mm offset for first label alignment
 
   const handlePrint = async () => {
     if (quantity < 1) {
@@ -186,6 +187,7 @@ export function BarcodePrinter({
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Arial, sans-serif; width: 100mm; background: #fff;
+         padding-top: ${topOffset}mm;
          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .label {
@@ -350,6 +352,41 @@ export function BarcodePrinter({
                 : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 15mm`}
             </p>
           </div>
+
+          {/* Top Offset — only for Style 2 */}
+          {style === 2 && (
+            <div>
+              <Label className="text-xs mb-1 block">Top Offset (alignment)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="1"
+                  value={topOffset}
+                  onChange={(e) => setTopOffset(Math.max(0, parseFloat(e.target.value) || 0))}
+                  className="w-16 h-8 text-sm"
+                />
+                <span className="text-xs text-gray-500">mm</span>
+                <div className="flex gap-1">
+                  {[0, 5, 10, 15, 20].map((n) => (
+                    <Button
+                      key={n}
+                      size="sm"
+                      variant={topOffset === n ? "default" : "outline"}
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() => setTopOffset(n)}
+                    >
+                      {n}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Adjust if labels print between stickers. Start with 15mm.
+              </p>
+            </div>
+          )}
 
           <Button
             onClick={handlePrint}
