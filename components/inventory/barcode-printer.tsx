@@ -351,7 +351,7 @@ export function BarcodePrinter({
             <p className="text-xs text-gray-500 mt-1">
               {style === 1
                 ? `${quantity} labels = ${rows} rows (2 per row) · 100mm × 25mm`
-                : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 18mm`}
+                : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 15mm`}
             </p>
           </div>
 
@@ -402,7 +402,7 @@ export function BarcodePrinter({
           <p className="text-[10px] text-gray-400 text-center">
             {style === 1
               ? "Paper: 100mm × 25mm · Margins: None · Scale: 100%"
-              : "Paper: 100mm × 18mm · Margins: None · Scale: 100%"}
+              : "Paper: 100mm × 15mm · Margins: None · Scale: 100%"}
           </p>
         </div>
       </DialogContent>

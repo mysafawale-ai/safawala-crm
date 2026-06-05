@@ -535,7 +535,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                         </>
                       ) : (
                         <>
-                          <li>• Paper Size: 100mm × 18mm</li>
+                          <li>• Paper Size: 100mm × 15mm</li>
                           <li>• Margins: None (0mm) · Scale: 100%</li>
                         </>
                       )}
@@ -716,7 +716,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                             </>
                           ) : (
                             <>
-                              <li>• Paper Size: 100mm × 18mm</li>
+                              <li>• Paper Size: 100mm × 15mm</li>
                               <li>• Margins: None (0mm) · Scale: 100%</li>
                             </>
                           )}
