@@ -159,7 +159,7 @@ export async function doPrintStyle2(
   color?: string,
   size?: string,
   material?: string,
-  topOffset: number = 15,
+  topOffset: number = 0,
 ) {
   // Identical flow to doPrint — only the label HTML differs
   const JsBarcode = (await import("jsbarcode")).default
@@ -231,7 +231,7 @@ export async function doPrintStyle2(
 <style>
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
-  html, body { width: 100mm; background: #fff; padding-top: ${topOffset}mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { width: 100mm; margin: 0; padding: 0; padding-top: ${topOffset}mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .row { width: 100mm; height: 15mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
@@ -273,7 +273,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("main")
   const [printStyle, setPrintStyle] = useState<1 | 2>(1)
-  const [topOffset, setTopOffset] = useState(15) // mm offset for first label alignment
+  const [topOffset, setTopOffset] = useState(0) // mm offset for first label alignment
 
   useEffect(() => {
     if (open && product?.id) {

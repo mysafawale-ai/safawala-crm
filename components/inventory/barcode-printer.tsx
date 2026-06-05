@@ -32,7 +32,7 @@ export function BarcodePrinter({
   const [quantity, setQuantity] = useState(10)
   const [isPrinting, setIsPrinting] = useState(false)
   const [style, setStyle] = useState<1 | 2>(1)
-  const [topOffset, setTopOffset] = useState(15) // mm offset for first label alignment
+  const [topOffset, setTopOffset] = useState(0) // mm offset for first label alignment
 
   const handlePrint = async () => {
     if (quantity < 1) {
@@ -186,8 +186,8 @@ export function BarcodePrinter({
 <style>
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; width: 100mm; background: #fff;
-         padding-top: ${topOffset}mm;
+  body { font-family: Arial, sans-serif; width: 100mm; margin: 0; padding: 0;
+         padding-top: ${topOffset}mm; background: #fff;
          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .label {
