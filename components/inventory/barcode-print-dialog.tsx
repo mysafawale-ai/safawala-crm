@@ -219,14 +219,14 @@ export async function doPrintStyle2(
       </div>`
   }
 
-  // Single continuous page — no page-break gaps between labels
-  const totalH = qty * 15
+  // 18mm per page = 15mm label content + 3mm gap between labels
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  @page { size: 100mm ${totalH}mm; margin: 0; }
+  @page { size: 100mm 18mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .label { width: 100mm; height: 15mm; display: flex; flex-direction: row; overflow: hidden; }
+  .label { width: 100mm; height: 15mm; display: flex; flex-direction: row; overflow: hidden; page-break-after: always; margin-bottom: 3mm; }
+  .label:last-child { margin-bottom: 0; page-break-after: avoid; }
 
   /* Section 1 — 35mm */
   .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; font-family: Arial, sans-serif; }
