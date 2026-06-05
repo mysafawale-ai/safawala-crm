@@ -171,15 +171,6 @@ export async function doPrintStyle2(
     color    ? `<div class="feat-row"><span class="fk">Colour</span><span class="fv">${color}</span></div>` : "",
   ].join("")
 
-  // Generate barcode image once, reuse for all labels
-  const canvas = document.createElement("canvas")
-  JsBarcode(canvas, barcode, {
-    format: "CODE128", width: 3, height: 80,
-    displayValue: false, margin: 2,
-    background: "#FFFFFF", lineColor: "#000000",
-  })
-  const barcodeImg = canvas.toDataURL("image/png")
-
   // Generate barcode as data URL — same as Style 1
   const canvas = document.createElement("canvas")
   JsBarcode(canvas, barcode, {
