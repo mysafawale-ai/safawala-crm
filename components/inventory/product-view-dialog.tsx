@@ -643,6 +643,9 @@ export function ProductViewDialog({ product, open, onOpenChange }: ProductViewDi
           productCode={product.barcode || product.product_code || ""}
           productName={product.name}
           productPrice={product.price}
+          productMaterial={product.material}
+          productSize={product.size}
+          productColor={product.color}
         />
       )}
     </Dialog>

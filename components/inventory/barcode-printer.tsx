@@ -14,6 +14,9 @@ interface BarcodePrinterProps {
   productCode: string
   productName: string
   productPrice?: number
+  productMaterial?: string
+  productSize?: string
+  productColor?: string
 }
 
 export function BarcodePrinter({
@@ -22,141 +25,26 @@ export function BarcodePrinter({
   productCode,
   productName,
   productPrice,
+  productMaterial,
+  productSize,
+  productColor,
 }: BarcodePrinterProps) {
   const [quantity, setQuantity] = useState(10)
   const [isPrinting, setIsPrinting] = useState(false)
+  const [style, setStyle] = useState<1 | 2>(1)
 
   const handlePrint = async () => {
     if (quantity < 1) {
       toast.error("Enter at least 1 label")
       return
     }
-
     setIsPrinting(true)
-
     try {
-      const JsBarcode = (await import("jsbarcode")).default
-
-      const rows = Math.ceil(quantity / 2)
-      let labelsHTML = ""
-
-      for (let row = 0; row < rows; row++) {
-        labelsHTML += `<div class="row">`
-
-        for (let col = 0; col < 2; col++) {
-          const idx = row * 2 + col
-          if (idx < quantity) {
-            // Encode the productCode — short code = clear barcode on 203dpi
-            const canvas = document.createElement("canvas")
-            JsBarcode(canvas, productCode, {
-              format: "CODE128",
-              width: 3,
-              height: 80,
-              displayValue: false,
-              margin: 4,
-              background: "#FFFFFF",
-              lineColor: "#000000",
-            })
-            const barcodeImg = canvas.toDataURL("image/png")
-
-            labelsHTML += `
-              <div class="label">
-                <div class="name">${productName}</div>
-                <img src="${barcodeImg}" class="barcode" />
-                <div class="code">${productCode}</div>
-              </div>`
-          } else {
-            labelsHTML += `<div class="label empty"></div>`
-          }
-        }
-
-        labelsHTML += `</div>`
+      if (style === 1) {
+        await printStyle1()
+      } else {
+        await printStyle2()
       }
-
-      const printHTML = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Labels</title>
-<style>
-  @page {
-    size: 100mm 25mm;
-    margin: 0;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: Arial, sans-serif;
-    width: 100mm;
-    background: #fff;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .row {
-    width: 100mm;
-    height: 25mm;
-    display: flex;
-    page-break-after: always;
-    page-break-inside: avoid;
-  }
-  .row:last-child { page-break-after: avoid; }
-  .label {
-    width: 50mm;
-    height: 25mm;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 1.5mm;
-    gap: 0.5mm;
-  }
-  .label.empty { visibility: hidden; }
-  .name {
-    font-size: 8pt;
-    font-weight: bold;
-    color: #000;
-    text-align: center;
-    max-width: 48mm;
-    line-height: 1.2;
-    word-break: break-word;
-  }
-  .barcode {
-    width: 44mm;
-    height: 11mm;
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  .code {
-    font-family: 'Courier New', monospace;
-    font-size: 7.5pt;
-    font-weight: bold;
-    color: #000;
-    text-align: center;
-    letter-spacing: 0.5px;
-  }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  }
-</style>
-</head>
-<body>${labelsHTML}</body>
-</html>`
-
-      const printWindow = window.open("", "_blank")
-      if (!printWindow) {
-        toast.error("Please allow popups for printing")
-        return
-      }
-
-      printWindow.document.write(printHTML)
-      printWindow.document.close()
-
-      // Use setTimeout directly — more reliable than onload after document.close()
-      setTimeout(() => {
-        printWindow.focus()
-        printWindow.print()
-      }, 500)
-
       toast.success(`Printing ${quantity} labels`)
       onOpenChange(false)
     } catch (error) {
@@ -165,6 +53,205 @@ export function BarcodePrinter({
     } finally {
       setIsPrinting(false)
     }
+  }
+
+  const makeBarcodeDataURL = async (): Promise<string> => {
+    const JsBarcode = (await import("jsbarcode")).default
+    const canvas = document.createElement("canvas")
+    JsBarcode(canvas, productCode, {
+      format: "CODE128",
+      width: 3,
+      height: 80,
+      displayValue: false,
+      margin: 4,
+      background: "#FFFFFF",
+      lineColor: "#000000",
+    })
+    return canvas.toDataURL("image/png")
+  }
+
+  const printStyle1 = async () => {
+    const barcodeImg = await makeBarcodeDataURL()
+    const rows = Math.ceil(quantity / 2)
+    let labelsHTML = ""
+
+    for (let row = 0; row < rows; row++) {
+      labelsHTML += `<div class="row">`
+      for (let col = 0; col < 2; col++) {
+        const idx = row * 2 + col
+        if (idx < quantity) {
+          labelsHTML += `
+            <div class="label">
+              <div class="name">${productName}</div>
+              <img src="${barcodeImg}" class="barcode" />
+              <div class="code">${productCode}</div>
+            </div>`
+        } else {
+          labelsHTML += `<div class="label empty"></div>`
+        }
+      }
+      labelsHTML += `</div>`
+    }
+
+    const printHTML = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Labels</title>
+<style>
+  @page { size: 100mm 25mm; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; width: 100mm; background: #fff;
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .row { width: 100mm; height: 25mm; display: flex;
+         page-break-after: always; page-break-inside: avoid; }
+  .row:last-child { page-break-after: avoid; }
+  .label { width: 50mm; height: 25mm; display: flex; flex-direction: column;
+           justify-content: center; align-items: center; padding: 1.5mm; gap: 0.5mm; }
+  .label.empty { visibility: hidden; }
+  .name { font-size: 8pt; font-weight: bold; color: #000; text-align: center;
+          max-width: 48mm; line-height: 1.2; word-break: break-word; }
+  .barcode { width: 44mm; height: 11mm; display: block;
+             image-rendering: pixelated; image-rendering: crisp-edges; }
+  .code { font-family: 'Courier New', monospace; font-size: 7.5pt; font-weight: bold;
+          color: #000; text-align: center; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>${labelsHTML}</body>
+</html>`
+
+    openPrint(printHTML)
+  }
+
+  const printStyle2 = async () => {
+    const barcodeImg = await makeBarcodeDataURL()
+
+    // Resolve logo to base64 so it works in the print window
+    let logoSrc = ""
+    try {
+      const res = await fetch("/safawalalogo.png")
+      const blob = await res.blob()
+      logoSrc = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+    } catch {
+      // logo not available — will show text fallback
+    }
+
+    const logoHTML = logoSrc
+      ? `<img src="${logoSrc}" style="max-width:28mm;max-height:7mm;object-fit:contain;display:block;" />`
+      : `<div style="font-size:9pt;font-weight:900;color:#c8a84b;letter-spacing:1px;">SAFAWALA</div>`
+
+    const features = [
+      productMaterial ? `<div class="feat-row"><span class="feat-key">Material</span><span class="feat-val">${productMaterial}</span></div>` : "",
+      productSize     ? `<div class="feat-row"><span class="feat-key">Size</span><span class="feat-val">${productSize}</span></div>` : "",
+      productColor    ? `<div class="feat-row"><span class="feat-key">Colour</span><span class="feat-val">${productColor}</span></div>` : "",
+    ].join("")
+
+    let labelsHTML = ""
+    for (let i = 0; i < quantity; i++) {
+      labelsHTML += `
+        <div class="label">
+          <!-- Section 1: 35mm — Pricing + barcode + code + website -->
+          <div class="sec-pricing">
+            ${productPrice ? `<div class="price"><span class="currency">₹</span>${productPrice}</div>` : ""}
+            <img src="${barcodeImg}" class="barcode-img" />
+            <div class="code">${productCode}</div>
+            <div class="website">www.safawala.com</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Section 2: 35mm — Logo + product name + features -->
+          <div class="sec-info">
+            <div class="logo-wrap">${logoHTML}</div>
+            <div class="hr"></div>
+            <div class="prod-name">${productName}</div>
+            ${features ? `<div class="features">${features}</div>` : ""}
+          </div>
+
+          <!-- Section 3: 30mm — blank -->
+          <div class="sec-blank"></div>
+        </div>`
+    }
+
+    const printHTML = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Labels</title>
+<style>
+  @page { size: 100mm 30mm; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; width: 100mm; background: #fff;
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .label {
+    width: 100mm; height: 30mm;
+    display: flex; flex-direction: row;
+    page-break-after: always; page-break-inside: avoid;
+    overflow: hidden;
+  }
+  .label:last-child { page-break-after: avoid; }
+
+  /* Section 1 — 35mm */
+  .sec-pricing {
+    width: 35mm; height: 30mm;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 1mm 1.5mm; gap: 0.5mm;
+  }
+  .price { font-size: 14pt; font-weight: 900; color: #111; line-height: 1; }
+  .currency { font-size: 8pt; vertical-align: super; font-weight: bold; }
+  .barcode-img { width: 32mm; height: 12mm; display: block;
+                 image-rendering: pixelated; image-rendering: crisp-edges; }
+  .code { font-family: 'Courier New', monospace; font-size: 5.5pt; color: #333;
+          text-align: center; letter-spacing: 0.3px; }
+  .website { font-size: 5pt; color: #888; text-align: center; }
+
+  /* Divider */
+  .divider { width: 0.2mm; background: #ddd; align-self: stretch; margin: 2mm 0; }
+
+  /* Section 2 — 35mm */
+  .sec-info {
+    width: 35mm; height: 30mm;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 1.5mm; gap: 1mm;
+  }
+  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 7mm; }
+  .hr { width: 80%; height: 0.2mm; background: #ddd; }
+  .prod-name { font-size: 7pt; font-weight: 900; color: #111;
+               text-align: center; line-height: 1.2; max-width: 33mm; word-break: break-word; }
+  .features { display: flex; flex-direction: column; gap: 0.8mm; align-items: flex-start; width: 100%; }
+  .feat-row { display: flex; gap: 1.5mm; align-items: center; }
+  .feat-key { font-size: 5pt; color: #999; text-transform: uppercase; min-width: 11mm; }
+  .feat-val { font-size: 5.5pt; font-weight: bold; color: #222; }
+
+  /* Section 3 — 30mm blank */
+  .sec-blank { width: 30mm; height: 30mm; }
+</style>
+</head>
+<body>${labelsHTML}</body>
+</html>`
+
+    openPrint(printHTML)
+  }
+
+  const openPrint = (html: string) => {
+    const win = window.open("", "_blank")
+    if (!win) {
+      toast.error("Please allow popups for printing")
+      return
+    }
+    win.document.write(html)
+    win.document.close()
+    setTimeout(() => {
+      win.focus()
+      win.print()
+    }, 500)
   }
 
   const rows = Math.ceil(quantity / 2)
@@ -180,6 +267,59 @@ export function BarcodePrinter({
         </DialogHeader>
 
         <div className="space-y-3">
+          {/* Style selector */}
+          <div>
+            <Label className="text-xs mb-1 block">Label Style</Label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStyle(1)}
+                className={`flex-1 rounded border-2 p-2 text-left transition-all ${
+                  style === 1 ? "border-green-600 bg-green-50" : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div className="text-xs font-bold mb-1">Style 1 — Simple</div>
+                <div className="flex gap-1">
+                  {[0, 1].map((i) => (
+                    <div key={i} className="flex-1 border border-gray-300 p-1 bg-white flex flex-col items-center gap-0.5">
+                      <div className="text-[5px] font-bold truncate w-full text-center text-gray-700">{productName}</div>
+                      <div className="bg-black h-2.5 w-full" />
+                      <div className="text-[5px] font-mono text-gray-600 truncate w-full text-center">{productCode}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[9px] text-gray-400 text-center mt-1">50mm × 2 per row</div>
+              </button>
+
+              <button
+                onClick={() => setStyle(2)}
+                className={`flex-1 rounded border-2 p-2 text-left transition-all ${
+                  style === 2 ? "border-green-600 bg-green-50" : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div className="text-xs font-bold mb-1">Style 2 — Branded</div>
+                <div className="border border-gray-300 bg-white flex h-10 overflow-hidden">
+                  {/* mini sec 1 */}
+                  <div className="flex-1 border-r border-gray-200 flex flex-col items-center justify-center gap-0.5 px-0.5">
+                    {productPrice && <div className="text-[6px] font-black">₹{productPrice}</div>}
+                    <div className="bg-black h-2 w-full" />
+                    <div className="text-[4px] font-mono truncate w-full text-center text-gray-500">{productCode}</div>
+                    <div className="text-[4px] text-gray-400">safawala.com</div>
+                  </div>
+                  {/* mini sec 2 */}
+                  <div className="flex-1 flex flex-col items-center justify-center gap-0.5 px-0.5">
+                    <div className="text-[5px] font-black text-yellow-600">SAFAWALA</div>
+                    <div className="text-[4.5px] font-bold text-center leading-tight text-gray-700 truncate w-full">{productName}</div>
+                    {productMaterial && <div className="text-[4px] text-gray-400">Mat: {productMaterial}</div>}
+                  </div>
+                  {/* mini sec 3 blank */}
+                  <div className="w-5 bg-gray-50" />
+                </div>
+                <div className="text-[9px] text-gray-400 text-center mt-1">100mm × 1 per row</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Quantity */}
           <div>
             <Label className="text-xs mb-1 block">Quantity</Label>
             <div className="flex gap-1 flex-wrap">
@@ -204,37 +344,10 @@ export function BarcodePrinter({
               ))}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {quantity} labels = {rows} rows (2 per row)
+              {style === 1
+                ? `${quantity} labels = ${rows} rows (2 per row)`
+                : `${quantity} labels = ${quantity} rows (1 per row)`}
             </p>
-          </div>
-
-          {/* Preview */}
-          <div>
-            <Label className="text-xs mb-1 block">Preview</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded p-3 bg-white">
-              <div className="flex gap-2">
-                {[0, 1].map((i) => (
-                  <div key={i} className="flex-1 border border-gray-400 p-2 bg-gray-50 flex flex-col items-center gap-1">
-                    <div className="text-[8px] font-bold text-center leading-tight text-gray-800 max-w-full truncate">
-                      {productName}
-                    </div>
-                    <div className="bg-black h-5 w-full flex items-center justify-center">
-                      <div className="flex gap-px h-4">
-                        {Array.from({ length: 28 }).map((_, j) => (
-                          <div
-                            key={j}
-                            className="bg-white"
-                            style={{ width: j % 4 === 0 ? "2px" : "1px" }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-[9px] font-mono font-bold text-gray-900">{productCode}</div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-center text-[10px] text-gray-400 mt-2">← 100mm (50mm × 2) →</p>
-            </div>
           </div>
 
           <Button
@@ -243,11 +356,13 @@ export function BarcodePrinter({
             className="w-full bg-green-600 hover:bg-green-700 text-white"
           >
             <Printer className="w-4 h-4 mr-2" />
-            {isPrinting ? "Printing..." : `Print ${quantity} Labels (${rows} Rows)`}
+            {isPrinting ? "Printing..." : `Print ${quantity} Labels`}
           </Button>
 
           <p className="text-[10px] text-gray-400 text-center">
-            Set printer paper: 100mm × 25mm · Margins: None · Scale: 100%
+            {style === 1
+              ? "Paper: 100mm × 25mm · Margins: None · Scale: 100%"
+              : "Paper: 100mm × 30mm · Margins: None · Scale: 100%"}
           </p>
         </div>
       </DialogContent>
