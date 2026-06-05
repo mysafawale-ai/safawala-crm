@@ -149,7 +149,7 @@ export async function doPrint(
   setTimeout(() => { win1.focus(); win1.print() }, 200)
 }
 
-// ── Style 2: 100mm × 15mm, 1-up ─────────────────────────────────────────────
+// ── Style 2: same page size as Style 1 (100mm × 25mm) so printer accepts it ──
 export async function doPrintStyle2(
   barcode: string,
   label: string,
@@ -160,18 +160,10 @@ export async function doPrintStyle2(
   size?: string,
   material?: string,
 ) {
-  // Same pattern as Style 1 — jsbarcode import is the only await
+  // Identical flow to doPrint — only the label HTML differs
   const JsBarcode = (await import("jsbarcode")).default
-
   const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
 
-  const features = [
-    material ? `<div class="feat-row"><span class="fk">Material</span><span class="fv">${material}</span></div>` : "",
-    size     ? `<div class="feat-row"><span class="fk">Size</span><span class="fv">${size}</span></div>` : "",
-    color    ? `<div class="feat-row"><span class="fk">Colour</span><span class="fv">${color}</span></div>` : "",
-  ].join("")
-
-  // Generate barcode as data URL — same as Style 1
   const canvas = document.createElement("canvas")
   JsBarcode(canvas, barcode, {
     format: "CODE128", width: 3, height: 80,
@@ -180,63 +172,87 @@ export async function doPrintStyle2(
   })
   const barcodeImg = canvas.toDataURL("image/png")
 
-  // Use <base href> so /safawalalogo.png resolves in the print window
-  const base = window.location.origin
+  // Logo as canvas data URL — avoids cross-origin issues in print window
+  let logoSrc = ""
+  try {
+    const logoImg = new Image()
+    logoImg.crossOrigin = "anonymous"
+    await new Promise<void>((resolve) => {
+      logoImg.onload = () => {
+        const c = document.createElement("canvas")
+        c.width = logoImg.naturalWidth
+        c.height = logoImg.naturalHeight
+        c.getContext("2d")!.drawImage(logoImg, 0, 0)
+        logoSrc = c.toDataURL("image/png")
+        resolve()
+      }
+      logoImg.onerror = () => resolve()
+      logoImg.src = "/safawalalogo.png"
+    })
+  } catch { /* text fallback */ }
+
+  const logoHTML = logoSrc
+    ? `<img src="${logoSrc}" style="max-width:26mm;max-height:6mm;object-fit:contain;" />`
+    : `<span style="font-size:7pt;font-weight:900;color:#c8a84b;letter-spacing:1px;">SAFAWALA</span>`
+
+  const feats = [
+    material ? `<div class="feat"><span class="fk">Material</span><span class="fv">${material}</span></div>` : "",
+    size     ? `<div class="feat"><span class="fk">Size</span><span class="fv">${size}</span></div>` : "",
+    color    ? `<div class="feat"><span class="fk">Colour</span><span class="fv">${color}</span></div>` : "",
+  ].join("")
 
   let labelsHTML = ""
-  for (let i = 0; i < qty; i++) {
+  for (let row = 0; row < qty; row++) {
     labelsHTML += `
-      <div class="row">
-        <div class="s1">
-          <div class="pricing-row">
-            ${regularPrice ? `MRP: <span class="mrp">₹${regularPrice}</span>` : ""}
-            ${salePrice ? `<span class="sale">₹${salePrice}</span>` : ""}
-            ${savings > 0 ? `<span class="you-save">You save ₹${savings}</span>` : ""}
-          </div>
-          <img src="${barcodeImg}" class="bc-img" />
-          <div class="code">${barcode}</div>
-          <div class="web">www.safawala.com</div>
+    <div class="row">
+      <div class="s1">
+        <div class="prow">
+          ${regularPrice ? `MRP: <span class="mrp">₹${regularPrice}</span>` : ""}
+          ${salePrice ? `<span class="sale">₹${salePrice}</span>` : ""}
+          ${savings > 0 ? `<span class="save">You save ₹${savings}</span>` : ""}
         </div>
-        <div class="sep"></div>
-        <div class="s2">
-          <img src="${base}/safawalalogo.png" class="logo" onerror="this.style.display='none'" />
-          <div class="hr"></div>
-          <div class="pname">${label}</div>
-          ${features ? `<div class="feats">${features}</div>` : ""}
-        </div>
-        <div class="s3"></div>
-      </div>`
+        <img src="${barcodeImg}" class="bc" />
+        <div class="code">${barcode}</div>
+        <div class="web">www.safawala.com</div>
+      </div>
+      <div class="sep"></div>
+      <div class="s2">
+        <div class="logo">${logoHTML}</div>
+        <div class="hr"></div>
+        <div class="pname">${label}</div>
+        ${feats ? `<div class="feats">${feats}</div>` : ""}
+      </div>
+      <div class="s3"></div>
+    </div>`
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<base href="${base}">
 <style>
-  @page { size: 100mm 18mm; margin: 0; }
+  @page { size: 100mm 25mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
   html, body { width: 100mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .row { width: 100mm; height: 15mm; display: flex; flex-direction: row; overflow: hidden; page-break-after: always; }
+  .row { width: 100mm; height: 25mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
-  .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1.5mm; gap: 0.3mm; }
-  .pricing-row { font-size: 5.5pt; font-weight: 700; color: #000; text-align: center; white-space: nowrap; }
+  .s1 { width: 35mm; height: 25mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 1.5mm; gap: 0.4mm; }
+  .prow { font-size: 5.5pt; font-weight: 700; color: #000; text-align: center; white-space: nowrap; line-height: 1.3; }
   .mrp { position: relative; display: inline-block; color: #aaa; margin-right: 1mm; }
-  .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 0.3mm; background: #aaa; }
-  .mrp::before { transform: rotate(10deg); }
-  .mrp::after { transform: rotate(-10deg); }
-  .sale { font-size: 8pt; font-weight: 900; color: #000; margin-right: 1mm; }
-  .you-save { font-size: 4.5pt; color: #555; }
-  .bc-img { width: 32mm; height: 6mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: 'Courier New', monospace; font-size: 4.5pt; color: #333; text-align: center; }
-  .web { font-size: 4pt; color: #888; text-align: center; }
-  .sep { width: 0.2mm; background: #ddd; align-self: stretch; margin: 2mm 0; }
-  .s2 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1.5mm; gap: 0.5mm; }
-  .logo { max-width: 26mm; max-height: 5mm; object-fit: contain; display: block; }
-  .hr { width: 80%; height: 0.2mm; background: #ddd; }
-  .pname { font-size: 5pt; font-weight: 900; color: #111; text-align: center; line-height: 1.2; max-width: 33mm; word-break: break-word; }
-  .feats { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
-  .feat-row { display: flex; gap: 1mm; align-items: center; }
-  .fk { font-size: 3.5pt; color: #999; text-transform: uppercase; min-width: 10mm; }
-  .fv { font-size: 4pt; font-weight: bold; color: #222; }
-  .s3 { width: 30mm; height: 15mm; }
+  .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1px; background: #aaa; }
+  .mrp::before { transform: rotate(12deg); } .mrp::after { transform: rotate(-12deg); }
+  .sale { font-size: 9pt; font-weight: 900; color: #000; margin-right: 1mm; }
+  .save { font-size: 5pt; color: #555; }
+  .bc { width: 32mm; height: 8mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .code { font-family: 'Courier New', monospace; font-size: 5pt; color: #333; text-align: center; }
+  .web { font-size: 4.5pt; color: #888; }
+  .sep { width: 0.3mm; background: #ddd; align-self: stretch; margin: 2mm 0; }
+  .s2 { width: 35mm; height: 25mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 1.5mm; gap: 0.8mm; }
+  .logo { display: flex; align-items: center; justify-content: center; }
+  .hr { width: 80%; height: 0.3mm; background: #ddd; }
+  .pname { font-size: 5.5pt; font-weight: 900; color: #111; text-align: center; line-height: 1.2; max-width: 33mm; word-break: break-word; }
+  .feats { display: flex; flex-direction: column; gap: 0.5mm; align-items: flex-start; width: 100%; }
+  .feat { display: flex; gap: 1mm; align-items: center; }
+  .fk { font-size: 4pt; color: #999; text-transform: uppercase; min-width: 11mm; }
+  .fv { font-size: 4.5pt; font-weight: bold; color: #222; }
+  .s3 { width: 30mm; height: 25mm; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
