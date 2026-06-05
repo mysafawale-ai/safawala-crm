@@ -231,11 +231,11 @@ export async function doPrintStyle2(
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
-  @page { size: 100mm 15mm; margin: 0; }
+  @page { size: 100mm 18mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .row { width: 100mm; height: 14mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
-  .row:last-child { page-break-after: avoid; }
+  .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; margin-bottom: 3mm; }
+  .row:last-child { page-break-after: avoid; margin-bottom: 0; }
   .s1 { width: 35mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
   .prow { font-size: 4.5pt; font-weight: 700; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
   .mrp { position: relative; display: inline-block; color: #aaa; margin-right: 0.5mm; }
@@ -534,7 +534,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                         </>
                       ) : (
                         <>
-                          <li>• Paper Size: 100mm × 15mm</li>
+                          <li>• Paper Size: 100mm × 18mm</li>
                           <li>• Margins: None (0mm) · Scale: 100%</li>
                         </>
                       )}
@@ -715,7 +715,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                             </>
                           ) : (
                             <>
-                              <li>• Paper Size: 100mm × 15mm</li>
+                              <li>• Paper Size: 100mm × 18mm</li>
                               <li>• Margins: None (0mm) · Scale: 100%</li>
                             </>
                           )}

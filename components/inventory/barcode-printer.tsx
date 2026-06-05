@@ -186,19 +186,20 @@ export function BarcodePrinter({
 <meta charset="UTF-8">
 <title>Labels</title>
 <style>
-  @page { size: 100mm 15mm; margin: 0; }
+  @page { size: 100mm 18mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Arial, sans-serif; width: 100mm; margin: 0; padding: 0;
          background: #fff;
          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .label {
-    width: 100mm; height: 14mm;
+    width: 100mm; height: 14.8mm;
     display: flex; flex-direction: row;
     page-break-after: always; page-break-inside: avoid;
     overflow: hidden;
+    margin-bottom: 3mm;
   }
-  .label:last-child { page-break-after: avoid; }
+  .label:last-child { page-break-after: avoid; margin-bottom: 0; }
 
   /* Section 1 — 35mm */
   .sec-pricing {
@@ -351,7 +352,7 @@ export function BarcodePrinter({
             <p className="text-xs text-gray-500 mt-1">
               {style === 1
                 ? `${quantity} labels = ${rows} rows (2 per row) · 100mm × 25mm`
-                : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 15mm`}
+                : `${quantity} labels = ${quantity} rows (1 per row) · 100mm × 18mm`}
             </p>
           </div>
 
@@ -402,7 +403,7 @@ export function BarcodePrinter({
           <p className="text-[10px] text-gray-400 text-center">
             {style === 1
               ? "Paper: 100mm × 25mm · Margins: None · Scale: 100%"
-              : "Paper: 100mm × 15mm · Margins: None · Scale: 100%"}
+              : "Paper: 100mm × 18mm · Margins: None · Scale: 100%"}
           </p>
         </div>
       </DialogContent>
