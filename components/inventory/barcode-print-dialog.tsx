@@ -204,8 +204,10 @@ export async function doPrintStyle2(
 
   let labelsHTML = ""
   for (let row = 0; row < qty; row++) {
+    const isFirst = row === 0
+    const rowStyle = isFirst && topOffset > 0 ? `style="padding-top: ${topOffset}mm;"` : ""
     labelsHTML += `
-    <div class="row">
+    <div class="row" ${rowStyle}>
       <div class="s1">
         <div class="prow">
           ${regularPrice ? `MRP: <span class="mrp">₹${regularPrice}</span>` : ""}
@@ -231,10 +233,10 @@ export async function doPrintStyle2(
 <style>
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
-  html, body { width: 100mm; margin: 0; padding: 0; padding-top: ${topOffset}mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { width: 100mm; margin: 0; padding: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .row { width: 100mm; height: 15mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
-  .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
+  .s1 { width: 35mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
   .prow { font-size: 4.5pt; font-weight: 700; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
   .mrp { position: relative; display: inline-block; color: #aaa; margin-right: 0.5mm; }
   .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1px; background: #aaa; }
@@ -245,7 +247,7 @@ export async function doPrintStyle2(
   .code { font-family: 'Courier New', monospace; font-size: 4pt; color: #333; text-align: center; }
   .web { font-size: 3.5pt; color: #888; }
   .sep { width: 0.2mm; background: #ddd; align-self: stretch; margin: 1mm 0; }
-  .s2 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
+  .s2 { width: 35mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
   .logo { display: flex; align-items: center; justify-content: center; }
   .hr { width: 80%; height: 0.15mm; background: #ddd; }
   .pname { font-size: 5pt; font-weight: 900; color: #111; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; max-height: 3.5mm; }
@@ -253,7 +255,7 @@ export async function doPrintStyle2(
   .feat { display: flex; gap: 1mm; align-items: center; }
   .fk { font-size: 3.5pt; color: #999; text-transform: uppercase; min-width: 9mm; }
   .fv { font-size: 4pt; font-weight: bold; color: #222; }
-  .s3 { width: 30mm; height: 15mm; }
+  .s3 { width: 30mm; height: 100%; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 

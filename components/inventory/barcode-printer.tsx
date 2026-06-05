@@ -153,8 +153,10 @@ export function BarcodePrinter({
 
     let labelsHTML = ""
     for (let i = 0; i < quantity; i++) {
+      const isFirst = i === 0
+      const labelStyle = isFirst && topOffset > 0 ? `style="padding-top: ${topOffset}mm;"` : ""
       labelsHTML += `
-        <div class="label">
+        <div class="label" ${labelStyle}>
           <!-- Section 1: 35mm — Pricing + barcode + code + website -->
           <div class="sec-pricing">
             ${productPrice ? `<div class="price"><span class="currency">₹</span>${productPrice}</div>` : ""}
@@ -187,7 +189,7 @@ export function BarcodePrinter({
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Arial, sans-serif; width: 100mm; margin: 0; padding: 0;
-         padding-top: ${topOffset}mm; background: #fff;
+         background: #fff;
          -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .label {
@@ -200,7 +202,7 @@ export function BarcodePrinter({
 
   /* Section 1 — 35mm */
   .sec-pricing {
-    width: 35mm; height: 15mm;
+    width: 35mm; height: 100%;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 0.5mm 1mm; gap: 0.2mm;
@@ -218,7 +220,7 @@ export function BarcodePrinter({
 
   /* Section 2 — 35mm */
   .sec-info {
-    width: 35mm; height: 15mm;
+    width: 35mm; height: 100%;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 0.5mm 1mm; gap: 0.3mm;
@@ -234,7 +236,7 @@ export function BarcodePrinter({
   .feat-val { font-size: 4pt; font-weight: bold; color: #222; }
 
   /* Section 3 — 30mm blank */
-  .sec-blank { width: 30mm; height: 15mm; }
+  .sec-blank { width: 30mm; height: 100%; }
 </style>
 </head>
 <body>${labelsHTML}</body>
