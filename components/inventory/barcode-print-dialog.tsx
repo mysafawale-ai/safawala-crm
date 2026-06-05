@@ -160,22 +160,8 @@ export async function doPrintStyle2(
   size?: string,
   material?: string,
 ) {
+  // Same pattern as Style 1 — jsbarcode import is the only await
   const JsBarcode = (await import("jsbarcode")).default
-
-  // Fetch logo as base64 so it renders in the detached print window
-  let logoHTML = `<div style="font-size:6pt;font-weight:900;color:#c8a84b;letter-spacing:1px;">SAFAWALA</div>`
-  try {
-    const res = await fetch("/safawalalogo.png")
-    if (res.ok) {
-      const blob = await res.blob()
-      const b64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.readAsDataURL(blob)
-      })
-      logoHTML = `<img src="${b64}" style="max-width:26mm;max-height:5mm;object-fit:contain;display:block;" />`
-    }
-  } catch { /* use text fallback */ }
 
   const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
 
@@ -184,12 +170,6 @@ export async function doPrintStyle2(
     size     ? `<div class="feat-row"><span class="fk">Size</span><span class="fv">${size}</span></div>` : "",
     color    ? `<div class="feat-row"><span class="fk">Colour</span><span class="fv">${color}</span></div>` : "",
   ].join("")
-
-  // Open window immediately — must happen synchronously from user gesture
-  // before any awaits, otherwise popup blockers will kill it
-  const win = window.open("", "_blank")
-  if (!win) { toast.error("Please allow popups for printing"); return }
-  win.document.write("<html><body style='font-family:Arial;padding:20px'>Preparing labels…</body></html>")
 
   // Generate barcode image once, reuse for all labels
   const canvas = document.createElement("canvas")
@@ -200,23 +180,35 @@ export async function doPrintStyle2(
   })
   const barcodeImg = canvas.toDataURL("image/png")
 
+  // Generate barcode as data URL — same as Style 1
+  const canvas = document.createElement("canvas")
+  JsBarcode(canvas, barcode, {
+    format: "CODE128", width: 3, height: 80,
+    displayValue: false, margin: 4,
+    background: "#FFFFFF", lineColor: "#000000",
+  })
+  const barcodeImg = canvas.toDataURL("image/png")
+
+  // Use <base href> so /safawalalogo.png resolves in the print window
+  const base = window.location.origin
+
   let labelsHTML = ""
   for (let i = 0; i < qty; i++) {
     labelsHTML += `
-      <div class="label">
+      <div class="row">
         <div class="s1">
           <div class="pricing-row">
-            ${regularPrice ? `<span class="mrp">₹${regularPrice}</span>` : ""}
-            ${salePrice   ? `<span class="sale"><span class="cur">₹</span>${salePrice}</span>` : ""}
+            ${regularPrice ? `MRP: <span class="mrp">₹${regularPrice}</span>` : ""}
+            ${salePrice ? `<span class="sale">₹${salePrice}</span>` : ""}
+            ${savings > 0 ? `<span class="you-save">You save ₹${savings}</span>` : ""}
           </div>
-          ${savings > 0 ? `<div class="you-save">You save ₹${savings}</div>` : ""}
           <img src="${barcodeImg}" class="bc-img" />
           <div class="code">${barcode}</div>
           <div class="web">www.safawala.com</div>
         </div>
         <div class="sep"></div>
         <div class="s2">
-          <div class="logo-wrap">${logoHTML}</div>
+          <img src="${base}/safawalalogo.png" class="logo" onerror="this.style.display='none'" />
           <div class="hr"></div>
           <div class="pname">${label}</div>
           ${features ? `<div class="feats">${features}</div>` : ""}
@@ -225,49 +217,43 @@ export async function doPrintStyle2(
       </div>`
   }
 
-  // 18mm per page = 15mm label + 3mm gap
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<base href="${base}">
 <style>
   @page { size: 100mm 18mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
   html, body { width: 100mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .label { width: 100mm; height: 15mm; display: flex; flex-direction: row; overflow: hidden; page-break-after: always; margin-bottom: 3mm; }
-  .label:last-child { margin-bottom: 0; page-break-after: avoid; }
-
-  /* Section 1 — 35mm */
-  .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; font-family: Arial, sans-serif; }
-  .pricing-row { display: flex; align-items: baseline; gap: 1.5mm; }
-  .mrp { font-size: 5pt; color: #aaa; text-decoration: line-through; font-family: Arial, sans-serif; }
-  .sale { font-size: 9pt; font-weight: 900; color: #111; line-height: 1; }
-  .cur { font-size: 5pt; vertical-align: super; font-weight: bold; }
-  .you-save { font-size: 4pt; color: #555; font-family: Arial, sans-serif; }
-  .bc-img { width: 31mm; height: 5.5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .row { width: 100mm; height: 15mm; display: flex; flex-direction: row; overflow: hidden; page-break-after: always; }
+  .row:last-child { page-break-after: avoid; }
+  .s1 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1.5mm; gap: 0.3mm; }
+  .pricing-row { font-size: 5.5pt; font-weight: 700; color: #000; text-align: center; white-space: nowrap; }
+  .mrp { position: relative; display: inline-block; color: #aaa; margin-right: 1mm; }
+  .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 0.3mm; background: #aaa; }
+  .mrp::before { transform: rotate(10deg); }
+  .mrp::after { transform: rotate(-10deg); }
+  .sale { font-size: 8pt; font-weight: 900; color: #000; margin-right: 1mm; }
+  .you-save { font-size: 4.5pt; color: #555; }
+  .bc-img { width: 32mm; height: 6mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-family: 'Courier New', monospace; font-size: 4.5pt; color: #333; text-align: center; }
   .web { font-size: 4pt; color: #888; text-align: center; }
-
-  /* Divider */
-  .sep { width: 0.2mm; background: #ddd; align-self: stretch; margin: 1.5mm 0; }
-
-  /* Section 2 — 35mm */
-  .s2 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; font-family: Arial, sans-serif; }
-  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 5mm; }
+  .sep { width: 0.2mm; background: #ddd; align-self: stretch; margin: 2mm 0; }
+  .s2 { width: 35mm; height: 15mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1.5mm; gap: 0.5mm; }
+  .logo { max-width: 26mm; max-height: 5mm; object-fit: contain; display: block; }
   .hr { width: 80%; height: 0.2mm; background: #ddd; }
   .pname { font-size: 5pt; font-weight: 900; color: #111; text-align: center; line-height: 1.2; max-width: 33mm; word-break: break-word; }
   .feats { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
   .feat-row { display: flex; gap: 1mm; align-items: center; }
   .fk { font-size: 3.5pt; color: #999; text-transform: uppercase; min-width: 10mm; }
   .fv { font-size: 4pt; font-weight: bold; color: #222; }
-
-  /* Section 3 — 30mm blank */
   .s3 { width: 30mm; height: 15mm; }
-
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
 
-  win.document.open()
+  const win = window.open("", "_blank")
+  if (!win) { toast.error("Please allow popups for printing"); return }
   win.document.write(html)
   win.document.close()
-  setTimeout(() => { win.focus(); win.print() }, 300)
+  setTimeout(() => { win.focus(); win.print() }, 200)
 }
 
 // ── Dialog ───────────────────────────────────────────────────────────────────
