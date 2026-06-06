@@ -485,13 +485,24 @@ export async function doDownloadStylePNG(
           const h = logoImg.naturalHeight * scale
           ctx.drawImage(logoImg, sec2Center - (w / 2), 15, w, h)
 
-          // Colorize logo pixels to solid black
+          // Colorize logo pixels to solid black, keeping white background clean
           const imgData = ctx.getImageData(sec2Center - (w / 2), 15, w, h)
           for (let k = 0; k < imgData.data.length; k += 4) {
-            if (imgData.data[k + 3] > 10) {
+            const r = imgData.data[k]
+            const g = imgData.data[k+1]
+            const b = imgData.data[k+2]
+            const a = imgData.data[k+3]
+            const brightness = 0.299 * r + 0.587 * g + 0.114 * b
+            if (a > 10 && brightness < 200) {
               imgData.data[k] = 0
               imgData.data[k+1] = 0
               imgData.data[k+2] = 0
+              imgData.data[k+3] = 255
+            } else {
+              imgData.data[k] = 255
+              imgData.data[k+1] = 255
+              imgData.data[k+2] = 255
+              imgData.data[k+3] = 255
             }
           }
           ctx.putImageData(imgData, sec2Center - (w / 2), 15)
