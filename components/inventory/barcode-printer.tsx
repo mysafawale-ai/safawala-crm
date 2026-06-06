@@ -372,6 +372,8 @@ export function BarcodePrinter({
 
     const printHTML = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Labels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap">
 <style>
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -379,7 +381,7 @@ export function BarcodePrinter({
   .label { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .label:last-child { page-break-after: avoid; }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
-  .sale-price { font-size: 13pt; font-weight: 900; color: #000; line-height: 1; text-align: center; }
+  .sale-price { font-family: 'Oswald', Arial, sans-serif; font-size: 15pt; font-weight: 700; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
   .bc { width: 33mm; height: 5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
   .bc svg { width: 100%; height: 100%; display: block; }
   .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 1.5mm; }

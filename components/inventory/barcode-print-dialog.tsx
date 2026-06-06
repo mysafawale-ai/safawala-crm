@@ -205,6 +205,8 @@ export async function doPrintStyle2(
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap">
 <style>
   @page { size: 100mm 15mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -213,11 +215,11 @@ export async function doPrintStyle2(
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .mrp-row { display: flex; justify-content: space-between; align-items: center; width: 100%; line-height: 1; }
-  .mrp-label { font-size: 9pt; color: #000; font-weight: bold; }
-  .mrp-val { position: relative; display: inline-block; font-size: 9pt; font-weight: bold; color: #333; padding: 0 1px; }
+  .mrp-label { font-family: 'Oswald', Arial, sans-serif; font-size: 9pt; color: #000; font-weight: 400; letter-spacing: 0.3px; }
+  .mrp-val { position: relative; display: inline-block; font-family: 'Oswald', Arial, sans-serif; font-size: 9pt; font-weight: 400; color: #333; padding: 0 1px; }
   .mrp-val::after { content: ""; position: absolute; left: -2px; bottom: 1px; width: calc(100% + 4px); height: 0.8px; background: #000; transform: rotate(-12deg); transform-origin: left bottom; }
-  .save-text { font-size: 9pt; font-weight: bold; color: #000; white-space: nowrap; }
-  .sale-price { font-size: 13pt; font-weight: 900; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
+  .save-text { font-family: 'Oswald', Arial, sans-serif; font-size: 9pt; font-weight: 500; color: #000; white-space: nowrap; letter-spacing: 0.2px; }
+  .sale-price { font-family: 'Oswald', Arial, sans-serif; font-size: 15pt; font-weight: 700; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
   .bc { width: 33mm; height: 5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
   .bc svg { width: 100%; height: 100%; display: block; }
   .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 1.5mm; }
@@ -234,7 +236,7 @@ export async function doPrintStyle2(
   if (!win) { toast.error("Please allow popups for printing"); return }
   win.document.write(html)
   win.document.close()
-  setTimeout(() => { win.focus(); win.print() }, 200)
+  setTimeout(() => { win.focus(); win.print() }, 800)
 }
 
 // ── Style 3: 100mm × 15mm — Big logo, no attributes, Arial ──────────────────
