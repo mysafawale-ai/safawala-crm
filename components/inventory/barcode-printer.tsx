@@ -337,7 +337,7 @@ export function BarcodePrinter({
     // Resolve logo to base64 so it works in the print window
     let logoSrc = ""
     try {
-      const res = await fetch("/safawalalogo.png")
+      const res = await fetch("/safawalalogo.svg")
       const blob = await res.blob()
       logoSrc = await new Promise<string>((resolve) => {
         const reader = new FileReader()

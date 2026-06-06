@@ -188,7 +188,7 @@ export async function doPrintStyle2(
         resolve()
       }
       logoImg.onerror = () => resolve()
-      logoImg.src = "/safawalalogo.png"
+      logoImg.src = "/safawalalogo.svg"
     })
   } catch { /* text fallback */ }
 
@@ -530,7 +530,7 @@ export async function drawBarcodeCanvas(
           resolve()
         }
         logoImg.onerror = () => resolve()
-        logoImg.src = "/safawalalogo.png"
+        logoImg.src = "/safawalalogo.svg"
       })
     } catch { /* ignored */ }
  
@@ -715,7 +715,7 @@ function getLogoBase64(): Promise<string> {
       }
     }
     img.onerror = () => resolve("")
-    img.src = "/safawalalogo.png"
+    img.src = "/safawalalogo.svg"
   })
 }
 
