@@ -267,8 +267,8 @@ export async function doPrintStyle2(
   setTimeout(() => { win.focus(); win.print() }, 200)
 }
 
-// ── Download Barcode as PNG at 203 DPI ─────────────────────────────────────────
-export async function doDownloadStylePNG(
+// ── Draw Barcode Canvas ────────────────────────────────────────────────────────
+export async function drawBarcodeCanvas(
   barcode: string,
   label: string,
   style: 1 | 2,
@@ -277,7 +277,7 @@ export async function doDownloadStylePNG(
   color?: string,
   size?: string,
   material?: string,
-) {
+): Promise<HTMLCanvasElement> {
   const JsBarcode = (await import("jsbarcode")).default
   const canvas = document.createElement("canvas")
 
@@ -286,7 +286,7 @@ export async function doDownloadStylePNG(
     canvas.width = 400
     canvas.height = 200
     const ctx = canvas.getContext("2d")
-    if (!ctx) return
+    if (!ctx) return canvas
 
     // Fill background
     ctx.fillStyle = "#FFFFFF"
@@ -395,7 +395,7 @@ export async function doDownloadStylePNG(
     canvas.width = 800
     canvas.height = 120
     const ctx = canvas.getContext("2d")
-    if (!ctx) return
+    if (!ctx) return canvas
 
     // Fill background
     ctx.fillStyle = "#FFFFFF"
@@ -555,15 +555,126 @@ export async function doDownloadStylePNG(
       ctx.fillText(`COLOUR: ${color}`, sec2Start + 20, featY)
       featY += 13
     }
-
-    // --- SECTION 3: x = 827 to 1181 (30% width) blank ---
-    // Blank tag tail is left unprinted.
   }
 
-  // Trigger download flow
+  return canvas
+}
+
+// ── Download Barcode as PNG at 203 DPI ─────────────────────────────────────────
+export async function doDownloadStylePNG(
+  barcode: string,
+  label: string,
+  style: 1 | 2,
+  regularPrice?: number,
+  salePrice?: number,
+  color?: string,
+  size?: string,
+  material?: string,
+) {
+  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material)
+  
   const link = document.createElement("a")
   link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.png`
   link.href = canvas.toDataURL("image/png")
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// ── Download Barcode as 1-Bit BMP (Pure Black & White) ─────────────────────────
+export async function doDownloadStyleBMP(
+  barcode: string,
+  label: string,
+  style: 1 | 2,
+  regularPrice?: number,
+  salePrice?: number,
+  color?: string,
+  size?: string,
+  material?: string,
+) {
+  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material)
+  const width = canvas.width
+  const height = canvas.height
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return
+  
+  const imgData = ctx.getImageData(0, 0, width, height)
+  const data = imgData.data
+  
+  // BMP row size must be padded to a multiple of 4 bytes
+  const rowBytes = Math.ceil(width / 32) * 4
+  const pixelDataSize = rowBytes * height
+  const fileSize = 62 + pixelDataSize
+  
+  const buffer = new ArrayBuffer(fileSize)
+  const view = new DataView(buffer)
+  
+  // File Header (14 bytes)
+  view.setUint8(0, 0x42) // 'B'
+  view.setUint8(1, 0x4D) // 'M'
+  view.setUint32(2, fileSize, true)
+  view.setUint32(6, 0, true) // Reserved
+  view.setUint32(10, 62, true) // Offset to pixel data
+  
+  // DIB Header (40 bytes)
+  view.setUint32(14, 40, true) // DIB header size
+  view.setInt32(18, width, true)
+  view.setInt32(22, height, true) // Bottom-to-top
+  view.setUint16(26, 1, true) // Planes
+  view.setUint16(28, 1, true) // Bits per pixel (1-bit monochrome)
+  view.setUint32(30, 0, true) // BI_RGB (no compression)
+  view.setUint32(34, pixelDataSize, true)
+  view.setInt32(38, 0, true)
+  view.setInt32(42, 0, true)
+  view.setUint32(46, 2, true) // Colors in palette
+  view.setUint32(50, 2, true) // Important colors
+  
+  // Color Palette (8 bytes)
+  // Color 0: Black (0, 0, 0, 0)
+  view.setUint32(54, 0x00000000, true)
+  // Color 1: White (255, 255, 255, 0)
+  view.setUint32(58, 0x00FFFFFF, true)
+  
+  // Pixel Data (bottom-to-top)
+  for (let y = height - 1; y >= 0; y--) {
+    const rowStart = 62 + (height - 1 - y) * rowBytes
+    let currentByte = 0
+    let bitCount = 0
+    
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4
+      const r = data[idx]
+      const g = data[idx + 1]
+      const b = data[idx + 2]
+      const a = data[idx + 3]
+      
+      let bit = 1
+      if (a > 10) {
+        const brightness = 0.299 * r + 0.587 * g + 0.114 * b
+        // Threshold: less than 128 brightness is black (0), else white (1)
+        bit = brightness < 128 ? 0 : 1
+      }
+      
+      currentByte = (currentByte << 1) | bit
+      bitCount++
+      
+      if (bitCount === 8) {
+        view.setUint8(rowStart + Math.floor(x / 8), currentByte)
+        currentByte = 0
+        bitCount = 0
+      }
+    }
+    
+    if (bitCount > 0) {
+      currentByte = currentByte << (8 - bitCount)
+      view.setUint8(rowStart + Math.floor(width / 8), currentByte)
+    }
+  }
+  
+  const blob = new Blob([buffer], { type: "image/bmp" })
+  const link = document.createElement("a")
+  link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.bmp`
+  link.href = URL.createObjectURL(blob)
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -1162,6 +1273,28 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     }
   }
 
+  const handleDownloadBMP = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
+    if (!barcode) { toast.error(`No barcode for ${label}`); return }
+    setPrinting(true)
+    try {
+      await doDownloadStyleBMP(barcode, label, printStyle, regularPrice, salePrice, color, size, material)
+      toast.success("Downloaded barcode BMP successfully")
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to download barcode BMP")
+    } finally {
+      setPrinting(false)
+    }
+  }
+
   const handleDownloadPDF = async (
     barcode: string | undefined,
     label: string,
@@ -1669,6 +1802,14 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                     </Button>
                     <Button
                       type="button"
+                      onClick={() => handleDownloadBMP(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                      variant="outline"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
+                    >
+                      Download BMP (1-Bit)
+                    </Button>
+                    <Button
+                      type="button"
                       onClick={() => handleDownloadPDF(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
                       variant="outline"
                       className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
@@ -2019,6 +2160,15 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                           disabled={!selectedVariant.barcode}
                         >
                           Download PNG
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => handleDownloadBMP(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                          variant="outline"
+                          className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
+                          disabled={!selectedVariant.barcode}
+                        >
+                          Download BMP (1-Bit)
                         </Button>
                         <Button
                           type="button"

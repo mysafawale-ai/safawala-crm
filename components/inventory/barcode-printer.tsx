@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Printer, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
-import { doDownloadStylePNG, doDownloadStylePDF, doDownloadStyleSVG, doDownloadCSV } from "./barcode-print-dialog"
+import { doDownloadStylePNG, doDownloadStylePDF, doDownloadStyleSVG, doDownloadCSV, doDownloadStyleBMP } from "./barcode-print-dialog"
 
 interface BarcodePrinterProps {
   open: boolean
@@ -115,6 +115,32 @@ export function BarcodePrinter({
     } catch (error) {
       console.error(error)
       toast.error("Failed to download PNG")
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const handleDownloadBMP = async () => {
+    if (!productCode) {
+      toast.error("No barcode assigned")
+      return
+    }
+    setIsPrinting(true)
+    try {
+      await doDownloadStyleBMP(
+        productCode,
+        productName,
+        style,
+        undefined,
+        productPrice,
+        productColor,
+        productSize,
+        productMaterial
+      )
+      toast.success("Downloaded barcode BMP successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to download BMP")
     } finally {
       setIsPrinting(false)
     }
@@ -719,6 +745,15 @@ export function BarcodePrinter({
               className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
             >
               Download PNG
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDownloadBMP}
+              disabled={isPrinting}
+              variant="outline"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
+            >
+              Download BMP (1-Bit)
             </Button>
             <Button
               type="button"
