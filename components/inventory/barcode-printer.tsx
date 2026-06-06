@@ -333,25 +333,18 @@ export function BarcodePrinter({
   }
 
   const printStyle2 = async () => {
-    const barcodeImg = await makeBarcodeDataURL()
+    const JsBarcode = (await import("jsbarcode")).default
 
-    // Resolve logo to base64 so it works in the print window
-    let logoSrc = ""
-    try {
-      const res = await fetch("/safawalalogo.svg")
-      const blob = await res.blob()
-      logoSrc = await new Promise<string>((resolve) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.readAsDataURL(blob)
-      })
-    } catch {
-      // logo not available — will show text fallback
-    }
+    // Render barcode as inline SVG — vector quality, no rasterization blur
+    const barcodeSvgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+    JsBarcode(barcodeSvgEl, productCode, {
+      format: "CODE128", displayValue: false, margin: 0,
+      width: 2, height: 80, background: "#FFFFFF", lineColor: "#000000",
+    })
+    const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-    const logoHTML = logoSrc
-      ? `<img src="${logoSrc}" class="logo-img" style="max-width:25.7mm;max-height:4.7mm;object-fit:contain;display:block;" />`
-      : `<div style="font-size:6pt;font-weight:bold;color:#000;letter-spacing:0.5px;">SAFAWALA</div>`
+    // Inline SVG logo from the SVG_LOGO constant
+    const logoHTML = SVG_LOGO
 
     const features = [
       productMaterial ? `<div class="feat-row"><span class="feat-key">Material</span><span class="feat-val">${productMaterial}</span></div>` : "",
@@ -365,23 +358,17 @@ export function BarcodePrinter({
       const labelStyle = isFirst && topOffset > 0 ? `style="padding-top: ${topOffset}mm;"` : ""
       labelsHTML += `
         <div class="label" ${labelStyle}>
-          <!-- Section 1: 35mm — Pricing + barcode + code + website -->
           <div class="sec-pricing">
             ${productPrice ? `<div class="price"><span class="currency">₹</span>${productPrice}</div>` : ""}
-            <img src="${barcodeImg}" class="barcode-img" />
+            <div class="barcode-wrap">${barcodeSVG}</div>
             <div class="code">${productCode}</div>
             <div class="website">www.safawala.com</div>
           </div>
-
-          <!-- Section 2: 35mm — Logo + product name + features -->
           <div class="sec-info">
             <div class="logo-wrap">${logoHTML}</div>
-            <div class="hr"></div>
             <div class="prod-name">${productName}</div>
             ${features ? `<div class="features">${features}</div>` : ""}
           </div>
-
-          <!-- Section 3: 30mm — blank -->
           <div class="sec-blank"></div>
         </div>`
     }
@@ -409,33 +396,31 @@ export function BarcodePrinter({
     width: 34.9mm; height: 100%;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 0.5mm 1mm; gap: 0.2mm;
+    padding: 0.5mm 0.8mm; gap: 0.15mm;
   }
-  .price { font-size: 10pt; font-weight: bold; color: #000; line-height: 1; }
-  .currency { font-size: 6pt; vertical-align: super; font-weight: bold; }
-  .barcode-img { width: 32mm; height: 5.2mm; display: block;
-                 image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: Helvetica, Arial, sans-serif; font-size: 5.8pt; font-weight: bold; color: #000;
-          text-align: center; letter-spacing: 0.2px; }
-  .website { font-size: 6.3pt; color: #000; text-align: center; font-weight: normal; }
+  .price { font-size: 11pt; font-weight: bold; color: #000; line-height: 1; }
+  .currency { font-size: 6.5pt; vertical-align: super; font-weight: bold; }
+  .barcode-wrap { width: 33mm; height: 6.5mm; display: block; overflow: hidden; }
+  .barcode-wrap svg { width: 100%; height: 100%; display: block; }
+  .code { font-family: Helvetica, Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000;
+          text-align: center; letter-spacing: 0.3px; }
+  .website { font-size: 7pt; color: #000; text-align: center; font-weight: normal; }
 
   /* Section 2 — 35mm */
   .sec-info {
     width: 34.9mm; height: 100%;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 0.5mm 1mm; gap: 0.3mm;
+    padding: 0.5mm 0.8mm; gap: 0.4mm;
   }
-  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 4.7mm; }
-  .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
-  .hr { width: 80%; height: 0.2mm; background: #000; }
-  .prod-name { font-size: 6.5pt; font-weight: bold; color: #000;
-               text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word;
-               overflow: hidden; max-height: 4.5mm; }
-  .features { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
+  .logo-wrap { display: flex; align-items: center; justify-content: center; max-width: 33mm; max-height: 6mm; overflow: hidden; }
+  .logo-wrap svg { width: 33mm; height: auto; max-height: 6mm; display: block; }
+  .prod-name { font-size: 8.5pt; font-weight: bold; color: #000;
+               text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
+  .features { display: flex; flex-direction: column; gap: 0.2mm; align-items: flex-start; width: 100%; }
   .feat-row { display: flex; gap: 1mm; align-items: center; }
-  .feat-key { font-size: 5pt; color: #000; text-transform: uppercase; min-width: 10.5mm; font-weight: normal; }
-  .feat-val { font-size: 5.2pt; font-weight: bold; color: #000; }
+  .feat-key { font-size: 6.5pt; color: #000; text-transform: uppercase; min-width: 11mm; font-weight: normal; }
+  .feat-val { font-size: 7pt; font-weight: bold; color: #000; }
 
   /* Section 3 — 30mm blank */
   .sec-blank { width: 30mm; height: 100%; }
