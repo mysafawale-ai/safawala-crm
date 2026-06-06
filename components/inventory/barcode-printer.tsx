@@ -392,7 +392,8 @@ export function BarcodePrinter({
 <title>Labels</title>
 <style>
   @page { size: 100mm 15mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
   body { width: 100mm; margin: 0; padding: 0; background: #fff; }
 
   .label {
@@ -410,8 +411,8 @@ export function BarcodePrinter({
     align-items: center; justify-content: center;
     padding: 0.5mm 1mm; gap: 0.2mm;
   }
-  .price { font-size: 10pt; font-weight: bold; color: #000; line-height: 1; }
-  .currency { font-size: 6pt; vertical-align: super; font-weight: bold; }
+  .price { font-size: 10pt; font-weight: 600; color: #000; line-height: 1; }
+  .currency { font-size: 6pt; vertical-align: super; font-weight: 600; }
   .barcode-img { width: 32mm; height: 5.2mm; display: block;
                  image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-family: 'Courier New', monospace; font-size: 5.8pt; font-weight: bold; color: #000;
@@ -428,13 +429,13 @@ export function BarcodePrinter({
   .logo-wrap { display: flex; align-items: center; justify-content: center; height: 4.7mm; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   .hr { width: 80%; height: 0.2mm; background: #000; }
-  .prod-name { font-size: 6.5pt; font-weight: bold; color: #000;
+  .prod-name { font-size: 6.5pt; font-weight: 600; color: #000;
                text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word;
                overflow: hidden; max-height: 4.5mm; }
   .features { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
   .feat-row { display: flex; gap: 1mm; align-items: center; }
-  .feat-key { font-size: 5pt; color: #000; text-transform: uppercase; min-width: 10.5mm; font-weight: normal; }
-  .feat-val { font-size: 5.2pt; font-weight: bold; color: #000; }
+  .feat-key { font-size: 5pt; color: #000; text-transform: uppercase; min-width: 10.5mm; font-weight: 300; }
+  .feat-val { font-size: 5.2pt; font-weight: 500; color: #000; }
 
   /* Section 3 — 30mm blank */
   .sec-blank { width: 30mm; height: 100%; }

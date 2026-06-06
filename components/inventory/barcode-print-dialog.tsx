@@ -231,17 +231,18 @@ export async function doPrintStyle2(
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
   @page { size: 100mm 15mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
-  .prow { font-size: 6pt; font-weight: bold; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
-  .mrp { position: relative; display: inline-block; color: #000; font-weight: 500; margin-right: 0.5mm; }
+  .prow { font-size: 6pt; font-weight: 500; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
+  .mrp { position: relative; display: inline-block; color: #000; font-weight: 400; margin-right: 0.5mm; }
   .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1.2px; background: #000; }
   .mrp::before { transform: rotate(12deg); } .mrp::after { transform: rotate(-12deg); }
-  .sale { font-size: 10pt; font-weight: bold; color: #000; margin-right: 0.5mm; }
-  .save { font-size: 5pt; font-weight: bold; color: #000; }
+  .sale { font-size: 10pt; font-weight: 600; color: #000; margin-right: 0.5mm; }
+  .save { font-size: 5pt; font-weight: 500; color: #000; }
   .bc { width: 32mm; height: 5.2mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-family: 'Courier New', monospace; font-size: 5.8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.2px; }
   .web { font-size: 6.3pt; font-weight: normal; color: #000; text-align: center; }
@@ -249,11 +250,11 @@ export async function doPrintStyle2(
   .logo { display: flex; align-items: center; justify-content: center; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   .hr { width: 80%; height: 0.2mm; background: #000; }
-  .pname { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; max-height: 4.5mm; }
+  .pname { font-size: 6.5pt; font-weight: 600; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; max-height: 4.5mm; }
   .feats { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
   .feat { display: flex; gap: 1mm; align-items: center; }
-  .fk { font-size: 5pt; color: #000; text-transform: uppercase; min-width: 10.5mm; font-weight: normal; }
-  .fv { font-size: 5.2pt; font-weight: bold; color: #000; }
+  .fk { font-size: 5pt; color: #000; text-transform: uppercase; min-width: 10.5mm; font-weight: 300; }
+  .fv { font-size: 5.2pt; font-weight: 500; color: #000; }
   .s3 { width: 30mm; height: 100%; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
@@ -303,7 +304,7 @@ export async function drawBarcodeCanvas(
     ctx.textAlign = "center"
 
     // Product Title
-    ctx.font = "bold 15px Arial"
+    ctx.font = "600 15px Poppins"
     const words = label.split(" ")
     let line1 = ""
     let line2 = ""
@@ -321,7 +322,7 @@ export async function drawBarcodeCanvas(
 
     // Meta Attributes
     const meta1 = [color, size].filter(Boolean).join(" | ")
-    ctx.font = "12px Arial"
+    ctx.font = "500 12px Poppins"
     ctx.fillStyle = "#000000"
     let metaY = line2 ? 62 : 45
     if (meta1) {
@@ -341,7 +342,7 @@ export async function drawBarcodeCanvas(
 
     if (regularPrice || salePrice) {
       if (regularPrice) {
-        ctx.font = "12px Arial"
+        ctx.font = "500 12px Poppins"
         ctx.fillStyle = "#000000"
         ctx.fillText(`MRP: ₹${regularPrice}`, textX, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
@@ -356,14 +357,14 @@ export async function drawBarcodeCanvas(
         textX += textWidth + 10
       }
       if (salePrice) {
-        ctx.font = "bold 16px Arial"
+        ctx.font = "600 16px Poppins"
         ctx.fillStyle = "#000000"
         ctx.fillText(`₹${salePrice}`, textX, pricingY)
         const textWidth = ctx.measureText(`₹${salePrice}`).width
         textX += textWidth + 10
       }
       if (savings > 0) {
-        ctx.font = "bold 11px Arial"
+        ctx.font = "500 11px Poppins"
         ctx.fillStyle = "#000000"
         ctx.fillText(`Save ₹${savings}`, textX, pricingY - 1)
       }
@@ -391,7 +392,7 @@ export async function drawBarcodeCanvas(
     ctx.fillText(barcode, 200, 140)
 
     // Website Link
-    ctx.font = "17px Arial"
+    ctx.font = "500 17px Poppins"
     ctx.fillText("www.safawala.com", 200, 155)
 
   } else {
@@ -418,7 +419,7 @@ export async function drawBarcodeCanvas(
     if (regularPrice || salePrice) {
       let textX = 15
       if (regularPrice) {
-        ctx.font = "16px Arial"
+        ctx.font = "500 16px Poppins"
         ctx.fillStyle = "#000000"
         ctx.fillText(`MRP: ₹${regularPrice}`, textX + 30, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
@@ -432,14 +433,14 @@ export async function drawBarcodeCanvas(
         textX += textWidth + 10
       }
       if (salePrice) {
-        ctx.font = "bold 22px Arial"
+        ctx.font = "600 22px Poppins"
         ctx.fillStyle = "#000000"
         ctx.fillText(`₹${salePrice}`, textX + 30, pricingY)
         const textWidth = ctx.measureText(`₹${salePrice}`).width
         textX += textWidth + 10
       }
       if (savings > 0) {
-        ctx.font = "bold 13px Arial"
+        ctx.font = "500 13px Poppins"
         ctx.fillStyle = "#000000"
         ctx.fillText(`Save ₹${savings}`, textX + 30, pricingY - 1)
       }
@@ -466,7 +467,7 @@ export async function drawBarcodeCanvas(
     ctx.fillText(barcode, sec1Width / 2, 88)
 
     // Web url
-    ctx.font = "17px Arial"
+    ctx.font = "500 17px Poppins"
     ctx.fillText("www.safawala.com", sec1Width / 2, 104)
 
     // Divider line removed
@@ -532,7 +533,7 @@ export async function drawBarcodeCanvas(
     } catch { /* ignored */ }
  
     if (!logoDrawn) {
-      ctx.font = "bold 18px Arial"
+      ctx.font = "600 18px Poppins"
       ctx.fillStyle = "#000000"
       ctx.fillText("SAFAWALA", sec2Center, 24)
     }
@@ -546,13 +547,13 @@ export async function drawBarcodeCanvas(
     ctx.stroke()
  
     // Product Title
-    ctx.font = "bold 18px Arial"
+    ctx.font = "600 18px Poppins"
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
     ctx.fillText(label.substring(0, 30), sec2Center, 72)
  
     // Features Details
-    ctx.font = "15px Arial"
+    ctx.font = "500 15px Poppins"
     ctx.textAlign = "left"
     let featY = 86
     if (material) {
