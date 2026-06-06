@@ -262,6 +262,33 @@ export async function getLocalDefaultPrinter(): Promise<ZebraDevice | null> {
   }
 }
 
+// Fetch list of all available printers from local Zebra service
+export async function getLocalAvailablePrinters(): Promise<ZebraDevice[]> {
+  if (typeof window === "undefined") return []
+  try {
+    const res = await fetch(`${LOCAL_API_URL}/available`, {
+      method: "GET",
+      mode: "cors",
+    })
+    if (!res.ok) return []
+    const text = await res.text()
+    const trimmed = text.trim()
+    if (!trimmed || trimmed === "" || trimmed === "{}") return []
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (parsed && Array.isArray(parsed.printer)) {
+        return parsed.printer as ZebraDevice[]
+      }
+      return []
+    } catch {
+      return []
+    }
+  } catch (err) {
+    console.warn("Failed to fetch available printers", err)
+    return []
+  }
+}
+
 // Check if Zebra Browser Print is running
 export async function checkLocalZebraStatus(): Promise<boolean> {
   const device = await getLocalDefaultPrinter()

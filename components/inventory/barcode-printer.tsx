@@ -35,16 +35,23 @@ export function BarcodePrinter({
   const [style, setStyle] = useState<1 | 2>(1)
   const [topOffset, setTopOffset] = useState(0) // mm offset for first label alignment
   const [zebraDevice, setZebraDevice] = useState<any | null>(null)
+  const [zebraDevices, setZebraDevices] = useState<any[]>([])
   const [zebraStatus, setZebraStatus] = useState<"loading" | "connected" | "disconnected">("loading")
   const [showSetup, setShowSetup] = useState(false)
 
   const checkZebra = async () => {
     setZebraStatus("loading")
     try {
-      const { getLocalDefaultPrinter } = await import("@/lib/zebra-zpl-service")
+      const { getLocalDefaultPrinter, getLocalAvailablePrinters } = await import("@/lib/zebra-zpl-service")
       const dev = await getLocalDefaultPrinter()
+      const list = await getLocalAvailablePrinters()
+      
+      setZebraDevices(list)
       if (dev) {
         setZebraDevice(dev)
+        setZebraStatus("connected")
+      } else if (list.length > 0) {
+        setZebraDevice(list[0])
         setZebraStatus("connected")
       } else {
         setZebraDevice(null)
@@ -52,6 +59,7 @@ export function BarcodePrinter({
       }
     } catch {
       setZebraDevice(null)
+      setZebraDevices([])
       setZebraStatus("disconnected")
     }
   }
@@ -497,6 +505,26 @@ export function BarcodePrinter({
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             </div>
+
+            {zebraStatus === "connected" && zebraDevices.length > 0 && (
+              <div className="flex flex-col gap-1 mt-1 border-t pt-2 border-gray-200">
+                <Label className="text-[10px] text-gray-500 font-semibold">Select Printer Device:</Label>
+                <select
+                  value={zebraDevice?.uid || ""}
+                  onChange={(e) => {
+                    const selected = zebraDevices.find(d => d.uid === e.target.value)
+                    if (selected) setZebraDevice(selected)
+                  }}
+                  className="text-xs p-1.5 border rounded bg-white w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 font-medium text-gray-800"
+                >
+                  {zebraDevices.map((d) => (
+                    <option key={d.uid} value={d.uid}>
+                      {d.name} ({d.connection})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {zebraStatus === "disconnected" && (
               <div className="text-[11px] text-gray-500">
