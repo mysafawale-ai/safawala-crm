@@ -187,6 +187,14 @@ export default function CreateInvoicePage() {
   const mode = searchParams.get("mode") || "new"
   const orderId = searchParams.get("id")
 
+  // Gate: must select Rental or Sale before form unlocks (only for new invoices)
+  const [typeSelected, setTypeSelected] = useState(mode !== "new")
+
+  const handleTypeSelect = (type: "rental" | "sale") => {
+    setInvoiceData(prev => ({ ...prev, invoice_type: type }))
+    setTypeSelected(true)
+  }
+
   // Company Settings for PDF
   const [companySettings, setCompanySettings] = useState<any>(null)
 
@@ -2046,6 +2054,52 @@ export default function CreateInvoicePage() {
           }
         }
       `}</style>
+      {/* ── Transaction Type Gate ── */}
+      {!typeSelected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-8 text-center">
+            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-7 h-7 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">Create New Invoice</h2>
+            <p className="text-gray-500 text-sm mb-8">Select the transaction type to unlock the form</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* SALE */}
+              <button
+                onClick={() => handleTypeSelect("sale")}
+                className="group flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all duration-150"
+              >
+                <div className="w-12 h-12 bg-blue-100 group-hover:bg-blue-200 rounded-full flex items-center justify-center transition-colors">
+                  <Tag className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <div className="text-lg font-black text-gray-900 tracking-wide">SALE</div>
+                  <div className="text-xs text-gray-500 mt-0.5">One-time purchase</div>
+                </div>
+              </button>
+
+              {/* RENTAL */}
+              <button
+                onClick={() => handleTypeSelect("rental")}
+                className="group flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-gray-200 hover:border-green-500 hover:bg-green-50 transition-all duration-150"
+              >
+                <div className="w-12 h-12 bg-green-100 group-hover:bg-green-200 rounded-full flex items-center justify-center transition-colors">
+                  <Package className="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                  <div className="text-lg font-black text-gray-900 tracking-wide">RENTAL</div>
+                  <div className="text-xs text-gray-500 mt-0.5">With return date</div>
+                </div>
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-400 mt-6">You can change this later inside the form</p>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
       {/* Header - Hidden on print */}
       <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print:hidden">
