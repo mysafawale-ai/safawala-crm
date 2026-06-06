@@ -378,11 +378,11 @@ export function BarcodePrinter({
   body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .label { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .label:last-child { page-break-after: avoid; }
-  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.4mm 1mm; gap: 0.3mm; }
+  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .sale-price { font-size: 13pt; font-weight: 900; color: #000; line-height: 1; text-align: center; }
-  .bc { width: 33mm; height: 5.5mm; display: block; overflow: hidden; }
+  .bc { width: 33mm; height: 5.5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
   .bc svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
+  .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .pname { font-size: 9pt; font-weight: 900; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
   .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: normal; }

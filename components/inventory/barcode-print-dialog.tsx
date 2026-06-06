@@ -211,15 +211,16 @@ export async function doPrintStyle2(
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
-  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.4mm 1mm; gap: 0.3mm; }
+  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .mrp-row { display: flex; justify-content: space-between; align-items: center; width: 100%; line-height: 1; }
-  .mrp-label { font-size: 8pt; color: #000; font-weight: normal; }
-  .mrp-val { font-size: 8pt; font-weight: bold; color: #555; text-decoration: line-through; text-decoration-color: #555; }
-  .save-text { font-size: 8pt; font-weight: bold; color: #000; white-space: nowrap; }
+  .mrp-label { font-size: 9pt; color: #000; font-weight: bold; }
+  .mrp-val { position: relative; display: inline-block; font-size: 9pt; font-weight: bold; color: #333; padding: 0 1px; }
+  .mrp-val::after { content: ""; position: absolute; left: -2px; bottom: 1px; width: calc(100% + 4px); height: 0.8px; background: #000; transform: rotate(-12deg); transform-origin: left bottom; }
+  .save-text { font-size: 9pt; font-weight: bold; color: #000; white-space: nowrap; }
   .sale-price { font-size: 13pt; font-weight: 900; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
-  .bc { width: 33mm; height: 5.5mm; display: block; overflow: hidden; }
+  .bc { width: 33mm; height: 5.5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
   .bc svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
+  .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .pname { font-size: 9pt; font-weight: 900; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
   .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: normal; }
@@ -463,23 +464,23 @@ export async function drawBarcodeCanvas(
     // Row 1: MRP (left, strikethrough) | You save (right)
     if (regularPrice || savings > 0) {
       if (regularPrice) {
-        ctx.font = "16px Arial"
+        ctx.font = "bold 18px Arial"
         ctx.textAlign = "left"
         const mrpText = `MRP: ₹${regularPrice}`
-        ctx.fillText(mrpText, 10, 18)
+        ctx.fillText(mrpText, 10, 20)
         const tw = ctx.measureText(mrpText).width
-        ctx.strokeStyle = "#555555"
-        ctx.lineWidth = 1.2
-        ctx.beginPath()
-        ctx.moveTo(10, 13)
-        ctx.lineTo(10 + tw, 13)
-        ctx.stroke()
+        // Diagonal strikethrough: bottom-left to top-right
         ctx.strokeStyle = "#000000"
+        ctx.lineWidth = 0.8
+        ctx.beginPath()
+        ctx.moveTo(10, 22)          // bottom-left
+        ctx.lineTo(10 + tw, 10)     // top-right
+        ctx.stroke()
       }
       if (savings > 0) {
-        ctx.font = "bold 16px Arial"
+        ctx.font = "bold 18px Arial"
         ctx.textAlign = "right"
-        ctx.fillText(`You save ₹${savings}`, sec1W - 10, 18)
+        ctx.fillText(`You save ₹${savings}`, sec1W - 10, 20)
       }
     }
 
