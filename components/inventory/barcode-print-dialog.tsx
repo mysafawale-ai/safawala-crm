@@ -193,7 +193,7 @@ export async function doPrintStyle2(
   } catch { /* text fallback */ }
 
   const logoHTML = logoSrc
-    ? `<img src="${logoSrc}" class="logo-img" style="max-width:28.6mm;max-height:5.2mm;object-fit:contain;" />`
+    ? `<img src="${logoSrc}" class="logo-img" style="max-width:25.7mm;max-height:4.7mm;object-fit:contain;" />`
     : `<span style="font-size:6pt;font-weight:950;color:#000;letter-spacing:0.5px;">SAFAWALA</span>`
 
   const feats = [
@@ -483,16 +483,18 @@ export async function drawBarcodeCanvas(
       logoImg.crossOrigin = "anonymous"
       await new Promise<void>((resolve) => {
         logoImg.onload = () => {
-          const maxLogoW = 260
-          const maxLogoH = 47
+          const maxLogoW = 234
+          const maxLogoH = 42
           const scaleL = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
           const w = logoImg.naturalWidth * scaleL
           const h = logoImg.naturalHeight * scaleL
-          // Draw at Y = 4
-          ctx.drawImage(logoImg, sec2Center - (w / 2), 4, w, h)
+          // Draw at Y = 6 with image smoothing disabled to prevent blurriness
+          ctx.imageSmoothingEnabled = false
+          ctx.drawImage(logoImg, sec2Center - (w / 2), 6, w, h)
+          ctx.imageSmoothingEnabled = true
  
           // Colorize logo pixels to solid black with smooth anti-aliasing
-          const imgData = ctx.getImageData((sec2Center - (w / 2)) * scale, 4 * scale, w * scale, h * scale)
+          const imgData = ctx.getImageData((sec2Center - (w / 2)) * scale, 6 * scale, w * scale, h * scale)
           for (let k = 0; k < imgData.data.length; k += 4) {
             const r = imgData.data[k]
             const g = imgData.data[k+1]
@@ -520,7 +522,7 @@ export async function drawBarcodeCanvas(
               imgData.data[k+3] = 0 // Transparent
             }
           }
-          ctx.putImageData(imgData, (sec2Center - (w / 2)) * scale, 4 * scale)
+          ctx.putImageData(imgData, (sec2Center - (w / 2)) * scale, 6 * scale)
           logoDrawn = true
           resolve()
         }

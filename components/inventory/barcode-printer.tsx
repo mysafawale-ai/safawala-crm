@@ -349,7 +349,7 @@ export function BarcodePrinter({
     }
 
     const logoHTML = logoSrc
-      ? `<img src="${logoSrc}" class="logo-img" style="max-width:28.6mm;max-height:5.2mm;object-fit:contain;display:block;" />`
+      ? `<img src="${logoSrc}" class="logo-img" style="max-width:25.7mm;max-height:4.7mm;object-fit:contain;display:block;" />`
       : `<div style="font-size:6pt;font-weight:bold;color:#000;letter-spacing:0.5px;">SAFAWALA</div>`
 
     const features = [
@@ -425,7 +425,7 @@ export function BarcodePrinter({
     align-items: center; justify-content: center;
     padding: 0.5mm 1mm; gap: 0.3mm;
   }
-  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 5.2mm; }
+  .logo-wrap { display: flex; align-items: center; justify-content: center; height: 4.7mm; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   .hr { width: 80%; height: 0.2mm; background: #000; }
   .prod-name { font-size: 6.5pt; font-weight: bold; color: #000;
