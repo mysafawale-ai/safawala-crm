@@ -473,39 +473,44 @@ export async function doDownloadStylePNG(
     const sec2Start = 415
     const sec2Center = sec2Start + (sec2Width / 2)
 
-    // Logo image rendering with black filter
+    // Logo image rendering with high resolution and smooth anti-aliased filter
     let logoDrawn = false
     try {
       const logoImg = new Image()
       logoImg.crossOrigin = "anonymous"
       await new Promise<void>((resolve) => {
         logoImg.onload = () => {
-          const scale = Math.min(220 / logoImg.naturalWidth, 40 / logoImg.naturalHeight)
+          const maxLogoW = 300
+          const maxLogoH = 55
+          const scale = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
           const w = logoImg.naturalWidth * scale
           const h = logoImg.naturalHeight * scale
-          ctx.drawImage(logoImg, sec2Center - (w / 2), 15, w, h)
-
-          // Colorize logo pixels to solid black, keeping white background clean
-          const imgData = ctx.getImageData(sec2Center - (w / 2), 15, w, h)
+          // Draw at Y = 12
+          ctx.drawImage(logoImg, sec2Center - (w / 2), 12, w, h)
+ 
+          // Colorize logo pixels to solid black with smooth anti-aliasing
+          const imgData = ctx.getImageData(sec2Center - (w / 2), 12, w, h)
           for (let k = 0; k < imgData.data.length; k += 4) {
             const r = imgData.data[k]
             const g = imgData.data[k+1]
             const b = imgData.data[k+2]
             const a = imgData.data[k+3]
             const brightness = 0.299 * r + 0.587 * g + 0.114 * b
-            if (a > 10 && brightness < 200) {
+            
+            if (brightness < 240) {
+              const factor = (255 - brightness) / 255
               imgData.data[k] = 0
               imgData.data[k+1] = 0
               imgData.data[k+2] = 0
-              imgData.data[k+3] = 255
+              imgData.data[k+3] = Math.round(a * factor)
             } else {
               imgData.data[k] = 255
               imgData.data[k+1] = 255
               imgData.data[k+2] = 255
-              imgData.data[k+3] = 255
+              imgData.data[k+3] = 0 // Transparent
             }
           }
-          ctx.putImageData(imgData, sec2Center - (w / 2), 15)
+          ctx.putImageData(imgData, sec2Center - (w / 2), 12)
           logoDrawn = true
           resolve()
         }
@@ -513,38 +518,38 @@ export async function doDownloadStylePNG(
         logoImg.src = "/safawalalogo.png"
       })
     } catch { /* ignored */ }
-
+ 
     if (!logoDrawn) {
       ctx.font = "bold 24px Arial"
       ctx.fillStyle = "#000000"
       ctx.fillText("SAFAWALA", sec2Center, 35)
     }
-
-    // Horizontal divider line
+ 
+    // Horizontal divider line - shifted below high-res logo
     ctx.strokeStyle = "#000000"
     ctx.lineWidth = 1.5
     ctx.beginPath()
-    ctx.moveTo(sec2Start + 40, 52)
-    ctx.lineTo(sec2Start + sec2Width - 40, 52)
+    ctx.moveTo(sec2Start + 40, 75)
+    ctx.lineTo(sec2Start + sec2Width - 40, 75)
     ctx.stroke()
-
-    // Product Title
+ 
+    // Product Title - positioned cleanly
     ctx.font = "bold 20px Arial"
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 30), sec2Center, 78)
-
-    // Features Details (left aligned)
+    ctx.fillText(label.substring(0, 30), sec2Center, 98)
+ 
+    // Features Details (left aligned) - properly spaced
     ctx.font = "16px Arial"
     ctx.textAlign = "left"
-    let featY = 105
+    let featY = 122
     if (material) {
       ctx.fillText(`MATERIAL: ${material}`, sec2Start + 30, featY)
-      featY += 22
+      featY += 20
     }
     if (size) {
       ctx.fillText(`SIZE: ${size}`, sec2Start + 30, featY)
-      featY += 22
+      featY += 20
     }
     if (color) {
       ctx.fillText(`COLOUR: ${color}`, sec2Start + 30, featY)
