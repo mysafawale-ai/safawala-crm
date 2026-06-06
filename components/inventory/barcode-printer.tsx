@@ -385,7 +385,7 @@ export function BarcodePrinter({
   .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 0.8mm; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .pname { font-size: 9pt; font-weight: 900; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
-  .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: normal; }
+  .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: bold; }
   .divider { width: 90%; height: 0.3mm; background: #000; }
   .website { font-size: 10.5pt; font-weight: 900; color: #000; text-align: center; letter-spacing: 0.8px; white-space: nowrap; }
   .s3 { width: 30mm; height: 100%; }

@@ -223,7 +223,7 @@ export async function doPrintStyle2(
   .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 0.8mm; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .pname { font-size: 9pt; font-weight: 900; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
-  .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: normal; }
+  .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: bold; }
   .divider { width: 90%; height: 0.3mm; background: #000; }
   .website { font-size: 10.5pt; font-weight: 900; color: #000; text-align: center; letter-spacing: 0.8px; white-space: nowrap; }
   .s3 { width: 30mm; height: 100%; }
@@ -466,15 +466,20 @@ export async function drawBarcodeCanvas(
       if (regularPrice) {
         ctx.font = "bold 18px Arial"
         ctx.textAlign = "left"
-        const mrpText = `MRP: ₹${regularPrice}`
-        ctx.fillText(mrpText, 10, 20)
-        const tw = ctx.measureText(mrpText).width
-        // Diagonal strikethrough: bottom-left to top-right
+        // Draw "MRP: " without strikethrough
+        const prefix = "MRP: "
+        ctx.fillText(prefix, 10, 20)
+        const prefixW = ctx.measureText(prefix).width
+        // Draw "₹price" separately
+        const priceText = `₹${regularPrice}`
+        ctx.fillText(priceText, 10 + prefixW, 20)
+        const priceW = ctx.measureText(priceText).width
+        // Diagonal strikethrough only through ₹price: bottom-left to top-right
         ctx.strokeStyle = "#000000"
         ctx.lineWidth = 0.8
         ctx.beginPath()
-        ctx.moveTo(10, 22)          // bottom-left
-        ctx.lineTo(10 + tw, 10)     // top-right
+        ctx.moveTo(10 + prefixW - 1, 23)              // bottom-left of ₹price
+        ctx.lineTo(10 + prefixW + priceW + 1, 10)     // top-right of ₹price
         ctx.stroke()
       }
       if (savings > 0) {
@@ -513,7 +518,7 @@ export async function drawBarcodeCanvas(
     // Attributes: Cotton | M | Blue
     const attrParts = [material, size, color].filter(Boolean)
     if (attrParts.length > 0) {
-      ctx.font = "14px Arial"
+      ctx.font = "bold 14px Arial"
       ctx.fillText(attrParts.join(" | "), sec2Center, 48)
     }
 
@@ -623,7 +628,7 @@ export async function doDownloadStylePNG(
   size?: string,
   material?: string,
 ) {
-  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 10)
+  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 20)
   const link = document.createElement("a")
   link.download = `barcode-${barcode}-style${style}.png`
   link.href = canvas.toDataURL("image/png")
