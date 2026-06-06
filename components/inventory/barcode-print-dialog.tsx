@@ -443,7 +443,7 @@ export async function drawBarcodeCanvas(
     ctx.fillText("www.safawala.com", 200, 155)
 
   } else if (style === 2) {
-    // Style 2: 100mm x 15mm branded label
+    // Style 2: new layout — MRP+Save row | big sale price | barcode | code || name | attrs | divider | SAFAWALA.COM
     canvas.width = 800 * scale
     canvas.height = 120 * scale
     const ctx = canvas.getContext("2d")
@@ -451,76 +451,84 @@ export async function drawBarcodeCanvas(
     ctx.scale(scale, scale)
     ctx.fillStyle = "#FFFFFF"
     ctx.fillRect(0, 0, 800, 120)
+    ctx.fillStyle = "#000000"
 
-    const sec1Width = 280
-    ctx.textAlign = "center"
     const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
-    const pricingY = 24
+    const sec1W = 280
+    const sec2Start = 280
+    const sec2W = 280
+    const sec2Center = sec2Start + sec2W / 2
 
-    if (regularPrice || salePrice) {
-      let textX = 15
+    // --- SECTION 1 ---
+    // Row 1: MRP (left, strikethrough) | You save (right)
+    if (regularPrice || savings > 0) {
       if (regularPrice) {
-        ctx.font = "19px Arial"
-        ctx.fillStyle = "#000000"
-        ctx.fillText(`MRP: ₹${regularPrice}`, textX + 30, pricingY)
-        const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
-        ctx.strokeStyle = "#000000"
-        ctx.lineWidth = 1
+        ctx.font = "16px Arial"
+        ctx.textAlign = "left"
+        const mrpText = `MRP: ₹${regularPrice}`
+        ctx.fillText(mrpText, 10, 18)
+        const tw = ctx.measureText(mrpText).width
+        ctx.strokeStyle = "#555555"
+        ctx.lineWidth = 1.2
         ctx.beginPath()
-        ctx.moveTo(textX + 30 - textWidth/2 - 2, pricingY - 4)
-        ctx.lineTo(textX + 30 + textWidth/2 + 2, pricingY - 4)
+        ctx.moveTo(10, 13)
+        ctx.lineTo(10 + tw, 13)
         ctx.stroke()
-        textX += textWidth + 10
-      }
-      if (salePrice) {
-        ctx.font = "bold 24px Arial"
-        ctx.fillStyle = "#000000"
-        ctx.fillText(`₹${salePrice}`, textX + 30, pricingY)
-        const textWidth = ctx.measureText(`₹${salePrice}`).width
-        textX += textWidth + 10
+        ctx.strokeStyle = "#000000"
       }
       if (savings > 0) {
         ctx.font = "bold 16px Arial"
-        ctx.fillStyle = "#000000"
-        ctx.fillText(`Save ₹${savings}`, textX + 30, pricingY - 1)
+        ctx.textAlign = "right"
+        ctx.fillText(`You save ₹${savings}`, sec1W - 10, 18)
       }
     }
 
+    // Row 2: Big sale price
+    if (salePrice) {
+      ctx.font = "bold 28px Arial"
+      ctx.textAlign = "center"
+      ctx.fillText(`₹${salePrice}`, sec1W / 2, 44)
+    }
+
+    // Row 3: Barcode
+    const bcTop = salePrice ? 50 : 20
     const barcodeCanvas2 = document.createElement("canvas")
-    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 40, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
+    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 44, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas2, 15, 34, 250, 40)
+    ctx.drawImage(barcodeCanvas2, 14, bcTop, 252, 44)
     ctx.imageSmoothingEnabled = true
-    ctx.font = "bold 15px Helvetica"
-    ctx.fillStyle = "#000000"
-    ctx.fillText(barcode, sec1Width / 2, 88)
-    ctx.font = "17px Helvetica"
-    ctx.fillText("www.safawala.com", sec1Width / 2, 104)
 
-    const sec2Width = 280
-    const sec2Start = 280
-    const sec2Center = sec2Start + (sec2Width / 2)
+    // Row 4: Barcode number
+    ctx.font = "bold 13px Arial"
+    ctx.textAlign = "center"
+    ctx.fillText(barcode, sec1W / 2, bcTop + 52)
 
-    // Draw SAFAWALA.com text — SAFAWALA big bold, .com smaller
-    ctx.fillStyle = "#000000"
-    ctx.textAlign = "left"
-    ctx.font = "bold 24px Arial"
-    const safaW = ctx.measureText("SAFAWALA").width
-    ctx.font = "15px Arial"
-    const comW = ctx.measureText(".com").width
-    const brandStartX = sec2Center - (safaW + comW) / 2
-    ctx.font = "bold 24px Arial"
-    ctx.fillText("SAFAWALA", brandStartX, 28)
-    ctx.font = "15px Arial"
-    ctx.fillText(".com", brandStartX + safaW, 28)
+    // --- SECTION 2 ---
+    // Product name
+    ctx.font = "bold 20px Arial"
+    ctx.textAlign = "center"
+    ctx.fillText(label.substring(0, 26), sec2Center, 28)
 
-    ctx.font = "bold 18px Arial"; ctx.fillStyle = "#000000"; ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 30), sec2Center, 56)
-    ctx.font = "15px Arial"; ctx.textAlign = "left"
-    let featY = 72
-    if (material) { ctx.fillText(`MATERIAL: ${material}`, sec2Start + 20, featY); featY += 16 }
-    if (size)     { ctx.fillText(`SIZE: ${size}`, sec2Start + 20, featY); featY += 16 }
-    if (color)    { ctx.fillText(`COLOUR: ${color}`, sec2Start + 20, featY); featY += 16 }
+    // Attributes: Cotton | M | Blue
+    const attrParts = [material, size, color].filter(Boolean)
+    if (attrParts.length > 0) {
+      ctx.font = "14px Arial"
+      ctx.fillText(attrParts.join(" | "), sec2Center, 48)
+    }
+
+    // Thin divider line
+    const divY = attrParts.length > 0 ? 58 : 42
+    ctx.strokeStyle = "#000000"
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(sec2Start + 20, divY)
+    ctx.lineTo(sec2Start + sec2W - 20, divY)
+    ctx.stroke()
+
+    // SAFAWALA.COM — big bold
+    ctx.font = "bold 22px Arial"
+    ctx.textAlign = "center"
+    ctx.fillText("SAFAWALA.COM", sec2Center, divY + 30)
 
   } else {
     // Style 3: big logo + product name only, no attributes, Arial
