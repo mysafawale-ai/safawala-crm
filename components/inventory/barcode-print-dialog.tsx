@@ -198,7 +198,7 @@ export async function doPrintStyle2(
         <div class="pname">${label}</div>
         ${attrsLine ? `<div class="attrs">${attrsLine}</div>` : ""}
         <div class="divider"></div>
-        <div class="website">SAFAWALA.COM</div>
+        <div class="website">SAFAWALA.com</div>
       </div>
       <div class="s3"></div>
     </div>`
@@ -444,7 +444,7 @@ export async function drawBarcodeCanvas(
     ctx.fillText("www.safawala.com", 200, 155)
 
   } else if (style === 2) {
-    // Style 2: new layout — MRP+Save row | big sale price | barcode | code || name | attrs | divider | SAFAWALA.COM
+    // Style 2: new layout — MRP+Save row | big sale price | barcode | code || name | attrs | divider | SAFAWALA.com
     canvas.width = 800 * scale
     canvas.height = 120 * scale
     const ctx = canvas.getContext("2d")
@@ -526,10 +526,10 @@ export async function drawBarcodeCanvas(
     ctx.lineTo(sec2Start + sec2W - 20, divY)
     ctx.stroke()
 
-    // SAFAWALA.COM — big bold
+    // SAFAWALA.com — big bold
     ctx.font = "bold 22px Arial"
     ctx.textAlign = "center"
-    ctx.fillText("SAFAWALA.COM", sec2Center, divY + 30)
+    ctx.fillText("SAFAWALA.com", sec2Center, divY + 30)
 
   } else {
     // Style 3: big logo + product name only, no attributes, Arial

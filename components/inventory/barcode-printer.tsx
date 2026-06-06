@@ -364,7 +364,7 @@ export function BarcodePrinter({
             <div class="pname">${productName}</div>
             ${attrsLine ? `<div class="attrs">${attrsLine}</div>` : ""}
             <div class="divider"></div>
-            <div class="website">SAFAWALA.COM</div>
+            <div class="website">SAFAWALA.com</div>
           </div>
           <div class="s3"></div>
         </div>`
