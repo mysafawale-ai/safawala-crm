@@ -163,11 +163,11 @@ function singleStyle2ZPL(
 ~SD${density}
 ^PR${speed},${speed},${speed}
 ^LH0,${offset}
-^FO15,10^A0N,18,18^FB250,1,0,C,0^FD${pricingText}^FS
-^BY1,3,40
-^FO25,35^BCN,40,N,N,N^FD${item.code}^FS
-^FO15,80^A0N,16,16^FB250,1,0,C,0^FD${item.code}^FS
-^FO15,100^A0N,14,14^FB250,1,0,C,0^FDwww.safawala.com^FS
+^FO15,5^A0N,18,18^FB250,1,0,C,0^FD${pricingText}^FS
+^BY1,3,32
+^FO25,25^BCN,32,N,N,N^FD${item.code}^FS
+^FO15,67^A0N,32,32^FB250,1,0,C,0^FD${item.code}^FS
+^FO15,106^A0N,12,12^FB250,1,0,C,0^FDwww.safawala.com^FS
 ^FO280,10^GB2,100,2^FS
 ^FO300,10^A0N,20,20^FB240,1,0,C,0^FDSAFAWALA^FS
 ^FO320,32^GB200,2,2^FS
@@ -360,6 +360,8 @@ export async function printThermalLabels(config: ZebraPrintConfig): Promise<void
   const labelHTML = (item: ZebraBarcodeItem) => {
     const svg = makeSVG(item.code)
     const name = item.productName.length > 20 ? item.productName.substring(0, 18) + ".." : item.productName
+    const fontSize = style === 2 ? 14 : 7
+    const marginTop = style === 2 ? "1.5mm" : "0"
     return `
       <div style="width:${labelWidthMM}mm;height:${labelHeightMM}mm;display:flex;flex-direction:column;
                   align-items:center;justify-content:center;padding:1mm;box-sizing:border-box;
@@ -370,7 +372,7 @@ export async function printThermalLabels(config: ZebraPrintConfig): Promise<void
                     justify-content:center;overflow:hidden;">
           ${svg.replace(/width="[^"]*"/, `width="${bcW}mm"`).replace(/height="[^"]*"/, `height="${bcH}mm"`)}
         </div>
-        <div style="font-family:'Courier New',monospace;font-size:7pt;font-weight:bold;color:#000;">
+        <div style="font-family:'Courier New',monospace;font-size:${fontSize}pt;font-weight:bold;color:#000;margin-top:${marginTop};">
           ${item.code}
         </div>
       </div>`

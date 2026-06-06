@@ -213,19 +213,19 @@ export async function doPrintStyle2(
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
-  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
+  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.2mm 1mm; gap: 0.2mm; }
   .mrp-row { display: flex; justify-content: space-between; align-items: center; width: 100%; line-height: 1; }
-  .mrp-label { font-family: 'Oswald', Arial, sans-serif; font-size: 9pt; color: #000; font-weight: 400; letter-spacing: 0.3px; }
-  .mrp-val { position: relative; display: inline-block; font-family: 'Oswald', Arial, sans-serif; font-size: 9pt; font-weight: 400; color: #333; padding: 0 1px; }
+  .mrp-label { font-family: 'Oswald', Arial, sans-serif; font-size: 8pt; color: #000; font-weight: 400; letter-spacing: 0.3px; }
+  .mrp-val { position: relative; display: inline-block; font-family: 'Oswald', Arial, sans-serif; font-size: 8pt; font-weight: 400; color: #333; padding: 0 1px; }
   .mrp-val::after { content: ""; position: absolute; left: -2px; bottom: 1px; width: calc(100% + 4px); height: 0.8px; background: #000; transform: rotate(-12deg); transform-origin: left bottom; }
-  .save-text { font-family: 'Oswald', Arial, sans-serif; font-size: 9pt; font-weight: 500; color: #000; white-space: nowrap; letter-spacing: 0.2px; }
-  .sale-price { font-family: 'Oswald', Arial, sans-serif; font-size: 15pt; font-weight: 700; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
-  .bc { width: 33mm; height: 5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+  .save-text { font-family: 'Oswald', Arial, sans-serif; font-size: 8pt; font-weight: 500; color: #000; white-space: nowrap; letter-spacing: 0.2px; }
+  .sale-price { font-family: 'Oswald', Arial, sans-serif; font-size: 13pt; font-weight: 500; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
+  .bc { width: 33mm; height: 3.5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
   .bc svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 1.5mm; }
+  .code { font-family: 'Courier New', monospace; font-size: 13pt; font-weight: 500; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 2.2mm; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
-  .pname { font-size: 9pt; font-weight: 900; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
-  .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: bold; }
+  .pname { font-family: Verdana, sans-serif; font-size: 9pt; font-weight: 500; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
+  .attrs { font-family: Verdana, sans-serif; font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: 500; }
   .divider { width: 90%; height: 0.3mm; background: #000; }
   .website { font-size: 10.5pt; font-weight: 900; color: #000; text-align: center; letter-spacing: 0.8px; white-space: nowrap; }
   .s3 { width: 30mm; height: 100%; }
@@ -493,34 +493,34 @@ export async function drawBarcodeCanvas(
 
     // Row 2: Big sale price
     if (salePrice) {
-      ctx.font = "bold 28px Arial"
+      ctx.font = "500 24px Arial"
       ctx.textAlign = "center"
-      ctx.fillText(`₹${salePrice}`, sec1W / 2, 44)
+      ctx.fillText(`₹${salePrice}`, sec1W / 2, 40)
     }
 
     // Row 3: Barcode
-    const bcTop = salePrice ? 50 : 20
+    const bcTop = salePrice ? 46 : 18
     const barcodeCanvas2 = document.createElement("canvas")
-    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 44, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
+    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 30, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas2, 14, bcTop, 252, 44)
+    ctx.drawImage(barcodeCanvas2, 14, bcTop, 252, 30)
     ctx.imageSmoothingEnabled = true
 
     // Row 4: Barcode number
-    ctx.font = "bold 13px Arial"
+    ctx.font = "500 26px 'Courier New'"
     ctx.textAlign = "center"
-    ctx.fillText(barcode, sec1W / 2, bcTop + 52)
+    ctx.fillText(barcode, sec1W / 2, bcTop + 64)
 
     // --- SECTION 2 ---
     // Product name
-    ctx.font = "bold 20px Arial"
+    ctx.font = "500 20px Verdana"
     ctx.textAlign = "center"
     ctx.fillText(label.substring(0, 26), sec2Center, 28)
 
     // Attributes: Cotton | M | Blue
     const attrParts = [material, size, color].filter(Boolean)
     if (attrParts.length > 0) {
-      ctx.font = "bold 14px Arial"
+      ctx.font = "500 14px Verdana"
       ctx.fillText(attrParts.join(" | "), sec2Center, 48)
     }
 
@@ -857,9 +857,9 @@ export async function doDownloadStyleSVG(
   } else {
     // Style 2: 100mm x 15mm
     const bcW = 31.5
-    const bcH = 5
+    const bcH = 3.2
     const bcX = 2
-    const bcY = 4.5
+    const bcY = 4.0
     
     const scaleX = bcW / tempWidth
     const scaleY = bcH / tempHeight
@@ -879,13 +879,13 @@ export async function doDownloadStyleSVG(
     }
     if (salePrice) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY}" font-family="Helvetica, Arial, sans-serif" font-size="2.2" font-weight="bold" fill="#000000">₹${salePrice}</text>
+        <text x="${currentX}" y="${pricingY}" font-family="Helvetica, Arial, sans-serif" font-size="2.2" font-weight="500" fill="#000000">₹${salePrice}</text>
       `
       currentX += 9
     }
     if (savings > 0) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY - 0.1}" font-family="Helvetica, Arial, sans-serif" font-size="2.0" font-weight="bold" fill="#000000">Save ₹${savings}</text>
+        <text x="${currentX}" y="${pricingY - 0.1}" font-family="Helvetica, Arial, sans-serif" font-size="2.0" font-weight="500" fill="#000000">Save ₹${savings}</text>
       `
     }
 
@@ -894,15 +894,15 @@ export async function doDownloadStyleSVG(
     let featY = 10.5
     let featHTML = ""
     if (material) {
-      featHTML += `<text x="37.5" y="${featY}" font-family="Helvetica, Arial, sans-serif" font-size="1.5" fill="#000000">MATERIAL: ${material}</text>`
+      featHTML += `<text x="37.5" y="${featY}" font-family="Verdana, sans-serif" font-size="1.5" fill="#000000">MATERIAL: ${material}</text>`
       featY += 1.6
     }
     if (size) {
-      featHTML += `<text x="37.5" y="${featY}" font-family="Helvetica, Arial, sans-serif" font-size="1.5" fill="#000000">SIZE: ${size}</text>`
+      featHTML += `<text x="37.5" y="${featY}" font-family="Verdana, sans-serif" font-size="1.5" fill="#000000">SIZE: ${size}</text>`
       featY += 1.6
     }
     if (color) {
-      featHTML += `<text x="37.5" y="${featY}" font-family="Helvetica, Arial, sans-serif" font-size="1.5" fill="#000000">COLOUR: ${color}</text>`
+      featHTML += `<text x="37.5" y="${featY}" font-family="Verdana, sans-serif" font-size="1.5" fill="#000000">COLOUR: ${color}</text>`
       featY += 1.6
     }
 
@@ -912,16 +912,15 @@ export async function doDownloadStyleSVG(
       <g transform="translate(${bcX}, ${bcY}) scale(${scaleX}, ${scaleY})">
         ${barsHTML}
       </g>
-      <text x="17.5" y="10.8" font-family="Helvetica, Arial, sans-serif" font-size="1.7" font-weight="bold" fill="#000000" text-anchor="middle">${barcode}</text>
-      <text x="17.5" y="12.8" font-family="Helvetica, Arial, sans-serif" font-size="1.4" fill="#000000" text-anchor="middle">www.safawala.com</text>
+      <text x="17.5" y="11.8" font-family="Courier New, monospace" font-size="3.4" font-weight="500" fill="#000000" text-anchor="middle">${barcode}</text>
+      <text x="17.5" y="13.8" font-family="Helvetica, Arial, sans-serif" font-size="1.2" fill="#000000" text-anchor="middle">www.safawala.com</text>
       <line x1="35" y1="1" x2="35" y2="14" stroke="#000000" stroke-width="0.2" />
       ${logoHTML}
       <line x1="39" y1="6.2" x2="66" y2="6.2" stroke="#000000" stroke-width="0.15" />
-      <text x="52.5" y="8.5" font-family="Helvetica, Arial, sans-serif" font-size="1.8" font-weight="bold" fill="#000000" text-anchor="middle">${label.substring(0, 30)}</text>
+      <text x="52.5" y="8.5" font-family="Verdana, sans-serif" font-size="1.8" font-weight="500" fill="#000000" text-anchor="middle">${label.substring(0, 30)}</text>
       ${featHTML}
     `
-  }
-  
+  }  
   const fullSVG = `<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${style === 1 ? "50mm" : "100mm"}" height="${style === 1 ? "25mm" : "15mm"}" viewBox="0 0 ${style === 1 ? "50 25" : "100 15"}">
   ${svgContent}
@@ -1066,14 +1065,14 @@ export async function doDownloadStylePDF(
       currentX += textWidth + 1.5
     }
     if (salePrice) {
-      pdf.setFont("helvetica", "bold")
+      pdf.setFont("helvetica", "normal")
       pdf.setFontSize(8.0)
       pdf.text(`₹${salePrice}`, currentX, pricingY)
       const textWidth = pdf.getTextWidth(`₹${salePrice}`)
       currentX += textWidth + 1.5
     }
     if (savings > 0) {
-      pdf.setFont("helvetica", "bold")
+      pdf.setFont("helvetica", "normal")
       pdf.setFontSize(6.0)
       pdf.text(`Save ₹${savings}`, currentX, pricingY - 0.1)
     }
@@ -1088,15 +1087,15 @@ export async function doDownloadStylePDF(
       background: "#FFFFFF",
       lineColor: "#000000"
     })
-    pdf.addImage(barcodeCanvas.toDataURL("image/png"), "PNG", 2, 4.5, 31, 5)
+    pdf.addImage(barcodeCanvas.toDataURL("image/png"), "PNG", 2, 4.2, 31, 3.2)
     
-    pdf.setFont("courier", "bold")
-    pdf.setFontSize(5.5)
-    pdf.text(barcode, 17.5, 10.8, { align: "center" })
+    pdf.setFont("courier", "normal")
+    pdf.setFontSize(11)
+    pdf.text(barcode, 17.5, 12.0, { align: "center" })
     
     pdf.setFont("helvetica", "normal")
-    pdf.setFontSize(4.5)
-    pdf.text("www.safawala.com", 17.5, 12.8, { align: "center" })
+    pdf.setFontSize(3.5)
+    pdf.text("www.safawala.com", 17.5, 14.0, { align: "center" })
     
     pdf.setDrawColor(0, 0, 0)
     pdf.setLineWidth(0.2)
