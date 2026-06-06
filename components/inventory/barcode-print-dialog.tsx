@@ -440,27 +440,21 @@ export async function drawBarcodeCanvas(
     ctx.font = "17px Arial"
     ctx.fillText("www.safawala.com", 200, 155)
 
-  } else {
-    // Style 2: 100mm x 15mm label size
+  } else if (style === 2) {
+    // Style 2: 100mm x 15mm branded label
     canvas.width = 800 * scale
     canvas.height = 120 * scale
     const ctx = canvas.getContext("2d")
     if (!ctx) return canvas
-    
-    // Scale coordinate system
     ctx.scale(scale, scale)
-
-    // Fill background
     ctx.fillStyle = "#FFFFFF"
     ctx.fillRect(0, 0, 800, 120)
 
-    // --- SECTION 1: x = 0 to 280 (35% width) ---
     const sec1Width = 280
     ctx.textAlign = "center"
     const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
     const pricingY = 24
 
-    // Pricing Row
     if (regularPrice || salePrice) {
       let textX = 15
       if (regularPrice) {
@@ -468,7 +462,6 @@ export async function drawBarcodeCanvas(
         ctx.fillStyle = "#000000"
         ctx.fillText(`MRP: ₹${regularPrice}`, textX + 30, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
-        
         ctx.strokeStyle = "#000000"
         ctx.lineWidth = 1
         ctx.beginPath()
@@ -491,131 +484,141 @@ export async function drawBarcodeCanvas(
       }
     }
 
-    // Barcode rendering
-    const barcodeCanvas = document.createElement("canvas")
-    JsBarcode(barcodeCanvas, barcode, {
-      format: "CODE128",
-      width: 1,
-      height: 40,
-      displayValue: false,
-      margin: 0,
-      background: "#FFFFFF",
-      lineColor: "#000000"
-    })
+    const barcodeCanvas2 = document.createElement("canvas")
+    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 40, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas, 15, 34, 250, 40)
+    ctx.drawImage(barcodeCanvas2, 15, 34, 250, 40)
     ctx.imageSmoothingEnabled = true
-
-    // Code
     ctx.font = "bold 15px Helvetica"
     ctx.fillStyle = "#000000"
     ctx.fillText(barcode, sec1Width / 2, 88)
-
-    // Web url
     ctx.font = "17px Helvetica"
     ctx.fillText("www.safawala.com", sec1Width / 2, 104)
 
-    // Divider line removed
-
-    // --- SECTION 2: x = 280 to 560 (35% width) ---
     const sec2Width = 280
     const sec2Start = 280
     const sec2Center = sec2Start + (sec2Width / 2)
 
-    // Logo image rendering with high resolution and smooth anti-aliased filter
-    let logoDrawn = false
+    let logoDrawn2 = false
     try {
       const logoImg = new Image()
       logoImg.crossOrigin = "anonymous"
       await new Promise<void>((resolve) => {
         logoImg.onload = () => {
-          const maxLogoW = 234
-          const maxLogoH = 42
+          const maxLogoW = 234, maxLogoH = 42
           const scaleL = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
           const w = logoImg.naturalWidth * scaleL
           const h = logoImg.naturalHeight * scaleL
-          // Draw directly to physical pixels to prevent intermediate downscaling blur
           ctx.save()
           ctx.setTransform(1, 0, 0, 1, 0, 0)
           ctx.imageSmoothingEnabled = true
           ctx.imageSmoothingQuality = "high"
-          ctx.drawImage(logoImg, (sec2Center - (w / 2)) * scale, 6 * scale, w * scale, h * scale)
+          ctx.drawImage(logoImg, (sec2Center - w/2) * scale, 6 * scale, w * scale, h * scale)
           ctx.restore()
- 
-          // Colorize logo pixels to solid black with smooth anti-aliasing
-          const imgData = ctx.getImageData((sec2Center - (w / 2)) * scale, 6 * scale, w * scale, h * scale)
+          const imgData = ctx.getImageData((sec2Center - w/2) * scale, 6 * scale, w * scale, h * scale)
           for (let k = 0; k < imgData.data.length; k += 4) {
-            const r = imgData.data[k]
-            const g = imgData.data[k+1]
-            const b = imgData.data[k+2]
-            const a = imgData.data[k+3]
-            const brightness = 0.299 * r + 0.587 * g + 0.114 * b
-            
-            if (a < 10) {
-              // Keep transparent
-              imgData.data[k] = 255
-              imgData.data[k+1] = 255
-              imgData.data[k+2] = 255
-              imgData.data[k+3] = 0
-            } else if (brightness < 220) {
-              // Convert non-white/colored parts of the logo to solid black, keeping opacity
-              imgData.data[k] = 0
-              imgData.data[k+1] = 0
-              imgData.data[k+2] = 0
-              imgData.data[k+3] = a
-            } else {
-              // Convert background/white pixels to transparent white
-              imgData.data[k] = 255
-              imgData.data[k+1] = 255
-              imgData.data[k+2] = 255
-              imgData.data[k+3] = 0 // Transparent
-            }
+            const brightness = 0.299 * imgData.data[k] + 0.587 * imgData.data[k+1] + 0.114 * imgData.data[k+2]
+            if (imgData.data[k+3] < 10) { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 255; imgData.data[k+3] = 0 }
+            else if (brightness < 220) { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 0 }
+            else { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 255; imgData.data[k+3] = 0 }
           }
-          ctx.putImageData(imgData, (sec2Center - (w / 2)) * scale, 6 * scale)
-          logoDrawn = true
+          ctx.putImageData(imgData, (sec2Center - w/2) * scale, 6 * scale)
+          logoDrawn2 = true
           resolve()
         }
         logoImg.onerror = () => resolve()
         logoImg.src = "/safawalalogo.svg"
       })
     } catch { /* ignored */ }
- 
-    if (!logoDrawn) {
-      ctx.font = "bold 18px Helvetica"
-      ctx.fillStyle = "#000000"
-      ctx.fillText("SAFAWALA", sec2Center, 24)
+    if (!logoDrawn2) { ctx.font = "bold 18px Helvetica"; ctx.fillStyle = "#000000"; ctx.fillText("SAFAWALA", sec2Center, 24) }
+
+    ctx.strokeStyle = "#000000"; ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(sec2Start + 30, 54); ctx.lineTo(sec2Start + sec2Width - 30, 54); ctx.stroke()
+
+    ctx.font = "bold 18px Helvetica"; ctx.fillStyle = "#000000"; ctx.textAlign = "center"
+    ctx.fillText(label.substring(0, 30), sec2Center, 72)
+    ctx.font = "15px Helvetica"; ctx.textAlign = "left"
+    let featY = 86
+    if (material) { ctx.fillText(`MATERIAL: ${material}`, sec2Start + 20, featY); featY += 16 }
+    if (size)     { ctx.fillText(`SIZE: ${size}`, sec2Start + 20, featY); featY += 16 }
+    if (color)    { ctx.fillText(`COLOUR: ${color}`, sec2Start + 20, featY); featY += 16 }
+
+  } else {
+    // Style 3: big logo + product name only, no attributes, Arial
+    canvas.width = 800 * scale
+    canvas.height = 120 * scale
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return canvas
+    ctx.scale(scale, scale)
+    ctx.fillStyle = "#FFFFFF"
+    ctx.fillRect(0, 0, 800, 120)
+
+    // --- SECTION 1: price + barcode + code + website ---
+    const sec1Width = 280
+    ctx.textAlign = "center"
+    ctx.fillStyle = "#000000"
+
+    if (salePrice) {
+      ctx.font = "bold 26px Arial"
+      ctx.fillText(`₹${salePrice}`, sec1Width / 2, 24)
     }
 
-    // Horizontal divider line
-    ctx.strokeStyle = "#000000"
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(sec2Start + 30, 54)
-    ctx.lineTo(sec2Start + sec2Width - 30, 54)
-    ctx.stroke()
+    const barcodeCanvas3 = document.createElement("canvas")
+    JsBarcode(barcodeCanvas3, barcode, { format: "CODE128", width: 1, height: 48, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(barcodeCanvas3, 10, salePrice ? 32 : 14, 260, 52)
+    ctx.imageSmoothingEnabled = true
 
-    // Product Title
-    ctx.font = "bold 18px Helvetica"
+    ctx.font = "bold 17px Arial"
+    ctx.fillText(barcode, sec1Width / 2, salePrice ? 96 : 78)
+    ctx.font = "15px Arial"
+    ctx.fillText("www.safawala.com", sec1Width / 2, salePrice ? 112 : 94)
+
+    // --- SECTION 2: big logo + product name only ---
+    const sec2Width = 280
+    const sec2Start = 280
+    const sec2Center = sec2Start + (sec2Width / 2)
+
+    let logoDrawn3 = false
+    try {
+      const logoImg = new Image()
+      logoImg.crossOrigin = "anonymous"
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => {
+          // 2x bigger logo: maxH=84 (vs 42 in style 2)
+          const maxLogoW = 254, maxLogoH = 84
+          const scaleL = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
+          const w = logoImg.naturalWidth * scaleL
+          const h = logoImg.naturalHeight * scaleL
+          const logoY = 4
+          ctx.save()
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = "high"
+          ctx.drawImage(logoImg, (sec2Center - w/2) * scale, logoY * scale, w * scale, h * scale)
+          ctx.restore()
+          const imgData = ctx.getImageData((sec2Center - w/2) * scale, logoY * scale, w * scale, h * scale)
+          for (let k = 0; k < imgData.data.length; k += 4) {
+            const brightness = 0.299 * imgData.data[k] + 0.587 * imgData.data[k+1] + 0.114 * imgData.data[k+2]
+            if (imgData.data[k+3] < 10) { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 255; imgData.data[k+3] = 0 }
+            else if (brightness < 220) { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 0 }
+            else { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 255; imgData.data[k+3] = 0 }
+          }
+          ctx.putImageData(imgData, (sec2Center - w/2) * scale, logoY * scale)
+          logoDrawn3 = true
+          resolve()
+        }
+        logoImg.onerror = () => resolve()
+        logoImg.src = "/safawalalogo.svg"
+      })
+    } catch { /* ignored */ }
+    if (!logoDrawn3) { ctx.font = "bold 28px Arial"; ctx.fillStyle = "#000000"; ctx.fillText("SAFAWALA", sec2Center, 44) }
+
+    // Product name — big, Arial Bold, below logo
+    ctx.font = "bold 22px Arial"
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 30), sec2Center, 72)
-
-    // Features Details
-    ctx.font = "15px Helvetica"
-    ctx.textAlign = "left"
-    let featY = 86
-    if (material) {
-      ctx.fillText(`MATERIAL: ${material}`, sec2Start + 20, featY)
-      featY += 16
-    }
-    if (size) {
-      ctx.fillText(`SIZE: ${size}`, sec2Start + 20, featY)
-      featY += 16
-    }
-    if (color) {
-      ctx.fillText(`COLOUR: ${color}`, sec2Start + 20, featY)
-      featY += 16
-    }
+    ctx.fillText(label.substring(0, 24), sec2Center, 106)
   }
 
   return canvas
