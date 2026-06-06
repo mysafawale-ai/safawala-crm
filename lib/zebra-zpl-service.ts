@@ -240,14 +240,19 @@ export async function getLocalDefaultPrinter(): Promise<ZebraDevice | null> {
     })
     if (!res.ok) return null
     const text = await res.text()
-    if (!text || text.trim() === "") return null
+    const trimmed = text.trim()
+    if (!trimmed || trimmed === "" || trimmed === "{}") return null
     try {
-      return JSON.parse(text) as ZebraDevice
+      const parsed = JSON.parse(trimmed) as ZebraDevice
+      if (!parsed || Object.keys(parsed).length === 0 || !parsed.name) {
+        return null
+      }
+      return parsed
     } catch {
       return {
-        name: text.trim(),
+        name: trimmed,
         deviceType: "printer",
-        uid: text.trim(),
+        uid: trimmed,
         connection: "usb"
       }
     }
