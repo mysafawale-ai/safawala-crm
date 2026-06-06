@@ -174,11 +174,9 @@ export async function doPrintStyle2(
   })
   const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-  const feats = [
-    material ? `<div class="feat"><span class="fk">Material</span><span class="fv">${material}</span></div>` : "",
-    size     ? `<div class="feat"><span class="fk">Size</span><span class="fv">${size}</span></div>` : "",
-    color    ? `<div class="feat"><span class="fk">Colour</span><span class="fv">${color}</span></div>` : "",
-  ].join("")
+  // Attributes inline: Cotton | M | Blue
+  const attrParts = [material, size, color].filter(Boolean)
+  const attrsLine = attrParts.join(" | ")
 
   let labelsHTML = ""
   for (let row = 0; row < qty; row++) {
@@ -187,19 +185,20 @@ export async function doPrintStyle2(
     labelsHTML += `
     <div class="row" ${rowStyle}>
       <div class="s1">
-        <div class="prow">
-          ${regularPrice ? `MRP: <span class="mrp">₹${regularPrice}</span>` : ""}
-          ${salePrice ? `<span class="sale">₹${salePrice}</span>` : ""}
-          ${savings > 0 ? `<span class="save">Save ₹${savings}</span>` : ""}
-        </div>
+        ${(regularPrice || savings > 0) ? `
+        <div class="mrp-row">
+          ${regularPrice ? `<span class="mrp-label">MRP: <span class="mrp-val">₹${regularPrice}</span></span>` : ""}
+          ${savings > 0 ? `<span class="save-text">You save ₹${savings}</span>` : ""}
+        </div>` : ""}
+        ${salePrice ? `<div class="sale-price">₹${salePrice}</div>` : ""}
         <div class="bc">${barcodeSVG}</div>
         <div class="code">${barcode}</div>
-        <div class="web">www.safawala.com</div>
       </div>
       <div class="s2">
-        <div class="brand"><span class="brand-main">SAFAWALA</span><span class="brand-com">.com</span></div>
         <div class="pname">${label}</div>
-        ${feats ? `<div class="feats">${feats}</div>` : ""}
+        ${attrsLine ? `<div class="attrs">${attrsLine}</div>` : ""}
+        <div class="divider"></div>
+        <div class="website">SAFAWALA.COM</div>
       </div>
       <div class="s3"></div>
     </div>`
@@ -212,26 +211,20 @@ export async function doPrintStyle2(
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
-  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.15mm; }
-  .prow { font-size: 9pt; font-weight: bold; color: #000; text-align: center; white-space: nowrap; line-height: 1.1; }
-  .mrp { position: relative; display: inline-block; color: #000; font-weight: 500; margin-right: 0.5mm; }
-  .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1.2px; background: #000; }
-  .mrp::before { transform: rotate(12deg); } .mrp::after { transform: rotate(-12deg); }
-  .sale { font-size: 11pt; font-weight: bold; color: #000; margin-right: 0.5mm; }
-  .save { font-size: 8.5pt; font-weight: bold; color: #000; }
-  .bc { width: 33mm; height: 6.5mm; display: block; overflow: hidden; }
+  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.4mm 1mm; gap: 0.3mm; }
+  .mrp-row { display: flex; justify-content: space-between; align-items: center; width: 100%; line-height: 1; }
+  .mrp-label { font-size: 8pt; color: #000; font-weight: normal; }
+  .mrp-val { font-size: 8pt; font-weight: bold; color: #555; text-decoration: line-through; text-decoration-color: #555; }
+  .save-text { font-size: 8pt; font-weight: bold; color: #000; white-space: nowrap; }
+  .sale-price { font-size: 13pt; font-weight: 900; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
+  .bc { width: 33mm; height: 5.5mm; display: block; overflow: hidden; }
   .bc svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
-  .web { font-size: 7pt; font-weight: normal; color: #000; text-align: center; }
-  .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.4mm; }
-  .brand { text-align: center; white-space: nowrap; line-height: 1; }
-  .brand-main { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 900; color: #000; letter-spacing: 1px; }
-  .brand-com { font-family: Arial, sans-serif; font-size: 8pt; font-weight: normal; color: #000; }
-  .pname { font-size: 8.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
-  .feats { display: flex; flex-direction: column; gap: 0.2mm; align-items: flex-start; width: 100%; }
-  .feat { display: flex; gap: 1mm; align-items: center; }
-  .fk { font-size: 6.5pt; color: #000; text-transform: uppercase; min-width: 11mm; font-weight: normal; }
-  .fv { font-size: 7pt; font-weight: bold; color: #000; }
+  .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
+  .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
+  .pname { font-size: 9pt; font-weight: 900; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
+  .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: normal; }
+  .divider { width: 90%; height: 0.3mm; background: #000; }
+  .website { font-size: 10.5pt; font-weight: 900; color: #000; text-align: center; letter-spacing: 0.8px; white-space: nowrap; }
   .s3 { width: 30mm; height: 100%; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`

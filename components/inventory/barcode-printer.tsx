@@ -345,11 +345,9 @@ export function BarcodePrinter({
     })
     const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-    const features = [
-      productMaterial ? `<div class="feat-row"><span class="feat-key">Material</span><span class="feat-val">${productMaterial}</span></div>` : "",
-      productSize     ? `<div class="feat-row"><span class="feat-key">Size</span><span class="feat-val">${productSize}</span></div>` : "",
-      productColor    ? `<div class="feat-row"><span class="feat-key">Colour</span><span class="feat-val">${productColor}</span></div>` : "",
-    ].join("")
+    const attrsLine = [productMaterial, productSize, productColor].filter(Boolean).join(" | ")
+    // note: productPrice here is the sale price from the printer component
+    const savings = 0 // BarcodePrinter only has one price field; no MRP available here
 
     let labelsHTML = ""
     for (let i = 0; i < quantity; i++) {
@@ -357,18 +355,18 @@ export function BarcodePrinter({
       const labelStyle = isFirst && topOffset > 0 ? `style="padding-top: ${topOffset}mm;"` : ""
       labelsHTML += `
         <div class="label" ${labelStyle}>
-          <div class="sec-pricing">
-            ${productPrice ? `<div class="price"><span class="currency">₹</span>${productPrice}</div>` : ""}
-            <div class="barcode-wrap">${barcodeSVG}</div>
+          <div class="s1">
+            ${productPrice ? `<div class="sale-price">₹${productPrice}</div>` : ""}
+            <div class="bc">${barcodeSVG}</div>
             <div class="code">${productCode}</div>
-            <div class="website">www.safawala.com</div>
           </div>
-          <div class="sec-info">
-            <div class="brand"><span class="brand-main">SAFAWALA</span><span class="brand-com">.com</span></div>
-            <div class="prod-name">${productName}</div>
-            ${features ? `<div class="features">${features}</div>` : ""}
+          <div class="s2">
+            <div class="pname">${productName}</div>
+            ${attrsLine ? `<div class="attrs">${attrsLine}</div>` : ""}
+            <div class="divider"></div>
+            <div class="website">SAFAWALA.COM</div>
           </div>
-          <div class="sec-blank"></div>
+          <div class="s3"></div>
         </div>`
     }
 
@@ -380,23 +378,17 @@ export function BarcodePrinter({
   body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .label { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .label:last-child { page-break-after: avoid; }
-  .sec-pricing { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.15mm; }
-  .price { font-size: 11pt; font-weight: bold; color: #000; line-height: 1; }
-  .currency { font-size: 6.5pt; vertical-align: super; font-weight: bold; }
-  .barcode-wrap { width: 33mm; height: 6.5mm; display: block; overflow: hidden; }
-  .barcode-wrap svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
-  .website { font-size: 7pt; color: #000; text-align: center; font-weight: normal; }
-  .sec-info { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.4mm; }
-  .brand { text-align: center; white-space: nowrap; line-height: 1; }
-  .brand-main { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 900; color: #000; letter-spacing: 1px; }
-  .brand-com { font-family: Arial, sans-serif; font-size: 8pt; font-weight: normal; color: #000; }
-  .prod-name { font-size: 8.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
-  .features { display: flex; flex-direction: column; gap: 0.2mm; align-items: flex-start; width: 100%; }
-  .feat-row { display: flex; gap: 1mm; align-items: center; }
-  .feat-key { font-size: 6.5pt; color: #000; text-transform: uppercase; min-width: 11mm; font-weight: normal; }
-  .feat-val { font-size: 7pt; font-weight: bold; color: #000; }
-  .sec-blank { width: 30mm; height: 100%; }
+  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.4mm 1mm; gap: 0.3mm; }
+  .sale-price { font-size: 13pt; font-weight: 900; color: #000; line-height: 1; text-align: center; }
+  .bc { width: 33mm; height: 5.5mm; display: block; overflow: hidden; }
+  .bc svg { width: 100%; height: 100%; display: block; }
+  .code { font-family: Arial, sans-serif; font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
+  .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
+  .pname { font-size: 9pt; font-weight: 900; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
+  .attrs { font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: normal; }
+  .divider { width: 90%; height: 0.3mm; background: #000; }
+  .website { font-size: 10.5pt; font-weight: 900; color: #000; text-align: center; letter-spacing: 0.8px; white-space: nowrap; }
+  .s3 { width: 30mm; height: 100%; }
 </style></head><body>${labelsHTML}</body></html>`
 
     openPrint(printHTML)
