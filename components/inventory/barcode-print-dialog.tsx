@@ -569,6 +569,438 @@ export async function doDownloadStylePNG(
   document.body.removeChild(link)
 }
 
+// Helper to load and process base64 logo for vectors
+function getLogoBase64(): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => {
+      const canvas = document.createElement("canvas")
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext("2d")
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        // Convert to solid black with transparency
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        for (let k = 0; k < imgData.data.length; k += 4) {
+          const r = imgData.data[k]
+          const g = imgData.data[k+1]
+          const b = imgData.data[k+2]
+          const brightness = 0.299 * r + 0.587 * g + 0.114 * b
+          if (brightness < 240) {
+            imgData.data[k] = 0
+            imgData.data[k+1] = 0
+            imgData.data[k+2] = 0
+          } else {
+            imgData.data[k] = 255
+            imgData.data[k+1] = 255
+            imgData.data[k+2] = 255
+            imgData.data[k+3] = 0 // Transparent
+          }
+        }
+        ctx.putImageData(imgData, 0, 0)
+        resolve(canvas.toDataURL("image/png"))
+      } else {
+        resolve("")
+      }
+    }
+    img.onerror = () => resolve("")
+    img.src = "/safawalalogo.png"
+  })
+}
+
+// ── Download Barcode as SVG (Pure Vector) ──────────────────────────────────────
+export async function doDownloadStyleSVG(
+  barcode: string,
+  label: string,
+  style: 1 | 2,
+  regularPrice?: number,
+  salePrice?: number,
+  color?: string,
+  size?: string,
+  material?: string,
+) {
+  const JsBarcode = (await import("jsbarcode")).default
+  
+  // Render barcode to temporary SVG to extract vector paths
+  const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  JsBarcode(tempSvg, barcode, {
+    format: "CODE128",
+    displayValue: false,
+    margin: 0,
+  })
+  
+  const tempWidth = parseFloat(tempSvg.getAttribute("width") || "100")
+  const tempHeight = parseFloat(tempSvg.getAttribute("height") || "100")
+  
+  let svgContent = ""
+  
+  if (style === 1) {
+    // Style 1: 50mm x 25mm
+    const bcW = 42
+    const bcH = 6.5
+    const bcX = 4
+    const bcY = 11.5
+    
+    const scaleX = bcW / tempWidth
+    const scaleY = bcH / tempHeight
+    const barsHTML = tempSvg.innerHTML
+    
+    const titleWords = label.split(" ")
+    let line1 = ""
+    let line2 = ""
+    for (const word of titleWords) {
+      if ((line1 + " " + word).length < 24 && line2 === "") {
+        line1 += (line1 ? " " : "") + word
+      } else {
+        line2 += (line2 ? " " : "") + word
+      }
+    }
+    line1 = line1.substring(0, 24)
+    line2 = line2.substring(0, 24)
+    
+    const meta1 = [color, size].filter(Boolean).join(" | ")
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+    let pricingHTML = ""
+    let currentX = 5
+    const pricingY = line2 ? 10.2 : 8.5
+    
+    if (regularPrice) {
+      pricingHTML += `
+        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="1.6" fill="#000000">MRP: ₹${regularPrice}</text>
+        <line x1="${currentX}" y1="${pricingY - 0.5}" x2="${currentX + 10}" y2="${pricingY - 0.5}" stroke="#000000" stroke-width="0.2" />
+      `
+      currentX += 12
+    }
+    if (salePrice) {
+      pricingHTML += `
+        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="2.2" font-weight="bold" fill="#000000">₹${salePrice}</text>
+      `
+      currentX += 10
+    }
+    if (savings > 0) {
+      pricingHTML += `
+        <text x="${currentX}" y="${pricingY - 0.2}" font-family="Arial" font-size="1.4" font-weight="bold" fill="#000000">Save ₹${savings}</text>
+      `
+    }
+    
+    svgContent = `
+      <rect x="0.25" y="0.25" width="49.5" height="24.5" fill="#FFFFFF" stroke="#DDDDDD" stroke-width="0.5" rx="0.5" ry="0.5" />
+      <text x="25" y="3.5" font-family="Arial" font-size="2.0" font-weight="bold" fill="#000000" text-anchor="middle">${line1}</text>
+      ${line2 ? `<text x="25" y="5.7" font-family="Arial" font-size="2.0" font-weight="bold" fill="#000000" text-anchor="middle">${line2}</text>` : ""}
+      
+      <text x="25" y="${line2 ? 7.6 : 5.7}" font-family="Arial" font-size="1.6" fill="#000000" text-anchor="middle">${meta1}</text>
+      ${material ? `<text x="25" y="${line2 ? 9.2 : 7.3}" font-family="Arial" font-size="1.6" fill="#000000" text-anchor="middle">${material}</text>` : ""}
+      
+      ${pricingHTML}
+      
+      <g transform="translate(${bcX}, ${bcY}) scale(${scaleX}, ${scaleY})">
+        ${barsHTML}
+      </g>
+      
+      <text x="25" y="20.2" font-family="Courier New" font-size="1.8" font-weight="bold" fill="#000000" text-anchor="middle">${barcode}</text>
+      <text x="25" y="22.5" font-family="Arial" font-size="1.5" fill="#000000" text-anchor="middle">www.safawala.com</text>
+    `
+  } else {
+    // Style 2: 100mm x 15mm
+    const bcW = 31.5
+    const bcH = 5
+    const bcX = 2
+    const bcY = 4.5
+    
+    const scaleX = bcW / tempWidth
+    const scaleY = bcH / tempHeight
+    const barsHTML = tempSvg.innerHTML
+    
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+    let pricingHTML = ""
+    let currentX = 2
+    const pricingY = 3.2
+    
+    if (regularPrice) {
+      pricingHTML += `
+        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="1.6" fill="#000000">MRP: ₹${regularPrice}</text>
+        <line x1="${currentX}" y1="${pricingY - 0.5}" x2="${currentX + 9}" y2="${pricingY - 0.5}" stroke="#000000" stroke-width="0.15" />
+      `
+      currentX += 10
+    }
+    if (salePrice) {
+      pricingHTML += `
+        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="2.2" font-weight="bold" fill="#000000">₹${salePrice}</text>
+      `
+      currentX += 9
+    }
+    if (savings > 0) {
+      pricingHTML += `
+        <text x="${currentX}" y="${pricingY - 0.1}" font-family="Arial" font-size="1.3" font-weight="bold" fill="#000000">Save ₹${savings}</text>
+      `
+    }
+    
+    let logoHTML = `<text x="52.5" y="3.2" font-family="Arial" font-size="2.2" font-weight="bold" fill="#000000" text-anchor="middle">SAFAWALA</text>`
+    try {
+      const logoBase64 = await getLogoBase64()
+      if (logoBase64) {
+        logoHTML = `<image href="${logoBase64}" x="40" y="1" width="25" height="4.5" />`
+      }
+    } catch { /* ignore */ }
+    
+    let featY = 10.5
+    let featHTML = ""
+    if (material) {
+      featHTML += `<text x="37.5" y="${featY}" font-family="Arial" font-size="1.5" fill="#000000">MATERIAL: ${material}</text>`
+      featY += 1.6
+    }
+    if (size) {
+      featHTML += `<text x="37.5" y="${featY}" font-family="Arial" font-size="1.5" fill="#000000">SIZE: ${size}</text>`
+      featY += 1.6
+    }
+    if (color) {
+      featHTML += `<text x="37.5" y="${featY}" font-family="Arial" font-size="1.5" fill="#000000">COLOUR: ${color}</text>`
+      featY += 1.6
+    }
+    
+    svgContent = `
+      <rect x="0" y="0" width="100" height="15" fill="#FFFFFF" />
+      ${pricingHTML}
+      <g transform="translate(${bcX}, ${bcY}) scale(${scaleX}, ${scaleY})">
+        ${barsHTML}
+      </g>
+      <text x="17.5" y="10.8" font-family="Courier New" font-size="1.7" font-weight="bold" fill="#000000" text-anchor="middle">${barcode}</text>
+      <text x="17.5" y="12.8" font-family="Arial" font-size="1.4" fill="#000000" text-anchor="middle">www.safawala.com</text>
+      <line x1="35" y1="1" x2="35" y2="14" stroke="#000000" stroke-width="0.2" />
+      ${logoHTML}
+      <line x1="39" y1="6.2" x2="66" y2="6.2" stroke="#000000" stroke-width="0.15" />
+      <text x="52.5" y="8.5" font-family="Arial" font-size="1.8" font-weight="bold" fill="#000000" text-anchor="middle">${label.substring(0, 30)}</text>
+      ${featHTML}
+    `
+  }
+  
+  const fullSVG = `<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${style === 1 ? "50mm" : "100mm"}" height="${style === 1 ? "25mm" : "15mm"}" viewBox="0 0 ${style === 1 ? "50 25" : "100 15"}">
+  ${svgContent}
+</svg>`
+
+  const blob = new Blob([fullSVG], { type: "image/svg+xml;charset=utf-8" })
+  const link = document.createElement("a")
+  link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.svg`
+  link.href = URL.createObjectURL(blob)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// ── Download Barcode as PDF (Vector Layout) ───────────────────────────────────
+export async function doDownloadStylePDF(
+  barcode: string,
+  label: string,
+  style: 1 | 2,
+  regularPrice?: number,
+  salePrice?: number,
+  color?: string,
+  size?: string,
+  material?: string,
+) {
+  const { jsPDF } = await import("jspdf")
+  const JsBarcode = (await import("jsbarcode")).default
+  
+  const width = style === 1 ? 50 : 100
+  const height = style === 1 ? 25 : 15
+  
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: [width, height],
+    putOnlyUsedFonts: true
+  })
+  
+  if (style === 1) {
+    pdf.setFillColor(255, 255, 255)
+    pdf.rect(0, 0, 50, 25, "F")
+    
+    pdf.setDrawColor(220, 220, 220)
+    pdf.setLineWidth(0.3)
+    pdf.rect(0.5, 0.5, 49, 24, "S")
+    
+    pdf.setTextColor(0, 0, 0)
+    pdf.setFont("helvetica", "bold")
+    
+    const titleWords = label.split(" ")
+    let line1 = ""
+    let line2 = ""
+    for (const word of titleWords) {
+      if ((line1 + " " + word).length < 24 && line2 === "") {
+        line1 += (line1 ? " " : "") + word
+      } else {
+        line2 += (line2 ? " " : "") + word
+      }
+    }
+    line1 = line1.substring(0, 24)
+    line2 = line2.substring(0, 24)
+    
+    pdf.setFontSize(6.5)
+    pdf.text(line1, 25, 3.8, { align: "center" })
+    if (line2) {
+      pdf.text(line2, 25, 6.2, { align: "center" })
+    }
+    
+    const meta1 = [color, size].filter(Boolean).join(" | ")
+    pdf.setFont("helvetica", "normal")
+    pdf.setFontSize(5.0)
+    pdf.text(meta1, 25, line2 ? 8.2 : 6.2, { align: "center" })
+    
+    if (material) {
+      pdf.text(material, 25, line2 ? 10.0 : 8.0, { align: "center" })
+    }
+    
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+    let currentX = 5
+    const pricingY = line2 ? 11.2 : 9.5
+    
+    if (regularPrice) {
+      pdf.setFont("helvetica", "normal")
+      pdf.setFontSize(5.0)
+      pdf.text(`MRP: ₹${regularPrice}`, currentX, pricingY)
+      const textWidth = pdf.getTextWidth(`MRP: ₹${regularPrice}`)
+      
+      pdf.setDrawColor(0, 0, 0)
+      pdf.setLineWidth(0.15)
+      pdf.line(currentX, pricingY - 0.5, currentX + textWidth, pricingY - 0.5)
+      currentX += textWidth + 2
+    }
+    if (salePrice) {
+      pdf.setFont("helvetica", "bold")
+      pdf.setFontSize(6.0)
+      pdf.text(`₹${salePrice}`, currentX, pricingY)
+      const textWidth = pdf.getTextWidth(`₹${salePrice}`)
+      currentX += textWidth + 2
+    }
+    if (savings > 0) {
+      pdf.setFont("helvetica", "bold")
+      pdf.setFontSize(4.5)
+      pdf.text(`Save ₹${savings}`, currentX, pricingY - 0.2)
+    }
+    
+    const barcodeCanvas = document.createElement("canvas")
+    JsBarcode(barcodeCanvas, barcode, {
+      format: "CODE128",
+      width: 4,
+      height: 80,
+      displayValue: false,
+      margin: 0,
+      background: "#FFFFFF",
+      lineColor: "#000000"
+    })
+    pdf.addImage(barcodeCanvas.toDataURL("image/png"), "PNG", 4, 12, 42, 6.5)
+    
+    pdf.setFont("courier", "bold")
+    pdf.setFontSize(5.5)
+    pdf.text(barcode, 25, 20.2, { align: "center" })
+    
+    pdf.setFont("helvetica", "normal")
+    pdf.setFontSize(4.5)
+    pdf.text("www.safawala.com", 25, 22.5, { align: "center" })
+    
+  } else {
+    pdf.setFillColor(255, 255, 255)
+    pdf.rect(0, 0, 100, 15, "F")
+    
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+    let currentX = 2
+    const pricingY = 3.2
+    
+    pdf.setTextColor(0, 0, 0)
+    if (regularPrice) {
+      pdf.setFont("helvetica", "normal")
+      pdf.setFontSize(5.0)
+      pdf.text(`MRP: ₹${regularPrice}`, currentX, pricingY)
+      const textWidth = pdf.getTextWidth(`MRP: ₹${regularPrice}`)
+      
+      pdf.setDrawColor(0, 0, 0)
+      pdf.setLineWidth(0.15)
+      pdf.line(currentX, pricingY - 0.5, currentX + textWidth, pricingY - 0.5)
+      currentX += textWidth + 1.5
+    }
+    if (salePrice) {
+      pdf.setFont("helvetica", "bold")
+      pdf.setFontSize(6.5)
+      pdf.text(`₹${salePrice}`, currentX, pricingY)
+      const textWidth = pdf.getTextWidth(`₹${salePrice}`)
+      currentX += textWidth + 1.5
+    }
+    if (savings > 0) {
+      pdf.setFont("helvetica", "bold")
+      pdf.setFontSize(4.5)
+      pdf.text(`Save ₹${savings}`, currentX, pricingY - 0.1)
+    }
+    
+    const barcodeCanvas = document.createElement("canvas")
+    JsBarcode(barcodeCanvas, barcode, {
+      format: "CODE128",
+      width: 4,
+      height: 80,
+      displayValue: false,
+      margin: 0,
+      background: "#FFFFFF",
+      lineColor: "#000000"
+    })
+    pdf.addImage(barcodeCanvas.toDataURL("image/png"), "PNG", 2, 4.5, 31, 5)
+    
+    pdf.setFont("courier", "bold")
+    pdf.setFontSize(5.5)
+    pdf.text(barcode, 17.5, 10.8, { align: "center" })
+    
+    pdf.setFont("helvetica", "normal")
+    pdf.setFontSize(4.5)
+    pdf.text("www.safawala.com", 17.5, 12.8, { align: "center" })
+    
+    pdf.setDrawColor(0, 0, 0)
+    pdf.setLineWidth(0.2)
+    pdf.line(35, 1, 35, 14)
+    
+    let logoDrawn = false
+    try {
+      const logoBase64 = await getLogoBase64()
+      if (logoBase64) {
+        pdf.addImage(logoBase64, "PNG", 40, 1, 25, 4.5)
+        logoDrawn = true
+      }
+    } catch { /* ignore */ }
+    
+    if (!logoDrawn) {
+      pdf.setFont("helvetica", "bold")
+      pdf.setFontSize(6.5)
+      pdf.text("SAFAWALA", 52.5, 3.2, { align: "center" })
+    }
+    
+    pdf.setDrawColor(0, 0, 0)
+    pdf.setLineWidth(0.15)
+    pdf.line(39, 6.2, 66, 6.2)
+    
+    pdf.setFont("helvetica", "bold")
+    pdf.setFontSize(5.5)
+    pdf.text(label.substring(0, 30), 52.5, 8.5, { align: "center" })
+    
+    pdf.setFont("helvetica", "normal")
+    pdf.setFontSize(4.8)
+    let featY = 10.5
+    if (material) {
+      pdf.text(`MATERIAL: ${material}`, 37.5, featY)
+      featY += 1.6
+    }
+    if (size) {
+      pdf.text(`SIZE: ${size}`, 37.5, featY)
+      featY += 1.6
+    }
+    if (color) {
+      pdf.text(`COLOUR: ${color}`, 37.5, featY)
+      featY += 1.6
+    }
+  }
+  
+  pdf.save(`barcode-${barcode}-${style === 1 ? "style1" : "style2"}.pdf`)
+}
+
 // ── Dialog ───────────────────────────────────────────────────────────────────
 export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialogProps) {
   const [quantity, setQuantity] = useState(1)
@@ -679,6 +1111,50 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     } catch (e) {
       console.error(e)
       toast.error("Failed to download barcode image")
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  const handleDownloadPDF = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
+    if (!barcode) { toast.error(`No barcode for ${label}`); return }
+    setPrinting(true)
+    try {
+      await doDownloadStylePDF(barcode, label, printStyle, regularPrice, salePrice, color, size, material)
+      toast.success("Downloaded barcode PDF successfully")
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to download barcode PDF")
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  const handleDownloadSVG = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
+    if (!barcode) { toast.error(`No barcode for ${label}`); return }
+    setPrinting(true)
+    try {
+      await doDownloadStyleSVG(barcode, label, printStyle, regularPrice, salePrice, color, size, material)
+      toast.success("Downloaded barcode SVG successfully")
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to download barcode SVG")
     } finally {
       setPrinting(false)
     }
@@ -1060,7 +1536,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {zebraStatus === "connected" ? (
                       <>
                         <Button
@@ -1119,9 +1595,25 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                       type="button"
                       onClick={() => handleDownloadPNG(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
                       variant="outline"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
                     >
                       Download PNG
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => handleDownloadPDF(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                      variant="outline"
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
+                    >
+                      Download PDF (Vector)
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => handleDownloadSVG(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                      variant="outline"
+                      className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
+                    >
+                      Download SVG (Vector)
                     </Button>
                   </div>
                 </>
@@ -1384,7 +1876,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                         )}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {zebraStatus === "connected" ? (
                           <>
                             <Button
@@ -1447,10 +1939,28 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                           type="button"
                           onClick={() => handleDownloadPNG(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
                           variant="outline"
-                          className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                          className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
                           disabled={!selectedVariant.barcode}
                         >
                           Download PNG
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => handleDownloadPDF(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                          variant="outline"
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
+                          disabled={!selectedVariant.barcode}
+                        >
+                          Download PDF (Vector)
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => handleDownloadSVG(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                          variant="outline"
+                          className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
+                          disabled={!selectedVariant.barcode}
+                        >
+                          Download SVG (Vector)
                         </Button>
                       </div>
                     </>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Printer, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
-import { doDownloadStylePNG } from "./barcode-print-dialog"
+import { doDownloadStylePNG, doDownloadStylePDF, doDownloadStyleSVG } from "./barcode-print-dialog"
 
 interface BarcodePrinterProps {
   open: boolean
@@ -115,6 +115,58 @@ export function BarcodePrinter({
     } catch (error) {
       console.error(error)
       toast.error("Failed to download PNG")
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!productCode) {
+      toast.error("No barcode assigned")
+      return
+    }
+    setIsPrinting(true)
+    try {
+      await doDownloadStylePDF(
+        productCode,
+        productName,
+        style,
+        undefined,
+        productPrice,
+        productColor,
+        productSize,
+        productMaterial
+      )
+      toast.success("Downloaded barcode PDF successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to download PDF")
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const handleDownloadSVG = async () => {
+    if (!productCode) {
+      toast.error("No barcode assigned")
+      return
+    }
+    setIsPrinting(true)
+    try {
+      await doDownloadStyleSVG(
+        productCode,
+        productName,
+        style,
+        undefined,
+        productPrice,
+        productColor,
+        productSize,
+        productMaterial
+      )
+      toast.success("Downloaded barcode SVG successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to download SVG")
     } finally {
       setIsPrinting(false)
     }
@@ -579,7 +631,7 @@ export function BarcodePrinter({
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {zebraStatus === "connected" ? (
               <>
                 <Button
@@ -638,9 +690,27 @@ export function BarcodePrinter({
               onClick={handleDownloadPNG}
               disabled={isPrinting}
               variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
             >
               Download PNG
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDownloadPDF}
+              disabled={isPrinting}
+              variant="outline"
+              className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
+            >
+              Download PDF (Vector)
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDownloadSVG}
+              disabled={isPrinting}
+              variant="outline"
+              className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
+            >
+              Download SVG (Vector)
             </Button>
           </div>
 
