@@ -345,8 +345,19 @@ export function BarcodePrinter({
     })
     const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-    // Inline SVG logo from the SVG_LOGO constant
-    const logoHTML = SVG_LOGO
+    let logoPng2 = ""
+    try {
+      const res = await fetch("/safawalalogo.png")
+      const blob = await res.blob()
+      logoPng2 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+    } catch { }
+    const logoHTML = logoPng2
+      ? `<img src="${logoPng2}" style="max-width:33mm;max-height:6mm;object-fit:contain;display:block;" />`
+      : `<div style="font-family:Arial;font-size:8pt;font-weight:bold;">SAFAWALA</div>`
 
     const features = [
       productMaterial ? `<div class="feat-row"><span class="feat-key">Material</span><span class="feat-val">${productMaterial}</span></div>` : "",
@@ -458,7 +469,19 @@ export function BarcodePrinter({
     })
     const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-    const logoHTML = SVG_LOGO
+    let logoPng3 = ""
+    try {
+      const res = await fetch("/safawalalogo.png")
+      const blob = await res.blob()
+      logoPng3 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+    } catch { }
+    const logoHTML = logoPng3
+      ? `<img src="${logoPng3}" style="max-width:33mm;max-height:9mm;object-fit:contain;display:block;" />`
+      : `<div style="font-family:Arial;font-size:10pt;font-weight:bold;">SAFAWALA</div>`
 
     let labelsHTML = ""
     for (let i = 0; i < quantity; i++) {

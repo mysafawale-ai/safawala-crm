@@ -174,7 +174,19 @@ export async function doPrintStyle2(
   })
   const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-  const logoHTML = SVG_LOGO
+  let logoSrc2 = ""
+  try {
+    const res = await fetch("/safawalalogo.png")
+    const blob = await res.blob()
+    logoSrc2 = await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.readAsDataURL(blob)
+    })
+  } catch { }
+  const logoHTML = logoSrc2
+    ? `<img src="${logoSrc2}" style="max-width:33mm;max-height:6mm;object-fit:contain;display:block;" />`
+    : `<div style="font-family:Arial;font-size:8pt;font-weight:bold;">SAFAWALA</div>`
 
   const feats = [
     material ? `<div class="feat"><span class="fk">Material</span><span class="fv">${material}</span></div>` : "",
@@ -261,7 +273,19 @@ export async function doPrintStyle3(
   })
   const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-  const logoHTML = SVG_LOGO
+  let logoSrc3 = ""
+  try {
+    const res = await fetch("/safawalalogo.png")
+    const blob = await res.blob()
+    logoSrc3 = await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.readAsDataURL(blob)
+    })
+  } catch { }
+  const logoHTML = logoSrc3
+    ? `<img src="${logoSrc3}" style="max-width:33mm;max-height:9mm;object-fit:contain;display:block;" />`
+    : `<div style="font-family:Arial;font-size:10pt;font-weight:bold;">SAFAWALA</div>`
 
   let labelsHTML = ""
   for (let row = 0; row < qty; row++) {
@@ -527,7 +551,7 @@ export async function drawBarcodeCanvas(
           resolve()
         }
         logoImg.onerror = () => resolve()
-        logoImg.src = "/safawalalogo.svg"
+        logoImg.src = "/safawalalogo.png"
       })
     } catch { /* ignored */ }
     if (!logoDrawn2) { ctx.font = "bold 18px Helvetica"; ctx.fillStyle = "#000000"; ctx.fillText("SAFAWALA", sec2Center, 24) }
@@ -609,7 +633,7 @@ export async function drawBarcodeCanvas(
           resolve()
         }
         logoImg.onerror = () => resolve()
-        logoImg.src = "/safawalalogo.svg"
+        logoImg.src = "/safawalalogo.png"
       })
     } catch { /* ignored */ }
     if (!logoDrawn3) { ctx.font = "bold 28px Arial"; ctx.fillStyle = "#000000"; ctx.fillText("SAFAWALA", sec2Center, 44) }
@@ -763,7 +787,7 @@ function getLogoBase64(): Promise<string> {
       }
     }
     img.onerror = () => resolve("")
-    img.src = "/safawalalogo.svg"
+    img.src = "/safawalalogo.png"
   })
 }
 
