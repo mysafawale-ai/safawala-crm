@@ -412,13 +412,13 @@ export function BarcodePrinter({
     align-items: center; justify-content: center;
     padding: 0.5mm 1mm; gap: 0.2mm;
   }
-  .price { font-size: 8.5pt; font-weight: bold; color: #000; line-height: 1; }
-  .currency { font-size: 5pt; vertical-align: super; font-weight: bold; }
+  .price { font-size: 10pt; font-weight: bold; color: #000; line-height: 1; }
+  .currency { font-size: 6pt; vertical-align: super; font-weight: bold; }
   .barcode-img { width: 32mm; height: 5.2mm; display: block;
                  image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: 'Courier New', monospace; font-size: 4.8pt; font-weight: bold; color: #000;
+  .code { font-family: 'Courier New', monospace; font-size: 5.8pt; font-weight: bold; color: #000;
           text-align: center; letter-spacing: 0.2px; }
-  .website { font-size: 4.2pt; color: #000; text-align: center; font-weight: normal; }
+  .website { font-size: 5.2pt; color: #000; text-align: center; font-weight: normal; }
 
   /* Divider */
   .divider { width: 0.2mm; background: #000; align-self: stretch; margin: 1mm 0; }
@@ -433,13 +433,13 @@ export function BarcodePrinter({
   .logo-wrap { display: flex; align-items: center; justify-content: center; height: 4mm; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   .hr { width: 80%; height: 0.2mm; background: #000; }
-  .prod-name { font-size: 5.5pt; font-weight: bold; color: #000;
+  .prod-name { font-size: 6.5pt; font-weight: bold; color: #000;
                text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word;
-               overflow: hidden; max-height: 3.5mm; }
+               overflow: hidden; max-height: 4.5mm; }
   .features { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
   .feat-row { display: flex; gap: 1mm; align-items: center; }
-  .feat-key { font-size: 4pt; color: #000; text-transform: uppercase; min-width: 9mm; font-weight: normal; }
-  .feat-val { font-size: 4.2pt; font-weight: bold; color: #000; }
+  .feat-key { font-size: 5pt; color: #000; text-transform: uppercase; min-width: 10.5mm; font-weight: normal; }
+  .feat-val { font-size: 5.2pt; font-weight: bold; color: #000; }
 
   /* Section 3 — 30mm blank */
   .sec-blank { width: 30mm; height: 100%; }

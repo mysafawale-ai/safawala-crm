@@ -237,25 +237,25 @@ export async function doPrintStyle2(
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
-  .prow { font-size: 5pt; font-weight: bold; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
+  .prow { font-size: 6pt; font-weight: bold; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
   .mrp { position: relative; display: inline-block; color: #000; font-weight: 500; margin-right: 0.5mm; }
   .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1.2px; background: #000; }
   .mrp::before { transform: rotate(12deg); } .mrp::after { transform: rotate(-12deg); }
-  .sale { font-size: 8.5pt; font-weight: bold; color: #000; margin-right: 0.5mm; }
-  .save { font-size: 4pt; font-weight: bold; color: #000; }
+  .sale { font-size: 10pt; font-weight: bold; color: #000; margin-right: 0.5mm; }
+  .save { font-size: 5pt; font-weight: bold; color: #000; }
   .bc { width: 32mm; height: 5.2mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: 'Courier New', monospace; font-size: 4.8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.2px; }
-  .web { font-size: 4.2pt; font-weight: normal; color: #000; text-align: center; }
+  .code { font-family: 'Courier New', monospace; font-size: 5.8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.2px; }
+  .web { font-size: 5.2pt; font-weight: normal; color: #000; text-align: center; }
   .sep { width: 0.2mm; background: #000; align-self: stretch; margin: 1mm 0; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
   .logo { display: flex; align-items: center; justify-content: center; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   .hr { width: 80%; height: 0.2mm; background: #000; }
-  .pname { font-size: 5.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; max-height: 3.5mm; }
+  .pname { font-size: 6.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; max-height: 4.5mm; }
   .feats { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
   .feat { display: flex; gap: 1mm; align-items: center; }
-  .fk { font-size: 4pt; color: #000; text-transform: uppercase; min-width: 9mm; font-weight: normal; }
-  .fv { font-size: 4.2pt; font-weight: bold; color: #000; }
+  .fk { font-size: 5pt; color: #000; text-transform: uppercase; min-width: 10.5mm; font-weight: normal; }
+  .fv { font-size: 5.2pt; font-weight: bold; color: #000; }
   .s3 { width: 30mm; height: 100%; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
@@ -277,25 +277,29 @@ export async function drawBarcodeCanvas(
   color?: string,
   size?: string,
   material?: string,
+  scale: number = 1
 ): Promise<HTMLCanvasElement> {
   const JsBarcode = (await import("jsbarcode")).default
   const canvas = document.createElement("canvas")
 
   if (style === 1) {
-    // Style 1: 50mm x 25mm label size (at 203 DPI: 400px x 200px)
-    canvas.width = 400
-    canvas.height = 200
+    // Style 1: 50mm x 25mm label size
+    canvas.width = 400 * scale
+    canvas.height = 200 * scale
     const ctx = canvas.getContext("2d")
     if (!ctx) return canvas
+    
+    // Scale coordinate system
+    ctx.scale(scale, scale)
 
     // Fill background
     ctx.fillStyle = "#FFFFFF"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillRect(0, 0, 400, 200)
 
     // Border (thin light outline matching Style 1 preview)
     ctx.strokeStyle = "#DDDDDD"
     ctx.lineWidth = 3
-    ctx.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3)
+    ctx.strokeRect(1.5, 1.5, 397, 197)
 
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
@@ -312,9 +316,9 @@ export async function drawBarcodeCanvas(
         line2 += (line2 ? " " : "") + word
       }
     }
-    ctx.fillText(line1.substring(0, 24), canvas.width / 2, 28)
+    ctx.fillText(line1.substring(0, 24), 200, 28)
     if (line2) {
-      ctx.fillText(line2.substring(0, 24), canvas.width / 2, 45)
+      ctx.fillText(line2.substring(0, 24), 200, 45)
     }
 
     // Meta Attributes
@@ -323,11 +327,11 @@ export async function drawBarcodeCanvas(
     ctx.fillStyle = "#000000"
     let metaY = line2 ? 62 : 45
     if (meta1) {
-      ctx.fillText(meta1, canvas.width / 2, metaY)
+      ctx.fillText(meta1, 200, metaY)
       metaY += 17
     }
     if (material) {
-      ctx.fillText(material, canvas.width / 2, metaY)
+      ctx.fillText(material, 200, metaY)
       metaY += 17
     }
 
@@ -378,40 +382,45 @@ export async function drawBarcodeCanvas(
       background: "#FFFFFF",
       lineColor: "#000000"
     })
+    ctx.imageSmoothingEnabled = false
     ctx.drawImage(barcodeCanvas, 25, 85, 350, 40)
+    ctx.imageSmoothingEnabled = true
 
     // Code String
     ctx.textAlign = "center"
     ctx.font = "bold 13px Courier New"
     ctx.fillStyle = "#000000"
-    ctx.fillText(barcode, canvas.width / 2, 140)
+    ctx.fillText(barcode, 200, 140)
 
     // Website Link
     ctx.font = "11px Arial"
-    ctx.fillText("www.safawala.com", canvas.width / 2, 155)
+    ctx.fillText("www.safawala.com", 200, 155)
 
   } else {
-    // Style 2: 100mm x 15mm label size (at 203 DPI: 800px x 120px)
-    canvas.width = 800
-    canvas.height = 120
+    // Style 2: 100mm x 15mm label size
+    canvas.width = 800 * scale
+    canvas.height = 120 * scale
     const ctx = canvas.getContext("2d")
     if (!ctx) return canvas
+    
+    // Scale coordinate system
+    ctx.scale(scale, scale)
 
     // Fill background
     ctx.fillStyle = "#FFFFFF"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillRect(0, 0, 800, 120)
 
     // --- SECTION 1: x = 0 to 280 (35% width) ---
     const sec1Width = 280
     ctx.textAlign = "center"
     const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
-    const pricingY = 22
+    const pricingY = 24
 
     // Pricing Row
     if (regularPrice || salePrice) {
       let textX = 15
       if (regularPrice) {
-        ctx.font = "12px Arial"
+        ctx.font = "16px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`MRP: ₹${regularPrice}`, textX + 30, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
@@ -425,14 +434,14 @@ export async function drawBarcodeCanvas(
         textX += textWidth + 10
       }
       if (salePrice) {
-        ctx.font = "bold 16px Arial"
+        ctx.font = "bold 22px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`₹${salePrice}`, textX + 30, pricingY)
         const textWidth = ctx.measureText(`₹${salePrice}`).width
         textX += textWidth + 10
       }
       if (savings > 0) {
-        ctx.font = "bold 10px Arial"
+        ctx.font = "bold 13px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`Save ₹${savings}`, textX + 30, pricingY - 1)
       }
@@ -449,16 +458,18 @@ export async function drawBarcodeCanvas(
       background: "#FFFFFF",
       lineColor: "#000000"
     })
-    ctx.drawImage(barcodeCanvas, 15, 32, 250, 40)
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(barcodeCanvas, 15, 34, 250, 40)
+    ctx.imageSmoothingEnabled = true
 
     // Code
-    ctx.font = "bold 12px Courier New"
+    ctx.font = "bold 15px Courier New"
     ctx.fillStyle = "#000000"
-    ctx.fillText(barcode, sec1Width / 2, 85)
+    ctx.fillText(barcode, sec1Width / 2, 88)
 
     // Web url
-    ctx.font = "10px Arial"
-    ctx.fillText("www.safawala.com", sec1Width / 2, 100)
+    ctx.font = "13px Arial"
+    ctx.fillText("www.safawala.com", sec1Width / 2, 104)
 
     // --- DIVIDER: x = 280 ---
     ctx.strokeStyle = "#000000"
@@ -482,14 +493,14 @@ export async function drawBarcodeCanvas(
         logoImg.onload = () => {
           const maxLogoW = 200
           const maxLogoH = 36
-          const scale = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
-          const w = logoImg.naturalWidth * scale
-          const h = logoImg.naturalHeight * scale
+          const scaleL = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
+          const w = logoImg.naturalWidth * scaleL
+          const h = logoImg.naturalHeight * scaleL
           // Draw at Y = 8
           ctx.drawImage(logoImg, sec2Center - (w / 2), 8, w, h)
  
           // Colorize logo pixels to solid black with smooth anti-aliasing
-          const imgData = ctx.getImageData(sec2Center - (w / 2), 8, w, h)
+          const imgData = ctx.getImageData((sec2Center - (w / 2)) * scale, 8 * scale, w * scale, h * scale)
           for (let k = 0; k < imgData.data.length; k += 4) {
             const r = imgData.data[k]
             const g = imgData.data[k+1]
@@ -497,20 +508,27 @@ export async function drawBarcodeCanvas(
             const a = imgData.data[k+3]
             const brightness = 0.299 * r + 0.587 * g + 0.114 * b
             
-            if (brightness < 240) {
-              const factor = (255 - brightness) / 255
+            if (a < 10) {
+              // Keep transparent
+              imgData.data[k] = 255
+              imgData.data[k+1] = 255
+              imgData.data[k+2] = 255
+              imgData.data[k+3] = 0
+            } else if (brightness < 220) {
+              // Convert non-white/colored parts of the logo to solid black, keeping opacity
               imgData.data[k] = 0
               imgData.data[k+1] = 0
               imgData.data[k+2] = 0
-              imgData.data[k+3] = Math.round(a * factor)
+              imgData.data[k+3] = a
             } else {
+              // Convert background/white pixels to transparent white
               imgData.data[k] = 255
               imgData.data[k+1] = 255
               imgData.data[k+2] = 255
               imgData.data[k+3] = 0 // Transparent
             }
           }
-          ctx.putImageData(imgData, sec2Center - (w / 2), 8)
+          ctx.putImageData(imgData, (sec2Center - (w / 2)) * scale, 8 * scale)
           logoDrawn = true
           resolve()
         }
@@ -520,7 +538,7 @@ export async function drawBarcodeCanvas(
     } catch { /* ignored */ }
  
     if (!logoDrawn) {
-      ctx.font = "bold 16px Arial"
+      ctx.font = "bold 18px Arial"
       ctx.fillStyle = "#000000"
       ctx.fillText("SAFAWALA", sec2Center, 24)
     }
@@ -534,26 +552,26 @@ export async function drawBarcodeCanvas(
     ctx.stroke()
  
     // Product Title
-    ctx.font = "bold 13px Arial"
+    ctx.font = "bold 18px Arial"
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 30), sec2Center, 66)
+    ctx.fillText(label.substring(0, 30), sec2Center, 68)
  
     // Features Details
-    ctx.font = "11px Arial"
+    ctx.font = "15px Arial"
     ctx.textAlign = "left"
     let featY = 82
     if (material) {
       ctx.fillText(`MATERIAL: ${material}`, sec2Start + 20, featY)
-      featY += 13
+      featY += 16
     }
     if (size) {
       ctx.fillText(`SIZE: ${size}`, sec2Start + 20, featY)
-      featY += 13
+      featY += 16
     }
     if (color) {
       ctx.fillText(`COLOUR: ${color}`, sec2Start + 20, featY)
-      featY += 13
+      featY += 16
     }
   }
 
@@ -571,7 +589,7 @@ export async function doDownloadStylePNG(
   size?: string,
   material?: string,
 ) {
-  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material)
+  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 1)
   
   const link = document.createElement("a")
   link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.png`
@@ -592,7 +610,8 @@ export async function doDownloadStyleBMP(
   size?: string,
   material?: string,
 ) {
-  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material)
+  // Use scale = 4 for 812 DPI ultra-high-resolution BMP download
+  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 4)
   const width = canvas.width
   const height = canvas.height
   const ctx = canvas.getContext("2d")
@@ -648,12 +667,12 @@ export async function doDownloadStyleBMP(
       const b = data[idx + 2]
       const a = data[idx + 3]
       
-      let bit = 1
-      if (a > 10) {
-        const brightness = 0.299 * r + 0.587 * g + 0.114 * b
-        // Threshold: less than 128 brightness is black (0), else white (1)
-        bit = brightness < 128 ? 0 : 1
-      }
+      const brightness = 0.299 * r + 0.587 * g + 0.114 * b
+      const alphaFactor = a / 255
+      const effectiveBrightness = brightness * alphaFactor + 255 * (1 - alphaFactor)
+      
+      // Threshold at 180 for crisp anti-aliased edge mapping
+      const bit = effectiveBrightness < 180 ? 0 : 1
       
       currentByte = (currentByte << 1) | bit
       bitCount++
