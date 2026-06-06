@@ -193,7 +193,7 @@ export async function doPrintStyle2(
   } catch { /* text fallback */ }
 
   const logoHTML = logoSrc
-    ? `<img src="${logoSrc}" class="logo-img" style="max-width:22mm;max-height:4mm;object-fit:contain;" />`
+    ? `<img src="${logoSrc}" class="logo-img" style="max-width:28.6mm;max-height:5.2mm;object-fit:contain;" />`
     : `<span style="font-size:6pt;font-weight:950;color:#000;letter-spacing:0.5px;">SAFAWALA</span>`
 
   const feats = [
@@ -218,7 +218,6 @@ export async function doPrintStyle2(
         <div class="code">${barcode}</div>
         <div class="web">www.safawala.com</div>
       </div>
-      <div class="sep"></div>
       <div class="s2">
         <div class="logo">${logoHTML}</div>
         <div class="hr"></div>
@@ -245,8 +244,7 @@ export async function doPrintStyle2(
   .save { font-size: 5pt; font-weight: bold; color: #000; }
   .bc { width: 32mm; height: 5.2mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   .code { font-family: 'Courier New', monospace; font-size: 5.8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.2px; }
-  .web { font-size: 5.2pt; font-weight: normal; color: #000; text-align: center; }
-  .sep { width: 0.2mm; background: #000; align-self: stretch; margin: 1mm 0; }
+  .web { font-size: 6.3pt; font-weight: normal; color: #000; text-align: center; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
   .logo { display: flex; align-items: center; justify-content: center; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
@@ -393,7 +391,7 @@ export async function drawBarcodeCanvas(
     ctx.fillText(barcode, 200, 140)
 
     // Website Link
-    ctx.font = "11px Arial"
+    ctx.font = "17px Arial"
     ctx.fillText("www.safawala.com", 200, 155)
 
   } else {
@@ -468,16 +466,10 @@ export async function drawBarcodeCanvas(
     ctx.fillText(barcode, sec1Width / 2, 88)
 
     // Web url
-    ctx.font = "13px Arial"
+    ctx.font = "17px Arial"
     ctx.fillText("www.safawala.com", sec1Width / 2, 104)
 
-    // --- DIVIDER: x = 280 ---
-    ctx.strokeStyle = "#000000"
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    ctx.moveTo(280, 10)
-    ctx.lineTo(280, 110)
-    ctx.stroke()
+    // Divider line removed
 
     // --- SECTION 2: x = 280 to 560 (35% width) ---
     const sec2Width = 280
@@ -491,16 +483,16 @@ export async function drawBarcodeCanvas(
       logoImg.crossOrigin = "anonymous"
       await new Promise<void>((resolve) => {
         logoImg.onload = () => {
-          const maxLogoW = 200
-          const maxLogoH = 36
+          const maxLogoW = 260
+          const maxLogoH = 47
           const scaleL = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
           const w = logoImg.naturalWidth * scaleL
           const h = logoImg.naturalHeight * scaleL
-          // Draw at Y = 8
-          ctx.drawImage(logoImg, sec2Center - (w / 2), 8, w, h)
+          // Draw at Y = 4
+          ctx.drawImage(logoImg, sec2Center - (w / 2), 4, w, h)
  
           // Colorize logo pixels to solid black with smooth anti-aliasing
-          const imgData = ctx.getImageData((sec2Center - (w / 2)) * scale, 8 * scale, w * scale, h * scale)
+          const imgData = ctx.getImageData((sec2Center - (w / 2)) * scale, 4 * scale, w * scale, h * scale)
           for (let k = 0; k < imgData.data.length; k += 4) {
             const r = imgData.data[k]
             const g = imgData.data[k+1]
@@ -528,7 +520,7 @@ export async function drawBarcodeCanvas(
               imgData.data[k+3] = 0 // Transparent
             }
           }
-          ctx.putImageData(imgData, (sec2Center - (w / 2)) * scale, 8 * scale)
+          ctx.putImageData(imgData, (sec2Center - (w / 2)) * scale, 4 * scale)
           logoDrawn = true
           resolve()
         }
@@ -547,20 +539,20 @@ export async function drawBarcodeCanvas(
     ctx.strokeStyle = "#000000"
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(sec2Start + 30, 48)
-    ctx.lineTo(sec2Start + sec2Width - 30, 48)
+    ctx.moveTo(sec2Start + 30, 54)
+    ctx.lineTo(sec2Start + sec2Width - 30, 54)
     ctx.stroke()
  
     // Product Title
     ctx.font = "bold 18px Arial"
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 30), sec2Center, 68)
+    ctx.fillText(label.substring(0, 30), sec2Center, 72)
  
     // Features Details
     ctx.font = "15px Arial"
     ctx.textAlign = "left"
-    let featY = 82
+    let featY = 86
     if (material) {
       ctx.fillText(`MATERIAL: ${material}`, sec2Start + 20, featY)
       featY += 16
@@ -589,7 +581,7 @@ export async function doDownloadStylePNG(
   size?: string,
   material?: string,
 ) {
-  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 5)
+  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 10)
   
   const link = document.createElement("a")
   link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.png`
