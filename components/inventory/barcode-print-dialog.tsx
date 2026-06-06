@@ -267,7 +267,7 @@ export async function doPrintStyle2(
   setTimeout(() => { win.focus(); win.print() }, 200)
 }
 
-// ── Download Barcode as PNG at 300 DPI ─────────────────────────────────────────
+// ── Download Barcode as PNG at 600 DPI ─────────────────────────────────────────
 export async function doDownloadStylePNG(
   barcode: string,
   label: string,
@@ -282,9 +282,9 @@ export async function doDownloadStylePNG(
   const canvas = document.createElement("canvas")
 
   if (style === 1) {
-    // 50mm x 25mm label size (at 300 DPI: 591px x 295px)
-    canvas.width = 591
-    canvas.height = 295
+    // 50mm x 25mm label size (at 600 DPI: 1182px x 590px)
+    canvas.width = 1182
+    canvas.height = 590
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
@@ -294,76 +294,76 @@ export async function doDownloadStylePNG(
 
     // Border (thin light outline matching Style 1 preview)
     ctx.strokeStyle = "#DDDDDD"
-    ctx.lineWidth = 4
-    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4)
+    ctx.lineWidth = 8
+    ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8)
 
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
 
     // Product Title
-    ctx.font = "bold 22px Arial"
+    ctx.font = "bold 44px Arial"
     const words = label.split(" ")
     let line1 = ""
     let line2 = ""
     for (const word of words) {
-      if (ctx.measureText(line1 + " " + word).width < 540 && line2 === "") {
+      if (ctx.measureText(line1 + " " + word).width < 1080 && line2 === "") {
         line1 += (line1 ? " " : "") + word
       } else {
         line2 += (line2 ? " " : "") + word
       }
     }
-    ctx.fillText(line1.substring(0, 24), canvas.width / 2, 40)
+    ctx.fillText(line1.substring(0, 24), canvas.width / 2, 80)
     if (line2) {
-      ctx.fillText(line2.substring(0, 24), canvas.width / 2, 65)
+      ctx.fillText(line2.substring(0, 24), canvas.width / 2, 130)
     }
 
     // Meta Attributes
     const meta1 = [color, size].filter(Boolean).join(" | ")
-    ctx.font = "18px Arial"
+    ctx.font = "36px Arial"
     ctx.fillStyle = "#000000"
-    let metaY = line2 ? 90 : 65
+    let metaY = line2 ? 180 : 130
     if (meta1) {
       ctx.fillText(meta1, canvas.width / 2, metaY)
-      metaY += 25
+      metaY += 50
     }
     if (material) {
       ctx.fillText(material, canvas.width / 2, metaY)
-      metaY += 25
+      metaY += 50
     }
 
     // Pricing Layout
-    const pricingY = metaY + 10
+    const pricingY = metaY + 20
     const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
     ctx.textAlign = "left"
-    let textX = 40
+    let textX = 80
 
     if (regularPrice || salePrice) {
       if (regularPrice) {
-        ctx.font = "18px Arial"
+        ctx.font = "36px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`MRP: ₹${regularPrice}`, textX, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
         
         // Strikethrough line
         ctx.strokeStyle = "#000000"
-        ctx.lineWidth = 2
+        ctx.lineWidth = 4
         ctx.beginPath()
-        ctx.moveTo(textX - 2, pricingY - 6)
-        ctx.lineTo(textX + textWidth + 2, pricingY - 6)
+        ctx.moveTo(textX - 4, pricingY - 12)
+        ctx.lineTo(textX + textWidth + 4, pricingY - 12)
         ctx.stroke()
-        textX += textWidth + 15
+        textX += textWidth + 30
       }
       if (salePrice) {
-        ctx.font = "bold 24px Arial"
+        ctx.font = "bold 48px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`₹${salePrice}`, textX, pricingY)
         const textWidth = ctx.measureText(`₹${salePrice}`).width
-        textX += textWidth + 15
+        textX += textWidth + 30
       }
       if (savings > 0) {
-        ctx.font = "bold 16px Arial"
+        ctx.font = "bold 32px Arial"
         ctx.fillStyle = "#000000"
-        ctx.fillText(`Save ₹${savings}`, textX, pricingY - 2)
+        ctx.fillText(`Save ₹${savings}`, textX, pricingY - 4)
       }
     }
 
@@ -371,29 +371,29 @@ export async function doDownloadStylePNG(
     const barcodeCanvas = document.createElement("canvas")
     JsBarcode(barcodeCanvas, barcode, {
       format: "CODE128",
-      width: 4,
-      height: 80,
+      width: 8,
+      height: 160,
       displayValue: false,
       margin: 0,
       background: "#FFFFFF",
       lineColor: "#000000"
     })
-    ctx.drawImage(barcodeCanvas, 40, 160, 511, 65)
+    ctx.drawImage(barcodeCanvas, 80, 320, 1022, 130)
 
     // Code String
     ctx.textAlign = "center"
-    ctx.font = "bold 20px Courier New"
+    ctx.font = "bold 40px Courier New"
     ctx.fillStyle = "#000000"
-    ctx.fillText(barcode, canvas.width / 2, 245)
+    ctx.fillText(barcode, canvas.width / 2, 490)
 
     // Website Link
-    ctx.font = "16px Arial"
-    ctx.fillText("www.safawala.com", canvas.width / 2, 275)
+    ctx.font = "32px Arial"
+    ctx.fillText("www.safawala.com", canvas.width / 2, 550)
 
   } else {
-    // Style 2: 100mm x 15mm label size (at 300 DPI: 1181px x 177px)
-    canvas.width = 1181
-    canvas.height = 177
+    // Style 2: 100mm x 15mm label size (at 600 DPI: 2362px x 354px)
+    canvas.width = 2362
+    canvas.height = 354
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
@@ -401,40 +401,40 @@ export async function doDownloadStylePNG(
     ctx.fillStyle = "#FFFFFF"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // --- SECTION 1: x = 0 to 413 (35% width) ---
-    const sec1Width = 413
+    // --- SECTION 1: x = 0 to 826 (35% width) ---
+    const sec1Width = 826
     ctx.textAlign = "center"
     const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
-    const pricingY = 32
+    const pricingY = 64
 
     // Pricing Row
     if (regularPrice || salePrice) {
-      let textX = 25
+      let textX = 50
       if (regularPrice) {
-        ctx.font = "18px Arial"
+        ctx.font = "36px Arial"
         ctx.fillStyle = "#000000"
-        ctx.fillText(`MRP: ₹${regularPrice}`, textX + 45, pricingY)
+        ctx.fillText(`MRP: ₹${regularPrice}`, textX + 90, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
         
         ctx.strokeStyle = "#000000"
-        ctx.lineWidth = 1.5
+        ctx.lineWidth = 3
         ctx.beginPath()
-        ctx.moveTo(textX + 45 - textWidth/2 - 2, pricingY - 6)
-        ctx.lineTo(textX + 45 + textWidth/2 + 2, pricingY - 6)
+        ctx.moveTo(textX + 90 - textWidth/2 - 4, pricingY - 12)
+        ctx.lineTo(textX + 90 + textWidth/2 + 4, pricingY - 12)
         ctx.stroke()
-        textX += textWidth + 15
+        textX += textWidth + 30
       }
       if (salePrice) {
-        ctx.font = "bold 24px Arial"
+        ctx.font = "bold 48px Arial"
         ctx.fillStyle = "#000000"
-        ctx.fillText(`₹${salePrice}`, textX + 45, pricingY)
+        ctx.fillText(`₹${salePrice}`, textX + 90, pricingY)
         const textWidth = ctx.measureText(`₹${salePrice}`).width
-        textX += textWidth + 15
+        textX += textWidth + 30
       }
       if (savings > 0) {
-        ctx.font = "bold 15px Arial"
+        ctx.font = "bold 30px Arial"
         ctx.fillStyle = "#000000"
-        ctx.fillText(`Save ₹${savings}`, textX + 45, pricingY - 2)
+        ctx.fillText(`Save ₹${savings}`, textX + 90, pricingY - 4)
       }
     }
 
@@ -442,35 +442,35 @@ export async function doDownloadStylePNG(
     const barcodeCanvas = document.createElement("canvas")
     JsBarcode(barcodeCanvas, barcode, {
       format: "CODE128",
-      width: 4,
-      height: 80,
+      width: 8,
+      height: 160,
       displayValue: false,
       margin: 0,
       background: "#FFFFFF",
       lineColor: "#000000"
     })
-    ctx.drawImage(barcodeCanvas, 20, 48, 373, 60)
+    ctx.drawImage(barcodeCanvas, 40, 96, 746, 120)
 
     // Code
-    ctx.font = "bold 18px Courier New"
+    ctx.font = "bold 36px Courier New"
     ctx.fillStyle = "#000000"
-    ctx.fillText(barcode, sec1Width / 2, 130)
+    ctx.fillText(barcode, sec1Width / 2, 260)
 
     // Web url
-    ctx.font = "15px Arial"
-    ctx.fillText("www.safawala.com", sec1Width / 2, 155)
+    ctx.font = "30px Arial"
+    ctx.fillText("www.safawala.com", sec1Width / 2, 310)
 
-    // --- DIVIDER: x = 413 to 415 ---
+    // --- DIVIDER: x = 826 to 830 ---
     ctx.strokeStyle = "#000000"
-    ctx.lineWidth = 2
+    ctx.lineWidth = 4
     ctx.beginPath()
-    ctx.moveTo(414, 10)
-    ctx.lineTo(414, 167)
+    ctx.moveTo(828, 20)
+    ctx.lineTo(828, 334)
     ctx.stroke()
 
-    // --- SECTION 2: x = 415 to 827 (35% width) ---
-    const sec2Width = 412
-    const sec2Start = 415
+    // --- SECTION 2: x = 830 to 1654 (35% width) ---
+    const sec2Width = 824
+    const sec2Start = 830
     const sec2Center = sec2Start + (sec2Width / 2)
 
     // Logo image rendering with high resolution and smooth anti-aliased filter
@@ -480,16 +480,16 @@ export async function doDownloadStylePNG(
       logoImg.crossOrigin = "anonymous"
       await new Promise<void>((resolve) => {
         logoImg.onload = () => {
-          const maxLogoW = 300
-          const maxLogoH = 55
+          const maxLogoW = 600
+          const maxLogoH = 110
           const scale = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
           const w = logoImg.naturalWidth * scale
           const h = logoImg.naturalHeight * scale
-          // Draw at Y = 12
-          ctx.drawImage(logoImg, sec2Center - (w / 2), 12, w, h)
+          // Draw at Y = 24
+          ctx.drawImage(logoImg, sec2Center - (w / 2), 24, w, h)
  
           // Colorize logo pixels to solid black with smooth anti-aliasing
-          const imgData = ctx.getImageData(sec2Center - (w / 2), 12, w, h)
+          const imgData = ctx.getImageData(sec2Center - (w / 2), 24, w, h)
           for (let k = 0; k < imgData.data.length; k += 4) {
             const r = imgData.data[k]
             const g = imgData.data[k+1]
@@ -510,7 +510,7 @@ export async function doDownloadStylePNG(
               imgData.data[k+3] = 0 // Transparent
             }
           }
-          ctx.putImageData(imgData, sec2Center - (w / 2), 12)
+          ctx.putImageData(imgData, sec2Center - (w / 2), 24)
           logoDrawn = true
           resolve()
         }
@@ -520,36 +520,36 @@ export async function doDownloadStylePNG(
     } catch { /* ignored */ }
  
     if (!logoDrawn) {
-      ctx.font = "bold 24px Arial"
+      ctx.font = "bold 48px Arial"
       ctx.fillStyle = "#000000"
-      ctx.fillText("SAFAWALA", sec2Center, 35)
+      ctx.fillText("SAFAWALA", sec2Center, 70)
     }
  
     // Horizontal divider line - shifted below high-res logo
     ctx.strokeStyle = "#000000"
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = 3
     ctx.beginPath()
-    ctx.moveTo(sec2Start + 40, 75)
-    ctx.lineTo(sec2Start + sec2Width - 40, 75)
+    ctx.moveTo(sec2Start + 80, 150)
+    ctx.lineTo(sec2Start + sec2Width - 80, 150)
     ctx.stroke()
  
     // Product Title - positioned cleanly
-    ctx.font = "bold 20px Arial"
+    ctx.font = "bold 40px Arial"
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 30), sec2Center, 98)
+    ctx.fillText(label.substring(0, 30), sec2Center, 196)
  
     // Features Details (left aligned) - properly spaced
-    ctx.font = "16px Arial"
+    ctx.font = "32px Arial"
     ctx.textAlign = "left"
-    let featY = 122
+    let featY = 244
     if (material) {
-      ctx.fillText(`MATERIAL: ${material}`, sec2Start + 30, featY)
-      featY += 20
+      ctx.fillText(`MATERIAL: ${material}`, sec2Start + 60, featY)
+      featY += 40
     }
     if (size) {
-      ctx.fillText(`SIZE: ${size}`, sec2Start + 30, featY)
-      featY += 20
+      ctx.fillText(`SIZE: ${size}`, sec2Start + 60, featY)
+      featY += 40
     }
     if (color) {
       ctx.fillText(`COLOUR: ${color}`, sec2Start + 30, featY)
