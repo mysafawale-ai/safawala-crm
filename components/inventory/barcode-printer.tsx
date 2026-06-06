@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Printer, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { doDownloadStylePNG, doDownloadStylePDF, doDownloadStyleSVG, doDownloadCSV, doDownloadStyleBMP } from "./barcode-print-dialog"
+import { SVG_LOGO } from "./logo-svg"
 
 interface BarcodePrinterProps {
   open: boolean
@@ -392,7 +393,7 @@ export function BarcodePrinter({
 <title>Labels</title>
 <style>
   @page { size: 100mm 15mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { width: 100mm; margin: 0; padding: 0; background: #fff; }
 
   .label {
@@ -414,7 +415,7 @@ export function BarcodePrinter({
   .currency { font-size: 6pt; vertical-align: super; font-weight: bold; }
   .barcode-img { width: 32mm; height: 5.2mm; display: block;
                  image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: 'Courier New', monospace; font-size: 5.8pt; font-weight: bold; color: #000;
+  .code { font-family: Helvetica, Arial, sans-serif; font-size: 5.8pt; font-weight: bold; color: #000;
           text-align: center; letter-spacing: 0.2px; }
   .website { font-size: 6.3pt; color: #000; text-align: center; font-weight: normal; }
 

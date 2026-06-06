@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Printer, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
+import { SVG_LOGO } from "./logo-svg"
 
 interface Product {
   id: string
@@ -173,28 +174,7 @@ export async function doPrintStyle2(
   })
   const barcodeImg = canvas.toDataURL("image/png")
 
-  // Logo as canvas data URL — avoids cross-origin issues in print window
-  let logoSrc = ""
-  try {
-    const logoImg = new Image()
-    logoImg.crossOrigin = "anonymous"
-    await new Promise<void>((resolve) => {
-      logoImg.onload = () => {
-        const c = document.createElement("canvas")
-        c.width = logoImg.naturalWidth
-        c.height = logoImg.naturalHeight
-        c.getContext("2d")!.drawImage(logoImg, 0, 0)
-        logoSrc = c.toDataURL("image/png")
-        resolve()
-      }
-      logoImg.onerror = () => resolve()
-      logoImg.src = "/safawalalogo.svg"
-    })
-  } catch { /* text fallback */ }
-
-  const logoHTML = logoSrc
-    ? `<img src="${logoSrc}" class="logo-img" style="max-width:25.7mm;max-height:4.7mm;object-fit:contain;" />`
-    : `<span style="font-size:6pt;font-weight:950;color:#000;letter-spacing:0.5px;">SAFAWALA</span>`
+  const logoHTML = SVG_LOGO
 
   const feats = [
     material ? `<div class="feat"><span class="fk">Material</span><span class="fv">${material}</span></div>` : "",
@@ -231,7 +211,7 @@ export async function doPrintStyle2(
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
   @page { size: 100mm 15mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
@@ -243,7 +223,7 @@ export async function doPrintStyle2(
   .sale { font-size: 10pt; font-weight: bold; color: #000; margin-right: 0.5mm; }
   .save { font-size: 5pt; font-weight: bold; color: #000; }
   .bc { width: 32mm; height: 5.2mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: 'Courier New', monospace; font-size: 5.8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.2px; }
+  .code { font-family: Helvetica, Arial, sans-serif; font-size: 5.8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.2px; }
   .web { font-size: 6.3pt; font-weight: normal; color: #000; text-align: center; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
   .logo { display: flex; align-items: center; justify-content: center; }
@@ -461,12 +441,12 @@ export async function drawBarcodeCanvas(
     ctx.imageSmoothingEnabled = true
 
     // Code
-    ctx.font = "bold 15px Courier New"
+    ctx.font = "bold 15px Helvetica"
     ctx.fillStyle = "#000000"
     ctx.fillText(barcode, sec1Width / 2, 88)
 
     // Web url
-    ctx.font = "17px Arial"
+    ctx.font = "17px Helvetica"
     ctx.fillText("www.safawala.com", sec1Width / 2, 104)
 
     // Divider line removed
@@ -535,11 +515,11 @@ export async function drawBarcodeCanvas(
     } catch { /* ignored */ }
  
     if (!logoDrawn) {
-      ctx.font = "bold 18px Arial"
+      ctx.font = "bold 18px Helvetica"
       ctx.fillStyle = "#000000"
       ctx.fillText("SAFAWALA", sec2Center, 24)
     }
- 
+
     // Horizontal divider line
     ctx.strokeStyle = "#000000"
     ctx.lineWidth = 1
@@ -547,15 +527,15 @@ export async function drawBarcodeCanvas(
     ctx.moveTo(sec2Start + 30, 54)
     ctx.lineTo(sec2Start + sec2Width - 30, 54)
     ctx.stroke()
- 
+
     // Product Title
-    ctx.font = "bold 18px Arial"
+    ctx.font = "bold 18px Helvetica"
     ctx.fillStyle = "#000000"
     ctx.textAlign = "center"
     ctx.fillText(label.substring(0, 30), sec2Center, 72)
- 
+
     // Features Details
-    ctx.font = "15px Arial"
+    ctx.font = "15px Helvetica"
     ctx.textAlign = "left"
     let featY = 86
     if (material) {
@@ -829,58 +809,58 @@ export async function doDownloadStyleSVG(
     
     if (regularPrice) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="1.6" fill="#000000">MRP: ₹${regularPrice}</text>
+        <text x="${currentX}" y="${pricingY}" font-family="Helvetica, Arial, sans-serif" font-size="1.6" fill="#000000">MRP: ₹${regularPrice}</text>
         <line x1="${currentX}" y1="${pricingY - 0.5}" x2="${currentX + 9}" y2="${pricingY - 0.5}" stroke="#000000" stroke-width="0.15" />
       `
       currentX += 10
     }
     if (salePrice) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="2.2" font-weight="bold" fill="#000000">₹${salePrice}</text>
+        <text x="${currentX}" y="${pricingY}" font-family="Helvetica, Arial, sans-serif" font-size="2.2" font-weight="bold" fill="#000000">₹${salePrice}</text>
       `
       currentX += 9
     }
     if (savings > 0) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY - 0.1}" font-family="Arial" font-size="1.3" font-weight="bold" fill="#000000">Save ₹${savings}</text>
+        <text x="${currentX}" y="${pricingY - 0.1}" font-family="Helvetica, Arial, sans-serif" font-size="1.3" font-weight="bold" fill="#000000">Save ₹${savings}</text>
       `
     }
-    
-    let logoHTML = `<text x="52.5" y="3.2" font-family="Arial" font-size="2.2" font-weight="bold" fill="#000000" text-anchor="middle">SAFAWALA</text>`
+
+    let logoHTML = `<text x="52.5" y="3.2" font-family="Helvetica, Arial, sans-serif" font-size="2.2" font-weight="bold" fill="#000000" text-anchor="middle">SAFAWALA</text>`
     try {
       const logoBase64 = await getLogoBase64()
       if (logoBase64) {
         logoHTML = `<image href="${logoBase64}" x="40" y="1" width="25" height="4.5" />`
       }
     } catch { /* ignore */ }
-    
+
     let featY = 10.5
     let featHTML = ""
     if (material) {
-      featHTML += `<text x="37.5" y="${featY}" font-family="Arial" font-size="1.5" fill="#000000">MATERIAL: ${material}</text>`
+      featHTML += `<text x="37.5" y="${featY}" font-family="Helvetica, Arial, sans-serif" font-size="1.5" fill="#000000">MATERIAL: ${material}</text>`
       featY += 1.6
     }
     if (size) {
-      featHTML += `<text x="37.5" y="${featY}" font-family="Arial" font-size="1.5" fill="#000000">SIZE: ${size}</text>`
+      featHTML += `<text x="37.5" y="${featY}" font-family="Helvetica, Arial, sans-serif" font-size="1.5" fill="#000000">SIZE: ${size}</text>`
       featY += 1.6
     }
     if (color) {
-      featHTML += `<text x="37.5" y="${featY}" font-family="Arial" font-size="1.5" fill="#000000">COLOUR: ${color}</text>`
+      featHTML += `<text x="37.5" y="${featY}" font-family="Helvetica, Arial, sans-serif" font-size="1.5" fill="#000000">COLOUR: ${color}</text>`
       featY += 1.6
     }
-    
+
     svgContent = `
       <rect x="0" y="0" width="100" height="15" fill="#FFFFFF" />
       ${pricingHTML}
       <g transform="translate(${bcX}, ${bcY}) scale(${scaleX}, ${scaleY})">
         ${barsHTML}
       </g>
-      <text x="17.5" y="10.8" font-family="Courier New" font-size="1.7" font-weight="bold" fill="#000000" text-anchor="middle">${barcode}</text>
-      <text x="17.5" y="12.8" font-family="Arial" font-size="1.4" fill="#000000" text-anchor="middle">www.safawala.com</text>
+      <text x="17.5" y="10.8" font-family="Helvetica, Arial, sans-serif" font-size="1.7" font-weight="bold" fill="#000000" text-anchor="middle">${barcode}</text>
+      <text x="17.5" y="12.8" font-family="Helvetica, Arial, sans-serif" font-size="1.4" fill="#000000" text-anchor="middle">www.safawala.com</text>
       <line x1="35" y1="1" x2="35" y2="14" stroke="#000000" stroke-width="0.2" />
       ${logoHTML}
       <line x1="39" y1="6.2" x2="66" y2="6.2" stroke="#000000" stroke-width="0.15" />
-      <text x="52.5" y="8.5" font-family="Arial" font-size="1.8" font-weight="bold" fill="#000000" text-anchor="middle">${label.substring(0, 30)}</text>
+      <text x="52.5" y="8.5" font-family="Helvetica, Arial, sans-serif" font-size="1.8" font-weight="bold" fill="#000000" text-anchor="middle">${label.substring(0, 30)}</text>
       ${featHTML}
     `
   }
