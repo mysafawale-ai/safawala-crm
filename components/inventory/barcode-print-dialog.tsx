@@ -1001,6 +1001,52 @@ export async function doDownloadStylePDF(
   pdf.save(`barcode-${barcode}-${style === 1 ? "style1" : "style2"}.pdf`)
 }
 
+// ── Download Barcode as CSV for BarTender (Data File) ────────────────────────
+export function doDownloadCSV(
+  barcode: string,
+  label: string,
+  regularPrice: number | undefined,
+  salePrice: number | undefined,
+  color: string | undefined,
+  size: string | undefined,
+  material: string | undefined,
+  quantity: number
+) {
+  const headers = ["Barcode", "ProductName", "RegularPrice", "SalePrice", "Color", "Size", "Material", "Quantity"]
+  const row = [
+    barcode,
+    label,
+    regularPrice ?? "",
+    salePrice ?? "",
+    color ?? "",
+    size ?? "",
+    material ?? "",
+    quantity
+  ]
+  
+  const escapeCSV = (val: any) => {
+    if (val === undefined || val === null) return ""
+    const str = String(val)
+    if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+      return `"${str.replace(/"/g, '""')}"`
+    }
+    return str
+  }
+
+  const csvContent = [
+    headers.map(escapeCSV).join(","),
+    row.map(escapeCSV).join(",")
+  ].join("\n")
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  const link = document.createElement("a")
+  link.download = `barcode-${barcode}-bartender.csv`
+  link.href = URL.createObjectURL(blob)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
 // ── Dialog ───────────────────────────────────────────────────────────────────
 export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialogProps) {
   const [quantity, setQuantity] = useState(1)
@@ -1155,6 +1201,28 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     } catch (e) {
       console.error(e)
       toast.error("Failed to download barcode SVG")
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  const handleDownloadCSV = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
+    if (!barcode) { toast.error(`No barcode for ${label}`); return }
+    setPrinting(true)
+    try {
+      doDownloadCSV(barcode, label, regularPrice, salePrice, color, size, material, quantity)
+      toast.success("Downloaded CSV for BarTender successfully")
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to download CSV")
     } finally {
       setPrinting(false)
     }
@@ -1615,6 +1683,14 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                     >
                       Download SVG (Vector)
                     </Button>
+                    <Button
+                      type="button"
+                      onClick={() => handleDownloadCSV(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                      variant="outline"
+                      className="border-green-300 text-green-700 hover:bg-green-50 font-semibold"
+                    >
+                      Download CSV (BarTender)
+                    </Button>
                   </div>
                 </>
               )}
@@ -1961,6 +2037,15 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                           disabled={!selectedVariant.barcode}
                         >
                           Download SVG (Vector)
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => handleDownloadCSV(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                          variant="outline"
+                          className="border-green-300 text-green-700 hover:bg-green-50 font-semibold"
+                          disabled={!selectedVariant.barcode}
+                        >
+                          Download CSV (BarTender)
                         </Button>
                       </div>
                     </>

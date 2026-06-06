@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Printer, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
-import { doDownloadStylePNG, doDownloadStylePDF, doDownloadStyleSVG } from "./barcode-print-dialog"
+import { doDownloadStylePNG, doDownloadStylePDF, doDownloadStyleSVG, doDownloadCSV } from "./barcode-print-dialog"
 
 interface BarcodePrinterProps {
   open: boolean
@@ -167,6 +167,32 @@ export function BarcodePrinter({
     } catch (error) {
       console.error(error)
       toast.error("Failed to download SVG")
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  const handleDownloadCSV = async () => {
+    if (!productCode) {
+      toast.error("No barcode assigned")
+      return
+    }
+    setIsPrinting(true)
+    try {
+      doDownloadCSV(
+        productCode,
+        productName,
+        undefined,
+        productPrice,
+        productColor,
+        productSize,
+        productMaterial,
+        quantity
+      )
+      toast.success("Downloaded CSV for BarTender successfully")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to download CSV")
     } finally {
       setIsPrinting(false)
     }
@@ -711,6 +737,15 @@ export function BarcodePrinter({
               className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
             >
               Download SVG (Vector)
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDownloadCSV}
+              disabled={isPrinting}
+              variant="outline"
+              className="border-green-300 text-green-700 hover:bg-green-50 font-semibold"
+            >
+              Download CSV (BarTender)
             </Button>
           </div>
 
