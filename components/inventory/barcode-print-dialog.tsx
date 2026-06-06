@@ -589,7 +589,7 @@ export async function doDownloadStylePNG(
   size?: string,
   material?: string,
 ) {
-  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 1)
+  const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 5)
   
   const link = document.createElement("a")
   link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.png`
@@ -649,10 +649,10 @@ export async function doDownloadStyleBMP(
   view.setUint32(50, 2, true) // Important colors
   
   // Color Palette (8 bytes)
-  // Color 0: Black (0, 0, 0, 0)
-  view.setUint32(54, 0x00000000, true)
-  // Color 1: White (255, 255, 255, 0)
-  view.setUint32(58, 0x00FFFFFF, true)
+  // Color 0: Black (0, 0, 0, 255)
+  view.setUint32(54, 0xFF000000, true)
+  // Color 1: White (255, 255, 255, 255)
+  view.setUint32(58, 0xFFFFFFFF, true)
   
   // Pixel Data (bottom-to-top)
   for (let y = height - 1; y >= 0; y--) {
