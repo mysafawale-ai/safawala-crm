@@ -237,25 +237,25 @@ export async function doPrintStyle2(
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.2mm; }
-  .prow { font-size: 5pt; font-weight: 850; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
+  .prow { font-size: 5pt; font-weight: bold; color: #000; text-align: center; white-space: nowrap; line-height: 1.2; }
   .mrp { position: relative; display: inline-block; color: #000; font-weight: 500; margin-right: 0.5mm; }
   .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1.2px; background: #000; }
   .mrp::before { transform: rotate(12deg); } .mrp::after { transform: rotate(-12deg); }
-  .sale { font-size: 8.5pt; font-weight: 950; color: #000; margin-right: 0.5mm; }
-  .save { font-size: 4pt; font-weight: 900; color: #000; }
+  .sale { font-size: 8.5pt; font-weight: bold; color: #000; margin-right: 0.5mm; }
+  .save { font-size: 4pt; font-weight: bold; color: #000; }
   .bc { width: 32mm; height: 5.2mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-  .code { font-family: 'Courier New', monospace; font-size: 4.8pt; font-weight: 900; color: #000; text-align: center; letter-spacing: 0.2px; }
-  .web { font-size: 4.2pt; font-weight: 900; color: #000; text-align: center; }
+  .code { font-family: 'Courier New', monospace; font-size: 4.8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.2px; }
+  .web { font-size: 4.2pt; font-weight: normal; color: #000; text-align: center; }
   .sep { width: 0.2mm; background: #000; align-self: stretch; margin: 1mm 0; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.3mm; }
   .logo { display: flex; align-items: center; justify-content: center; }
   .logo-img { filter: brightness(0); image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
   .hr { width: 80%; height: 0.2mm; background: #000; }
-  .pname { font-size: 5.5pt; font-weight: 950; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; max-height: 3.5mm; }
+  .pname { font-size: 5.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; max-height: 3.5mm; }
   .feats { display: flex; flex-direction: column; gap: 0.3mm; align-items: flex-start; width: 100%; }
   .feat { display: flex; gap: 1mm; align-items: center; }
-  .fk { font-size: 4pt; color: #000; text-transform: uppercase; min-width: 9mm; font-weight: 800; }
-  .fv { font-size: 4.2pt; font-weight: 950; color: #000; }
+  .fk { font-size: 4pt; color: #000; text-transform: uppercase; min-width: 9mm; font-weight: normal; }
+  .fv { font-size: 4.2pt; font-weight: bold; color: #000; }
   .s3 { width: 30mm; height: 100%; }
   @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>${labelsHTML}</body></html>`
@@ -265,6 +265,292 @@ export async function doPrintStyle2(
   win.document.write(html)
   win.document.close()
   setTimeout(() => { win.focus(); win.print() }, 200)
+}
+
+// ── Download Barcode as PNG at 300 DPI ─────────────────────────────────────────
+export async function doDownloadStylePNG(
+  barcode: string,
+  label: string,
+  style: 1 | 2,
+  regularPrice?: number,
+  salePrice?: number,
+  color?: string,
+  size?: string,
+  material?: string,
+) {
+  const JsBarcode = (await import("jsbarcode")).default
+  const canvas = document.createElement("canvas")
+
+  if (style === 1) {
+    // 50mm x 25mm label size (at 300 DPI: 591px x 295px)
+    canvas.width = 591
+    canvas.height = 295
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Fill background
+    ctx.fillStyle = "#FFFFFF"
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // Border (thin light outline matching Style 1 preview)
+    ctx.strokeStyle = "#DDDDDD"
+    ctx.lineWidth = 4
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4)
+
+    ctx.fillStyle = "#000000"
+    ctx.textAlign = "center"
+
+    // Product Title
+    ctx.font = "bold 22px Arial"
+    const words = label.split(" ")
+    let line1 = ""
+    let line2 = ""
+    for (const word of words) {
+      if (ctx.measureText(line1 + " " + word).width < 540 && line2 === "") {
+        line1 += (line1 ? " " : "") + word
+      } else {
+        line2 += (line2 ? " " : "") + word
+      }
+    }
+    ctx.fillText(line1.substring(0, 24), canvas.width / 2, 40)
+    if (line2) {
+      ctx.fillText(line2.substring(0, 24), canvas.width / 2, 65)
+    }
+
+    // Meta Attributes
+    const meta1 = [color, size].filter(Boolean).join(" | ")
+    ctx.font = "18px Arial"
+    ctx.fillStyle = "#000000"
+    let metaY = line2 ? 90 : 65
+    if (meta1) {
+      ctx.fillText(meta1, canvas.width / 2, metaY)
+      metaY += 25
+    }
+    if (material) {
+      ctx.fillText(material, canvas.width / 2, metaY)
+      metaY += 25
+    }
+
+    // Pricing Layout
+    const pricingY = metaY + 10
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+    ctx.textAlign = "left"
+    let textX = 40
+
+    if (regularPrice || salePrice) {
+      if (regularPrice) {
+        ctx.font = "18px Arial"
+        ctx.fillStyle = "#000000"
+        ctx.fillText(`MRP: ₹${regularPrice}`, textX, pricingY)
+        const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
+        
+        // Strikethrough line
+        ctx.strokeStyle = "#000000"
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(textX - 2, pricingY - 6)
+        ctx.lineTo(textX + textWidth + 2, pricingY - 6)
+        ctx.stroke()
+        textX += textWidth + 15
+      }
+      if (salePrice) {
+        ctx.font = "bold 24px Arial"
+        ctx.fillStyle = "#000000"
+        ctx.fillText(`₹${salePrice}`, textX, pricingY)
+        const textWidth = ctx.measureText(`₹${salePrice}`).width
+        textX += textWidth + 15
+      }
+      if (savings > 0) {
+        ctx.font = "bold 16px Arial"
+        ctx.fillStyle = "#000000"
+        ctx.fillText(`Save ₹${savings}`, textX, pricingY - 2)
+      }
+    }
+
+    // Draw Barcode image
+    const barcodeCanvas = document.createElement("canvas")
+    JsBarcode(barcodeCanvas, barcode, {
+      format: "CODE128",
+      width: 4,
+      height: 80,
+      displayValue: false,
+      margin: 0,
+      background: "#FFFFFF",
+      lineColor: "#000000"
+    })
+    ctx.drawImage(barcodeCanvas, 40, 160, 511, 65)
+
+    // Code String
+    ctx.textAlign = "center"
+    ctx.font = "bold 20px Courier New"
+    ctx.fillStyle = "#000000"
+    ctx.fillText(barcode, canvas.width / 2, 245)
+
+    // Website Link
+    ctx.font = "16px Arial"
+    ctx.fillText("www.safawala.com", canvas.width / 2, 275)
+
+  } else {
+    // Style 2: 100mm x 15mm label size (at 300 DPI: 1181px x 177px)
+    canvas.width = 1181
+    canvas.height = 177
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Fill background
+    ctx.fillStyle = "#FFFFFF"
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // --- SECTION 1: x = 0 to 413 (35% width) ---
+    const sec1Width = 413
+    ctx.textAlign = "center"
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+    const pricingY = 32
+
+    // Pricing Row
+    if (regularPrice || salePrice) {
+      let textX = 25
+      if (regularPrice) {
+        ctx.font = "18px Arial"
+        ctx.fillStyle = "#000000"
+        ctx.fillText(`MRP: ₹${regularPrice}`, textX + 45, pricingY)
+        const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
+        
+        ctx.strokeStyle = "#000000"
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(textX + 45 - textWidth/2 - 2, pricingY - 6)
+        ctx.lineTo(textX + 45 + textWidth/2 + 2, pricingY - 6)
+        ctx.stroke()
+        textX += textWidth + 15
+      }
+      if (salePrice) {
+        ctx.font = "bold 24px Arial"
+        ctx.fillStyle = "#000000"
+        ctx.fillText(`₹${salePrice}`, textX + 45, pricingY)
+        const textWidth = ctx.measureText(`₹${salePrice}`).width
+        textX += textWidth + 15
+      }
+      if (savings > 0) {
+        ctx.font = "bold 15px Arial"
+        ctx.fillStyle = "#000000"
+        ctx.fillText(`Save ₹${savings}`, textX + 45, pricingY - 2)
+      }
+    }
+
+    // Barcode rendering
+    const barcodeCanvas = document.createElement("canvas")
+    JsBarcode(barcodeCanvas, barcode, {
+      format: "CODE128",
+      width: 4,
+      height: 80,
+      displayValue: false,
+      margin: 0,
+      background: "#FFFFFF",
+      lineColor: "#000000"
+    })
+    ctx.drawImage(barcodeCanvas, 20, 48, 373, 60)
+
+    // Code
+    ctx.font = "bold 18px Courier New"
+    ctx.fillStyle = "#000000"
+    ctx.fillText(barcode, sec1Width / 2, 130)
+
+    // Web url
+    ctx.font = "15px Arial"
+    ctx.fillText("www.safawala.com", sec1Width / 2, 155)
+
+    // --- DIVIDER: x = 413 to 415 ---
+    ctx.strokeStyle = "#000000"
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(414, 10)
+    ctx.lineTo(414, 167)
+    ctx.stroke()
+
+    // --- SECTION 2: x = 415 to 827 (35% width) ---
+    const sec2Width = 412
+    const sec2Start = 415
+    const sec2Center = sec2Start + (sec2Width / 2)
+
+    // Logo image rendering with black filter
+    let logoDrawn = false
+    try {
+      const logoImg = new Image()
+      logoImg.crossOrigin = "anonymous"
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => {
+          const scale = Math.min(220 / logoImg.naturalWidth, 40 / logoImg.naturalHeight)
+          const w = logoImg.naturalWidth * scale
+          const h = logoImg.naturalHeight * scale
+          ctx.drawImage(logoImg, sec2Center - (w / 2), 15, w, h)
+
+          // Colorize logo pixels to solid black
+          const imgData = ctx.getImageData(sec2Center - (w / 2), 15, w, h)
+          for (let k = 0; k < imgData.data.length; k += 4) {
+            if (imgData.data[k + 3] > 10) {
+              imgData.data[k] = 0
+              imgData.data[k+1] = 0
+              imgData.data[k+2] = 0
+            }
+          }
+          ctx.putImageData(imgData, sec2Center - (w / 2), 15)
+          logoDrawn = true
+          resolve()
+        }
+        logoImg.onerror = () => resolve()
+        logoImg.src = "/safawalalogo.png"
+      })
+    } catch { /* ignored */ }
+
+    if (!logoDrawn) {
+      ctx.font = "bold 24px Arial"
+      ctx.fillStyle = "#000000"
+      ctx.fillText("SAFAWALA", sec2Center, 35)
+    }
+
+    // Horizontal divider line
+    ctx.strokeStyle = "#000000"
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(sec2Start + 40, 52)
+    ctx.lineTo(sec2Start + sec2Width - 40, 52)
+    ctx.stroke()
+
+    // Product Title
+    ctx.font = "bold 20px Arial"
+    ctx.fillStyle = "#000000"
+    ctx.textAlign = "center"
+    ctx.fillText(label.substring(0, 30), sec2Center, 78)
+
+    // Features Details (left aligned)
+    ctx.font = "16px Arial"
+    ctx.textAlign = "left"
+    let featY = 105
+    if (material) {
+      ctx.fillText(`MATERIAL: ${material}`, sec2Start + 30, featY)
+      featY += 22
+    }
+    if (size) {
+      ctx.fillText(`SIZE: ${size}`, sec2Start + 30, featY)
+      featY += 22
+    }
+    if (color) {
+      ctx.fillText(`COLOUR: ${color}`, sec2Start + 30, featY)
+      featY += 22
+    }
+
+    // --- SECTION 3: x = 827 to 1181 (30% width) blank ---
+    // Blank tag tail is left unprinted.
+  }
+
+  // Trigger download flow
+  const link = document.createElement("a")
+  link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.png`
+  link.href = canvas.toDataURL("image/png")
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 // ── Dialog ───────────────────────────────────────────────────────────────────
@@ -277,6 +563,27 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
   const [activeTab, setActiveTab] = useState("main")
   const [printStyle, setPrintStyle] = useState<1 | 2>(1)
   const [topOffset, setTopOffset] = useState(0) // mm offset for first label alignment
+  const [zebraDevice, setZebraDevice] = useState<any | null>(null)
+  const [zebraStatus, setZebraStatus] = useState<"loading" | "connected" | "disconnected">("loading")
+  const [showSetup, setShowSetup] = useState(false)
+
+  const checkZebra = async () => {
+    setZebraStatus("loading")
+    try {
+      const { getLocalDefaultPrinter } = await import("@/lib/zebra-zpl-service")
+      const dev = await getLocalDefaultPrinter()
+      if (dev) {
+        setZebraDevice(dev)
+        setZebraStatus("connected")
+      } else {
+        setZebraDevice(null)
+        setZebraStatus("disconnected")
+      }
+    } catch {
+      setZebraDevice(null)
+      setZebraStatus("disconnected")
+    }
+  }
 
   useEffect(() => {
     if (open && product?.id) {
@@ -284,6 +591,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
       setSelectedVariantId(null)
       setQuantity(1)
       setActiveTab("main")
+      checkZebra()
     }
   }, [open, product?.id])
 
@@ -323,6 +631,71 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
       toast.success(`Sent ${quantity} label${quantity > 1 ? "s" : ""} to printer`)
     } catch {
       toast.error("Print failed")
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  const handleDownloadPNG = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
+    if (!barcode) { toast.error(`No barcode for ${label}`); return }
+    setPrinting(true)
+    try {
+      await doDownloadStylePNG(barcode, label, printStyle, regularPrice, salePrice, color, size, material)
+      toast.success("Downloaded barcode PNG successfully")
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to download barcode image")
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  const handleZPLPrint = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
+    if (!barcode) { toast.error(`No barcode for ${label}`); return }
+    if (quantity < 1) { toast.error("Enter at least 1 label"); return }
+    setPrinting(true)
+    try {
+      const { printZPLDirect } = await import("@/lib/zebra-zpl-service")
+      const items = Array.from({ length: quantity }).map(() => ({
+        code: barcode,
+        productName: label,
+        price: salePrice,
+        regular_price: regularPrice,
+        color,
+        size,
+        material
+      }))
+
+      const ok = await printZPLDirect({
+        barcodes: items,
+        style: printStyle,
+        topOffset: printStyle === 2 ? topOffset : 0,
+      }, zebraDevice)
+
+      if (ok) {
+        toast.success(`Printed ${quantity} labels directly to ${zebraDevice?.name || "Zebra printer"}`)
+      } else {
+        toast.warning("Direct print was not possible. ZPL file downloaded instead.")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("ZPL printing failed")
     } finally {
       setPrinting(false)
     }
@@ -572,14 +945,108 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                     </div>
                   )}
 
-                  <Button
-                    onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
-                    disabled={printing}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    <Printer className="w-4 h-4 mr-2" />
-                    {printing ? "Printing..." : "Print Labels"}
-                  </Button>
+                  {/* Zebra Connection Indicator */}
+                  <div className="border rounded-lg p-3 bg-gray-50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${
+                          zebraStatus === "connected" ? "bg-green-500 animate-pulse" :
+                          zebraStatus === "loading" ? "bg-blue-500 animate-pulse" : "bg-amber-500"
+                        }`} />
+                        <span className="text-xs font-semibold">
+                          Zebra Printer: {zebraStatus === "connected" ? zebraDevice?.name || "Connected" : 
+                                         zebraStatus === "loading" ? "Scanning..." : "Disconnected"}
+                        </span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={checkZebra}>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {zebraStatus === "disconnected" && (
+                      <div className="text-[11px] text-gray-500">
+                        Zebra Browser Print service not detected. You can use Browser HTML print or{" "}
+                        <button onClick={() => setShowSetup(!showSetup)} className="text-green-700 underline font-medium">
+                          view setup steps
+                        </button>.
+                      </div>
+                    )}
+
+                    {showSetup && (
+                      <div className="text-[10px] text-amber-900 bg-amber-50 border border-amber-200 p-2.5 rounded mt-1 space-y-1">
+                        <p className="font-bold">Setup Instructions:</p>
+                        <p>1. Open and start the <b>Zebra Browser Print</b> desktop app on this PC.</p>
+                        <p>2. Open <a href="https://localhost:9101/available" target="_blank" rel="noreferrer" className="text-green-700 underline font-semibold">https://localhost:9101/available</a> in a new tab.</p>
+                        <p>3. Click <b>Advanced</b> -&gt; <b>Proceed to localhost</b> to accept the HTTPS certificate.</p>
+                        <p>4. Refresh this popup to connect.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    {zebraStatus === "connected" ? (
+                      <>
+                        <Button
+                          onClick={() => handleZPLPrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                          disabled={printing}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                        >
+                          <Printer className="w-4 h-4 mr-2" />
+                          {printing ? "Printing..." : "Print ZPL Direct"}
+                        </Button>
+                        <Button
+                          onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                          disabled={printing}
+                          variant="outline"
+                          className="border-green-600 text-green-700 hover:bg-green-50"
+                        >
+                          Browser HTML Print
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                          disabled={printing}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                        >
+                          <Printer className="w-4 h-4 mr-2" />
+                          {printing ? "Printing..." : "Print Labels (HTML)"}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            const { downloadZPL } = require("@/lib/zebra-zpl-service")
+                            downloadZPL({
+                              barcodes: [{
+                                code: product.barcode || "",
+                                productName: product.name,
+                                price: product.price,
+                                regular_price: product.regular_price,
+                                color: product.color,
+                                size: product.size,
+                                material: product.material
+                              }],
+                              style: printStyle,
+                              topOffset: printStyle === 2 ? topOffset : 0
+                            })
+                          }}
+                          variant="outline"
+                          className="border-green-600 text-green-700 hover:bg-green-50"
+                        >
+                          Download ZPL
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      type="button"
+                      onClick={() => handleDownloadPNG(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                      variant="outline"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      Download PNG
+                    </Button>
+                  </div>
                 </>
               )}
             </TabsContent>
@@ -753,15 +1220,113 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                         </div>
                       )}
 
-                      <Button
-                        type="button"
-                        onClick={() => handlePrint(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
-                        disabled={printing || !selectedVariant.barcode}
-                        className="w-full bg-green-600 hover:bg-green-700"
-                      >
-                        <Printer className="w-4 h-4 mr-2" />
-                        {printing ? "Printing..." : "Print Labels"}
-                      </Button>
+                      {/* Zebra Connection Indicator */}
+                      <div className="border rounded-lg p-3 bg-gray-50 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${
+                              zebraStatus === "connected" ? "bg-green-500 animate-pulse" :
+                              zebraStatus === "loading" ? "bg-blue-500 animate-pulse" : "bg-amber-500"
+                            }`} />
+                            <span className="text-xs font-semibold">
+                              Zebra Printer: {zebraStatus === "connected" ? zebraDevice?.name || "Connected" : 
+                                             zebraStatus === "loading" ? "Scanning..." : "Disconnected"}
+                            </span>
+                          </div>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={checkZebra}>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+
+                        {zebraStatus === "disconnected" && (
+                          <div className="text-[11px] text-gray-500">
+                            Zebra Browser Print service not detected. You can use Browser HTML print or{" "}
+                            <button onClick={() => setShowSetup(!showSetup)} className="text-green-700 underline font-medium">
+                              view setup steps
+                            </button>.
+                          </div>
+                        )}
+
+                        {showSetup && (
+                          <div className="text-[10px] text-amber-900 bg-amber-50 border border-amber-200 p-2.5 rounded mt-1 space-y-1">
+                            <p className="font-bold">Setup Instructions:</p>
+                            <p>1. Open and start the <b>Zebra Browser Print</b> desktop app on this PC.</p>
+                            <p>2. Open <a href="https://localhost:9101/available" target="_blank" rel="noreferrer" className="text-green-700 underline font-semibold">https://localhost:9101/available</a> in a new tab.</p>
+                            <p>3. Click <b>Advanced</b> -&gt; <b>Proceed to localhost</b> to accept the HTTPS certificate.</p>
+                            <p>4. Refresh this popup to connect.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        {zebraStatus === "connected" ? (
+                          <>
+                            <Button
+                              type="button"
+                              onClick={() => handleZPLPrint(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                              disabled={printing || !selectedVariant.barcode}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                            >
+                              <Printer className="w-4 h-4 mr-2" />
+                              {printing ? "Printing..." : "Print ZPL Direct"}
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={() => handlePrint(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                              disabled={printing || !selectedVariant.barcode}
+                              variant="outline"
+                              className="border-green-600 text-green-700 hover:bg-green-50"
+                            >
+                              Browser HTML Print
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              type="button"
+                              onClick={() => handlePrint(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                              disabled={printing || !selectedVariant.barcode}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                            >
+                              <Printer className="w-4 h-4 mr-2" />
+                              {printing ? "Printing..." : "Print Labels (HTML)"}
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                const { downloadZPL } = require("@/lib/zebra-zpl-service")
+                                downloadZPL({
+                                  barcodes: [{
+                                    code: selectedVariant.barcode || "",
+                                    productName: varName,
+                                    price: salPrice,
+                                    regular_price: regPrice,
+                                    color: varColor,
+                                    size: varSize,
+                                    material: varMaterial
+                                  }],
+                                  style: printStyle,
+                                  topOffset: printStyle === 2 ? topOffset : 0
+                                })
+                              }}
+                              variant="outline"
+                              className="border-green-600 text-green-700 hover:bg-green-50"
+                              disabled={!selectedVariant.barcode}
+                            >
+                              Download ZPL
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          type="button"
+                          onClick={() => handleDownloadPNG(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                          variant="outline"
+                          className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                          disabled={!selectedVariant.barcode}
+                        >
+                          Download PNG
+                        </Button>
+                      </div>
                     </>
                   )}
                 </>

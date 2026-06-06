@@ -3951,7 +3951,6 @@ export default function CreateInvoicePage() {
               <span>I agree to the above lost/damage policy</span>
             </div>
           </div>
-          )}
 
           {/* Notes - Print */}
           {invoiceData.notes && (

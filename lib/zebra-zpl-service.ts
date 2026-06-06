@@ -1,115 +1,219 @@
 /**
  * Zebra ZPL Service — Optimised for ZTC ZD230-203dpi ZPL
- * Label: 50mm × 25mm, 2-column (100mm total width)
+ * Label Styles:
+ * - Style 1: 50mm × 25mm, 2-column (100mm total width)
+ * - Style 2: 100mm × 15mm, 1-column (with jewelry tag layout)
  * Resolution: 203 dpi = 8 dots per mm
  */
 
 export interface ZebraBarcodeItem {
   code: string
   productName: string
+  price?: number
+  regular_price?: number
+  color?: string
+  size?: string
+  material?: string
 }
 
 export interface ZebraPrintConfig {
   barcodes: ZebraBarcodeItem[]
+  style?: 1 | 2
   labelWidthMM?: number
   labelHeightMM?: number
   columns?: number
-  printDensity?: number  // 0–30, default 20 (darker)
-  printSpeed?: number    // 2–6 in/sec, default 2 (sharper)
+  topOffset?: number    // mm offset for label vertical alignment adjustment
+  printDensity?: number // 0–30, default 25 (darker)
+  printSpeed?: number   // 2–6 in/sec, default 2 (sharper)
+}
+
+export interface ZebraDevice {
+  name: string
+  deviceType: string
+  uid: string
+  connection: string
+  version?: number
+  provider?: string
+  manufacturer?: string
 }
 
 const DPM = 8 // dots per mm at 203dpi
 const d = (mm: number) => Math.round(mm * DPM)
+const LOCAL_API_URL = "https://localhost:9101"
 
-function singleLabelZPL(item: ZebraBarcodeItem, wMM: number, hMM: number): string {
-  const W = d(wMM)
-  const H = d(hMM)
-  const barcodeW = d(wMM - 6)       // barcode width in dots
-  const barcodeH = d(13)             // 13mm tall barcode
-  const barcodeX = d(3)              // 3mm from left
-  const barcodeY = d(2)              // 2mm from top
-  const codeY    = barcodeY + barcodeH + d(1)
-  const nameY    = codeY + d(5)
-
-  const name = item.productName.length > 18
-    ? item.productName.substring(0, 16) + ".."
-    : item.productName
-
-  return `^XA
-^PW${W}
-^LL${H}
-~SD25
-^PR2,2,2
-^BY5,3,${barcodeH}
-^FO${barcodeX},${barcodeY}^BCN,${barcodeH},N,N,N^FD${item.code}^FS
-^FO${barcodeX},${codeY}^A0N,40,40^FD${item.code}^FS
-^FO${barcodeX},${nameY}^A0N,30,30^FD${name}^FS
-^XZ`
-}
-
-function twoColumnLabelZPL(
+// Direct Style 1 (50mm × 25mm, 2-column, total 100mm × 25mm)
+function twoColumnStyle1ZPL(
   item1: ZebraBarcodeItem,
   item2: ZebraBarcodeItem | null,
   wMM: number,
-  hMM: number
+  hMM: number,
+  density = 25,
+  speed = 2
 ): string {
-  const totalW   = d(wMM * 2)
-  const H        = d(hMM)
-  const halfW    = d(wMM)
-  const barcodeW = d(wMM - 8)
-  const barcodeH = d(12)
-  const barcodeX1 = d(4)
-  const barcodeX2 = halfW + d(4)
-  const barcodeY  = d(1.5)
-  const codeY     = barcodeY + barcodeH + d(1)
-  const nameY     = codeY + d(5)
+  const totalW   = d(wMM * 2) // 800 dots
+  const H        = d(hMM)     // 200 dots
+  const halfW    = d(wMM)     // 400 dots
 
-  const fmt = (s: string) => s.length > 16 ? s.substring(0, 14) + ".." : s
+  const formatItem = (item: ZebraBarcodeItem, xOffset: number) => {
+    const name = item.productName.length > 22 ? item.productName.substring(0, 20) + ".." : item.productName
+    const meta = [item.color, item.size].filter(Boolean).join(" | ")
+    const mat = item.material || ""
+
+    // Prices
+    const regularPrice = item.regular_price
+    const salePrice = item.price
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+
+    let pricingText = ""
+    if (regularPrice && salePrice) {
+      pricingText = `MRP: Rs.${regularPrice} Sale: Rs.${salePrice}`
+    } else if (salePrice) {
+      pricingText = `Rs.${salePrice}`
+    }
+
+    // Build block with clear ZPL layout commands
+    let block = `
+^FO${xOffset + d(4)},${d(3)}^A0N,22,22^FB${halfW - d(8)},2,0,C,0^FD${name}^FS`
+
+    let currentY = 8.5 // start Y offset in mm
+
+    if (meta) {
+      block += `\n^FO${xOffset + d(4)},${d(currentY)}^A0N,16,16^FB${halfW - d(8)},1,0,C,0^FD${meta}^FS`
+      currentY += 2.5
+    }
+    if (mat) {
+      block += `\n^FO${xOffset + d(4)},${d(currentY)}^A0N,16,16^FB${halfW - d(8)},1,0,C,0^FD${mat}^FS`
+      currentY += 2.5
+    }
+
+    if (pricingText) {
+      block += `\n^FO${xOffset + d(4)},${d(currentY)}^A0N,20,20^FB${halfW - d(8)},1,0,C,0^FD${pricingText}^FS`
+      currentY += 3.0
+    }
+
+    // Barcode: Code 128 (width 2, height 50 dots)
+    const barcodeY = currentY + 1.5
+    const barcodeX = xOffset + d(wMM / 2) - d(18) // center the barcode (approx width 36mm)
+    block += `\n^BY2,3,40`
+    block += `\n^FO${barcodeX},${d(barcodeY)}^BCN,40,N,N,N^FD${item.code}^FS`
+
+    // Code text below barcode
+    const codeTextY = barcodeY + 5.5
+    block += `\n^FO${xOffset + d(4)},${d(codeTextY)}^A0N,16,16^FB${halfW - d(8)},1,0,C,0^FD${item.code}^FS`
+
+    // Website at the bottom
+    const webY = codeTextY + 2.5
+    block += `\n^FO${xOffset + d(4)},${d(webY)}^A0N,14,14^FB${halfW - d(8)},1,0,C,0^FDwww.safawala.com^FS`
+
+    return block
+  }
 
   let zpl = `^XA
 ^PW${totalW}
 ^LL${H}
-~SD25
-^PR2,2,2
-^BY5,3,${barcodeH}
-^FO${barcodeX1},${barcodeY}^BCN,${barcodeH},N,N,N^FD${item1.code}^FS
-^FO${barcodeX1},${codeY}^A0N,40,40^FD${item1.code}^FS
-^FO${barcodeX1},${nameY}^A0N,28,28^FD${fmt(item1.productName)}^FS`
+~SD${density}
+^PR${speed},${speed},${speed}`
 
+  zpl += formatItem(item1, 0)
   if (item2) {
-    zpl += `
-^FO${barcodeX2},${barcodeY}^BCN,${barcodeH},N,N,N^FD${item2.code}^FS
-^FO${barcodeX2},${codeY}^A0N,40,40^FD${item2.code}^FS
-^FO${barcodeX2},${nameY}^A0N,28,28^FD${fmt(item2.productName)}^FS`
+    zpl += formatItem(item2, halfW)
   }
 
   zpl += `\n^XZ`
   return zpl
 }
 
+// Direct Style 2 (100mm × 15mm, 1-column Jewelry Tag)
+function singleStyle2ZPL(
+  item: ZebraBarcodeItem,
+  wMM: number,
+  hMM: number,
+  topOffsetMM = 0,
+  density = 25,
+  speed = 2
+): string {
+  const W = d(wMM) // 800 dots
+  const H = d(hMM) // 120 dots
+  const offset = d(topOffsetMM) // vertical shift in dots
+
+  const regularPrice = item.regular_price
+  const salePrice = item.price
+  const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+
+  let pricingText = ""
+  if (regularPrice && salePrice) {
+    pricingText = `MRP: Rs.${regularPrice} Sale: Rs.${salePrice}`
+  } else if (salePrice) {
+    pricingText = `Rs.${salePrice}`
+  }
+
+  const mat = item.material ? `Mat: ${item.material}` : ""
+  const size = item.size ? `Size: ${item.size}` : ""
+  const color = item.color ? `Col: ${item.color}` : ""
+  const feats = [mat, size, color].filter(Boolean).join(" ")
+
+  const name = item.productName.length > 26 ? item.productName.substring(0, 24) + ".." : item.productName
+
+  // Section 1 (0 to 35mm): Pricing & Barcode
+  // Section 2 (35mm to 70mm): Brand, Name & Features
+  // Section 3 (70mm to 100mm): Blank Tail
+  return `^XA
+^PW${W}
+^LL${H + offset}
+~SD${density}
+^PR${speed},${speed},${speed}
+^LH0,${offset}
+^FO15,10^A0N,18,18^FB250,1,0,C,0^FD${pricingText}^FS
+^BY1,3,40
+^FO25,35^BCN,40,N,N,N^FD${item.code}^FS
+^FO15,80^A0N,16,16^FB250,1,0,C,0^FD${item.code}^FS
+^FO15,100^A0N,14,14^FB250,1,0,C,0^FDwww.safawala.com^FS
+^FO280,10^GB2,100,2^FS
+^FO300,10^A0N,20,20^FB240,1,0,C,0^FDSAFAWALA^FS
+^FO320,32^GB200,2,2^FS
+^FO300,42^A0N,18,18^FB240,2,0,C,0^FD${name}^FS
+^FO300,85^A0N,14,14^FB240,2,0,L,0^FD${feats}^FS
+^XZ`
+}
+
 export function generateZPL(config: ZebraPrintConfig): string {
   const {
     barcodes,
-    labelWidthMM  = 50,
-    labelHeightMM = 25,
-    columns       = 2,
+    style = 1,
+    labelWidthMM = style === 1 ? 50 : 100,
+    labelHeightMM = style === 1 ? 25 : 15,
+    columns = style === 1 ? 2 : 1,
+    topOffset = 0,
+    printDensity = 25,
+    printSpeed = 2,
   } = config
 
   if (barcodes.length === 0) return ""
 
   let out = ""
-  if (columns === 2) {
+  if (style === 1) {
+    // 2-column Style 1 layout
     for (let i = 0; i < barcodes.length; i += 2) {
-      out += twoColumnLabelZPL(
+      out += twoColumnStyle1ZPL(
         barcodes[i],
         i + 1 < barcodes.length ? barcodes[i + 1] : null,
         labelWidthMM,
-        labelHeightMM
+        labelHeightMM,
+        printDensity,
+        printSpeed
       ) + "\n"
     }
   } else {
+    // 1-column Style 2 Jewelry Tag layout
     for (const item of barcodes) {
-      out += singleLabelZPL(item, labelWidthMM, labelHeightMM) + "\n"
+      out += singleStyle2ZPL(
+        item,
+        labelWidthMM,
+        labelHeightMM,
+        topOffset,
+        printDensity,
+        printSpeed
+      ) + "\n"
     }
   }
   return out
@@ -126,36 +230,81 @@ export function downloadZPL(config: ZebraPrintConfig, filename = "barcodes.zpl")
   URL.revokeObjectURL(url)
 }
 
-export async function printZPLDirect(config: ZebraPrintConfig): Promise<boolean> {
-  const zpl = generateZPL(config)
-  if (typeof window !== "undefined" && (window as any).BrowserPrint) {
+// Fetch default printer from Zebra service running locally (HTTPS)
+export async function getLocalDefaultPrinter(): Promise<ZebraDevice | null> {
+  if (typeof window === "undefined") return null
+  try {
+    const res = await fetch(`${LOCAL_API_URL}/default?type=printer`, {
+      method: "GET",
+      mode: "cors",
+    })
+    if (!res.ok) return null
+    const text = await res.text()
+    if (!text || text.trim() === "") return null
     try {
-      const BP = (window as any).BrowserPrint
-      return new Promise((resolve, reject) => {
-        BP.getDefaultDevice("printer", (device: any) => {
-          if (device) {
-            device.send(zpl, () => resolve(true), reject)
-          } else {
-            reject(new Error("No Zebra printer found"))
-          }
-        }, reject)
-      })
+      return JSON.parse(text) as ZebraDevice
     } catch {
+      return {
+        name: text.trim(),
+        deviceType: "printer",
+        uid: text.trim(),
+        connection: "usb"
+      }
+    }
+  } catch (err) {
+    console.warn("Zebra service not running on localhost:9101 or certificate not trusted:", err)
+    return null
+  }
+}
+
+// Check if Zebra Browser Print is running
+export async function checkLocalZebraStatus(): Promise<boolean> {
+  const device = await getLocalDefaultPrinter()
+  return device !== null
+}
+
+// Send ZPL directly to Zebra printer via fetch API
+export async function printZPLDirect(config: ZebraPrintConfig, selectedDevice?: ZebraDevice): Promise<boolean> {
+  const zpl = generateZPL(config)
+  if (!zpl) return false
+
+  try {
+    const device = selectedDevice || await getLocalDefaultPrinter()
+    if (!device) {
+      // Fallback: download ZPL file so they can feed it manually
       downloadZPL(config)
       return false
     }
+
+    const payload = {
+      device: device,
+      data: zpl
+    }
+
+    const res = await fetch(`${LOCAL_API_URL}/write`, {
+      method: "POST",
+      mode: "cors",
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify(payload)
+    })
+    
+    return res.ok
+  } catch (err) {
+    console.error("Direct printing failed", err)
+    downloadZPL(config)
+    return false
   }
-  downloadZPL(config)
-  return false
 }
 
 export async function copyZPLToClipboard(config: ZebraPrintConfig): Promise<void> {
   await navigator.clipboard.writeText(generateZPL(config))
 }
 
-// HTML fallback using inline SVG — sharp on any printer
+// HTML fallback print using inline SVG — sharp on any standard printer (if Zebra app not installed)
 export async function printThermalLabels(config: ZebraPrintConfig): Promise<void> {
-  const { barcodes, labelWidthMM = 50, labelHeightMM = 25, columns = 2 } = config
+  const { barcodes, style = 1, labelWidthMM = style === 1 ? 50 : 100, labelHeightMM = style === 1 ? 25 : 15, columns = style === 1 ? 2 : 1 } = config
   const JsBarcode = (await import("jsbarcode")).default
 
   const makeSVG = (code: string): string => {
@@ -235,11 +384,10 @@ export async function printThermalLabels(config: ZebraPrintConfig): Promise<void
 }
 
 export function getZebraSetupInstructions(): string {
-  return `Zebra ZD230-203dpi Setup:
-- Label Width: 100mm (2 × 50mm columns)
-- Label Height: 25mm
-- Print Speed: 2 in/sec
-- Darkness: 20–25
-- Media: Direct Thermal, Gap detection
-- Browser print: Paper = 100mm × 25mm, Margins = None, Scale = 100%`
+  return `Zebra ZD230 Setup Instructions:
+1. Download and install "Zebra Browser Print" for Windows or macOS.
+2. Ensure the service is running in your system tray.
+3. Open https://localhost:9101/available in your browser.
+4. Click "Advanced" -> "Proceed to localhost (unsafe)" to trust the self-signed HTTPS certificate.
+5. In Safawala CRM, select "Print Direct (ZPL)" to print instantly without standard dialog popups.`
 }
