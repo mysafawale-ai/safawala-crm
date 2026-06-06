@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Printer, Loader2, AlertCircle, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { SVG_LOGO } from "./logo-svg"
+import { checkBartenderBridge, printViaBartender } from "@/lib/bartender-bridge-service"
 
 interface Product {
   id: string
@@ -1152,6 +1153,8 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
   const [zebraDevices, setZebraDevices] = useState<any[]>([])
   const [zebraStatus, setZebraStatus] = useState<"loading" | "connected" | "disconnected">("loading")
   const [showSetup, setShowSetup] = useState(false)
+  const [bartenderStatus, setBartenderStatus] = useState<"idle" | "connected" | "disconnected">("idle")
+  const [showBartenderSetup, setShowBartenderSetup] = useState(false)
 
   const checkZebra = async () => {
     setZebraStatus("loading")
@@ -1178,6 +1181,12 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     }
   }
 
+  const checkBartender = async () => {
+    setBartenderStatus("idle")
+    const ok = await checkBartenderBridge()
+    setBartenderStatus(ok ? "connected" : "disconnected")
+  }
+
   useEffect(() => {
     if (open && product?.id) {
       loadVariants()
@@ -1185,6 +1194,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
       setQuantity(1)
       setActiveTab("main")
       checkZebra()
+      checkBartender()
     }
   }, [open, product?.id])
 
@@ -1312,6 +1322,41 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     } catch (e) {
       console.error(e)
       toast.error("Failed to download barcode SVG")
+    } finally {
+      setPrinting(false)
+    }
+  }
+
+  const handleBartenderPrint = async (
+    barcode: string | undefined,
+    label: string,
+    regularPrice?: number,
+    salePrice?: number,
+    color?: string,
+    size?: string,
+    material?: string,
+  ) => {
+    if (!barcode) { toast.error(`No barcode for ${label}`); return }
+    if (quantity < 1) { toast.error("Enter at least 1 label"); return }
+    setPrinting(true)
+    try {
+      const result = await printViaBartender({
+        barcode,
+        productName: label,
+        salePrice,
+        regularPrice,
+        color,
+        size,
+        material,
+        quantity,
+      })
+      if (result.success) {
+        toast.success(`Sent ${quantity} label${quantity > 1 ? "s" : ""} to BarTender`)
+      } else {
+        toast.error(result.error || "BarTender print failed")
+      }
+    } catch {
+      toast.error("BarTender Bridge unreachable")
     } finally {
       setPrinting(false)
     }
@@ -1715,6 +1760,55 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                     )}
                   </div>
 
+                  {/* BarTender Bridge */}
+                  <div className="border rounded-lg p-3 bg-orange-50 border-orange-200 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${
+                          bartenderStatus === "connected" ? "bg-orange-500 animate-pulse" :
+                          bartenderStatus === "idle" ? "bg-blue-400 animate-pulse" : "bg-gray-400"
+                        }`} />
+                        <span className="text-xs font-semibold text-orange-900">
+                          BarTender Bridge: {bartenderStatus === "connected" ? "Ready" : bartenderStatus === "idle" ? "Checking..." : "Not running"}
+                        </span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={checkBartender}>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    {bartenderStatus === "connected" && (
+                      <Button
+                        type="button"
+                        onClick={() => handleBartenderPrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                        disabled={printing}
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                      >
+                        <Printer className="w-4 h-4 mr-2" />
+                        {printing ? "Sending to BarTender..." : `Print ${quantity} Label${quantity > 1 ? "s" : ""} via BarTender`}
+                      </Button>
+                    )}
+                    {bartenderStatus === "disconnected" && (
+                      <div className="text-[11px] text-orange-800 space-y-1">
+                        <p>Bridge not running.{" "}
+                          <button onClick={() => setShowBartenderSetup(!showBartenderSetup)} className="underline font-semibold">
+                            View setup steps
+                          </button>
+                        </p>
+                        {showBartenderSetup && (
+                          <div className="bg-white border border-orange-200 rounded p-2 space-y-1 text-[10px] text-orange-900">
+                            <p className="font-bold">One-time Setup (Windows):</p>
+                            <p>1. Install <b>Node.js</b> from nodejs.org if not already installed.</p>
+                            <p>2. Copy the <b>tools/bartender-bridge/</b> folder to this PC (e.g. <b>C:\safawala-bridge\</b>).</p>
+                            <p>3. Edit <b>config.json</b> — set your BarTender .exe path and label template (.btw) path.</p>
+                            <p>4. Run <b>install-service.bat</b> as Administrator to install as a Windows Service (auto-starts on boot).</p>
+                            <p>5. Or run <b>start.bat</b> manually for a quick test.</p>
+                            <p>6. Click the refresh button above to reconnect.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     {zebraStatus === "connected" ? (
                       <>
@@ -2068,6 +2162,40 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                             <p>3. Click <b>Advanced</b> -&gt; <b>Proceed to localhost</b> to accept the HTTPS certificate.</p>
                             <p>4. Refresh this popup to connect.</p>
                           </div>
+                        )}
+                      </div>
+
+                      {/* BarTender Bridge */}
+                      <div className="border rounded-lg p-3 bg-orange-50 border-orange-200 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${
+                              bartenderStatus === "connected" ? "bg-orange-500 animate-pulse" :
+                              bartenderStatus === "idle" ? "bg-blue-400 animate-pulse" : "bg-gray-400"
+                            }`} />
+                            <span className="text-xs font-semibold text-orange-900">
+                              BarTender Bridge: {bartenderStatus === "connected" ? "Ready" : bartenderStatus === "idle" ? "Checking..." : "Not running"}
+                            </span>
+                          </div>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={checkBartender}>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        {bartenderStatus === "connected" && (
+                          <Button
+                            type="button"
+                            onClick={() => handleBartenderPrint(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
+                            disabled={printing || !selectedVariant.barcode}
+                            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                          >
+                            <Printer className="w-4 h-4 mr-2" />
+                            {printing ? "Sending to BarTender..." : `Print ${quantity} Label${quantity > 1 ? "s" : ""} via BarTender`}
+                          </Button>
+                        )}
+                        {bartenderStatus === "disconnected" && (
+                          <p className="text-[11px] text-orange-800">
+                            Bridge not running. Start <b>start.bat</b> or run <b>install-service.bat</b> on this PC.
+                          </p>
                         )}
                       </div>
 
