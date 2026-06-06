@@ -34,6 +34,8 @@ export function BarcodePrinter({
   const [isPrinting, setIsPrinting] = useState(false)
   const [style, setStyle] = useState<1 | 2>(1)
   const [topOffset, setTopOffset] = useState(0) // mm offset for first label alignment
+  const [darkness, setDarkness] = useState(15)   // default to sharp 15
+  const [speed, setSpeed] = useState(2)         // default to sharpest 2 in/sec
   const [zebraDevice, setZebraDevice] = useState<any | null>(null)
   const [zebraDevices, setZebraDevices] = useState<any[]>([])
   const [zebraStatus, setZebraStatus] = useState<"loading" | "connected" | "disconnected">("loading")
@@ -139,6 +141,8 @@ export function BarcodePrinter({
         barcodes: items,
         style: style,
         topOffset: style === 2 ? topOffset : 0,
+        printDensity: darkness,
+        printSpeed: speed
       }, zebraDevice)
 
       if (ok) {
@@ -487,6 +491,35 @@ export function BarcodePrinter({
               </p>
             </div>
           )}
+
+          {/* Print Quality Settings */}
+          <div className="grid grid-cols-2 gap-2 border rounded-lg p-2.5 bg-gray-50/50">
+            <div>
+              <Label className="text-[10px] font-semibold text-gray-600 block mb-1">Print Darkness (Density)</Label>
+              <select
+                value={darkness}
+                onChange={(e) => setDarkness(parseInt(e.target.value))}
+                className="text-xs p-1.5 border rounded bg-white w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 font-medium"
+              >
+                <option value="10">10 (Light - sharper)</option>
+                <option value="15">15 (Medium - recommended)</option>
+                <option value="20">20 (Dark)</option>
+                <option value="25">25 (Very Dark - causes bleed)</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-[10px] font-semibold text-gray-600 block mb-1">Print Speed</Label>
+              <select
+                value={speed}
+                onChange={(e) => setSpeed(parseInt(e.target.value))}
+                className="text-xs p-1.5 border rounded bg-white w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-500 font-medium"
+              >
+                <option value="2">2 in/s (Sharpest)</option>
+                <option value="3">3 in/s (Medium)</option>
+                <option value="4">4 in/s (Fast)</option>
+              </select>
+            </div>
+          </div>
 
           {/* Zebra Connection Indicator */}
           <div className="border rounded-lg p-3 bg-gray-50 flex flex-col gap-2">
