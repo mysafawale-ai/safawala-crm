@@ -131,13 +131,13 @@ export async function doPrint(
   .label.empty { visibility: hidden; }
   .name { font-size: 6.7pt; font-weight: 900; color: #000; text-align: center; width: 48mm; overflow: hidden; line-height: 1.15; word-break: break-word; margin-bottom: 0.4mm; }
   .meta { font-size: 6.5pt; font-weight: 500; color: #000; text-align: center; width: 48mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
-  .pricing-row { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.15; white-space: nowrap; margin-top: 0.4mm; font-family: Arial, sans-serif; }
+  .pricing-row { font-size: 8.5pt; font-weight: 700; color: #000; text-align: center; line-height: 1.15; white-space: nowrap; margin-top: 0.4mm; font-family: Arial, sans-serif; }
   .mrp-price { position: relative; display: inline-block; margin-right: 2px; color: #777; white-space: nowrap; font-family: Arial, sans-serif; }
   .mrp-price::before, .mrp-price::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1px; background: #777; }
   .mrp-price::before { transform: rotate(15deg); }
   .mrp-price::after { transform: rotate(-15deg); }
-  .sale-price { font-size: 8pt; font-weight: 900; color: #000; margin-right: 2px; font-family: Arial, sans-serif; }
-  .you-save { font-size: 6pt; font-weight: 700; color: #000; font-family: Arial, sans-serif; }
+  .sale-price { font-size: 10pt; font-weight: 900; color: #000; margin-right: 2px; font-family: Arial, sans-serif; }
+  .you-save { font-size: 8pt; font-weight: 700; color: #000; font-family: Arial, sans-serif; }
   .barcode { width: 43mm; height: 5mm; display: block; image-rendering: pixelated; image-rendering: crisp-edges; margin-top: 0.4mm; }
   .code { font-size: 6.5pt; font-weight: 700; color: #000; text-align: center; letter-spacing: 0.5px; line-height: 1.1; font-family: 'Courier New', monospace; }
   .website { font-size: 6pt; font-weight: 700; color: #000; line-height: 1.1; font-family: Arial, sans-serif; }
@@ -213,12 +213,12 @@ export async function doPrintStyle2(
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.15mm; }
-  .prow { font-size: 7.5pt; font-weight: bold; color: #000; text-align: center; white-space: nowrap; line-height: 1.1; }
+  .prow { font-size: 9pt; font-weight: bold; color: #000; text-align: center; white-space: nowrap; line-height: 1.1; }
   .mrp { position: relative; display: inline-block; color: #000; font-weight: 500; margin-right: 0.5mm; }
   .mrp::before, .mrp::after { content: ""; position: absolute; left: -5%; top: 50%; width: 110%; height: 1.2px; background: #000; }
   .mrp::before { transform: rotate(12deg); } .mrp::after { transform: rotate(-12deg); }
   .sale { font-size: 11pt; font-weight: bold; color: #000; margin-right: 0.5mm; }
-  .save { font-size: 6pt; font-weight: bold; color: #000; }
+  .save { font-size: 8.5pt; font-weight: bold; color: #000; }
   .bc { width: 33mm; height: 6.5mm; display: block; overflow: hidden; }
   .bc svg { width: 100%; height: 100%; display: block; }
   .code { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
@@ -398,12 +398,10 @@ export async function drawBarcodeCanvas(
 
     if (regularPrice || salePrice) {
       if (regularPrice) {
-        ctx.font = "12px Arial"
+        ctx.font = "15px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`MRP: ₹${regularPrice}`, textX, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
-        
-        // Strikethrough line
         ctx.strokeStyle = "#000000"
         ctx.lineWidth = 1.5
         ctx.beginPath()
@@ -413,14 +411,14 @@ export async function drawBarcodeCanvas(
         textX += textWidth + 10
       }
       if (salePrice) {
-        ctx.font = "bold 16px Arial"
+        ctx.font = "bold 18px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`₹${salePrice}`, textX, pricingY)
         const textWidth = ctx.measureText(`₹${salePrice}`).width
         textX += textWidth + 10
       }
       if (savings > 0) {
-        ctx.font = "bold 11px Arial"
+        ctx.font = "bold 14px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`Save ₹${savings}`, textX, pricingY - 1)
       }
@@ -469,7 +467,7 @@ export async function drawBarcodeCanvas(
     if (regularPrice || salePrice) {
       let textX = 15
       if (regularPrice) {
-        ctx.font = "16px Arial"
+        ctx.font = "19px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`MRP: ₹${regularPrice}`, textX + 30, pricingY)
         const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
@@ -482,14 +480,14 @@ export async function drawBarcodeCanvas(
         textX += textWidth + 10
       }
       if (salePrice) {
-        ctx.font = "bold 22px Arial"
+        ctx.font = "bold 24px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`₹${salePrice}`, textX + 30, pricingY)
         const textWidth = ctx.measureText(`₹${salePrice}`).width
         textX += textWidth + 10
       }
       if (savings > 0) {
-        ctx.font = "bold 13px Arial"
+        ctx.font = "bold 16px Arial"
         ctx.fillStyle = "#000000"
         ctx.fillText(`Save ₹${savings}`, textX + 30, pricingY - 1)
       }
@@ -813,7 +811,7 @@ export async function doDownloadStyleSVG(
     
     if (regularPrice) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="1.6" fill="#000000">MRP: ₹${regularPrice}</text>
+        <text x="${currentX}" y="${pricingY}" font-family="Arial" font-size="2.2" fill="#000000">MRP: ₹${regularPrice}</text>
         <line x1="${currentX}" y1="${pricingY - 0.5}" x2="${currentX + 10}" y2="${pricingY - 0.5}" stroke="#000000" stroke-width="0.2" />
       `
       currentX += 12
@@ -826,7 +824,7 @@ export async function doDownloadStyleSVG(
     }
     if (savings > 0) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY - 0.2}" font-family="Arial" font-size="1.4" font-weight="bold" fill="#000000">Save ₹${savings}</text>
+        <text x="${currentX}" y="${pricingY - 0.2}" font-family="Arial" font-size="2.0" font-weight="bold" fill="#000000">Save ₹${savings}</text>
       `
     }
     
@@ -865,7 +863,7 @@ export async function doDownloadStyleSVG(
     
     if (regularPrice) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY}" font-family="Helvetica, Arial, sans-serif" font-size="1.6" fill="#000000">MRP: ₹${regularPrice}</text>
+        <text x="${currentX}" y="${pricingY}" font-family="Helvetica, Arial, sans-serif" font-size="2.2" fill="#000000">MRP: ₹${regularPrice}</text>
         <line x1="${currentX}" y1="${pricingY - 0.5}" x2="${currentX + 9}" y2="${pricingY - 0.5}" stroke="#000000" stroke-width="0.15" />
       `
       currentX += 10
@@ -878,7 +876,7 @@ export async function doDownloadStyleSVG(
     }
     if (savings > 0) {
       pricingHTML += `
-        <text x="${currentX}" y="${pricingY - 0.1}" font-family="Helvetica, Arial, sans-serif" font-size="1.3" font-weight="bold" fill="#000000">Save ₹${savings}</text>
+        <text x="${currentX}" y="${pricingY - 0.1}" font-family="Helvetica, Arial, sans-serif" font-size="2.0" font-weight="bold" fill="#000000">Save ₹${savings}</text>
       `
     }
 
@@ -998,10 +996,9 @@ export async function doDownloadStylePDF(
     
     if (regularPrice) {
       pdf.setFont("helvetica", "normal")
-      pdf.setFontSize(5.0)
+      pdf.setFontSize(6.5)
       pdf.text(`MRP: ₹${regularPrice}`, currentX, pricingY)
       const textWidth = pdf.getTextWidth(`MRP: ₹${regularPrice}`)
-      
       pdf.setDrawColor(0, 0, 0)
       pdf.setLineWidth(0.15)
       pdf.line(currentX, pricingY - 0.5, currentX + textWidth, pricingY - 0.5)
@@ -1009,14 +1006,14 @@ export async function doDownloadStylePDF(
     }
     if (salePrice) {
       pdf.setFont("helvetica", "bold")
-      pdf.setFontSize(6.0)
+      pdf.setFontSize(8.0)
       pdf.text(`₹${salePrice}`, currentX, pricingY)
       const textWidth = pdf.getTextWidth(`₹${salePrice}`)
       currentX += textWidth + 2
     }
     if (savings > 0) {
       pdf.setFont("helvetica", "bold")
-      pdf.setFontSize(4.5)
+      pdf.setFontSize(6.0)
       pdf.text(`Save ₹${savings}`, currentX, pricingY - 0.2)
     }
     
@@ -1051,10 +1048,9 @@ export async function doDownloadStylePDF(
     pdf.setTextColor(0, 0, 0)
     if (regularPrice) {
       pdf.setFont("helvetica", "normal")
-      pdf.setFontSize(5.0)
+      pdf.setFontSize(6.5)
       pdf.text(`MRP: ₹${regularPrice}`, currentX, pricingY)
       const textWidth = pdf.getTextWidth(`MRP: ₹${regularPrice}`)
-      
       pdf.setDrawColor(0, 0, 0)
       pdf.setLineWidth(0.15)
       pdf.line(currentX, pricingY - 0.5, currentX + textWidth, pricingY - 0.5)
@@ -1062,14 +1058,14 @@ export async function doDownloadStylePDF(
     }
     if (salePrice) {
       pdf.setFont("helvetica", "bold")
-      pdf.setFontSize(6.5)
+      pdf.setFontSize(8.0)
       pdf.text(`₹${salePrice}`, currentX, pricingY)
       const textWidth = pdf.getTextWidth(`₹${salePrice}`)
       currentX += textWidth + 1.5
     }
     if (savings > 0) {
       pdf.setFont("helvetica", "bold")
-      pdf.setFontSize(4.5)
+      pdf.setFontSize(6.0)
       pdf.text(`Save ₹${savings}`, currentX, pricingY - 0.1)
     }
     
