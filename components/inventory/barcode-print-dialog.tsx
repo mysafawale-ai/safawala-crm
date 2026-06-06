@@ -488,10 +488,13 @@ export async function drawBarcodeCanvas(
           const scaleL = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
           const w = logoImg.naturalWidth * scaleL
           const h = logoImg.naturalHeight * scaleL
-          // Draw at Y = 6 with image smoothing disabled to prevent blurriness
-          ctx.imageSmoothingEnabled = false
-          ctx.drawImage(logoImg, sec2Center - (w / 2), 6, w, h)
+          // Draw directly to physical pixels to prevent intermediate downscaling blur
+          ctx.save()
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
           ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = "high"
+          ctx.drawImage(logoImg, (sec2Center - (w / 2)) * scale, 6 * scale, w * scale, h * scale)
+          ctx.restore()
  
           // Colorize logo pixels to solid black with smooth anti-aliasing
           const imgData = ctx.getImageData((sec2Center - (w / 2)) * scale, 6 * scale, w * scale, h * scale)
