@@ -174,20 +174,6 @@ export async function doPrintStyle2(
   })
   const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-  let logoSrc2 = ""
-  try {
-    const res = await fetch("/safawalalogo.png")
-    const blob = await res.blob()
-    logoSrc2 = await new Promise<string>((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.readAsDataURL(blob)
-    })
-  } catch { }
-  const logoHTML = logoSrc2
-    ? `<img src="${logoSrc2}" style="max-width:33mm;max-height:6mm;object-fit:contain;display:block;" />`
-    : `<div style="font-family:Arial;font-size:8pt;font-weight:bold;">SAFAWALA</div>`
-
   const feats = [
     material ? `<div class="feat"><span class="fk">Material</span><span class="fv">${material}</span></div>` : "",
     size     ? `<div class="feat"><span class="fk">Size</span><span class="fv">${size}</span></div>` : "",
@@ -211,7 +197,7 @@ export async function doPrintStyle2(
         <div class="web">www.safawala.com</div>
       </div>
       <div class="s2">
-        <div class="logo">${logoHTML}</div>
+        <div class="brand"><span class="brand-main">SAFAWALA</span><span class="brand-com">.com</span></div>
         <div class="pname">${label}</div>
         ${feats ? `<div class="feats">${feats}</div>` : ""}
       </div>
@@ -222,7 +208,7 @@ export async function doPrintStyle2(
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
   @page { size: 100mm 15mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .row:last-child { page-break-after: avoid; }
@@ -235,11 +221,12 @@ export async function doPrintStyle2(
   .save { font-size: 6pt; font-weight: bold; color: #000; }
   .bc { width: 33mm; height: 6.5mm; display: block; overflow: hidden; }
   .bc svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: Helvetica, Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
+  .code { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
   .web { font-size: 7pt; font-weight: normal; color: #000; text-align: center; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.4mm; }
-  .logo { display: flex; align-items: center; justify-content: center; max-width: 33mm; max-height: 6mm; overflow: hidden; }
-  .logo svg { width: 33mm; height: auto; max-height: 6mm; display: block; }
+  .brand { text-align: center; white-space: nowrap; line-height: 1; }
+  .brand-main { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 900; color: #000; letter-spacing: 1px; }
+  .brand-com { font-family: Arial, sans-serif; font-size: 8pt; font-weight: normal; color: #000; }
   .pname { font-size: 8.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
   .feats { display: flex; flex-direction: column; gap: 0.2mm; align-items: flex-start; width: 100%; }
   .feat { display: flex; gap: 1mm; align-items: center; }
@@ -523,46 +510,23 @@ export async function drawBarcodeCanvas(
     const sec2Start = 280
     const sec2Center = sec2Start + (sec2Width / 2)
 
-    let logoDrawn2 = false
-    try {
-      const logoImg = new Image()
-      logoImg.crossOrigin = "anonymous"
-      await new Promise<void>((resolve) => {
-        logoImg.onload = () => {
-          const maxLogoW = 234, maxLogoH = 42
-          const scaleL = Math.min(maxLogoW / logoImg.naturalWidth, maxLogoH / logoImg.naturalHeight)
-          const w = logoImg.naturalWidth * scaleL
-          const h = logoImg.naturalHeight * scaleL
-          ctx.save()
-          ctx.setTransform(1, 0, 0, 1, 0, 0)
-          ctx.imageSmoothingEnabled = true
-          ctx.imageSmoothingQuality = "high"
-          ctx.drawImage(logoImg, (sec2Center - w/2) * scale, 6 * scale, w * scale, h * scale)
-          ctx.restore()
-          const imgData = ctx.getImageData((sec2Center - w/2) * scale, 6 * scale, w * scale, h * scale)
-          for (let k = 0; k < imgData.data.length; k += 4) {
-            const brightness = 0.299 * imgData.data[k] + 0.587 * imgData.data[k+1] + 0.114 * imgData.data[k+2]
-            if (imgData.data[k+3] < 10) { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 255; imgData.data[k+3] = 0 }
-            else if (brightness < 220) { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 0 }
-            else { imgData.data[k] = imgData.data[k+1] = imgData.data[k+2] = 255; imgData.data[k+3] = 0 }
-          }
-          ctx.putImageData(imgData, (sec2Center - w/2) * scale, 6 * scale)
-          logoDrawn2 = true
-          resolve()
-        }
-        logoImg.onerror = () => resolve()
-        logoImg.src = "/safawalalogo.png"
-      })
-    } catch { /* ignored */ }
-    if (!logoDrawn2) { ctx.font = "bold 18px Helvetica"; ctx.fillStyle = "#000000"; ctx.fillText("SAFAWALA", sec2Center, 24) }
+    // Draw SAFAWALA.com text — SAFAWALA big bold, .com smaller
+    ctx.fillStyle = "#000000"
+    ctx.textAlign = "left"
+    ctx.font = "bold 24px Arial"
+    const safaW = ctx.measureText("SAFAWALA").width
+    ctx.font = "15px Arial"
+    const comW = ctx.measureText(".com").width
+    const brandStartX = sec2Center - (safaW + comW) / 2
+    ctx.font = "bold 24px Arial"
+    ctx.fillText("SAFAWALA", brandStartX, 28)
+    ctx.font = "15px Arial"
+    ctx.fillText(".com", brandStartX + safaW, 28)
 
-    ctx.strokeStyle = "#000000"; ctx.lineWidth = 1
-    ctx.beginPath(); ctx.moveTo(sec2Start + 30, 54); ctx.lineTo(sec2Start + sec2Width - 30, 54); ctx.stroke()
-
-    ctx.font = "bold 18px Helvetica"; ctx.fillStyle = "#000000"; ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 30), sec2Center, 72)
-    ctx.font = "15px Helvetica"; ctx.textAlign = "left"
-    let featY = 86
+    ctx.font = "bold 18px Arial"; ctx.fillStyle = "#000000"; ctx.textAlign = "center"
+    ctx.fillText(label.substring(0, 30), sec2Center, 56)
+    ctx.font = "15px Arial"; ctx.textAlign = "left"
+    let featY = 72
     if (material) { ctx.fillText(`MATERIAL: ${material}`, sec2Start + 20, featY); featY += 16 }
     if (size)     { ctx.fillText(`SIZE: ${size}`, sec2Start + 20, featY); featY += 16 }
     if (color)    { ctx.fillText(`COLOUR: ${color}`, sec2Start + 20, featY); featY += 16 }
@@ -918,13 +882,7 @@ export async function doDownloadStyleSVG(
       `
     }
 
-    let logoHTML = `<text x="52.5" y="3.2" font-family="Helvetica, Arial, sans-serif" font-size="2.2" font-weight="bold" fill="#000000" text-anchor="middle">SAFAWALA</text>`
-    try {
-      const logoBase64 = await getLogoBase64()
-      if (logoBase64) {
-        logoHTML = `<image href="${logoBase64}" x="40" y="1" width="25" height="4.5" />`
-      }
-    } catch { /* ignore */ }
+    const logoHTML = `<text x="52.5" y="4.5" font-family="Arial, sans-serif" font-size="3.8" font-weight="bold" fill="#000000" text-anchor="middle" letter-spacing="0.3">SAFAWALA</text><text x="62.5" y="4.5" font-family="Arial, sans-serif" font-size="2.4" font-weight="normal" fill="#000000" text-anchor="start">.com</text>`
 
     let featY = 10.5
     let featHTML = ""
@@ -1139,25 +1097,21 @@ export async function doDownloadStylePDF(
     pdf.setLineWidth(0.2)
     pdf.line(35, 1, 35, 14)
     
-    let logoDrawn = false
-    try {
-      const logoBase64 = await getLogoBase64()
-      if (logoBase64) {
-        pdf.addImage(logoBase64, "PNG", 40, 1, 25, 4.5)
-        logoDrawn = true
-      }
-    } catch { /* ignore */ }
-    
-    if (!logoDrawn) {
-      pdf.setFont("helvetica", "bold")
-      pdf.setFontSize(6.5)
-      pdf.text("SAFAWALA", 52.5, 3.2, { align: "center" })
-    }
-    
-    pdf.setDrawColor(0, 0, 0)
-    pdf.setLineWidth(0.15)
-    pdf.line(39, 6.2, 66, 6.2)
-    
+    // SAFAWALA big bold + .com smaller, side by side centered
+    pdf.setFont("helvetica", "bold")
+    pdf.setFontSize(7.5)
+    const safaTextW = pdf.getTextWidth("SAFAWALA")
+    pdf.setFont("helvetica", "normal")
+    pdf.setFontSize(4.8)
+    const comTextW = pdf.getTextWidth(".com")
+    const brandStartX = 52.5 - (safaTextW + comTextW) / 2
+    pdf.setFont("helvetica", "bold")
+    pdf.setFontSize(7.5)
+    pdf.text("SAFAWALA", brandStartX, 4.5)
+    pdf.setFont("helvetica", "normal")
+    pdf.setFontSize(4.8)
+    pdf.text(".com", brandStartX + safaTextW, 4.5)
+
     pdf.setFont("helvetica", "bold")
     pdf.setFontSize(5.5)
     pdf.text(label.substring(0, 30), 52.5, 8.5, { align: "center" })

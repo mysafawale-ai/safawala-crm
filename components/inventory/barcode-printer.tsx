@@ -345,20 +345,6 @@ export function BarcodePrinter({
     })
     const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
 
-    let logoPng2 = ""
-    try {
-      const res = await fetch("/safawalalogo.png")
-      const blob = await res.blob()
-      logoPng2 = await new Promise<string>((resolve) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.readAsDataURL(blob)
-      })
-    } catch { }
-    const logoHTML = logoPng2
-      ? `<img src="${logoPng2}" style="max-width:33mm;max-height:6mm;object-fit:contain;display:block;" />`
-      : `<div style="font-family:Arial;font-size:8pt;font-weight:bold;">SAFAWALA</div>`
-
     const features = [
       productMaterial ? `<div class="feat-row"><span class="feat-key">Material</span><span class="feat-val">${productMaterial}</span></div>` : "",
       productSize     ? `<div class="feat-row"><span class="feat-key">Size</span><span class="feat-val">${productSize}</span></div>` : "",
@@ -378,7 +364,7 @@ export function BarcodePrinter({
             <div class="website">www.safawala.com</div>
           </div>
           <div class="sec-info">
-            <div class="logo-wrap">${logoHTML}</div>
+            <div class="brand"><span class="brand-main">SAFAWALA</span><span class="brand-com">.com</span></div>
             <div class="prod-name">${productName}</div>
             ${features ? `<div class="features">${features}</div>` : ""}
           </div>
@@ -387,60 +373,31 @@ export function BarcodePrinter({
     }
 
     const printHTML = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Labels</title>
+<html><head><meta charset="UTF-8"><title>Labels</title>
 <style>
   @page { size: 100mm 15mm; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { width: 100mm; margin: 0; padding: 0; background: #fff; }
-
-  .label {
-    width: 100mm; height: 14.8mm;
-    display: flex; flex-direction: row;
-    page-break-after: always; page-break-inside: avoid;
-    overflow: hidden;
-  }
+  .label { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .label:last-child { page-break-after: avoid; }
-
-  /* Section 1 — 35mm */
-  .sec-pricing {
-    width: 34.9mm; height: 100%;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 0.5mm 0.8mm; gap: 0.15mm;
-  }
+  .sec-pricing { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.15mm; }
   .price { font-size: 11pt; font-weight: bold; color: #000; line-height: 1; }
   .currency { font-size: 6.5pt; vertical-align: super; font-weight: bold; }
   .barcode-wrap { width: 33mm; height: 6.5mm; display: block; overflow: hidden; }
   .barcode-wrap svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: Helvetica, Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000;
-          text-align: center; letter-spacing: 0.3px; }
+  .code { font-family: Arial, sans-serif; font-size: 7pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
   .website { font-size: 7pt; color: #000; text-align: center; font-weight: normal; }
-
-  /* Section 2 — 35mm */
-  .sec-info {
-    width: 34.9mm; height: 100%;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 0.5mm 0.8mm; gap: 0.4mm;
-  }
-  .logo-wrap { display: flex; align-items: center; justify-content: center; max-width: 33mm; max-height: 6mm; overflow: hidden; }
-  .logo-wrap svg { width: 33mm; height: auto; max-height: 6mm; display: block; }
-  .prod-name { font-size: 8.5pt; font-weight: bold; color: #000;
-               text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
+  .sec-info { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 0.8mm; gap: 0.4mm; }
+  .brand { text-align: center; white-space: nowrap; line-height: 1; }
+  .brand-main { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 900; color: #000; letter-spacing: 1px; }
+  .brand-com { font-family: Arial, sans-serif; font-size: 8pt; font-weight: normal; color: #000; }
+  .prod-name { font-size: 8.5pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
   .features { display: flex; flex-direction: column; gap: 0.2mm; align-items: flex-start; width: 100%; }
   .feat-row { display: flex; gap: 1mm; align-items: center; }
   .feat-key { font-size: 6.5pt; color: #000; text-transform: uppercase; min-width: 11mm; font-weight: normal; }
   .feat-val { font-size: 7pt; font-weight: bold; color: #000; }
-
-  /* Section 3 — 30mm blank */
   .sec-blank { width: 30mm; height: 100%; }
-</style>
-</head>
-<body>${labelsHTML}</body>
-</html>`
+</style></head><body>${labelsHTML}</body></html>`
 
     openPrint(printHTML)
   }
