@@ -244,11 +244,78 @@ export async function doPrintStyle2(
   setTimeout(() => { win.focus(); win.print() }, 200)
 }
 
+// ── Style 3: 100mm × 15mm — Big logo, no attributes, Arial ──────────────────
+export async function doPrintStyle3(
+  barcode: string,
+  label: string,
+  qty: number,
+  salePrice?: number,
+  topOffset: number = 0,
+) {
+  const JsBarcode = (await import("jsbarcode")).default
+
+  const barcodeSvgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  JsBarcode(barcodeSvgEl, barcode, {
+    format: "CODE128", displayValue: false, margin: 0,
+    width: 2, height: 80, background: "#FFFFFF", lineColor: "#000000",
+  })
+  const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
+
+  const logoHTML = SVG_LOGO
+
+  let labelsHTML = ""
+  for (let row = 0; row < qty; row++) {
+    const isFirst = row === 0
+    const rowStyle = isFirst && topOffset > 0 ? `style="padding-top: ${topOffset}mm;"` : ""
+    labelsHTML += `
+    <div class="row" ${rowStyle}>
+      <div class="s1">
+        ${salePrice ? `<div class="price">₹${salePrice}</div>` : ""}
+        <div class="bc">${barcodeSVG}</div>
+        <div class="code">${barcode}</div>
+        <div class="web">www.safawala.com</div>
+      </div>
+      <div class="s2">
+        <div class="logo">${logoHTML}</div>
+        <div class="pname">${label}</div>
+      </div>
+      <div class="s3"></div>
+    </div>`
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  @page { size: 100mm 15mm; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { width: 100mm; margin: 0; padding: 0; background: #fff; }
+  .row { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
+  .row:last-child { page-break-after: avoid; }
+  .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.3mm 0.8mm; gap: 0.1mm; }
+  .price { font-family: Arial, sans-serif; font-size: 12pt; font-weight: bold; color: #000; line-height: 1; }
+  .bc { width: 33mm; height: 7mm; display: block; overflow: hidden; }
+  .bc svg { width: 100%; height: 100%; display: block; }
+  .code { font-family: Arial, sans-serif; font-size: 8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
+  .web { font-family: Arial, sans-serif; font-size: 7.5pt; font-weight: normal; color: #000; text-align: center; }
+  .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.3mm 0.8mm; gap: 0.4mm; }
+  .logo { display: flex; align-items: center; justify-content: center; width: 33mm; max-height: 9mm; overflow: hidden; }
+  .logo svg { width: 33mm; height: auto; max-height: 9mm; display: block; }
+  .pname { font-family: Arial, sans-serif; font-size: 11pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
+  .s3 { width: 30mm; height: 100%; }
+  @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>${labelsHTML}</body></html>`
+
+  const win = window.open("", "_blank")
+  if (!win) { toast.error("Please allow popups for printing"); return }
+  win.document.write(html)
+  win.document.close()
+  setTimeout(() => { win.focus(); win.print() }, 200)
+}
+
 // ── Draw Barcode Canvas ────────────────────────────────────────────────────────
 export async function drawBarcodeCanvas(
   barcode: string,
   label: string,
-  style: 1 | 2,
+  style: 1 | 2 | 3,
   regularPrice?: number,
   salePrice?: number,
   color?: string,
@@ -558,7 +625,7 @@ export async function drawBarcodeCanvas(
 export async function doDownloadStylePNG(
   barcode: string,
   label: string,
-  style: 1 | 2,
+  style: 1 | 2 | 3,
   regularPrice?: number,
   salePrice?: number,
   color?: string,
@@ -566,9 +633,8 @@ export async function doDownloadStylePNG(
   material?: string,
 ) {
   const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 10)
-  
   const link = document.createElement("a")
-  link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.png`
+  link.download = `barcode-${barcode}-style${style}.png`
   link.href = canvas.toDataURL("image/png")
   document.body.appendChild(link)
   link.click()
@@ -579,7 +645,7 @@ export async function doDownloadStylePNG(
 export async function doDownloadStyleBMP(
   barcode: string,
   label: string,
-  style: 1 | 2,
+  style: 1 | 2 | 3,
   regularPrice?: number,
   salePrice?: number,
   color?: string,
@@ -650,7 +716,7 @@ export async function doDownloadStyleBMP(
   
   const blob = new Blob([buffer], { type: "image/bmp" })
   const link = document.createElement("a")
-  link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.bmp`
+  link.download = `barcode-${barcode}-style${style}.bmp`
   link.href = URL.createObjectURL(blob)
   document.body.appendChild(link)
   link.click()
@@ -702,7 +768,7 @@ function getLogoBase64(): Promise<string> {
 export async function doDownloadStyleSVG(
   barcode: string,
   label: string,
-  style: 1 | 2,
+  style: 1 | 2 | 3,
   regularPrice?: number,
   salePrice?: number,
   color?: string,
@@ -871,7 +937,7 @@ export async function doDownloadStyleSVG(
 
   const blob = new Blob([fullSVG], { type: "image/svg+xml;charset=utf-8" })
   const link = document.createElement("a")
-  link.download = `barcode-${barcode}-${style === 1 ? "style1" : "style2"}.svg`
+  link.download = `barcode-${barcode}-style${style}.svg`
   link.href = URL.createObjectURL(blob)
   document.body.appendChild(link)
   link.click()
@@ -882,7 +948,7 @@ export async function doDownloadStyleSVG(
 export async function doDownloadStylePDF(
   barcode: string,
   label: string,
-  style: 1 | 2,
+  style: 1 | 2 | 3,
   regularPrice?: number,
   salePrice?: number,
   color?: string,
@@ -1086,7 +1152,7 @@ export async function doDownloadStylePDF(
     }
   }
   
-  pdf.save(`barcode-${barcode}-${style === 1 ? "style1" : "style2"}.pdf`)
+  pdf.save(`barcode-${barcode}-style${style}.pdf`)
 }
 
 // ── Download Barcode as CSV for BarTender (Data File) ────────────────────────
@@ -1143,7 +1209,7 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
   const [loadingVariants, setLoadingVariants] = useState(false)
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("main")
-  const [printStyle, setPrintStyle] = useState<1 | 2>(1)
+  const [printStyle, setPrintStyle] = useState<1 | 2 | 3>(1)
   const [topOffset, setTopOffset] = useState(0) // mm offset for first label alignment
   const [darkness, setDarkness] = useState(15)   // default to sharp 15
   const [speed, setSpeed] = useState(2)         // default to sharpest 2 in/sec
@@ -1226,6 +1292,8 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
     try {
       if (printStyle === 2) {
         await doPrintStyle2(barcode, label, quantity, regularPrice, salePrice, color, size, material, topOffset)
+      } else if (printStyle === 3) {
+        await doPrintStyle3(barcode, label, quantity, salePrice, topOffset)
       } else {
         await doPrint(barcode, label, quantity, regularPrice, salePrice, color, size, material)
       }
@@ -1482,7 +1550,6 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
         >
           <div className="text-[10px] font-bold mb-1.5">Style 2 — Branded</div>
           <div className="border border-gray-300 bg-white flex h-8 overflow-hidden rounded-sm">
-            {/* mini sec 1 */}
             <div className="flex-1 border-r border-gray-200 flex flex-col items-center justify-center gap-px px-0.5">
               {product.price && <div className="text-[5.5px] font-black leading-none">₹{product.price}</div>}
               <div className="bg-black h-1.5 w-full" />
@@ -1491,7 +1558,6 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
               </div>
               <div className="text-[3px] text-gray-300 leading-none">safawala.com</div>
             </div>
-            {/* mini sec 2 */}
             <div className="flex-1 flex flex-col items-center justify-center gap-px px-0.5">
               <div className="text-[4.5px] font-black text-yellow-600 leading-none">SAFAWALA</div>
               <div className="text-[4px] font-bold text-center text-gray-700 truncate w-full leading-tight">
@@ -1499,10 +1565,36 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
               </div>
               {product.material && <div className="text-[3px] text-gray-400 leading-none">{product.material}</div>}
             </div>
-            {/* mini sec 3 blank */}
             <div className="w-4 bg-gray-50" />
           </div>
           <div className="text-[8px] text-gray-400 text-center mt-1">100mm × 1 per row · 15mm tall</div>
+        </button>
+
+        {/* Style 3 card */}
+        <button
+          onClick={() => setPrintStyle(3)}
+          className={`flex-1 rounded border-2 p-2 text-left transition-all ${
+            printStyle === 3 ? "border-green-600 bg-green-50" : "border-gray-200 hover:border-gray-300 bg-white"
+          }`}
+        >
+          <div className="text-[10px] font-bold mb-1.5">Style 3 — Big Logo</div>
+          <div className="border border-gray-300 bg-white flex h-8 overflow-hidden rounded-sm">
+            <div className="flex-1 border-r border-gray-200 flex flex-col items-center justify-center gap-px px-0.5">
+              {product.price && <div className="text-[6px] font-black leading-none">₹{product.price}</div>}
+              <div className="bg-black h-2 w-full" />
+              <div className="text-[3.5px] font-mono text-gray-400 truncate w-full text-center leading-none">
+                {product.barcode?.substring(0, 10) || "BARCODE"}
+              </div>
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center px-0.5">
+              <div className="text-[6px] font-black text-yellow-600 leading-none">SAFAWALA</div>
+              <div className="text-[5px] font-bold text-center text-gray-800 truncate w-full leading-tight mt-px">
+                {(product.name || "Product").substring(0, 10)}
+              </div>
+            </div>
+            <div className="w-4 bg-gray-50" />
+          </div>
+          <div className="text-[8px] text-gray-400 text-center mt-1">Big logo · No attributes</div>
         </button>
       </div>
     </div>

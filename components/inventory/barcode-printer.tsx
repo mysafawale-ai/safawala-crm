@@ -33,7 +33,7 @@ export function BarcodePrinter({
 }: BarcodePrinterProps) {
   const [quantity, setQuantity] = useState(10)
   const [isPrinting, setIsPrinting] = useState(false)
-  const [style, setStyle] = useState<1 | 2>(1)
+  const [style, setStyle] = useState<1 | 2 | 3>(1)
   const [topOffset, setTopOffset] = useState(0) // mm offset for first label alignment
   const [darkness, setDarkness] = useState(15)   // default to sharp 15
   const [speed, setSpeed] = useState(2)         // default to sharpest 2 in/sec
@@ -82,6 +82,8 @@ export function BarcodePrinter({
     try {
       if (style === 1) {
         await printStyle1()
+      } else if (style === 3) {
+        await printStyle3()
       } else {
         await printStyle2()
       }
@@ -446,6 +448,62 @@ export function BarcodePrinter({
     }, 500)
   }
 
+  const printStyle3 = async () => {
+    const JsBarcode = (await import("jsbarcode")).default
+
+    const barcodeSvgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+    JsBarcode(barcodeSvgEl, productCode, {
+      format: "CODE128", displayValue: false, margin: 0,
+      width: 2, height: 80, background: "#FFFFFF", lineColor: "#000000",
+    })
+    const barcodeSVG = new XMLSerializer().serializeToString(barcodeSvgEl)
+
+    const logoHTML = SVG_LOGO
+
+    let labelsHTML = ""
+    for (let i = 0; i < quantity; i++) {
+      const isFirst = i === 0
+      const labelStyle = isFirst && topOffset > 0 ? `style="padding-top: ${topOffset}mm;"` : ""
+      labelsHTML += `
+        <div class="label" ${labelStyle}>
+          <div class="sec-pricing">
+            ${productPrice ? `<div class="price">₹${productPrice}</div>` : ""}
+            <div class="barcode-wrap">${barcodeSVG}</div>
+            <div class="code">${productCode}</div>
+            <div class="website">www.safawala.com</div>
+          </div>
+          <div class="sec-info">
+            <div class="logo-wrap">${logoHTML}</div>
+            <div class="prod-name">${productName}</div>
+          </div>
+          <div class="sec-blank"></div>
+        </div>`
+    }
+
+    const printHTML = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Labels</title>
+<style>
+  @page { size: 100mm 15mm; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { width: 100mm; margin: 0; padding: 0; background: #fff; }
+  .label { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
+  .label:last-child { page-break-after: avoid; }
+  .sec-pricing { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.3mm 0.8mm; gap: 0.1mm; }
+  .price { font-family: Arial, sans-serif; font-size: 12pt; font-weight: bold; color: #000; line-height: 1; }
+  .barcode-wrap { width: 33mm; height: 7mm; display: block; overflow: hidden; }
+  .barcode-wrap svg { width: 100%; height: 100%; display: block; }
+  .code { font-family: Arial, sans-serif; font-size: 8pt; font-weight: bold; color: #000; text-align: center; letter-spacing: 0.3px; }
+  .website { font-family: Arial, sans-serif; font-size: 7.5pt; font-weight: normal; color: #000; text-align: center; }
+  .sec-info { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.3mm 0.8mm; gap: 0.4mm; }
+  .logo-wrap { display: flex; align-items: center; justify-content: center; width: 33mm; max-height: 9mm; overflow: hidden; }
+  .logo-wrap svg { width: 33mm; height: auto; max-height: 9mm; display: block; }
+  .prod-name { font-family: Arial, sans-serif; font-size: 11pt; font-weight: bold; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
+  .sec-blank { width: 30mm; height: 100%; }
+</style></head><body>${labelsHTML}</body></html>`
+
+    openPrint(printHTML)
+  }
+
   const rows = Math.ceil(quantity / 2)
 
   return (
@@ -490,23 +548,42 @@ export function BarcodePrinter({
               >
                 <div className="text-xs font-bold mb-1">Style 2 — Branded</div>
                 <div className="border border-gray-300 bg-white flex h-10 overflow-hidden">
-                  {/* mini sec 1 */}
                   <div className="flex-1 border-r border-gray-200 flex flex-col items-center justify-center gap-0.5 px-0.5">
                     {productPrice && <div className="text-[6px] font-black">₹{productPrice}</div>}
                     <div className="bg-black h-2 w-full" />
                     <div className="text-[4px] font-mono truncate w-full text-center text-gray-500">{productCode}</div>
                     <div className="text-[4px] text-gray-400">safawala.com</div>
                   </div>
-                  {/* mini sec 2 */}
                   <div className="flex-1 flex flex-col items-center justify-center gap-0.5 px-0.5">
                     <div className="text-[5px] font-black text-yellow-600">SAFAWALA</div>
                     <div className="text-[4.5px] font-bold text-center leading-tight text-gray-700 truncate w-full">{productName}</div>
                     {productMaterial && <div className="text-[4px] text-gray-400">Mat: {productMaterial}</div>}
                   </div>
-                  {/* mini sec 3 blank */}
                   <div className="w-5 bg-gray-50" />
                 </div>
                 <div className="text-[9px] text-gray-400 text-center mt-1">100mm × 1 per row</div>
+              </button>
+
+              <button
+                onClick={() => setStyle(3)}
+                className={`flex-1 rounded border-2 p-2 text-left transition-all ${
+                  style === 3 ? "border-green-600 bg-green-50" : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div className="text-xs font-bold mb-1">Style 3 — Big Logo</div>
+                <div className="border border-gray-300 bg-white flex h-10 overflow-hidden">
+                  <div className="flex-1 border-r border-gray-200 flex flex-col items-center justify-center gap-0.5 px-0.5">
+                    {productPrice && <div className="text-[6px] font-black">₹{productPrice}</div>}
+                    <div className="bg-black h-2.5 w-full" />
+                    <div className="text-[4px] font-mono truncate w-full text-center text-gray-500">{productCode}</div>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center px-0.5">
+                    <div className="text-[6px] font-black text-yellow-600">SAFAWALA</div>
+                    <div className="text-[5px] font-bold text-center text-gray-800 truncate w-full mt-px">{productName}</div>
+                  </div>
+                  <div className="w-5 bg-gray-50" />
+                </div>
+                <div className="text-[9px] text-gray-400 text-center mt-1">Big logo · No attributes</div>
               </button>
             </div>
           </div>
