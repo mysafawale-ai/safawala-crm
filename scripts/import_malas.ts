@@ -25,63 +25,99 @@ const DEFAULT_FRANCHISE_ID = "1a518dde-85b7-44ef-8bc4-092f53ddfd99";
 
 function shortenColor(col: string): string {
   if (!col) return "";
-  let clean = col
-    .replace(/\bdeep\b/gi, "")
-    .replace(/\bclear\b/gi, "")
-    .replace(/\bsoft\b/gi, "")
-    .replace(/\bcream\b/gi, "")
-    .replace(/\bpastel\b/gi, "")
-    .replace(/\broyal\b/gi, "")
-    .replace(/\bivory\b/gi, "")
-    .replace(/\bchampagne\b/gi, "")
-    .replace(/\bpearl\b/gi, "")
-    .trim();
+  const low = col.toLowerCase().trim();
   
-  clean = clean.replace(/,/g, " &").replace(/\s+/g, " ");
-  
-  const parts = clean.split(/\s*&\s*/).map(p => p.trim()).filter(Boolean);
-  const uniqueParts = Array.from(new Set(parts));
-  const capitalized = uniqueParts.map(p => p.charAt(0).toUpperCase() + p.slice(1));
-  
-  if (capitalized.length > 0) {
-    return capitalized.join(" & ");
+  const keywords = [
+    { key: 'maroon', val: 'Maroon' },
+    { key: 'crimson', val: 'Crimson' },
+    { key: 'ruby', val: 'Ruby' },
+    { key: 'red', val: 'Red' },
+    { key: 'pink', val: 'Pink' },
+    { key: 'blush', val: 'Pink' },
+    { key: 'peach', val: 'Peach' },
+    { key: 'emerald', val: 'Green' },
+    { key: 'green', val: 'Green' },
+    { key: 'turquoise', val: 'Turquoise' },
+    { key: 'silver', val: 'Silver' },
+    { key: 'gold', val: 'Gold' },
+    { key: 'champagne', val: 'Gold' },
+    { key: 'white', val: 'White' },
+    { key: 'ivory', val: 'White' },
+    { key: 'cream', val: 'White' },
+    { key: 'mixed', val: 'Mixed' }
+  ];
+
+  let earliestIdx = Infinity;
+  let matchedVal: string | null = null;
+
+  for (const kw of keywords) {
+    const idx = low.indexOf(kw.key);
+    if (idx !== -1 && idx < earliestIdx) {
+      earliestIdx = idx;
+      matchedVal = kw.val;
+    }
+  }
+
+  if (matchedVal) return matchedVal;
+
+  const match = col.match(/[a-zA-Z]+/);
+  if (match) {
+    const word = match[0];
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
   }
   return col;
 }
 
 function shortenSize(size: string): string {
   if (!size) return "Standard";
-  const low = size.toLowerCase();
-  if (low.includes("adjustable")) return "Adjustable";
-  if (low.includes("standard")) return "Standard";
-  return size.trim();
+  const low = size.toLowerCase().trim();
+
+  if (low.includes('adjustable')) return 'Adjustable';
+  if (low.includes('standard')) return 'Standard';
+
+  const match = size.match(/[a-zA-Z]+/);
+  if (match) {
+    const word = match[0];
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }
+  return 'Standard';
 }
 
 function getUltraShortMaterial(mat: string): string {
   if (!mat) return "Beads";
-  const low = mat.toLowerCase();
-  
-  const hasPearls = low.includes("pearl");
-  const hasKundan = low.includes("kundan");
-  const hasPolki = low.includes("polki");
-  const hasBeads = low.includes("bead") || low.includes("stone");
-  const hasZircon = low.includes("zircon") || low.includes("cz") || low.includes("zirconia");
-  const hasCrystals = low.includes("crystal");
+  const low = mat.toLowerCase().trim();
 
-  if (hasPolki && hasPearls) return "Polki & Pearls";
-  if (hasKundan && hasPearls) return "Kundan & Pearls";
-  if (hasPolki && hasKundan) return "Polki & Kundan";
-  if (hasPolki && hasBeads) return "Polki & Beads";
-  if (hasKundan && hasBeads) return "Kundan & Beads";
-  if (hasPearls && hasBeads) return "Pearls & Beads";
-  
-  if (hasPearls) return "Pearls";
-  if (hasKundan) return "Kundan";
-  if (hasPolki) return "Polki";
-  if (hasZircon) return "Zircon";
-  if (hasCrystals) return "Crystals";
-  if (hasBeads) return "Beads";
-  
+  const keywords = [
+    { key: 'kundan', val: 'Kundan' },
+    { key: 'polki', val: 'Polki' },
+    { key: 'pearl', val: 'Pearls' },
+    { key: 'zircon', val: 'Zircon' },
+    { key: 'cz', val: 'Zircon' },
+    { key: 'crystal', val: 'Crystals' },
+    { key: 'stone', val: 'Beads' },
+    { key: 'bead', val: 'Beads' },
+    { key: 'metal', val: 'Metal' },
+    { key: 'alloy', val: 'Metal' }
+  ];
+
+  let earliestIdx = Infinity;
+  let matchedVal: string | null = null;
+
+  for (const kw of keywords) {
+    const idx = low.indexOf(kw.key);
+    if (idx !== -1 && idx < earliestIdx) {
+      earliestIdx = idx;
+      matchedVal = kw.val;
+    }
+  }
+
+  if (matchedVal) return matchedVal;
+
+  const match = mat.match(/[a-zA-Z]+/);
+  if (match) {
+    const word = match[0];
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }
   return "Beads";
 }
 
