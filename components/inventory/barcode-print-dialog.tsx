@@ -508,7 +508,7 @@ export async function drawBarcodeCanvas(
     }
 
     // Row 3: Barcode (1.5x height = 30) — Y=84
-    const bcTop = salePrice ? 84 : 62
+    const bcTop = salePrice ? 76 : 54
     const barcodeCanvas2 = document.createElement("canvas")
     JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 30, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
