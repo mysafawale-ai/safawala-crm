@@ -23,12 +23,66 @@ const EXCEL_PATH = path.join(BASE_DIR, "MALAS.xlsx");
 const MALA_CATEGORY_ID = "c2788e4d-1195-403b-a87b-c98c8974b88c";
 const DEFAULT_FRANCHISE_ID = "1a518dde-85b7-44ef-8bc4-092f53ddfd99";
 
-// Shortens field description to at most 2 words
-function shorten(text: string): string {
-  if (!text) return "";
-  let cleanText = text.replace(/\b(with|and|&)\b/gi, '').replace(/,/g, '').trim();
-  let words = cleanText.split(/\s+/).filter(w => w.length > 0);
-  return words.slice(0, 2).join(' ');
+function shortenColor(col: string): string {
+  if (!col) return "";
+  let clean = col
+    .replace(/\bdeep\b/gi, "")
+    .replace(/\bclear\b/gi, "")
+    .replace(/\bsoft\b/gi, "")
+    .replace(/\bcream\b/gi, "")
+    .replace(/\bpastel\b/gi, "")
+    .replace(/\broyal\b/gi, "")
+    .replace(/\bivory\b/gi, "")
+    .replace(/\bchampagne\b/gi, "")
+    .replace(/\bpearl\b/gi, "")
+    .trim();
+  
+  clean = clean.replace(/,/g, " &").replace(/\s+/g, " ");
+  
+  const parts = clean.split(/\s*&\s*/).map(p => p.trim()).filter(Boolean);
+  const uniqueParts = Array.from(new Set(parts));
+  const capitalized = uniqueParts.map(p => p.charAt(0).toUpperCase() + p.slice(1));
+  
+  if (capitalized.length > 0) {
+    return capitalized.join(" & ");
+  }
+  return col;
+}
+
+function shortenSize(size: string): string {
+  if (!size) return "Standard";
+  const low = size.toLowerCase();
+  if (low.includes("adjustable")) return "Adjustable";
+  if (low.includes("standard")) return "Standard";
+  return size.trim();
+}
+
+function getUltraShortMaterial(mat: string): string {
+  if (!mat) return "Beads";
+  const low = mat.toLowerCase();
+  
+  const hasPearls = low.includes("pearl");
+  const hasKundan = low.includes("kundan");
+  const hasPolki = low.includes("polki");
+  const hasBeads = low.includes("bead") || low.includes("stone");
+  const hasZircon = low.includes("zircon") || low.includes("cz") || low.includes("zirconia");
+  const hasCrystals = low.includes("crystal");
+
+  if (hasPolki && hasPearls) return "Polki & Pearls";
+  if (hasKundan && hasPearls) return "Kundan & Pearls";
+  if (hasPolki && hasKundan) return "Polki & Kundan";
+  if (hasPolki && hasBeads) return "Polki & Beads";
+  if (hasKundan && hasBeads) return "Kundan & Beads";
+  if (hasPearls && hasBeads) return "Pearls & Beads";
+  
+  if (hasPearls) return "Pearls";
+  if (hasKundan) return "Kundan";
+  if (hasPolki) return "Polki";
+  if (hasZircon) return "Zircon";
+  if (hasCrystals) return "Crystals";
+  if (hasBeads) return "Beads";
+  
+  return "Beads";
 }
 
 // Generates a 14-digit numeric barcode (similar to the existing system)
@@ -84,9 +138,9 @@ async function run() {
     const details = String(row[2] || "");
     const [colorStr, sizeStr, materialStr] = details.split('|').map(s => s?.trim() || "");
 
-    const finalColor = colorStr || null;
-    const finalSize = sizeStr || null;
-    const finalMaterial = materialStr || null;
+    const finalColor = shortenColor(colorStr) || null;
+    const finalSize = shortenSize(sizeStr) || null;
+    const finalMaterial = getUltraShortMaterial(materialStr) || null;
 
     const quantity = Number(row[3]) || 0;
     const sale_price = Number(row[4]) || 0;
