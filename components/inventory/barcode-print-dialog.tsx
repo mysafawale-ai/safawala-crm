@@ -632,7 +632,13 @@ export async function doDownloadStylePNG(
 ) {
   const canvas = await drawBarcodeCanvas(barcode, label, style, regularPrice, salePrice, color, size, material, 20)
   const link = document.createElement("a")
-  link.download = `barcode-${barcode}-style${style}.png`
+  const cleanLabel = label
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-_]/g, "")
+    .replace(/\s+/g, "-")
+  link.download = cleanLabel
+    ? `${cleanLabel}-${barcode}-style${style}.png`
+    : `barcode-${barcode}-style${style}.png`
   link.href = canvas.toDataURL("image/png")
   document.body.appendChild(link)
   link.click()
@@ -714,7 +720,13 @@ export async function doDownloadStyleBMP(
   
   const blob = new Blob([buffer], { type: "image/bmp" })
   const link = document.createElement("a")
-  link.download = `barcode-${barcode}-style${style}.bmp`
+  const cleanLabel = label
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-_]/g, "")
+    .replace(/\s+/g, "-")
+  link.download = cleanLabel
+    ? `${cleanLabel}-${barcode}-style${style}.bmp`
+    : `barcode-${barcode}-style${style}.bmp`
   link.href = URL.createObjectURL(blob)
   document.body.appendChild(link)
   link.click()
@@ -928,7 +940,13 @@ export async function doDownloadStyleSVG(
 
   const blob = new Blob([fullSVG], { type: "image/svg+xml;charset=utf-8" })
   const link = document.createElement("a")
-  link.download = `barcode-${barcode}-style${style}.svg`
+  const cleanLabel = label
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-_]/g, "")
+    .replace(/\s+/g, "-")
+  link.download = cleanLabel
+    ? `${cleanLabel}-${barcode}-style${style}.svg`
+    : `barcode-${barcode}-style${style}.svg`
   link.href = URL.createObjectURL(blob)
   document.body.appendChild(link)
   link.click()
@@ -1137,7 +1155,14 @@ export async function doDownloadStylePDF(
     }
   }
   
-  pdf.save(`barcode-${barcode}-style${style}.pdf`)
+  const cleanLabel = label
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-_]/g, "")
+    .replace(/\s+/g, "-")
+  const pdfName = cleanLabel
+    ? `${cleanLabel}-${barcode}-style${style}.pdf`
+    : `barcode-${barcode}-style${style}.pdf`
+  pdf.save(pdfName)
 }
 
 // ── Download Barcode as CSV for BarTender (Data File) ────────────────────────
@@ -1179,7 +1204,13 @@ export function doDownloadCSV(
 
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
   const link = document.createElement("a")
-  link.download = `barcode-${barcode}-bartender.csv`
+  const cleanLabel = label
+    .trim()
+    .replace(/[^a-zA-Z0-9\s-_]/g, "")
+    .replace(/\s+/g, "-")
+  link.download = cleanLabel
+    ? `${cleanLabel}-${barcode}-bartender.csv`
+    : `barcode-${barcode}-bartender.csv`
   link.href = URL.createObjectURL(blob)
   document.body.appendChild(link)
   link.click()
