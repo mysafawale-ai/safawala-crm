@@ -77,16 +77,16 @@ async function run() {
     // Column indices:
     // 0: S.No, 1: Name, 2: Details, 3: Qty, 4: Sale, 5: Regular, 6: Photo, 14: Status
     const name = row[1];
-    if (!name) continue;
+    if (!name || name === "Safa Name" || name === "Name") continue;
 
     console.log("Processing:", name);
 
     const details = String(row[2] || "");
     const [colorStr, sizeStr, materialStr] = details.split('|').map(s => s?.trim() || "");
 
-    const shortColor = shorten(colorStr);
-    const shortSize = shorten(sizeStr);
-    const shortMaterial = shorten(materialStr);
+    const finalColor = colorStr || null;
+    const finalSize = sizeStr || null;
+    const finalMaterial = materialStr || null;
 
     const quantity = Number(row[3]) || 0;
     const sale_price = Number(row[4]) || 0;
@@ -157,9 +157,9 @@ async function run() {
       franchise_id: DEFAULT_FRANCHISE_ID,
       is_active: true,
       image_url: main_photo_url,
-      color: shortColor,
-      size: shortSize,
-      material: shortMaterial,
+      color: finalColor,
+      size: finalSize,
+      material: finalMaterial,
       product_code: productCode
     });
 
