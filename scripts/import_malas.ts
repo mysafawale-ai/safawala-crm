@@ -3,6 +3,7 @@ import xlsx from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import dotenv from 'dotenv';
+import { execSync } from 'child_process';
 
 // Load .env.local explicitly
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
@@ -20,6 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 const BASE_DIR = "/Applications/SAFAWALA MASTERPLAN/INVENTORY DETAILS/MALAS";
 const EXCEL_PATH = path.join(BASE_DIR, "MALAS.xlsx");
+const CSV_PATH = path.join(BASE_DIR, "MALAS PRICING.xlsx - Sheet1.csv");
 const MALA_CATEGORY_ID = "c2788e4d-1195-403b-a87b-c98c8974b88c";
 const DEFAULT_FRANCHISE_ID = "1a518dde-85b7-44ef-8bc4-092f53ddfd99";
 
@@ -129,9 +131,33 @@ function generateBarcode(): string {
 }
 
 async function run() {
-  console.log("Loading Excel file from:", EXCEL_PATH);
+  console.log("Checking file existence...");
   if (!fs.existsSync(EXCEL_PATH)) {
     throw new Error(`Excel file not found at ${EXCEL_PATH}`);
+  }
+  if (!fs.existsSync(CSV_PATH)) {
+    throw new Error(`CSV pricing file not found at ${CSV_PATH}`);
+  }
+
+  // Fetch parent product IDs to clear variations
+  console.log("Fetching existing mala product IDs to clear variations...");
+  const { data: existingMalas } = await supabase
+    .from('products')
+    .select('id')
+    .eq('category_id', MALA_CATEGORY_ID)
+    .eq('description', 'Mala imported from Stock Inventory Register');
+
+  if (existingMalas && existingMalas.length > 0) {
+    const malaIds = existingMalas.map(m => m.id);
+    console.log(`Clearing variations for ${malaIds.length} malas...`);
+    const { error: deleteVarsError } = await supabase
+      .from('product_variations')
+      .delete()
+      .in('product_id', malaIds);
+
+    if (deleteVarsError) {
+      console.error("Warning clearing variations:", deleteVarsError.message);
+    }
   }
 
   // Clear existing MALA products only to avoid touching other inventory items
@@ -148,123 +174,263 @@ async function run() {
     console.log("Existing malas cleared successfully from products table.");
   }
 
-  // Read workbook
+  // 1. Read Excel workbook and parse rows
+  console.log("Reading metadata from Excel...");
   const workbook = xlsx.readFile(EXCEL_PATH);
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
-  const rawData: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+  const excelRaw: any[][] = xlsx.utils.sheet_to_json(sheet, { header: 1 });
   
-  // Skip row 0 (title) and row 1 (headers)
-  const data = rawData.slice(2);
-  console.log(`Found ${data.length} rows to process.`);
+  // Skip title and subtitle; headers are at index 2, data starts from index 3
+  const excelData = excelRaw.slice(3); 
+  const excelRowMap = new Map<number, any[]>();
+  for (const row of excelData) {
+    if (!row || row.length < 2) continue;
+    const sno = Number(row[0]);
+    if (isNaN(sno)) continue;
+    excelRowMap.set(sno, row);
+  }
+  console.log(`Loaded metadata for ${excelRowMap.size} unique S.No from Excel.`);
+
+  // 2. Read and parse CSV pricing file
+  console.log("Reading pricing from CSV...");
+  const csvContent = fs.readFileSync(CSV_PATH, 'utf8');
+  const csvLines = csvContent.split('\n');
+  const csvData = csvLines.slice(3); // skip title, register, headers
+  
+  const mergedData: any[][] = [];
+  for (const line of csvData) {
+    if (!line.trim()) continue;
+    const cells = line.split(',').map(c => c.trim());
+    const sno = Number(cells[0]);
+    if (isNaN(sno)) continue;
+
+    const excelRow = excelRowMap.get(sno);
+    if (!excelRow) {
+      console.warn(`S.No ${sno} found in CSV but missing in Excel!`);
+      continue;
+    }
+
+    const mergedRow = [...excelRow];
+
+    // Override Sale Price (column index 4) from CSV if specified and valid
+    const csvSalePriceStr = cells[4];
+    const csvSalePrice = csvSalePriceStr ? Number(csvSalePriceStr) : NaN;
+    if (csvSalePriceStr !== '' && !isNaN(csvSalePrice)) {
+      mergedRow[4] = csvSalePrice;
+    }
+
+    // Override Regular Price (column index 5) from CSV if specified and valid
+    const csvRegPriceStr = cells[5];
+    const csvRegPrice = csvRegPriceStr ? Number(csvRegPriceStr) : NaN;
+    if (csvRegPriceStr !== '' && !isNaN(csvRegPrice)) {
+      mergedRow[5] = csvRegPrice;
+    }
+
+    mergedData.push(mergedRow);
+  }
+  console.log(`Merged data has ${mergedData.length} rows to process.`);
+
+  // Group by image path (Column G / index 6), fallback to name if missing
+  const groups = new Map<string, any[]>();
+  for (const row of mergedData) {
+    if (!row || row.length < 2) continue;
+    const name = row[1];
+    if (!name || name === "Safa Name" || name === "Name") continue;
+    
+    const imagePath = row[6];
+    const groupKey = imagePath ? String(imagePath).trim() : name;
+    
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, []);
+    }
+    groups.get(groupKey)!.push(row);
+  }
 
   let successCount = 0;
   let failCount = 0;
+  const uploadedUrls = new Map<string, string>();
 
-  for (const row of data) {
-    if (!row || row.length < 2) continue;
-    
-    // Column indices:
-    // 0: S.No, 1: Name, 2: Details, 3: Qty, 4: Sale, 5: Regular, 6: Photo, 14: Status
-    const name = row[1];
-    if (!name || name === "Safa Name" || name === "Name") continue;
+  async function uploadImage(photoPathRelative: string): Promise<string | null> {
+    if (uploadedUrls.has(photoPathRelative)) {
+      return uploadedUrls.get(photoPathRelative)!;
+    }
 
-    console.log("Processing:", name);
+    const fullPhotoPath = path.join(BASE_DIR, photoPathRelative);
+    if (fs.existsSync(fullPhotoPath)) {
+      const baseNameWithoutExt = path.basename(fullPhotoPath, path.extname(fullPhotoPath));
+      const tempPngDir = path.join(process.cwd(), 'scratch', 'temp_pngs');
+      if (!fs.existsSync(tempPngDir)) {
+        fs.mkdirSync(tempPngDir, { recursive: true });
+      }
+      const tempPngPath = path.join(tempPngDir, `${Date.now()}_${baseNameWithoutExt}.png`);
 
-    const details = String(row[2] || "");
+      try {
+        console.log(`  -> Converting local JPEG to PNG (resized to max 800px): ${path.basename(fullPhotoPath)} -> ${path.basename(tempPngPath)}`);
+        execSync(`sips --resampleHeightWidthMax 800 -s format png "${fullPhotoPath}" --out "${tempPngPath}"`, { stdio: 'ignore' });
+      } catch (err: any) {
+        console.error(`  -> Failed to convert image to PNG using sips:`, err.message);
+      }
+
+      const uploadPath = fs.existsSync(tempPngPath) ? tempPngPath : fullPhotoPath;
+      const baseName = path.basename(uploadPath);
+      const fileBuffer = fs.readFileSync(uploadPath);
+
+      // Clean up the temp file if it was created
+      if (uploadPath === tempPngPath) {
+        try {
+          fs.unlinkSync(tempPngPath);
+        } catch (err: any) {
+          console.error(`  -> Failed to delete temp file:`, err.message);
+        }
+      }
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(baseName, fileBuffer, {
+          contentType: 'image/png',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error(`  -> Error uploading image:`, uploadError.message);
+        return null;
+      } else {
+        const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(baseName);
+        uploadedUrls.set(photoPathRelative, publicUrl);
+        console.log(`  -> Image uploaded as PNG: ${baseName}`);
+        return publicUrl;
+      }
+    } else {
+      console.warn(`  -> Image file missing locally: ${fullPhotoPath}`);
+      return null;
+    }
+  }
+
+  for (const [groupKey, rows] of groups.entries()) {
+    // First row is the parent
+    const parentRow = rows[0];
+    const parentName = parentRow[1];
+    console.log(`\nProcessing product group "${parentName}" (key: ${groupKey}) with ${rows.length} rows...`);
+
+    const details = String(parentRow[2] || "");
     const [colorStr, sizeStr, materialStr] = details.split('|').map(s => s?.trim() || "");
 
     const finalColor = shortenColor(colorStr) || null;
     const finalSize = shortenSize(sizeStr) || null;
     const finalMaterial = getUltraShortMaterial(materialStr) || null;
 
-    const quantity = Number(row[3]) || 0;
-    const sale_price = Number(row[4]) || 0;
-    const regular_price = Number(row[5]) || 0;
+    const quantity = Number(parentRow[3]) || 0;
+    const sale_price = Number(parentRow[4]) || 0;
+    const regular_price = Number(parentRow[5]) || 0;
     
-    let stock_status = String(row[14] || row[15] || "In Stock");
-    if (typeof row[row.length - 1] === 'string' && row[row.length - 1].includes('Stock')) {
-      stock_status = row[row.length - 1];
-    }
-    
-    // Main Photo Upload
-    const photoPathRelative = row[6];
+    const photoPathRelative = parentRow[6];
     let main_photo_url = null;
-
     if (photoPathRelative && typeof photoPathRelative === 'string') {
-      const fullPhotoPath = path.join(BASE_DIR, photoPathRelative);
-      if (fs.existsSync(fullPhotoPath)) {
-        const fileExt = path.extname(fullPhotoPath).toLowerCase();
-        const fileName = `${Date.now()}_${path.basename(fullPhotoPath)}`;
-        const fileBuffer = fs.readFileSync(fullPhotoPath);
-        
-        let contentType = 'image/jpeg';
-        if (fileExt === '.png') contentType = 'image/png';
-        if (fileExt === '.webp') contentType = 'image/webp';
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('product-images')
-          .upload(fileName, fileBuffer, {
-            contentType,
-            upsert: true
-          });
-
-        if (uploadError) {
-          console.error(`  -> Error uploading image:`, uploadError.message);
-        } else {
-          const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-          main_photo_url = publicUrl;
-          console.log(`  -> Image uploaded: ${fileName}`);
-        }
-      } else {
-        console.warn(`  -> Image file missing locally: ${fullPhotoPath}`);
-      }
+      main_photo_url = await uploadImage(photoPathRelative);
     }
 
-    // Generate unique barcode number
     const barcode = generateBarcode();
     const productCode = `MAL-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // Insert into DB core products table
-    const { error: insertError } = await supabase.from('products').insert({
-      name,
-      description: 'Mala imported from Stock Inventory Register',
-      category_id: MALA_CATEGORY_ID,
-      sku: `MALA-${barcode.slice(-6)}`,
-      barcode: barcode,
-      barcode_number: barcode,
-      price: sale_price,
-      cost_price: 0,
-      rental_price: 0,
-      regular_price: regular_price,
-      sale_price: sale_price,
-      stock_total: quantity,
-      stock_available: quantity,
-      stock_booked: 0,
-      stock_damaged: 0,
-      stock_in_laundry: 0,
-      reorder_level: 5,
-      franchise_id: DEFAULT_FRANCHISE_ID,
-      is_active: true,
-      image_url: main_photo_url,
-      color: finalColor,
-      size: finalSize,
-      material: finalMaterial,
-      product_code: productCode
-    });
+    const { data: parentData, error: parentError } = await supabase
+      .from('products')
+      .insert({
+        name: parentName,
+        description: 'Mala imported from Stock Inventory Register',
+        category_id: MALA_CATEGORY_ID,
+        sku: `MALA-${barcode.slice(-6)}`,
+        barcode: barcode,
+        barcode_number: barcode,
+        price: sale_price,
+        cost_price: 0,
+        rental_price: 0,
+        regular_price: regular_price,
+        sale_price: sale_price,
+        stock_total: quantity,
+        stock_available: quantity,
+        stock_booked: 0,
+        stock_damaged: 0,
+        stock_in_laundry: 0,
+        reorder_level: 5,
+        franchise_id: DEFAULT_FRANCHISE_ID,
+        is_active: true,
+        image_url: main_photo_url,
+        color: finalColor,
+        size: finalSize,
+        material: finalMaterial,
+        product_code: productCode
+      })
+      .select('id, price, regular_price')
+      .single();
 
-    if (insertError) {
-      console.error(`  -> Error inserting DB record:`, insertError.message);
+    if (parentError || !parentData) {
+      console.error(`  -> Error inserting parent product:`, parentError?.message);
       failCount++;
-    } else {
-      console.log(`  -> Inserted successfully with Barcode: ${barcode}`);
-      successCount++;
+      continue;
+    }
+
+    console.log(`  -> Parent inserted with ID: ${parentData.id}, Barcode: ${barcode}`);
+    successCount++;
+
+    // Sub-rows are variations
+    for (let i = 1; i < rows.length; i++) {
+      const varRow = rows[i];
+      const varName = varRow[1];
+      const varDetails = String(varRow[2] || "");
+      const [varColorStr, varSizeStr, varMaterialStr] = varDetails.split('|').map(s => s?.trim() || "");
+
+      const varColor = shortenColor(varColorStr) || null;
+      const varSize = shortenSize(varSizeStr) || null;
+      const varMaterial = getUltraShortMaterial(varMaterialStr) || null;
+
+      const varQty = Number(varRow[3]) || 0;
+      const varSalePrice = Number(varRow[4]) || 0;
+      const varRegPrice = Number(varRow[5]) || 0;
+
+      const varPhotoPathRelative = varRow[6];
+      let var_photo_url = main_photo_url;
+      if (varPhotoPathRelative && typeof varPhotoPathRelative === 'string') {
+        var_photo_url = await uploadImage(varPhotoPathRelative);
+      }
+
+      const varBarcode = generateBarcode();
+      const priceAdjustment = varSalePrice - parentData.price;
+      const regularPriceAdjustment = varRegPrice - parentData.regular_price;
+
+      const { error: varError } = await supabase
+        .from('product_variations')
+        .insert({
+          product_id: parentData.id,
+          franchise_id: DEFAULT_FRANCHISE_ID,
+          variation_name: varName,
+          color: varColor,
+          material: varMaterial,
+          size: varSize,
+          sku: `MALA-VAR-${varBarcode.slice(-6)}`,
+          price_adjustment: priceAdjustment,
+          regular_price_adjustment: regularPriceAdjustment,
+          rental_price_adjustment: 0,
+          stock_total: varQty,
+          stock_available: varQty,
+          stock_booked: 0,
+          stock_damaged: 0,
+          barcode: varBarcode,
+          image_url: var_photo_url,
+          is_active: true
+        });
+
+      if (varError) {
+        console.error(`    -> Error inserting variation:`, varError.message);
+      } else {
+        console.log(`    -> Variation inserted with Barcode: ${varBarcode}`);
+      }
     }
   }
 
   console.log("\n=================================");
   console.log(`Import Complete!`);
-  console.log(`Successfully imported: ${successCount}`);
+  console.log(`Successfully imported parent products: ${successCount}`);
   console.log(`Failed: ${failCount}`);
   console.log("=================================");
 }
