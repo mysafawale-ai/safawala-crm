@@ -475,80 +475,80 @@ export async function drawBarcodeCanvas(
     const sec2Center = sec2Start + sec2W / 2
 
     // --- SECTION 1 ---
-    // Row 1: MRP (left, strikethrough) | You save (right) (shifted down to Y=34)
+    // Row 1: MRP (left, strikethrough) | You save (right) (shifted down to Y=34, left by 10px)
     if (regularPrice || savings > 0) {
       if (regularPrice) {
         ctx.font = "bold 18px Arial"
         ctx.textAlign = "left"
         // Draw "MRP: " without strikethrough
         const prefix = "MRP: "
-        ctx.fillText(prefix, 10, 34)
+        ctx.fillText(prefix, 8, 34)
         const prefixW = ctx.measureText(prefix).width
         // Draw "₹price" separately
         const priceText = `₹${regularPrice}`
-        ctx.fillText(priceText, 10 + prefixW, 34)
+        ctx.fillText(priceText, 8 + prefixW, 34)
         const priceW = ctx.measureText(priceText).width
         // Diagonal strikethrough only through ₹price: bottom-left to top-right
         ctx.strokeStyle = "#000000"
         ctx.lineWidth = 0.8
         ctx.beginPath()
-        ctx.moveTo(10 + prefixW - 1, 37)              // bottom-left of ₹price
-        ctx.lineTo(10 + prefixW + priceW + 1, 24)     // top-right of ₹price
+        ctx.moveTo(8 + prefixW - 1, 37)              // bottom-left of ₹price
+        ctx.lineTo(8 + prefixW + priceW + 1, 24)     // top-right of ₹price
         ctx.stroke()
       }
       if (savings > 0) {
         ctx.font = "bold 18px Arial"
         ctx.textAlign = "right"
-        ctx.fillText(`You save ₹${savings}`, sec1W - 10, 34)
+        ctx.fillText(`You save ₹${savings}`, sec1W - 18, 34)
       }
     }
 
-    // Row 2: Big sale price (shifted down to Y=56)
+    // Row 2: Big sale price (shifted left by 25px)
     if (salePrice) {
       ctx.font = "500 24px Arial"
       ctx.textAlign = "center"
-      ctx.fillText(`₹${salePrice}`, sec1W / 2, 56)
+      ctx.fillText(`₹${salePrice}`, sec1W / 2 - 25, 56)
     }
 
-    // Row 3: Barcode (90% size, shifted down to add padding, Y=78)
-    const bcTop = salePrice ? 78 : 55
+    // Row 3: Barcode (shifted left to X=6)
+    const bcTop = salePrice ? 74 : 52
     const barcodeCanvas2 = document.createElement("canvas")
-    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 27, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
+    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 20, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas2, 26, bcTop, 227, 27)
+    ctx.drawImage(barcodeCanvas2, 6, bcTop, 227, 20)
     ctx.imageSmoothingEnabled = true
 
-    // Row 4: Barcode number (shifted down to bcTop + 35 = 113)
+    // Row 4: Barcode number — gap at bcTop + 48, shifted left by 25px
     ctx.font = "500 19px 'Courier New'"
     ctx.textAlign = "center"
-    ctx.fillText(barcode, sec1W / 2, bcTop + 35)
+    ctx.fillText(barcode, sec1W / 2 - 25, bcTop + 48)
 
     // --- SECTION 2 ---
-    // Product name (shifted down to Y=42)
+    // Product name (shifted down to Y=42, left by 15px)
     ctx.font = "500 20px Verdana"
     ctx.textAlign = "center"
-    ctx.fillText(label.substring(0, 26), sec2Center, 42)
+    ctx.fillText(label.substring(0, 26), sec2Center - 15, 42)
 
-    // Attributes: Cotton | M | Blue (shifted down to Y=62)
+    // Attributes: Cotton | M | Blue (shifted down to Y=62, left by 15px)
     const attrParts = [material, size, color].filter(Boolean)
     if (attrParts.length > 0) {
       ctx.font = "500 14px Verdana"
-      ctx.fillText(attrParts.join(" | "), sec2Center, 62)
+      ctx.fillText(attrParts.join(" | "), sec2Center - 15, 62)
     }
 
-    // Thin divider line (shifted down to Y=72)
+    // Thin divider line (shifted down to Y=72, left by 15px)
     const divY = attrParts.length > 0 ? 72 : 56
     ctx.strokeStyle = "#000000"
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(sec2Start + 20, divY)
-    ctx.lineTo(sec2Start + sec2W - 20, divY)
+    ctx.moveTo(sec2Start + 5, divY)
+    ctx.lineTo(sec2Start + sec2W - 35, divY)
     ctx.stroke()
 
-    // SAFAWALA.com — big bold (shifted down to Y=divY + 30 = 102)
+    // SAFAWALA.com — big bold (shifted down to Y=divY + 30 = 102, left by 15px)
     ctx.font = "bold 22px Arial"
     ctx.textAlign = "center"
-    ctx.fillText("SAFAWALA.com", sec2Center, divY + 30)
+    ctx.fillText("SAFAWALA.com", sec2Center - 15, divY + 30)
 
   } else {
     // Style 3: big logo + product name only, no attributes, Arial
