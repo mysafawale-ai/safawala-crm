@@ -58,6 +58,41 @@ export async function POST(request: NextRequest) {
     }
 
     if (!products || products.length === 0) {
+      console.log("[Barcode Search V2] Querying product_variations as fallback...")
+      const { data: variations, error: varError } = await supabase
+        .from("product_variations")
+        .select("*, products(*)")
+        .eq("barcode", barcode)
+        .eq("is_active", true)
+        .limit(1)
+
+      if (variations && variations.length > 0) {
+        const variation = variations[0] as any
+        const parentProduct = variation.products as any
+        if (parentProduct) {
+          console.log("[Barcode Search V2] ✅ Found variation:", variation.variation_name, "for product:", parentProduct.name)
+          return NextResponse.json({
+            success: true,
+            source: "barcode",
+            product: {
+              id: parentProduct.id,
+              name: `${parentProduct.name} - ${variation.variation_name}`,
+              barcode: variation.barcode,
+              price: (parentProduct.price || 0) + (variation.price_adjustment || 0),
+              rental_price: (parentProduct.rental_price || 0) + (variation.rental_price_adjustment || 0),
+              cost_price: parentProduct.cost_price || 0,
+              security_deposit: parentProduct.security_deposit || 0,
+              stock_available: variation.stock_available || 0,
+              category_id: parentProduct.category_id,
+              franchise_id: parentProduct.franchise_id,
+              image_url: variation.image_url || parentProduct.image_url,
+              variation_id: variation.id,
+              is_variation: true
+            },
+          })
+        }
+      }
+
       console.log("[Barcode Search V2] ❌ Product not found for barcode:", barcode)
       return NextResponse.json({ error: "Barcode not found" }, { status: 404 })
     }

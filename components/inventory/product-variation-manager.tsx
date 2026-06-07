@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon, Camera } from "lucide-react"
+import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon, Camera, Search, AlertTriangle, ArrowRightLeft } from "lucide-react"
 import { toast } from "sonner"
 import { generateBarcode, generateBarcodeLabel, generateQRCode } from "@/lib/barcode-generator"
 import { doPrint, getCleanVariantName } from "./barcode-print-dialog"
@@ -88,6 +88,15 @@ export function ProductVariationManager({
   const [barcodeImages, setBarcodeImages] = useState<Record<string, string>>({})
   const [uploadingImage, setUploadingImage] = useState(false)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  // Move product to variation state
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [allProducts, setAllProducts] = useState<any[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const [selectedSourceProduct, setSelectedSourceProduct] = useState<any | null>(null)
+  const [confirmMoveOpen, setConfirmMoveOpen] = useState(false)
+  const [movingProduct, setMovingProduct] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isLocalMode = !productId
@@ -372,6 +381,21 @@ export function ProductVariationManager({
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const fetchProductsForMove = async () => {
+    setLoadingProducts(true)
+    try {
+      const res = await fetch("/api/products")
+      if (!res.ok) throw new Error("Failed to fetch products")
+      const { data } = await res.json()
+      setAllProducts(data || [])
+    } catch (error) {
+      console.error("Error fetching products:", error)
+      toast.error("Failed to load products for selection")
+    } finally {
+      setLoadingProducts(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -388,10 +412,18 @@ export function ProductVariationManager({
       </CardHeader>
       <CardContent className="space-y-4">
         {!readOnly && (
-          <Button type="button" onClick={handleOpenAdd} variant="outline" className="w-full">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Variation
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" onClick={handleOpenAdd} variant="outline" className="flex-1">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Variation
+            </Button>
+            {productId && (
+              <Button type="button" onClick={() => { setSearchQuery(""); fetchProductsForMove(); setMoveDialogOpen(true); }} variant="outline" className="flex-1">
+                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                Move Product to Variant
+              </Button>
+            )}
+          </div>
         )}
 
         {loading && (
@@ -851,6 +883,208 @@ export function ProductVariationManager({
                     <Barcode className="w-4 h-4 mr-2" />
                     {editingIndex !== null ? "Update" : "Add & Generate Barcode"}
                   </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Move Standalone Product to Variation Dialog */}
+        <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5" />
+                <span>Move Standalone Product to Variation</span>
+              </DialogTitle>
+              <DialogDescription>
+                Select a standalone product from your inventory to convert into a variation of <strong>{productName || "this product"}</strong>. The standalone product's barcode, stock, and details will be transferred, and the original product will be archived/deleted.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 py-2 my-2 min-h-[300px]">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search products by name, SKU, or barcode..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {loadingProducts ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="mt-2 text-sm text-muted-foreground">Loading products...</span>
+                </div>
+              ) : (
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product Details</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Barcode</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-center">Stock</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allProducts
+                        .filter(p => p.id !== productId) // filter out parent product
+                        .filter(p => {
+                          if (!searchQuery.trim()) return true
+                          const query = searchQuery.toLowerCase()
+                          return (
+                            p.name?.toLowerCase().includes(query) ||
+                            p.sku?.toLowerCase().includes(query) ||
+                            p.barcode?.toLowerCase().includes(query) ||
+                            p.barcode_number?.toLowerCase().includes(query)
+                          )
+                        })
+                        .slice(0, 15) // limit list for performance
+                        .map(p => (
+                          <TableRow key={p.id}>
+                            <TableCell className="font-medium text-sm">
+                              {p.name}
+                              {p.color && <span className="text-xs text-muted-foreground block">Color: {p.color}</span>}
+                            </TableCell>
+                            <TableCell className="text-xs font-mono">{p.sku || "—"}</TableCell>
+                            <TableCell className="text-xs font-mono">{p.barcode || p.barcode_number || "—"}</TableCell>
+                            <TableCell className="text-right text-sm">₹{Number(p.price || p.sale_price || 0).toLocaleString()}</TableCell>
+                            <TableCell className="text-center text-sm">{p.stock_available || 0}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => {
+                                  setSelectedSourceProduct(p)
+                                  setConfirmMoveOpen(true)
+                                }}
+                              >
+                                Select
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      {allProducts.filter(p => p.id !== productId).filter(p => {
+                        if (!searchQuery.trim()) return true
+                        const query = searchQuery.toLowerCase()
+                        return (
+                          p.name?.toLowerCase().includes(query) ||
+                          p.sku?.toLowerCase().includes(query) ||
+                          p.barcode?.toLowerCase().includes(query) ||
+                          p.barcode_number?.toLowerCase().includes(query)
+                        )
+                      }).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                            No products found matching your search.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setMoveDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirmation Dialog */}
+        <Dialog open={confirmMoveOpen} onOpenChange={setConfirmMoveOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-warning">
+                <AlertTriangle className="h-5 w-5" />
+                <span>Confirm Move Product</span>
+              </DialogTitle>
+              <DialogDescription>
+                Are you sure you want to convert the standalone product into a variation?
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedSourceProduct && (
+              <div className="space-y-4 py-2">
+                <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg text-sm space-y-2">
+                  <p><strong>This action will:</strong></p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Create a variation named <strong>"{selectedSourceProduct.name}"</strong> under parent <strong>"{productName}"</strong>.</li>
+                    <li>Transfer barcode <strong>"{selectedSourceProduct.barcode || selectedSourceProduct.barcode_number || 'N/A'}"</strong> to the variation.</li>
+                    <li>Move stock total ({selectedSourceProduct.stock_total || 0}) and available ({selectedSourceProduct.stock_available || 0}).</li>
+                    <li>Archive/Delete the standalone product <strong>"{selectedSourceProduct.name}"</strong> to free up the barcode.</li>
+                  </ul>
+                </div>
+
+                <div className="border rounded-md p-3 space-y-1 bg-muted/40">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Source Product:</span>
+                    <span className="font-semibold text-foreground">{selectedSourceProduct.name}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Barcode:</span>
+                    <span className="font-mono text-foreground">{selectedSourceProduct.barcode || selectedSourceProduct.barcode_number || "—"}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Base Parent Product:</span>
+                    <span className="font-semibold text-foreground">{productName}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setConfirmMoveOpen(false)} disabled={movingProduct}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                onClick={async () => {
+                  if (!selectedSourceProduct) return
+                  setMovingProduct(true)
+                  try {
+                    const res = await fetch("/api/products/move-to-variant", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        sourceProductId: selectedSourceProduct.id,
+                        targetProductId: productId,
+                      }),
+                    })
+
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error || "Failed to move product")
+
+                    toast.success(data.message || "Product moved successfully!")
+                    setConfirmMoveOpen(false)
+                    setMoveDialogOpen(false)
+                    fetchVariations()
+                  } catch (error: any) {
+                    console.error("Error moving product:", error)
+                    toast.error(`Error: ${error.message}`)
+                  } finally {
+                    setMovingProduct(false)
+                  }
+                }}
+                disabled={movingProduct}
+              >
+                {movingProduct ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Moving...
+                  </>
+                ) : (
+                  "Confirm Move"
                 )}
               </Button>
             </DialogFooter>

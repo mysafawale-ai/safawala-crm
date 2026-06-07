@@ -164,6 +164,51 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // ===== STEP 4: Search in product_variations table =====
+    console.log('[API] Step 4: Searching product_variations...')
+    const { data: variationData, error: varError } = await supabase
+      .from('product_variations')
+      .select('*, products(*)')
+      .eq('barcode', searchBarcode)
+      .eq('is_active', true)
+      .limit(1)
+
+    if (variationData && variationData.length > 0) {
+      const variation = variationData[0] as any
+      const parentProduct = variation.products as any
+      if (parentProduct) {
+        console.log('[API] ✅ Found in product_variations table:', {
+          barcode: searchBarcode,
+          product: parentProduct.name,
+          variation: variation.variation_name
+        })
+
+        return NextResponse.json({
+          success: true,
+          source: 'product_variations',
+          barcode: searchBarcode,
+          product: {
+            id: parentProduct.id,
+            name: `${parentProduct.name} - ${variation.variation_name}`,
+            barcode: variation.barcode,
+            category: parentProduct.category,
+            category_id: parentProduct.category_id,
+            subcategory_id: parentProduct.subcategory_id,
+            image_url: variation.image_url || parentProduct.image_url,
+            price: (parentProduct.price || 0) + (variation.price_adjustment || 0),
+            rental_price: (parentProduct.rental_price || 0) + (variation.rental_price_adjustment || 0),
+            sale_price: (parentProduct.price || 0) + (variation.price_adjustment || 0),
+            security_deposit: parentProduct.security_deposit,
+            stock_available: variation.stock_available,
+            franchise_id: parentProduct.franchise_id,
+            variation_id: variation.id,
+            is_variation: true
+          },
+          barcode_type: 'variation'
+        })
+      }
+    }
+
     // ===== NOT FOUND =====
     console.log('[API] ❌ Barcode not found in any source:', searchBarcode)
 
