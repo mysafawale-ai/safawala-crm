@@ -353,18 +353,20 @@ export function BarcodePrinter({
     for (let i = 0; i < quantity; i++) {
       const isFirst = i === 0
       const labelStyle = isFirst && topOffset > 0 ? `style="padding-top: ${topOffset}mm;"` : ""
-      labelsHTML += `
+    labelsHTML += `
         <div class="label" ${labelStyle}>
-          <div class="s1">
-            ${productPrice ? `<div class="sale-price">₹${productPrice}</div>` : ""}
-            <div class="bc">${barcodeSVG}</div>
-            <div class="code">${productCode}</div>
-          </div>
-          <div class="s2">
-            <div class="pname">${productName}</div>
-            ${attrsLine ? `<div class="attrs">${attrsLine}</div>` : ""}
-            <div class="divider"></div>
-            <div class="website">SAFAWALA.com</div>
+          <div class="tag-content">
+            <div class="s1">
+              ${productPrice ? `<div class="sale-price">₹${productPrice}</div>` : ""}
+              <div class="bc">${barcodeSVG}</div>
+              <div class="code">${productCode}</div>
+            </div>
+            <div class="s2">
+              <div class="pname">${productName}</div>
+              ${attrsLine ? `<div class="attrs">${attrsLine}</div>` : ""}
+              <div class="divider"></div>
+              <div class="website">SAFAWALA.com</div>
+            </div>
           </div>
           <div class="s3"></div>
         </div>`
@@ -380,11 +382,21 @@ export function BarcodePrinter({
   body { width: 100mm; margin: 0; padding: 0; background: #fff; }
   .label { width: 100mm; height: 14.8mm; display: flex; flex-direction: row; page-break-after: always; page-break-inside: avoid; overflow: hidden; }
   .label:last-child { page-break-after: avoid; }
+  .tag-content {
+    display: flex;
+    flex-direction: row;
+    width: 69.8mm;
+    height: 14.8mm;
+    transform: scale(0.9);
+    transform-origin: left top;
+    margin-top: 1.2mm;
+    margin-left: -1.5mm;
+  }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.2mm 1mm; gap: 0.2mm; }
   .sale-price { font-family: 'Oswald', Arial, sans-serif; font-size: 13pt; font-weight: 500; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
-  .bc { width: 30mm; height: 3.2mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; margin-top: 2.2mm; }
+  .bc { width: 33mm; height: 3.5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
   .bc svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: 'Courier New', monospace; font-size: 9.5pt; font-weight: 500; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 1.5mm; }
+  .code { font-family: 'Courier New', monospace; font-size: 13pt; font-weight: 500; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 2.2mm; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .pname { font-family: Verdana, sans-serif; font-size: 9pt; font-weight: 500; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
   .attrs { font-family: Verdana, sans-serif; font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: 500; }
