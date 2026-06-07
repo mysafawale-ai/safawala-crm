@@ -222,8 +222,8 @@ export async function doPrintStyle2(
     height: 14.8mm;
     transform: scale(0.9);
     transform-origin: left top;
-    margin-top: 1.2mm;
-    margin-left: -1.5mm;
+    margin-top: 2.4mm;
+    margin-left: -1.8mm;
   }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.2mm 1mm; gap: 0.2mm; }
   .mrp-row { display: flex; justify-content: space-between; align-items: center; width: 100%; line-height: 1; }

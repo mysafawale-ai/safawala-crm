@@ -389,8 +389,8 @@ export function BarcodePrinter({
     height: 14.8mm;
     transform: scale(0.9);
     transform-origin: left top;
-    margin-top: 1.2mm;
-    margin-left: -1.5mm;
+    margin-top: 2.4mm;
+    margin-left: -1.8mm;
   }
   .s1 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.2mm 1mm; gap: 0.2mm; }
   .sale-price { font-family: 'Oswald', Arial, sans-serif; font-size: 13pt; font-weight: 500; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
