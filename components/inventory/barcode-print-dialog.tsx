@@ -432,7 +432,7 @@ export async function drawBarcodeCanvas(
       }
     }
 
-    // Draw Barcode image
+    // Draw Barcode image (shifted down to prevent overlapping)
     const barcodeCanvas = document.createElement("canvas")
     JsBarcode(barcodeCanvas, barcode, {
       format: "CODE128",
@@ -444,18 +444,18 @@ export async function drawBarcodeCanvas(
       lineColor: "#000000"
     })
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas, 25, 85, 350, 40)
+    ctx.drawImage(barcodeCanvas, 25, 110, 350, 40)
     ctx.imageSmoothingEnabled = true
 
     // Code String
     ctx.textAlign = "center"
     ctx.font = "bold 13px Courier New"
     ctx.fillStyle = "#000000"
-    ctx.fillText(barcode, 200, 140)
+    ctx.fillText(barcode, 200, 160)
 
     // Website Link
     ctx.font = "17px Arial"
-    ctx.fillText("www.safawala.com", 200, 155)
+    ctx.fillText("www.safawala.com", 200, 178)
 
   } else if (style === 2) {
     // Style 2: new layout — MRP+Save row | big sale price | barcode | code || name | attrs | divider | SAFAWALA.com
@@ -510,8 +510,8 @@ export async function drawBarcodeCanvas(
       ctx.fillText(`₹${salePrice}`, sec1W / 2, 40)
     }
 
-    // Row 3: Barcode (90% size, shifted down)
-    const bcTop = salePrice ? 53 : 25
+    // Row 3: Barcode (90% size, shifted down to add padding)
+    const bcTop = salePrice ? 65 : 45
     const barcodeCanvas2 = document.createElement("canvas")
     JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 27, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
@@ -573,13 +573,13 @@ export async function drawBarcodeCanvas(
     const barcodeCanvas3 = document.createElement("canvas")
     JsBarcode(barcodeCanvas3, barcode, { format: "CODE128", width: 1, height: 48, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas3, 10, salePrice ? 32 : 14, 260, 52)
+    ctx.drawImage(barcodeCanvas3, 10, salePrice ? 42 : 24, 260, 52)
     ctx.imageSmoothingEnabled = true
 
     ctx.font = "bold 17px Arial"
-    ctx.fillText(barcode, sec1Width / 2, salePrice ? 96 : 78)
+    ctx.fillText(barcode, sec1Width / 2, salePrice ? 104 : 86)
     ctx.font = "15px Arial"
-    ctx.fillText("www.safawala.com", sec1Width / 2, salePrice ? 112 : 94)
+    ctx.fillText("www.safawala.com", sec1Width / 2, salePrice ? 118 : 100)
 
     // --- SECTION 2: big logo + product name only ---
     const sec2Width = 280
