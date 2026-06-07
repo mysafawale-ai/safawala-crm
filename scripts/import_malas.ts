@@ -21,7 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 const BASE_DIR = "/Applications/SAFAWALA MASTERPLAN/INVENTORY DETAILS/MALAS";
 const EXCEL_PATH = path.join(BASE_DIR, "MALAS.xlsx");
 const MALA_CATEGORY_ID = "c2788e4d-1195-403b-a87b-c98c8974b88c";
-const DEFAULT_FRANCHISE_ID = "00000000-0000-0000-0000-000000000001";
+const DEFAULT_FRANCHISE_ID = "1a518dde-85b7-44ef-8bc4-092f53ddfd99";
 
 // Shortens field description to at most 2 words
 function shorten(text: string): string {
@@ -49,7 +49,8 @@ async function run() {
   const { error: deleteError } = await supabase
     .from('products')
     .delete()
-    .eq('category_id', MALA_CATEGORY_ID);
+    .eq('category_id', MALA_CATEGORY_ID)
+    .eq('description', 'Mala imported from Stock Inventory Register');
 
   if (deleteError) {
     console.error("Warning during delete:", deleteError.message);
