@@ -1905,39 +1905,14 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                         </Button>
                       </>
                     ) : (
-                      <>
-                        <Button
-                          onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
-                          disabled={printing}
-                          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
-                        >
-                          <Printer className="w-4 h-4 mr-2" />
-                          {printing ? "Printing..." : "Print Labels (HTML)"}
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            const { downloadZPL } = require("@/lib/zebra-zpl-service")
-                            downloadZPL({
-                              barcodes: [{
-                                code: product.barcode || "",
-                                productName: product.name,
-                                price: product.price,
-                                regular_price: product.regular_price,
-                                color: product.color,
-                                size: product.size,
-                                material: product.material
-                              }],
-                              style: printStyle,
-                              topOffset: printStyle === 2 ? topOffset : 0
-                            })
-                          }}
-                          variant="outline"
-                          className="border-green-600 text-green-700 hover:bg-green-50"
-                        >
-                          Download ZPL
-                        </Button>
-                      </>
+                      <Button
+                        onClick={() => handlePrint(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
+                        disabled={printing}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                      >
+                        <Printer className="w-4 h-4 mr-2" />
+                        {printing ? "Printing..." : "Print Labels (HTML)"}
+                      </Button>
                     )}
                     <Button
                       type="button"
@@ -1946,38 +1921,6 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                       className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
                     >
                       Download PNG
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => handleDownloadBMP(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
-                      variant="outline"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
-                    >
-                      Download BMP (1-Bit)
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => handleDownloadPDF(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
-                      variant="outline"
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
-                    >
-                      Download PDF (Vector)
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => handleDownloadSVG(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
-                      variant="outline"
-                      className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
-                    >
-                      Download SVG (Vector)
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => handleDownloadCSV(product.barcode, product.name, product.regular_price, product.price, product.color, product.size, product.material)}
-                      variant="outline"
-                      className="border-green-300 text-green-700 hover:bg-green-50 font-semibold"
-                    >
-                      Download CSV (BarTender)
                     </Button>
                   </div>
                 </>
@@ -2307,30 +2250,6 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                               <Printer className="w-4 h-4 mr-2" />
                               {printing ? "Printing..." : "Print Labels (HTML)"}
                             </Button>
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                const { downloadZPL } = require("@/lib/zebra-zpl-service")
-                                downloadZPL({
-                                  barcodes: [{
-                                    code: selectedVariant.barcode || "",
-                                    productName: varName,
-                                    price: salPrice,
-                                    regular_price: regPrice,
-                                    color: varColor,
-                                    size: varSize,
-                                    material: varMaterial
-                                  }],
-                                  style: printStyle,
-                                  topOffset: printStyle === 2 ? topOffset : 0
-                                })
-                              }}
-                              variant="outline"
-                              className="border-green-600 text-green-700 hover:bg-green-50"
-                              disabled={!selectedVariant.barcode}
-                            >
-                              Download ZPL
-                            </Button>
                           </>
                         )}
                         <Button
@@ -2341,42 +2260,6 @@ export function BarcodePrintDialog({ open, onOpenChange, product }: BarcodeDialo
                           disabled={!selectedVariant.barcode}
                         >
                           Download PNG
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => handleDownloadBMP(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
-                          variant="outline"
-                          className="border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
-                          disabled={!selectedVariant.barcode}
-                        >
-                          Download BMP (1-Bit)
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => handleDownloadPDF(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
-                          variant="outline"
-                          className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
-                          disabled={!selectedVariant.barcode}
-                        >
-                          Download PDF (Vector)
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => handleDownloadSVG(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
-                          variant="outline"
-                          className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold"
-                          disabled={!selectedVariant.barcode}
-                        >
-                          Download SVG (Vector)
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => handleDownloadCSV(selectedVariant.barcode, varName, regPrice, salPrice, varColor, varSize, varMaterial)}
-                          variant="outline"
-                          className="border-green-300 text-green-700 hover:bg-green-50 font-semibold"
-                          disabled={!selectedVariant.barcode}
-                        >
-                          Download CSV (BarTender)
                         </Button>
                       </div>
                     </>
