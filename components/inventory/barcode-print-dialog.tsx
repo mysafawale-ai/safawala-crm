@@ -521,7 +521,7 @@ export async function drawBarcodeCanvas(
     // Row 4: Barcode number — gap at bcTop + 48, shifted left by 25px
     ctx.font = "500 19px 'Courier New'"
     ctx.textAlign = "center"
-    ctx.fillText(barcode, sec1W / 2 - 25, bcTop + 48)
+    ctx.fillText(barcode, sec1W / 2 - 25, bcTop + 32)
 
     // --- SECTION 2 ---
     // Product name (shifted down to Y=42, left by 15px)
