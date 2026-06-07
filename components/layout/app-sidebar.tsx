@@ -95,6 +95,13 @@ const navigationItems = {
       description: "Track wedding accessories, manage stock levels, and monitor product availability",
     },
     {
+      title: "Retail Catalog",
+      url: "/retail-catalog",
+      icon: Crown,
+      permission: "inventory",
+      description: "Browse jewelry, apparel, and retail product catalog with visual image gallery",
+    },
+    {
       title: "Packages",
       url: "/sets",
       icon: Layers,
