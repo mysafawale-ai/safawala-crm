@@ -220,9 +220,9 @@ export async function doPrintStyle2(
   .mrp-val::after { content: ""; position: absolute; left: -2px; bottom: 1px; width: calc(100% + 4px); height: 0.8px; background: #000; transform: rotate(-12deg); transform-origin: left bottom; }
   .save-text { font-family: 'Oswald', Arial, sans-serif; font-size: 8pt; font-weight: 500; color: #000; white-space: nowrap; letter-spacing: 0.2px; }
   .sale-price { font-family: 'Oswald', Arial, sans-serif; font-size: 13pt; font-weight: 500; color: #000; line-height: 1; text-align: center; letter-spacing: 0.5px; }
-  .bc { width: 33mm; height: 3.5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+  .bc { width: 30mm; height: 3.2mm; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; margin-top: 2.2mm; }
   .bc svg { width: 100%; height: 100%; display: block; }
-  .code { font-family: 'Courier New', monospace; font-size: 13pt; font-weight: 500; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 2.2mm; }
+  .code { font-family: 'Courier New', monospace; font-size: 9.5pt; font-weight: 500; color: #000; text-align: center; letter-spacing: 0.3px; line-height: 1; flex-shrink: 0; margin-top: 1.5mm; }
   .s2 { width: 34.9mm; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.5mm 1mm; gap: 0.4mm; }
   .pname { font-family: Verdana, sans-serif; font-size: 9pt; font-weight: 500; color: #000; text-align: center; line-height: 1.1; max-width: 33mm; word-break: break-word; overflow: hidden; }
   .attrs { font-family: Verdana, sans-serif; font-size: 7pt; color: #000; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 33mm; font-weight: 500; }
@@ -498,18 +498,18 @@ export async function drawBarcodeCanvas(
       ctx.fillText(`₹${salePrice}`, sec1W / 2, 40)
     }
 
-    // Row 3: Barcode
-    const bcTop = salePrice ? 46 : 18
+    // Row 3: Barcode (90% size, shifted down)
+    const bcTop = salePrice ? 53 : 25
     const barcodeCanvas2 = document.createElement("canvas")
-    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 30, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
+    JsBarcode(barcodeCanvas2, barcode, { format: "CODE128", width: 1, height: 27, displayValue: false, margin: 0, background: "#FFFFFF", lineColor: "#000000" })
     ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas2, 14, bcTop, 252, 30)
+    ctx.drawImage(barcodeCanvas2, 26, bcTop, 227, 27)
     ctx.imageSmoothingEnabled = true
 
-    // Row 4: Barcode number
-    ctx.font = "500 26px 'Courier New'"
+    // Row 4: Barcode number (neat, smaller font size)
+    ctx.font = "500 19px 'Courier New'"
     ctx.textAlign = "center"
-    ctx.fillText(barcode, sec1W / 2, bcTop + 64)
+    ctx.fillText(barcode, sec1W / 2, bcTop + 40)
 
     // --- SECTION 2 ---
     // Product name
