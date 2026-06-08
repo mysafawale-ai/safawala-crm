@@ -4,9 +4,9 @@ import { useState, useEffect, Suspense } from "react"
 import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import {
-  Crown, Phone, CheckCircle, ChevronRight,
+  Crown, Phone, CheckCircle, ChevronRight, Calendar,
   X, Loader2, Star, Package, Lock, Link2, Copy, Plus, Minus,
-  Shield, ExternalLink, Eye, EyeOff, Zap, Users, RotateCcw,
+  Shield, ExternalLink, Eye, EyeOff, Users, RotateCcw,
   Sparkles, Check, AlertCircle, PhoneCall, MessageCircle
 } from "lucide-react"
 
@@ -136,8 +136,8 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
               </button>
             </div>
             {error && (
-              <p style={{ fontSize: 12, color: "#ef4444", marginTop: 6, textAlign: "left" }}>
-                ❌ {error}
+              <p style={{ fontSize: 12, color: "#ef4444", marginTop: 6, textAlign: "left", display: "flex", alignItems: "center", gap: 5 }}>
+                <AlertCircle style={{ width: 13, height: 13, flexShrink: 0 }} /> {error}
               </p>
             )}
           </div>
@@ -172,8 +172,8 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
           </button>
         </form>
 
-        <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 20 }}>
-          🔒 Safawala — Premium Indian Wedding Accessories
+        <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+          <Lock style={{ width: 12, height: 12 }} /> Safawala — Premium Indian Wedding Accessories
         </p>
       </div>
     </div>
@@ -255,7 +255,7 @@ function LeadModal({
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "#dcfce7" }}>
               <CheckCircle className="w-8 h-8" style={{ color: "#16a34a" }} />
             </div>
-            <h3 className="text-2xl font-bold mb-2" style={{ color: "#111827" }}>Enquiry Sent! 🎉</h3>
+            <h3 className="text-2xl font-bold mb-2" style={{ color: "#111827" }}>Enquiry Sent!</h3>
             <p className="mb-2" style={{ color: "#6b7280" }}>Our team will call you within 2 hours.</p>
             <p className="text-sm" style={{ color: "#9ca3af" }}>
               Package: <span className="font-medium" style={{ color: "#4f46e5" }}>{variant.name}</span>
@@ -307,7 +307,9 @@ function LeadModal({
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-5 space-y-3">
-              <p className="text-sm font-semibold" style={{ color: "#374151" }}>Fill your details — we'll call you! 📞</p>
+              <p className="text-sm font-semibold" style={{ color: "#374151", display: "flex", alignItems: "center", gap: 6 }}>
+                <Phone className="w-3.5 h-3.5" style={{ color: "#4f46e5" }} /> Fill your details — we'll call you!
+              </p>
 
               {/* Name */}
               <div>
@@ -396,9 +398,11 @@ function LeadModal({
               >
                 {submitting
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
-                  : <>Send Enquiry — We'll Call You! 📞</>}
+                  : <><Phone className="w-4 h-4" /> Send Enquiry — We'll Call You!</>}
               </button>
-              <p className="text-center text-xs" style={{ color: "#9ca3af" }}>🔒 Your info is safe. No spam ever.</p>
+              <p className="text-center text-xs" style={{ color: "#9ca3af", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Lock className="w-3 h-3" /> Your info is safe. No spam ever.
+              </p>
             </form>
           </>
         )}
@@ -542,8 +546,8 @@ function AdminPanel({ variants, categories, onClose }: {
   // ── Generated link display ──
   const LinkResult = () => generatedLink ? (
     <div style={{ marginTop: 16, borderRadius: 14, padding: 16, background: "#eef2ff", border: "1px solid #c7d2fe" }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-        ✅ Link ready — share with customer
+      <p style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+        <CheckCircle style={{ width: 13, height: 13 }} /> Link ready — share with customer
       </p>
       <div style={{ display: "flex", gap: 8 }}>
         <input
@@ -669,8 +673,8 @@ function AdminPanel({ variants, categories, onClose }: {
               {aiResult.length > 0 && (
                 <div>
                   {aiSummary && (
-                    <div style={{ borderRadius: 10, padding: "10px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 12, fontSize: 13, color: "#15803d", fontWeight: 600 }}>
-                      ✅ {aiSummary}
+                    <div style={{ borderRadius: 10, padding: "10px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 12, fontSize: 13, color: "#15803d", fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+                      <CheckCircle style={{ width: 15, height: 15, flexShrink: 0 }} /> {aiSummary}
                     </div>
                   )}
                   <p style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
@@ -812,8 +816,8 @@ function AdminPanel({ variants, categories, onClose }: {
                               <MessageCircle style={{ width: 12, height: 12 }} /> WhatsApp
                             </a>
                           </div>
-                          {lead.package_interest && <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>📦 {lead.package_interest}</p>}
-                          {lead.event_date && <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>📅 {new Date(lead.event_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} {lead.location ? `· ${lead.location}` : ""}</p>}
+                          {lead.package_interest && <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><Package style={{ width: 12, height: 12, flexShrink: 0 }} /> {lead.package_interest}</p>}
+                          {lead.event_date && <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}><Calendar style={{ width: 12, height: 12, flexShrink: 0 }} /> {new Date(lead.event_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} {lead.location ? `· ${lead.location}` : ""}</p>}
                           {/* Status buttons */}
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
                             {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
