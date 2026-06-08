@@ -284,18 +284,22 @@ function PackageCard({ variant, price, category, linkId, linkLabel }: {
     <>
       <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e5e7eb", overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.04)" }}>
         <div style={{ padding: "16px 16px 14px" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 800, color: "#111827", margin: "0 0 4px", lineHeight: 1.3 }}>{variant.name}</h3>
-              {variant.inclusions && variant.inclusions.length > 0 && (
-                <p style={{ fontSize: 11, color: "#9ca3af", margin: 0 }}>{variant.inclusions.length} items included</p>
-              )}
-            </div>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: "#111827", margin: 0, lineHeight: 1.3 }}>{variant.name}</h3>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: "#4f46e5" }}>₹{price.toLocaleString("en-IN")}</div>
               <div style={{ fontSize: 10, color: "#9ca3af" }}>per event</div>
             </div>
           </div>
+          {variant.inclusions && variant.inclusions.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 12 }}>
+              {variant.inclusions.map((inc, i) => (
+                <span key={i} style={{ fontSize: 11, fontWeight: 600, background: "#eef2ff", color: "#4338ca", borderRadius: 6, padding: "3px 9px", lineHeight: 1.5 }}>
+                  ✓ {inc}
+                </span>
+              ))}
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <button
               onClick={() => setExplainOpen(true)}
