@@ -190,7 +190,14 @@ function AdminPanel({ adminPw }: { adminPw: string }) {
       const res = await fetch("/api/public/ai-quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: adminPw, command: aiCommand, variants }),
+        body: JSON.stringify({
+          password: adminPw,
+          command: aiCommand,
+          variants: variants.map(v => ({
+            ...v,
+            category_name: categories.find(c => c.id === v.category_id)?.name || ""
+          }))
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setAiError(data.error || "AI failed"); return }

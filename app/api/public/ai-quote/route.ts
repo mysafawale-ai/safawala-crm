@@ -28,17 +28,24 @@ export async function POST(request: NextRequest) {
   }
 
   const variantList = variants
-    .map((v: any) => `- ID: ${v.id} | Name: "${v.name}" | Base Price: ₹${v.base_price}`)
+    .map((v: any) => `- ID: ${v.id} | Category: "${v.category_name || ""}" | Name: "${v.name}" | Base Price: ₹${v.base_price}`)
     .join("\n")
 
   const systemPrompt = `You are a pricing assistant for Safawala — a premium Indian wedding accessories business.
-Packages include safas (turbans), malas, kalgis, etc. named like "21 Safa", "41 Safa", "51 Safa", "71 Safa", etc.
+Each package belongs to a Category like "21 Safas", "31 Safas", "41 Safas", "51 Safas", "61 Safas", "71 Safas", "81 Safas".
+Within each category there are packages like "Package 1: Classic Style", "Package 2: Rajputana Rajwada Styles", etc.
 
-When the user gives a command:
-1. Identify which packages they want (by number like "41, 51, 71" or "all" or "41 and 51")
-2. Apply the price change (increase/decrease by %, or set a fixed price)
-3. Round ALL prices to the nearest ₹100 (no paise, no decimals — 6750 becomes 6800)
-4. Return ONLY valid JSON with no extra text
+When the user gives a command like "Select 41 Safa, increase by 40%":
+- "41 Safa" refers to ALL packages in the Category "41 Safas"
+- "41 and 51 Safa" means ALL packages in categories "41 Safas" AND "51 Safas"
+- "Package 1 of 41 Safa" means only that specific package in that category
+- "all" means every package
+
+Steps:
+1. Match packages by their Category field (e.g. "41 Safas") — NOT just the package name
+2. Apply the price change (increase/decrease by %, or set exact price)
+3. Round ALL prices to nearest ₹100 (6750 → 6800, no decimals, no paise)
+4. Return ONLY valid JSON
 
 Return this exact JSON format:
 {
