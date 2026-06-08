@@ -9,6 +9,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/favicon",
   "/public",
   "/assets",
+  "/sizebar",
 ]
 
 function isPublic(pathname: string) {

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Package, Save, Barcode, Camera, Upload, X, ImageIcon, Star, Move } from "lucide-react"
+import { ArrowLeft, Package, Save, Barcode, Camera, Upload, X, ImageIcon, Star, Move, Sparkles, Wand2 } from "lucide-react"
 import { UploadProgress, useUploadProgress } from '@/components/ui/upload-progress'
 import { uploadMultiple } from '@/lib/upload-with-progress'
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
@@ -73,6 +73,21 @@ export default function AddProductPage() {
 
   const [localVariations, setLocalVariations] = useState<VariationData[]>([])
   const [userFranchiseId, setUserFranchiseId] = useState<string>("")
+
+  // Safawala AI state
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [aiHint, setAiHint] = useState("")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<{
+    productNames: string[]
+    materials: string[]
+    colours: string[]
+    sizes: string[]
+    description: string
+    suggestedCategoryId?: string
+    suggestedCategoryName?: string
+  } | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -158,6 +173,36 @@ export default function AddProductPage() {
     } catch (error) {
       console.error("Error generating barcode:", error)
     }
+  }
+
+  const handleAiGenerate = async () => {
+    const mainImage = productImages.find((img) => img.isMain) || productImages[0]
+    if (!aiHint.trim() && !mainImage) {
+      setAiError("Please upload a product photo first, or type a hint below.")
+      return
+    }
+    setAiLoading(true)
+    setAiError(null)
+    setAiResult(null)
+    try {
+      const fd = new FormData()
+      if (mainImage?.url) fd.append("imageUrl", mainImage.url)
+      if (aiHint.trim()) fd.append("hints", aiHint.trim())
+      fd.append("categories", JSON.stringify(categories.map((c) => ({ id: c.id, name: c.name }))))
+      const res = await fetch("/api/generate-product-names", { method: "POST", body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to generate")
+      setAiResult(data)
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const applyAiSuggestion = (field: keyof FormData, value: string) => {
+    handleInputChange(field, value)
+    toast.success(`${field.replace("_", " ")} updated!`)
   }
 
   const handleInputChange = (field: keyof FormData, value: any) => {
@@ -503,13 +548,166 @@ export default function AddProductPage() {
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Package className="h-5 w-5" />
-                    <span>Basic Information</span>
-                  </CardTitle>
-                  <CardDescription>Enter the basic details of your product</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Package className="h-5 w-5" />
+                        <span>Basic Information</span>
+                      </CardTitle>
+                      <CardDescription>Enter the basic details of your product</CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setAiPanelOpen(!aiPanelOpen); setAiResult(null); setAiError(null) }}
+                      className="flex items-center gap-2 border-violet-300 text-violet-700 hover:bg-violet-50 hover:text-violet-800"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Safawala AI
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Safawala AI Panel */}
+                  {aiPanelOpen && (
+                    <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 space-y-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Sparkles className="h-4 w-4 text-violet-600" />
+                        <span className="font-semibold text-violet-800 text-sm">Safawala AI — Product Suggestions</span>
+                        <button type="button" onClick={() => setAiPanelOpen(false)} className="ml-auto text-violet-400 hover:text-violet-700">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Photo status + hint input */}
+                      <div className="space-y-2">
+                        {/* Show which photo AI will use */}
+                        {(() => {
+                          const mainImg = productImages.find((img) => img.isMain) || productImages[0]
+                          return mainImg ? (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200">
+                              <img src={mainImg.url} alt="product" className="w-8 h-8 rounded object-cover border border-green-300" />
+                              <span className="text-xs text-green-700 font-medium">✓ Using uploaded product photo</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                              <ImageIcon className="h-4 w-4 text-amber-500" />
+                              <span className="text-xs text-amber-700">No photo uploaded yet — add one in Product Gallery below, or just use a hint</span>
+                            </div>
+                          )
+                        })()}
+
+                        {/* Hint input */}
+                        <input
+                          type="text"
+                          value={aiHint}
+                          onChange={(e) => setAiHint(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAiGenerate()}
+                          placeholder="Optional hint: e.g. silk blue turban, gold brooch, red dupatta..."
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-violet-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 placeholder:text-gray-400"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleAiGenerate}
+                          disabled={aiLoading}
+                          className="bg-violet-600 hover:bg-violet-700 text-white w-full"
+                        >
+                          {aiLoading ? (
+                            <span className="flex items-center gap-2"><span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Analysing & Generating...</span>
+                          ) : (
+                            <span className="flex items-center gap-2"><Wand2 className="h-3.5 w-3.5" />Generate Suggestions</span>
+                          )}
+                        </Button>
+                      </div>
+
+                      {aiError && (
+                        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">⚠️ {aiError}</div>
+                      )}
+
+                      {/* Results */}
+                      {aiResult && (
+                        <div className="space-y-3 pt-1">
+                          {/* Product Names */}
+                          <div>
+                            <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">✨ Product Names — click to apply</p>
+                            <div className="flex flex-wrap gap-2">
+                              {aiResult.productNames.map((name, i) => (
+                                <button key={i} type="button" onClick={() => applyAiSuggestion("name", name)}
+                                  className="px-3 py-1.5 rounded-full bg-white border border-violet-300 text-sm text-violet-800 hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all">
+                                  {name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Category */}
+                          {aiResult.suggestedCategoryName && (
+                            <div>
+                              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">🏷️ Suggested Category</p>
+                              <button type="button"
+                                onClick={() => { if (aiResult.suggestedCategoryId) { applyAiSuggestion("category_id", aiResult.suggestedCategoryId) } }}
+                                className="px-3 py-1.5 rounded-full bg-white border border-violet-300 text-sm text-violet-800 hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all">
+                                {aiResult.suggestedCategoryName}
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-3 gap-3">
+                            {/* Materials */}
+                            <div>
+                              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">🧵 Material</p>
+                              <div className="flex flex-col gap-1.5">
+                                {aiResult.materials.map((m, i) => (
+                                  <button key={i} type="button" onClick={() => applyAiSuggestion("material", m)}
+                                    className="px-2 py-1 rounded-lg bg-white border border-violet-200 text-xs text-violet-800 hover:bg-violet-600 hover:text-white transition-all text-center">
+                                    {m}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Colours */}
+                            <div>
+                              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">🎨 Colour</p>
+                              <div className="flex flex-col gap-1.5">
+                                {aiResult.colours.map((c, i) => (
+                                  <button key={i} type="button" onClick={() => applyAiSuggestion("color", c)}
+                                    className="px-2 py-1 rounded-lg bg-white border border-violet-200 text-xs text-violet-800 hover:bg-violet-600 hover:text-white transition-all text-center">
+                                    {c}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Sizes */}
+                            <div>
+                              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">📏 Size</p>
+                              <div className="flex flex-col gap-1.5">
+                                {aiResult.sizes.map((s, i) => (
+                                  <button key={i} type="button" onClick={() => applyAiSuggestion("size", s)}
+                                    className="px-2 py-1 rounded-lg bg-white border border-violet-200 text-xs text-violet-800 hover:bg-violet-600 hover:text-white transition-all text-center">
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          {aiResult.description && (
+                            <div>
+                              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">📝 Description</p>
+                              <button type="button" onClick={() => applyAiSuggestion("description", aiResult.description)}
+                                className="w-full text-left px-3 py-2 rounded-lg bg-white border border-violet-200 text-sm text-gray-700 hover:bg-violet-50 hover:border-violet-400 transition-all">
+                                {aiResult.description}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Product Name *</Label>
