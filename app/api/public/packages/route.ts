@@ -3,36 +3,87 @@ import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-// Public endpoint — no auth, fetches active package categories + variants
+// Hidden/test categories to exclude from public page
+const HIDDEN_KEYWORDS = ["demo", "test", "sample", "temp", "now safa", "new safa"]
+
+function isHidden(name: string) {
+  const lower = name.toLowerCase()
+  return HIDDEN_KEYWORDS.some(k => lower.includes(k))
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient()
 
-    // Fetch package categories
+    // 1. Find the Vadodara franchise by env var or name lookup
+    const franchiseId = process.env.PUBLIC_PACKAGES_FRANCHISE_ID
+
+    let targetFranchiseId: string | null = franchiseId || null
+
+    if (!targetFranchiseId) {
+      // Look up by name
+      const franchiseName = process.env.PUBLIC_PACKAGES_FRANCHISE_NAME || "Vadodara"
+      const { data: franchise } = await supabase
+        .from("franchises")
+        .select("id, name")
+        .ilike("name", `%${franchiseName}%`)
+        .limit(1)
+        .single()
+
+      if (franchise) {
+        targetFranchiseId = franchise.id
+      }
+    }
+
+    // 2. Fetch active package variants (filtered by franchise if found)
+    let variantQuery = supabase
+      .from("package_variants")
+      .select("id, name, base_price, category_id, inclusions, display_order, franchise_id, is_active")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+
+    if (targetFranchiseId) {
+      variantQuery = variantQuery.eq("franchise_id", targetFranchiseId)
+    }
+
+    const { data: variants, error: varError } = await variantQuery
+
+    if (varError) {
+      console.error("[Public Packages] Variants error:", varError)
+    }
+
+    const activeVariants = variants || []
+
+    // 3. Get unique category IDs that actually have variants
+    const activeCategoryIds = [...new Set(activeVariants.map(v => v.category_id).filter(Boolean))]
+
+    if (activeCategoryIds.length === 0) {
+      return NextResponse.json({ success: true, categories: [], variants: [] })
+    }
+
+    // 4. Fetch only those categories
     const { data: categories, error: catError } = await supabase
       .from("packages_categories")
-      .select("*")
+      .select("id, name, description, display_order")
+      .in("id", activeCategoryIds)
       .order("display_order", { ascending: true })
 
     if (catError) {
       console.error("[Public Packages] Categories error:", catError)
     }
 
-    // Fetch active package variants
-    const { data: variants, error: varError } = await supabase
-      .from("package_variants")
-      .select("*")
-      .eq("is_active", true)
-      .order("display_order", { ascending: true })
+    // 5. Filter out hidden/demo categories
+    const publicCategories = (categories || []).filter(c => !isHidden(c.name))
 
-    if (varError) {
-      console.error("[Public Packages] Variants error:", varError)
-    }
+    // 6. Only return variants for public categories
+    const publicCatIds = new Set(publicCategories.map(c => c.id))
+    const publicVariants = activeVariants.filter(v => publicCatIds.has(v.category_id))
 
     return NextResponse.json({
       success: true,
-      categories: categories || [],
-      variants: variants || [],
+      categories: publicCategories,
+      variants: publicVariants,
+      franchise_id: targetFranchiseId,
     })
   } catch (err) {
     console.error("[Public Packages] Error:", err)
