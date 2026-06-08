@@ -187,7 +187,7 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
 
       // Open WhatsApp
       const waText = encodeURIComponent(
-        `Hi Safawala! 🎉 I'm interested in *${variant.name}* at *₹${price.toLocaleString("en-IN")}*.\n\n` +
+        `Hi Safawala! I'm interested in *${variant.name}* at *₹${price.toLocaleString("en-IN")}*.\n\n` +
         `*Name:* ${name.trim()}\n` +
         `*Phone:* ${phone.trim()}\n` +
         (formattedDate ? `*Event Date:* ${formattedDate}\n` : "") +
