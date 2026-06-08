@@ -35,21 +35,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Fetch active package variants (filtered by franchise if found)
-    let variantQuery = supabase
-      .from("package_variants")
-      .select("id, name, base_price, category_id, inclusions, display_order, franchise_id, is_active")
-      .eq("is_active", true)
-      .order("display_order", { ascending: true })
-
-    if (targetFranchiseId) {
-      variantQuery = variantQuery.eq("franchise_id", targetFranchiseId)
+    // 2. Fetch package variants — try with franchise filter, fallback to all
+    const fetchVariants = async (franchiseId: string | null, activeOnly: boolean) => {
+      let q = supabase
+        .from("package_variants")
+        .select("id, name, base_price, category_id, inclusions, display_order, franchise_id, is_active")
+        .order("display_order", { ascending: true })
+      if (activeOnly) q = q.eq("is_active", true)
+      if (franchiseId) q = q.eq("franchise_id", franchiseId)
+      return q
     }
 
-    const { data: variants, error: varError } = await variantQuery
+    let { data: variants, error: varError } = await fetchVariants(targetFranchiseId, true)
+    if (varError) console.error("[Public Packages] Variants error:", varError)
 
-    if (varError) {
-      console.error("[Public Packages] Variants error:", varError)
+    // Fallback 1: franchise filter returned nothing → try all franchises
+    if (targetFranchiseId && (!variants || variants.length === 0)) {
+      const { data: all } = await fetchVariants(null, true)
+      variants = all
+    }
+
+    // Fallback 2: is_active filter excluded everything → fetch without it
+    if (!variants || variants.length === 0) {
+      const { data: all } = await fetchVariants(targetFranchiseId, false)
+      variants = all
     }
 
     const activeVariants = variants || []
@@ -61,10 +70,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, categories: [], variants: [] })
     }
 
-    // 4. Fetch only those categories
+    // 4. Fetch only those categories (no description — column may not exist)
     const { data: categories, error: catError } = await supabase
       .from("packages_categories")
-      .select("id, name, description, display_order")
+      .select("id, name, display_order")
       .in("id", activeCategoryIds)
       .order("display_order", { ascending: true })
 
