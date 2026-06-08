@@ -69,23 +69,38 @@ Return this exact JSON format:
   if (!res.ok) {
     const err = await res.text()
     console.error("[ai-quote] OpenAI error:", err)
-    return NextResponse.json({ error: "AI processing failed. Check OpenAI API key." }, { status: 500 })
+    let userMsg = "AI processing failed."
+    try {
+      const errJson = JSON.parse(err)
+      userMsg = errJson?.error?.message || userMsg
+    } catch {}
+    return NextResponse.json({ error: userMsg }, { status: 500 })
   }
 
   const json = await res.json()
-  const raw = json.choices?.[0]?.message?.content || "{}"
+  const raw = (json.choices?.[0]?.message?.content || "").trim()
+  console.log("[ai-quote] raw response:", raw.slice(0, 200))
+
+  if (!raw) {
+    return NextResponse.json({ error: "AI returned empty response. Try again." }, { status: 500 })
+  }
+
+  // Strip markdown code blocks if present (```json ... ```)
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
 
   try {
-    const result = JSON.parse(raw)
-    // Enforce rounding on all prices
-    if (result.selected) {
-      result.selected = result.selected.map((item: any) => ({
-        ...item,
-        new_price: roundToHundred(item.new_price),
-      }))
+    const result = JSON.parse(cleaned)
+    if (!result.selected || !Array.isArray(result.selected)) {
+      return NextResponse.json({ error: "AI did not select any packages. Try a more specific command." }, { status: 400 })
     }
+    // Enforce rounding on all prices
+    result.selected = result.selected.map((item: any) => ({
+      ...item,
+      new_price: roundToHundred(Number(item.new_price) || 0),
+    }))
     return NextResponse.json({ success: true, ...result })
-  } catch {
-    return NextResponse.json({ error: "AI returned invalid response" }, { status: 500 })
+  } catch (e) {
+    console.error("[ai-quote] JSON parse error:", e, "raw:", raw)
+    return NextResponse.json({ error: "AI returned an unreadable response. Please try again." }, { status: 500 })
   }
 }

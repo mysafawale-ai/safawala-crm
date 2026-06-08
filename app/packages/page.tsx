@@ -363,9 +363,21 @@ function AdminPanel({ adminPw }: { adminPw: string }) {
                     {categories.map(cat => {
                       const catVariants = variants.filter(v => v.category_id === cat.id)
                       if (!catVariants.length) return null
+                      const allSelected = catVariants.every(v => selectedIds.has(v.id))
+                      const toggleCat = () => setSelectedIds(prev => {
+                        const s = new Set(prev)
+                        if (allSelected) catVariants.forEach(v => s.delete(v.id))
+                        else catVariants.forEach(v => s.add(v.id))
+                        return s
+                      })
                       return (
                         <div key={cat.id} style={{ marginBottom: 12 }}>
-                          <p style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px", padding: "0 2px" }}>{cat.name}</p>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 6px", padding: "0 2px" }}>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>{cat.name}</p>
+                            <button onClick={toggleCat} style={{ fontSize: 10, fontWeight: 700, color: allSelected ? "#b91c1c" : "#4f46e5", background: allSelected ? "#fee2e2" : "#eef2ff", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                              {allSelected ? "Deselect All" : "Select All"}
+                            </button>
+                          </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                             {catVariants.map(v => {
                               const checked = selectedIds.has(v.id)
