@@ -28,6 +28,8 @@ import {
   Layers,
   FileCheck,
   Archive,
+  ClipboardList,
+  UserPlus,
 } from "lucide-react"
 
 import {
@@ -123,6 +125,13 @@ const navigationItems = {
       permission: "dashboard",
       description: "Assign, update, and comment on peer-to-peer tasks and ticket issues",
     },
+    {
+      title: "Leads",
+      url: "/leads",
+      icon: UserPlus,
+      permission: "customers",
+      description: "Enquiries from your public packages page — track, call and convert leads",
+    },
   ],
   business: [
     {
@@ -166,6 +175,13 @@ const navigationItems = {
       icon: Truck,
       permission: "deliveries",
       description: "Manage delivery schedules, track shipments, coordinate logistics, and handle product returns",
+    },
+    {
+      title: "Work Orders",
+      url: "/work-orders",
+      icon: ClipboardList,
+      permission: "bookings",
+      description: "Manage department-wise work orders, task checklists for warehouse, packing and dispatch",
     },
     {
       title: "Product Archive",

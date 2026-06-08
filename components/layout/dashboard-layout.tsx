@@ -25,6 +25,8 @@ import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase"
 import { CompanyHeader } from "./company-header"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { SafawalaAIAssistant } from "@/components/safawala-ai-assistant"
+import { useSessionGuard } from "@/hooks/use-session-guard"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -32,6 +34,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
+  useSessionGuard() // Single-device login enforcement
   const [user, setUser] = useState<User | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [profilePhoto, setProfilePhoto] = useState<string>("")
@@ -244,6 +247,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         onLocked={(ld) => setLockedDates(prev => [...prev, ld])}
         onUnlocked={(id) => setLockedDates(prev => prev.filter(d => d.id !== id))}
       />
+      {/* Safawala AI Floating Assistant */}
+      <SafawalaAIAssistant />
     </SidebarProvider>
   )
 }

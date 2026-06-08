@@ -10,6 +10,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/public",
   "/assets",
   "/sizebar",
+  "/packages",
 ]
 
 function isPublic(pathname: string) {

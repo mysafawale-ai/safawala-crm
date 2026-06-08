@@ -280,6 +280,19 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Login successful for:", email)
 
+    // ── SINGLE-DEVICE LOGIN: Generate a unique session token ──
+    // Storing this in DB means any new login from another device
+    // invalidates the previous session token automatically.
+    const sessionToken = crypto.randomUUID()
+    try {
+      await serviceAdmin
+        .from("users")
+        .update({ session_token: sessionToken, session_created_at: new Date().toISOString() })
+        .eq("id", userProfile.id)
+    } catch (tokenErr) {
+      console.warn("[v0] Could not store session token (column may not exist yet):", tokenErr)
+    }
+
     // Build response and set an HTTP-only auth cookie for middleware checks
     const res = NextResponse.json({
       success: true,
@@ -300,6 +313,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         role: user.role,
         franchise_id: user.franchise_id,
+        session_token: sessionToken,
       })
       res.cookies.set('safawala_user', cookiePayload, {
         httpOnly: true,
