@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
+import Image from "next/image"
 import { useSearchParams } from "next/navigation"
 import {
   Crown, Phone, CheckCircle, ChevronRight,
   X, Loader2, Star, Package, Lock, Link2, Copy, Plus, Minus,
-  Shield, ExternalLink, Eye, EyeOff
+  Shield, ExternalLink, Eye, EyeOff, Zap, Users, RotateCcw,
+  Sparkles, Check, AlertCircle, PhoneCall, MessageCircle
 } from "lucide-react"
 
 // ─── Password Gate ─────────────────────────────────────────────────
@@ -65,20 +67,8 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
         }}
       >
         {/* Logo */}
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-            borderRadius: 20,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 20px",
-            boxShadow: "0 8px 24px rgba(79,70,229,0.3)",
-          }}
-        >
-          <Crown style={{ width: 28, height: 28, color: "#ffffff" }} />
+        <div style={{ margin: "0 auto 20px", display: "flex", justifyContent: "center" }}>
+          <Image src="/safawalalogo.png" alt="Safawala" width={120} height={60} style={{ objectFit: "contain" }} />
         </div>
 
         <h1 style={{ fontSize: 24, fontWeight: 900, color: "#111827", marginBottom: 6 }}>
@@ -200,107 +190,6 @@ function sortCategories(cats: PackageCategory[]) {
     const numB = parseInt(b.name.match(/\d+/)?.[0] || "999")
     return numA - numB
   })
-}
-
-// ─── Country Code Data ────────────────────────────────────────────
-const COUNTRIES = [
-  { code: "+91", flag: "🇮🇳", name: "India", short: "IN" },
-  { code: "+1", flag: "🇺🇸", name: "United States", short: "US" },
-  { code: "+44", flag: "🇬🇧", name: "United Kingdom", short: "GB" },
-  { code: "+971", flag: "🇦🇪", name: "UAE", short: "AE" },
-  { code: "+966", flag: "🇸🇦", name: "Saudi Arabia", short: "SA" },
-  { code: "+61", flag: "🇦🇺", name: "Australia", short: "AU" },
-  { code: "+1", flag: "🇨🇦", name: "Canada", short: "CA" },
-  { code: "+65", flag: "🇸🇬", name: "Singapore", short: "SG" },
-  { code: "+60", flag: "🇲🇾", name: "Malaysia", short: "MY" },
-  { code: "+27", flag: "🇿🇦", name: "South Africa", short: "ZA" },
-  { code: "+49", flag: "🇩🇪", name: "Germany", short: "DE" },
-  { code: "+33", flag: "🇫🇷", name: "France", short: "FR" },
-  { code: "+977", flag: "🇳🇵", name: "Nepal", short: "NP" },
-  { code: "+880", flag: "🇧🇩", name: "Bangladesh", short: "BD" },
-  { code: "+94", flag: "🇱🇰", name: "Sri Lanka", short: "LK" },
-  { code: "+92", flag: "🇵🇰", name: "Pakistan", short: "PK" },
-  { code: "+974", flag: "🇶🇦", name: "Qatar", short: "QA" },
-  { code: "+973", flag: "🇧🇭", name: "Bahrain", short: "BH" },
-  { code: "+968", flag: "🇴🇲", name: "Oman", short: "OM" },
-  { code: "+31", flag: "🇳🇱", name: "Netherlands", short: "NL" },
-]
-
-// ─── Country Code Selector ────────────────────────────────────────
-function CountryCodeSelector({
-  value, onChange
-}: {
-  value: string
-  onChange: (code: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState("")
-  const ref = useRef<HTMLDivElement>(null)
-
-  const selected = COUNTRIES.find(c => c.code === value && (value !== "+1" || c.short === "IN")) ||
-    COUNTRIES.find(c => c.code === value) ||
-    COUNTRIES[0]
-
-  const filtered = COUNTRIES.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.includes(search) ||
-    c.short.toLowerCase().includes(search.toLowerCase())
-  )
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 h-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition whitespace-nowrap"
-      >
-        <span className="text-base">{selected.flag}</span>
-        <span className="font-medium">{selected.code}</span>
-        <ChevronDown className="w-3 h-3 text-gray-400" />
-      </button>
-
-      {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-          <div className="p-2 border-b border-gray-100">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-              <input
-                autoFocus
-                placeholder="Search country..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-              />
-            </div>
-          </div>
-          <div className="max-h-52 overflow-y-auto">
-            {filtered.map((c, i) => (
-              <button
-                key={`${c.short}-${i}`}
-                type="button"
-                onClick={() => { onChange(c.code); setOpen(false); setSearch("") }}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-indigo-50 transition text-left ${
-                  c.code === value ? "bg-indigo-50 text-indigo-700" : "text-gray-700"
-                }`}
-              >
-                <span className="text-base">{c.flag}</span>
-                <span className="flex-1">{c.name}</span>
-                <span className="text-gray-400 text-xs">{c.code}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ─── Lead Popup Modal ─────────────────────────────────────────────
@@ -518,43 +407,51 @@ function LeadModal({
   )
 }
 
+// ─── Shared helpers ───────────────────────────────────────────────
+const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  new:        { label: "New",        bg: "#dbeafe", color: "#1d4ed8" },
+  contacted:  { label: "Contacted",  bg: "#fef9c3", color: "#854d0e" },
+  interested: { label: "Interested", bg: "#ffedd5", color: "#9a3412" },
+  converted:  { label: "Converted",  bg: "#dcfce7", color: "#15803d" },
+  expired:    { label: "Expired",    bg: "#f3f4f6", color: "#6b7280" },
+  rejected:   { label: "Rejected",   bg: "#fee2e2", color: "#b91c1c" },
+}
+
 // ─── Admin Panel ──────────────────────────────────────────────────
-function AdminPanel({ variants, onClose }: { variants: PackageVariant[]; onClose: () => void }) {
-  const [prices, setPrices] = useState<Record<string, number>>({})
-  const [label, setLabel] = useState("")
+function AdminPanel({ variants, categories, onClose }: {
+  variants: PackageVariant[]
+  categories: PackageCategory[]
+  onClose: () => void
+}) {
+  const [tab, setTab] = useState<"ai" | "manual" | "leads">("ai")
   const [password, setPassword] = useState("")
-  const [generating, setGenerating] = useState(false)
-  const [generatedLink, setGeneratedLink] = useState("")
-  const [sessionLinks, setSessionLinks] = useState<{ key: string; label: string; url: string }[]>([])
   const [copied, setCopied] = useState<string | null>(null)
+  const [generatedLink, setGeneratedLink] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [label, setLabel] = useState("")
+
+  // AI tab state
+  const [aiCommand, setAiCommand] = useState("")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<{ id: string; name: string; original_price: number; new_price: number }[]>([])
+  const [aiSummary, setAiSummary] = useState("")
+  const [aiError, setAiError] = useState("")
+
+  // Manual tab state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [manualPrices, setManualPrices] = useState<Record<string, number>>({})
+
+  // Leads tab state
+  const [leads, setLeads] = useState<any[]>([])
+  const [leadsLoading, setLeadsLoading] = useState(false)
+  const [leadsLoaded, setLeadsLoaded] = useState(false)
+  const [updatingLead, setUpdatingLead] = useState<string | null>(null)
 
   useEffect(() => {
     const init: Record<string, number> = {}
     variants.forEach(v => { init[v.id] = v.base_price })
-    setPrices(init)
+    setManualPrices(init)
   }, [variants])
-
-  const adjust = (id: string, delta: number) =>
-    setPrices(p => ({ ...p, [id]: Math.max(0, (p[id] || 0) + delta) }))
-
-  const generate = async () => {
-    if (!password) { alert("Enter admin password"); return }
-    setGenerating(true)
-    try {
-      const res = await fetch("/api/public/price-links", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, custom_prices: prices, label: label || "Custom Quote" }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        const url = `${window.location.origin}/packages?pk=${data.link_key}`
-        setGeneratedLink(url)
-        setSessionLinks(prev => [{ key: data.link_key, label: label || "Custom Quote", url }, ...prev])
-      } else alert(data.error || "Failed")
-    } catch { alert("Error") }
-    finally { setGenerating(false) }
-  }
 
   const copy = (text: string, key: string) => {
     navigator.clipboard.writeText(text)
@@ -562,149 +459,380 @@ function AdminPanel({ variants, onClose }: { variants: PackageVariant[]; onClose
     setTimeout(() => setCopied(null), 2000)
   }
 
+  // ── AI command ──
+  const runAI = async () => {
+    if (!password) { setAiError("Enter admin password first"); return }
+    if (!aiCommand.trim()) { setAiError("Type a command first"); return }
+    setAiLoading(true); setAiError(""); setAiResult([]); setAiSummary(""); setGeneratedLink("")
+    try {
+      const res = await fetch("/api/public/ai-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, command: aiCommand, variants }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAiError(data.error || "AI failed"); return }
+      setAiResult(data.selected || [])
+      setAiSummary(data.summary || "")
+    } catch { setAiError("Network error. Try again.") }
+    finally { setAiLoading(false) }
+  }
+
+  // ── Generate link from AI result or manual selection ──
+  const generateLink = async (priceMap: Record<string, number>) => {
+    if (!password) { alert("Enter admin password"); return }
+    setGenerating(true); setGeneratedLink("")
+    try {
+      const res = await fetch("/api/public/price-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, custom_prices: priceMap, label: label || "Custom Quote" }),
+      })
+      const data = await res.json()
+      if (res.ok) setGeneratedLink(`${window.location.origin}/packages?pk=${data.link_key}`)
+      else alert(data.error || "Failed to generate link")
+    } catch { alert("Error") }
+    finally { setGenerating(false) }
+  }
+
+  const generateFromAI = () => {
+    const priceMap: Record<string, number> = {}
+    aiResult.forEach(r => { priceMap[r.id] = r.new_price })
+    generateLink(priceMap)
+  }
+
+  const generateFromManual = () => {
+    const priceMap: Record<string, number> = {}
+    selectedIds.forEach(id => { priceMap[id] = manualPrices[id] ?? 0 })
+    if (!Object.keys(priceMap).length) { alert("Select at least one package"); return }
+    generateLink(priceMap)
+  }
+
+  // ── Leads ──
+  const loadLeads = async () => {
+    if (!password) { alert("Enter admin password first"); return }
+    setLeadsLoading(true)
+    try {
+      const res = await fetch("/api/public/leads", {
+        headers: { "x-admin-password": password },
+      })
+      const data = await res.json()
+      if (res.ok) { setLeads(data.data || []); setLeadsLoaded(true) }
+      else alert(data.error || "Failed to load leads")
+    } catch { alert("Error loading leads") }
+    finally { setLeadsLoading(false) }
+  }
+
+  const updateLeadStatus = async (id: string, status: string) => {
+    if (!password) return
+    setUpdatingLead(id)
+    try {
+      const res = await fetch("/api/public/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-password": password },
+        body: JSON.stringify({ id, status }),
+      })
+      if (res.ok) {
+        setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l))
+      }
+    } catch {}
+    finally { setUpdatingLead(null) }
+  }
+
+  // ── Generated link display ──
+  const LinkResult = () => generatedLink ? (
+    <div style={{ marginTop: 16, borderRadius: 14, padding: 16, background: "#eef2ff", border: "1px solid #c7d2fe" }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+        ✅ Link ready — share with customer
+      </p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          readOnly value={generatedLink}
+          onClick={e => (e.target as HTMLInputElement).select()}
+          style={{ flex: 1, border: "1px solid #c7d2fe", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#6b7280", background: "#fff", outline: "none" }}
+        />
+        <button
+          onClick={() => copy(generatedLink, "link")}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: "#4f46e5", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          <Copy style={{ width: 13, height: 13 }} />
+          {copied === "link" ? "Copied!" : "Copy"}
+        </button>
+      </div>
+    </div>
+  ) : null
+
+  const TABS = [
+    { id: "ai",     icon: <Sparkles style={{ width: 14, height: 14 }} />, label: "AI Command" },
+    { id: "manual", icon: <Package  style={{ width: 14, height: 14 }} />, label: "Manual"     },
+    { id: "leads",  icon: <Users    style={{ width: 14, height: 14 }} />, label: "Leads"       },
+  ] as const
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
-        className="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        style={{ background: "#ffffff", color: "#111827" }}
+        style={{ background: "#ffffff", borderRadius: 20, width: "100%", maxWidth: 680, maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.18)", overflow: "hidden" }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid #e5e7eb" }}>
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5" style={{ color: "#4f46e5" }} />
-            <h3 className="text-lg font-bold">Admin — Custom Pricing & Links</h3>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Shield style={{ width: 18, height: 18, color: "#4f46e5" }} />
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#111827" }}>Admin Panel</span>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg" style={{ color: "#9ca3af" }}>
-            <X className="w-5 h-5" />
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", display: "flex" }}>
+            <X style={{ width: 20, height: 20 }} />
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-semibold mb-1.5" style={{ color: "#374151" }}>Admin Password</label>
-            <input
-              type="password"
-              placeholder="Enter admin password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-              style={{ border: "1px solid #e5e7eb", background: "#f9fafb", color: "#111827" }}
-            />
-          </div>
-
-          {/* Label */}
-          <div>
-            <label className="block text-sm font-semibold mb-1.5" style={{ color: "#374151" }}>
-              Quote Label <span style={{ color: "#9ca3af", fontWeight: 400 }}>(optional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Sharma Wedding — June 2026"
-              value={label}
-              onChange={e => setLabel(e.target.value)}
-              className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-              style={{ border: "1px solid #e5e7eb", background: "#f9fafb", color: "#111827" }}
-            />
-          </div>
-
-          {/* Price Editor */}
-          <div>
-            <label className="block text-sm font-semibold mb-3" style={{ color: "#374151" }}>Set Custom Prices</label>
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {variants.map(v => (
-                <div key={v.id} className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: "#f9fafb" }}>
-                  <span className="flex-1 text-sm font-medium truncate" style={{ color: "#374151" }}>{v.name}</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => adjust(v.id, -500)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg transition"
-                      style={{ background: "#ffffff", border: "1px solid #e5e7eb", color: "#6b7280" }}
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-sm font-bold min-w-[80px] text-center" style={{ color: "#4f46e5" }}>
-                      ₹{(prices[v.id] || 0).toLocaleString("en-IN")}
-                    </span>
-                    <button
-                      onClick={() => adjust(v.id, 500)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg transition"
-                      style={{ background: "#ffffff", border: "1px solid #e5e7eb", color: "#6b7280" }}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                    <input
-                      type="number"
-                      value={prices[v.id] || 0}
-                      onChange={e => setPrices(p => ({ ...p, [v.id]: Number(e.target.value) }))}
-                      className="w-20 rounded-lg px-2 py-1 text-xs text-center focus:outline-none"
-                      style={{ border: "1px solid #e5e7eb", background: "#ffffff", color: "#111827" }}
-                    />
-                  </div>
-                </div>
-              ))}
+        {/* Shared: Password + Quote Label */}
+        <div style={{ padding: "14px 20px 0", flexShrink: 0, borderBottom: "1px solid #f3f4f6" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Admin Password</label>
+              <input
+                type="password" placeholder="Safawala@5678"
+                value={password} onChange={e => setPassword(e.target.value)}
+                style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#111827", background: "#f9fafb", outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Quote Label</label>
+              <input
+                type="text" placeholder="e.g. Sharma Wedding — June 2026"
+                value={label} onChange={e => setLabel(e.target.value)}
+                style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#111827", background: "#f9fafb", outline: "none", boxSizing: "border-box" }}
+              />
             </div>
           </div>
 
-          {/* Generate */}
-          <button
-            onClick={generate}
-            disabled={generating}
-            className="w-full rounded-xl py-3 font-semibold transition flex items-center justify-center gap-2"
-            style={{ background: "#4f46e5", color: "#ffffff", opacity: generating ? 0.7 : 1 }}
-          >
-            {generating
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
-              : <><Link2 className="w-4 h-4" /> Generate Shareable Link</>}
-          </button>
+          {/* Tab nav */}
+          <div style={{ display: "flex", gap: 4 }}>
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: "10px 10px 0 0", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer",
+                  background: tab === t.id ? "#ffffff" : "transparent",
+                  color: tab === t.id ? "#4f46e5" : "#6b7280",
+                  borderTop: tab === t.id ? "2px solid #4f46e5" : "2px solid transparent",
+                }}
+              >
+                {t.icon} {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          {/* Generated Link */}
-          {generatedLink && (
-            <div className="rounded-xl p-4" style={{ background: "#eef2ff", border: "1px solid #c7d2fe" }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#4f46e5" }}>✅ Link Ready — Share with Customer</p>
-              <div className="flex items-center gap-2">
-                <input
-                  readOnly
-                  value={generatedLink}
-                  className="flex-1 rounded-lg px-3 py-2 text-xs focus:outline-none"
-                  style={{ background: "#ffffff", border: "1px solid #c7d2fe", color: "#6b7280" }}
-                  onClick={e => (e.target as HTMLInputElement).select()}
-                />
-                <button
-                  onClick={() => copy(generatedLink, "main")}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap transition"
-                  style={{ background: "#4f46e5", color: "#ffffff" }}
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  {copied === "main" ? "Copied! ✓" : "Copy Link"}
-                </button>
+        {/* Tab content — scrollable */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+
+          {/* ── AI COMMAND TAB ── */}
+          {tab === "ai" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ borderRadius: 14, padding: 14, background: "#eef2ff", border: "1px solid #c7d2fe" }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: "#4f46e5", marginBottom: 4 }}>How to use AI Command</p>
+                <p style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>
+                  Type naturally: <em>"Select 41 Safa and 51 Safa, increase price by 40%"</em> or <em>"Pick 21, 31, 41 Safa and reduce by 10%"</em> — AI will pick the packages and calculate round prices automatically.
+                </p>
               </div>
-              <p className="text-xs mt-2" style={{ color: "#818cf8" }}>
-                Customer opens this link → sees your custom prices. Each link is unique.
-              </p>
+
+              <textarea
+                placeholder='e.g. "Select 41 Safa, 51 Safa and 71 Safa, increase price by 40%"'
+                value={aiCommand}
+                onChange={e => { setAiCommand(e.target.value); setAiError("") }}
+                rows={3}
+                style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", fontSize: 14, color: "#111827", background: "#f9fafb", outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+              />
+
+              {aiError && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#b91c1c", background: "#fee2e2", borderRadius: 10, padding: "10px 14px" }}>
+                  <AlertCircle style={{ width: 15, height: 15, flexShrink: 0 }} /> {aiError}
+                </div>
+              )}
+
+              <button
+                onClick={runAI}
+                disabled={aiLoading || !aiCommand.trim()}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#4f46e5", color: "#fff", border: "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: aiLoading || !aiCommand.trim() ? "not-allowed" : "pointer", opacity: aiLoading || !aiCommand.trim() ? 0.6 : 1 }}
+              >
+                {aiLoading
+                  ? <><Loader2 style={{ width: 16, height: 16 }} className="animate-spin" /> AI is processing...</>
+                  : <><Sparkles style={{ width: 16, height: 16 }} /> Process with AI</>}
+              </button>
+
+              {/* AI Results */}
+              {aiResult.length > 0 && (
+                <div>
+                  {aiSummary && (
+                    <div style={{ borderRadius: 10, padding: "10px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", marginBottom: 12, fontSize: 13, color: "#15803d", fontWeight: 600 }}>
+                      ✅ {aiSummary}
+                    </div>
+                  )}
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                    Selected Packages — review & adjust if needed
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {aiResult.map((r, i) => (
+                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#f9fafb", borderRadius: 12, padding: "10px 14px", border: "1px solid #e5e7eb" }}>
+                        <Check style={{ width: 15, height: 15, color: "#4f46e5", flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#374151" }}>{r.name}</span>
+                        <span style={{ fontSize: 12, color: "#9ca3af", textDecoration: "line-through", marginRight: 4 }}>₹{r.original_price.toLocaleString("en-IN")}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <button onClick={() => setAiResult(prev => prev.map((x, j) => j === i ? { ...x, new_price: Math.max(0, x.new_price - 100) } : x))} style={{ width: 24, height: 24, background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>
+                            <Minus style={{ width: 12, height: 12 }} />
+                          </button>
+                          <input
+                            type="number"
+                            value={r.new_price}
+                            onChange={e => setAiResult(prev => prev.map((x, j) => j === i ? { ...x, new_price: Math.round(Number(e.target.value) / 100) * 100 } : x))}
+                            style={{ width: 80, border: "1px solid #c7d2fe", borderRadius: 8, padding: "4px 6px", fontSize: 13, fontWeight: 700, color: "#4f46e5", textAlign: "center", background: "#eef2ff", outline: "none" }}
+                          />
+                          <button onClick={() => setAiResult(prev => prev.map((x, j) => j === i ? { ...x, new_price: x.new_price + 100 } : x))} style={{ width: 24, height: 24, background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>
+                            <Plus style={{ width: 12, height: 12 }} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={generateFromAI}
+                    disabled={generating}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 14, background: "#059669", color: "#fff", border: "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: generating ? "not-allowed" : "pointer", opacity: generating ? 0.7 : 1 }}
+                  >
+                    {generating
+                      ? <><Loader2 style={{ width: 15, height: 15 }} className="animate-spin" /> Generating...</>
+                      : <><Link2 style={{ width: 15, height: 15 }} /> Generate & Share Link</>}
+                  </button>
+                  <LinkResult />
+                </div>
+              )}
             </div>
           )}
 
-          {/* Previous Links This Session */}
-          {sessionLinks.length > 1 && (
-            <div>
-              <p className="text-sm font-semibold mb-2" style={{ color: "#374151" }}>Generated This Session</p>
-              {sessionLinks.map((l, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-lg px-3 py-2 mb-1.5" style={{ background: "#f9fafb" }}>
-                  <span className="flex-1 text-xs truncate" style={{ color: "#6b7280" }}>{l.label} — ...{l.key}</span>
-                  <button onClick={() => copy(l.url, l.key)} style={{ color: copied === l.key ? "#4f46e5" : "#9ca3af" }}>
-                    <Copy className="w-3.5 h-3.5" />
+          {/* ── MANUAL TAB ── */}
+          {tab === "manual" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Check the packages to include, then set a custom price for each.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 400, overflowY: "auto" }}>
+                {categories.map(cat => {
+                  const catVariants = variants.filter(v => v.category_id === cat.id)
+                  if (!catVariants.length) return null
+                  return (
+                    <div key={cat.id}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", margin: "8px 0 4px" }}>{cat.name}</p>
+                      {catVariants.map(v => {
+                        const checked = selectedIds.has(v.id)
+                        return (
+                          <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: checked ? "#eef2ff" : "#f9fafb", border: `1px solid ${checked ? "#c7d2fe" : "#e5e7eb"}`, marginBottom: 4, cursor: "pointer" }}
+                            onClick={() => setSelectedIds(prev => { const s = new Set(prev); s.has(v.id) ? s.delete(v.id) : s.add(v.id); return s })}
+                          >
+                            <div style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${checked ? "#4f46e5" : "#d1d5db"}`, background: checked ? "#4f46e5" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              {checked && <Check style={{ width: 11, height: 11, color: "#fff" }} />}
+                            </div>
+                            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#374151" }}>{v.name}</span>
+                            {checked && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setManualPrices(p => ({ ...p, [v.id]: Math.max(0, (p[v.id] || 0) - 100) }))} style={{ width: 22, height: 22, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus style={{ width: 11, height: 11, color: "#6b7280" }} /></button>
+                                <input type="number" value={manualPrices[v.id] || 0}
+                                  onChange={e => setManualPrices(p => ({ ...p, [v.id]: Math.round(Number(e.target.value) / 100) * 100 }))}
+                                  style={{ width: 80, border: "1px solid #c7d2fe", borderRadius: 8, padding: "3px 6px", fontSize: 13, fontWeight: 700, color: "#4f46e5", textAlign: "center", background: "#eef2ff", outline: "none" }}
+                                />
+                                <button onClick={() => setManualPrices(p => ({ ...p, [v.id]: (p[v.id] || 0) + 100 }))} style={{ width: 22, height: 22, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus style={{ width: 11, height: 11, color: "#6b7280" }} /></button>
+                              </div>
+                            )}
+                            {!checked && <span style={{ fontSize: 12, color: "#9ca3af" }}>₹{(v.base_price || 0).toLocaleString("en-IN")}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+              <button
+                onClick={generateFromManual}
+                disabled={generating || !selectedIds.size}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#4f46e5", color: "#fff", border: "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: generating || !selectedIds.size ? "not-allowed" : "pointer", opacity: generating || !selectedIds.size ? 0.6 : 1 }}
+              >
+                {generating
+                  ? <><Loader2 style={{ width: 15, height: 15 }} className="animate-spin" /> Generating...</>
+                  : <><Link2 style={{ width: 15, height: 15 }} /> Generate Link ({selectedIds.size} selected)</>}
+              </button>
+              <LinkResult />
+            </div>
+          )}
+
+          {/* ── LEADS TAB ── */}
+          {tab === "leads" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {!leadsLoaded ? (
+                <div style={{ textAlign: "center", paddingTop: 20 }}>
+                  <Users style={{ width: 40, height: 40, color: "#d1d5db", margin: "0 auto 12px" }} />
+                  <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>Load all leads submitted through the packages page</p>
+                  <button
+                    onClick={loadLeads}
+                    disabled={leadsLoading}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#4f46e5", color: "#fff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: leadsLoading ? "not-allowed" : "pointer", opacity: leadsLoading ? 0.7 : 1 }}
+                  >
+                    {leadsLoading ? <><Loader2 style={{ width: 15, height: 15 }} className="animate-spin" /> Loading...</> : <><Users style={{ width: 15, height: 15 }} /> Load Leads</>}
                   </button>
-                  <a href={l.url} target="_blank" style={{ color: "#9ca3af" }}>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
                 </div>
-              ))}
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>{leads.length} leads total</span>
+                    <button onClick={loadLeads} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#6b7280", background: "none", border: "1px solid #e5e7eb", borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>
+                      <RotateCcw style={{ width: 12, height: 12 }} /> Refresh
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 480, overflowY: "auto" }}>
+                    {leads.length === 0 ? (
+                      <p style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0", fontSize: 14 }}>No leads yet. Share the packages link to start getting enquiries!</p>
+                    ) : leads.map(lead => {
+                      const sc = STATUS_CONFIG[lead.status] || STATUS_CONFIG.new
+                      const date = lead.created_at ? new Date(lead.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""
+                      return (
+                        <div key={lead.id} style={{ background: "#f9fafb", borderRadius: 14, padding: "12px 14px", border: "1px solid #e5e7eb" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
+                            <div>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{lead.name}</span>
+                              <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 8 }}>{date}</span>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                            <a href={`tel:${lead.phone}`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#4f46e5", textDecoration: "none", fontWeight: 600 }}>
+                              <PhoneCall style={{ width: 13, height: 13 }} /> {lead.phone}
+                            </a>
+                            <a href={`https://wa.me/${lead.phone?.replace(/[^0-9]/g, "")}`} target="_blank" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#059669", textDecoration: "none" }}>
+                              <MessageCircle style={{ width: 12, height: 12 }} /> WhatsApp
+                            </a>
+                          </div>
+                          {lead.package_interest && <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>📦 {lead.package_interest}</p>}
+                          {lead.event_date && <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>📅 {new Date(lead.event_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} {lead.location ? `· ${lead.location}` : ""}</p>}
+                          {/* Status buttons */}
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
+                            {Object.entries(STATUS_CONFIG).map(([s, cfg]) => (
+                              <button
+                                key={s}
+                                disabled={updatingLead === lead.id}
+                                onClick={() => updateLeadStatus(lead.id, s)}
+                                style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 999, border: "none", cursor: lead.status === s ? "default" : "pointer", background: lead.status === s ? cfg.bg : "#f3f4f6", color: lead.status === s ? cfg.color : "#9ca3af", opacity: updatingLead === lead.id ? 0.5 : 1 }}
+                              >
+                                {cfg.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -794,14 +922,8 @@ function PackagesContent() {
       {/* Header */}
       <header style={{ position: "sticky", top: 0, zIndex: 40, background: "#ffffff", borderBottom: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         <div style={{ maxWidth: 960, margin: "0 auto", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, background: "#4f46e5", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Crown style={{ width: 16, height: 16, color: "#ffffff" }} />
-            </div>
-            <div>
-              <span style={{ fontSize: 18, fontWeight: 900, color: "#111827" }}>Safawala</span>
-              <span style={{ fontSize: 12, color: "#4f46e5", marginLeft: 6, fontWeight: 600 }}>Packages</span>
-            </div>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <Image src="/safawalalogo.png" alt="Safawala" width={110} height={44} style={{ objectFit: "contain" }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {priceKey && priceLabel && (
@@ -972,7 +1094,7 @@ function PackagesContent() {
         />
       )}
       {showAdmin && (
-        <AdminPanel variants={variants} onClose={() => setShowAdmin(false)} />
+        <AdminPanel variants={variants} categories={categories} onClose={() => setShowAdmin(false)} />
       )}
     </div>
   )
