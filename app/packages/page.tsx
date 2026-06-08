@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, Suspense, useRef } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import {
-  Crown, Phone, Calendar, MapPin, CheckCircle, ChevronRight,
+  Crown, Phone, CheckCircle, ChevronRight,
   X, Loader2, Star, Package, Lock, Link2, Copy, Plus, Minus,
-  Shield, ExternalLink, Search, ChevronDown, Eye, EyeOff
+  Shield, ExternalLink, Eye, EyeOff
 } from "lucide-react"
 
 // ─── Password Gate ─────────────────────────────────────────────────
@@ -313,7 +313,6 @@ function LeadModal({
   onClose: () => void
 }) {
   const displayPrice = customPrice ?? variant.base_price
-  const [countryCode, setCountryCode] = useState("+91")
   const [form, setForm] = useState({ name: "", phone: "", event_date: "", location: "", message: "" })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -341,7 +340,6 @@ function LeadModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          phone: `${countryCode}${form.phone.replace(/\s/g, "")}`,
           package_interest: `${category.name} — ${variant.name}`,
           source: "packages_page",
         }),
@@ -439,23 +437,20 @@ function LeadModal({
                 {errors.name && <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{errors.name}</p>}
               </div>
 
-              {/* Phone with country code */}
+              {/* Phone */}
               <div>
-                <div className="flex gap-2">
-                  <CountryCodeSelector value={countryCode} onChange={setCountryCode} />
-                  <input
-                    type="tel"
-                    placeholder="Mobile Number *"
-                    value={form.phone}
-                    onChange={e => setForm({ ...form, phone: e.target.value })}
-                    className="flex-1 rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-                    style={{
-                      border: `1px solid ${errors.phone ? "#f87171" : "#e5e7eb"}`,
-                      background: "#ffffff",
-                      color: "#111827",
-                    }}
-                  />
-                </div>
+                <input
+                  type="tel"
+                  placeholder="Phone Number *"
+                  value={form.phone}
+                  onChange={e => setForm({ ...form, phone: e.target.value })}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+                  style={{
+                    border: `1px solid ${errors.phone ? "#f87171" : "#e5e7eb"}`,
+                    background: "#ffffff",
+                    color: "#111827",
+                  }}
+                />
                 {errors.phone && <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{errors.phone}</p>}
               </div>
 
