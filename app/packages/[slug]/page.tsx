@@ -251,8 +251,14 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
               <input style={inputStyle} placeholder="Your Name *" value={name} onChange={e => setName(e.target.value)} required />
               <input style={inputStyle} placeholder="Phone Number *" value={phone} onChange={e => setPhone(e.target.value)} type="tel" required />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <input style={inputStyle} placeholder="Event Date" value={date} onChange={e => setDate(e.target.value)} type="date" />
-                <input style={inputStyle} placeholder="Event Location" value={location} onChange={e => setLocation(e.target.value)} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>Select Event Date</label>
+                  <input style={inputStyle} value={date} onChange={e => setDate(e.target.value)} type="date" />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>Event Location</label>
+                  <input style={inputStyle} placeholder="e.g. Vadodara" value={location} onChange={e => setLocation(e.target.value)} />
+                </div>
               </div>
               <textarea style={{ ...inputStyle, minHeight: 72, resize: "vertical" }} placeholder="Any message (optional)" value={message} onChange={e => setMessage(e.target.value)} />
 
