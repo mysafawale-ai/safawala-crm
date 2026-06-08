@@ -289,6 +289,10 @@ function AdminPanel({ adminPw }: { adminPw: string }) {
               {/* ── AI COMMAND ── */}
               {tab === "ai" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+                  {/* Compact package reference */}
+                  <PackageReference categories={categories} variants={variants} />
+
                   <div style={{ borderRadius: 12, padding: "12px 16px", background: "#eef2ff", border: "1px solid #c7d2fe" }}>
                     <p style={{ fontSize: 12, fontWeight: 700, color: "#4f46e5", marginBottom: 4 }}>How to use</p>
                     <p style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, margin: 0 }}>
@@ -348,38 +352,47 @@ function AdminPanel({ adminPw }: { adminPw: string }) {
 
               {/* ── MANUAL ── */}
               {tab === "manual" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Select packages, set custom prices, then generate the link.</p>
-                  <div style={{ maxHeight: 420, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Select packages, set custom prices, then generate the link.</p>
+                    {selectedIds.size > 0 && (
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#4f46e5", background: "#eef2ff", borderRadius: 999, padding: "2px 10px" }}>{selectedIds.size} selected</span>
+                    )}
+                  </div>
+                  <div style={{ maxHeight: 460, overflowY: "auto" }}>
                     {categories.map(cat => {
                       const catVariants = variants.filter(v => v.category_id === cat.id)
                       if (!catVariants.length) return null
                       return (
-                        <div key={cat.id}>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", margin: "10px 0 4px" }}>{cat.name}</p>
-                          {catVariants.map(v => {
-                            const checked = selectedIds.has(v.id)
-                            return (
-                              <div key={v.id}
-                                onClick={() => setSelectedIds(prev => { const s = new Set(prev); s.has(v.id) ? s.delete(v.id) : s.add(v.id); return s })}
-                                style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 10, background: checked ? "#eef2ff" : "#f9fafb", border: `1px solid ${checked ? "#c7d2fe" : "#e5e7eb"}`, marginBottom: 4, cursor: "pointer" }}
-                              >
-                                <div style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${checked ? "#4f46e5" : "#d1d5db"}`, background: checked ? "#4f46e5" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  {checked && <Check style={{ width: 11, height: 11, color: "#fff" }} />}
-                                </div>
-                                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#374151" }}>{v.name}</span>
-                                {checked ? (
-                                  <div style={{ display: "flex", alignItems: "center", gap: 5 }} onClick={e => e.stopPropagation()}>
-                                    <button onClick={() => setManualPrices(p => ({ ...p, [v.id]: Math.max(0, (p[v.id] || 0) - 100) }))} style={{ width: 22, height: 22, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus style={{ width: 11, height: 11, color: "#6b7280" }} /></button>
-                                    <input type="number" value={manualPrices[v.id] || 0} onChange={e => setManualPrices(p => ({ ...p, [v.id]: Math.round(Number(e.target.value) / 100) * 100 }))} style={{ width: 80, border: "1px solid #c7d2fe", borderRadius: 8, padding: "3px 6px", fontSize: 13, fontWeight: 700, color: "#4f46e5", textAlign: "center", background: "#eef2ff", outline: "none" }} />
-                                    <button onClick={() => setManualPrices(p => ({ ...p, [v.id]: (p[v.id] || 0) + 100 }))} style={{ width: 22, height: 22, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus style={{ width: 11, height: 11, color: "#6b7280" }} /></button>
+                        <div key={cat.id} style={{ marginBottom: 12 }}>
+                          <p style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px", padding: "0 2px" }}>{cat.name}</p>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                            {catVariants.map(v => {
+                              const checked = selectedIds.has(v.id)
+                              return (
+                                <div key={v.id}
+                                  onClick={() => setSelectedIds(prev => { const s = new Set(prev); s.has(v.id) ? s.delete(v.id) : s.add(v.id); return s })}
+                                  style={{ display: "flex", flexDirection: "column", gap: 6, padding: "9px 10px", borderRadius: 10, background: checked ? "#eef2ff" : "#f9fafb", border: `1.5px solid ${checked ? "#a5b4fc" : "#e5e7eb"}`, cursor: "pointer", transition: "all 0.1s" }}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                    <div style={{ width: 15, height: 15, borderRadius: 4, border: `2px solid ${checked ? "#4f46e5" : "#d1d5db"}`, background: checked ? "#4f46e5" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                      {checked && <Check style={{ width: 9, height: 9, color: "#fff" }} />}
+                                    </div>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: checked ? "#3730a3" : "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span>
                                   </div>
-                                ) : (
-                                  <span style={{ fontSize: 12, color: "#9ca3af" }}>₹{(v.base_price || 0).toLocaleString("en-IN")}</span>
-                                )}
-                              </div>
-                            )
-                          })}
+                                  {checked ? (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 4 }} onClick={e => e.stopPropagation()}>
+                                      <button onClick={() => setManualPrices(p => ({ ...p, [v.id]: Math.max(0, (p[v.id] || 0) - 100) }))} style={{ width: 20, height: 20, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Minus style={{ width: 9, height: 9, color: "#6b7280" }} /></button>
+                                      <input type="number" value={manualPrices[v.id] || 0} onChange={e => setManualPrices(p => ({ ...p, [v.id]: Math.round(Number(e.target.value) / 100) * 100 }))} style={{ flex: 1, minWidth: 0, border: "1px solid #c7d2fe", borderRadius: 6, padding: "2px 4px", fontSize: 12, fontWeight: 700, color: "#4f46e5", textAlign: "center", background: "#fff", outline: "none" }} />
+                                      <button onClick={() => setManualPrices(p => ({ ...p, [v.id]: (p[v.id] || 0) + 100 }))} style={{ width: 20, height: 20, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Plus style={{ width: 9, height: 9, color: "#6b7280" }} /></button>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, paddingLeft: 22 }}>₹{(v.base_price || 0).toLocaleString("en-IN")}</span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       )
                     })}
@@ -451,6 +464,47 @@ function AdminPanel({ adminPw }: { adminPw: string }) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Compact Package Reference (for AI tab) ───────────────────────
+function PackageReference({ categories, variants }: { categories: PackageCategory[]; variants: PackageVariant[] }) {
+  const [open, setOpen] = useState(false)
+  if (!variants.length) return null
+  return (
+    <div style={{ borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f9fafb", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#374151" }}>
+          <Package style={{ width: 13, height: 13, color: "#4f46e5" }} />
+          Browse all packages ({variants.length})
+        </span>
+        <span style={{ fontSize: 11, color: "#9ca3af" }}>{open ? "▲ Hide" : "▼ Show"}</span>
+      </button>
+      {open && (
+        <div style={{ padding: "12px 14px", background: "#fff", borderTop: "1px solid #f3f4f6", maxHeight: 300, overflowY: "auto" }}>
+          {categories.map(cat => {
+            const catVars = variants.filter(v => v.category_id === cat.id)
+            if (!catVars.length) return null
+            return (
+              <div key={cat.id} style={{ marginBottom: 10 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 5px" }}>{cat.name}</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {catVars.map(v => (
+                    <div key={v.id} style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", background: "#f3f4f6", borderRadius: 8, padding: "5px 10px", border: "1px solid #e5e7eb" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#111827", whiteSpace: "nowrap" }}>{v.name}</span>
+                      <span style={{ fontSize: 11, color: "#6b7280" }}>₹{(v.base_price || 0).toLocaleString("en-IN")}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
