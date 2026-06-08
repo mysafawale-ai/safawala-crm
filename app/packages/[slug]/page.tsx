@@ -148,6 +148,7 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [date, setDate] = useState("")
+  const [location, setLocation] = useState("")
   const [message, setMessage] = useState("")
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -159,6 +160,10 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
     setLoading(true); setError("")
 
     try {
+      const formattedDate = date
+        ? new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+        : ""
+
       // Save to leads
       await fetch("/api/public/leads", {
         method: "POST",
@@ -167,7 +172,11 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
           name: name.trim(),
           phone: phone.trim(),
           event_date: date || null,
-          message: `Package: ${variant.name} at ₹${price.toLocaleString("en-IN")}${message ? "\n" + message : ""}`,
+          message: [
+            `Package: ${variant.name} at ₹${price.toLocaleString("en-IN")}`,
+            location.trim() ? `Location: ${location.trim()}` : "",
+            message.trim() ? message.trim() : "",
+          ].filter(Boolean).join("\n"),
           source: "package_link",
           link_label: linkLabel,
           price_link_id: linkId,
@@ -181,7 +190,8 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
         `Hi Safawala! 🎉 I'm interested in *${variant.name}* at *₹${price.toLocaleString("en-IN")}*.\n\n` +
         `*Name:* ${name.trim()}\n` +
         `*Phone:* ${phone.trim()}\n` +
-        (date ? `*Event Date:* ${new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}\n` : "") +
+        (formattedDate ? `*Event Date:* ${formattedDate}\n` : "") +
+        (location.trim() ? `*Event Location:* ${location.trim()}\n` : "") +
         (message.trim() ? `*Message:* ${message.trim()}\n` : "") +
         `\n_Sent from Safawala custom quote_`
       )
@@ -240,7 +250,10 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <input style={inputStyle} placeholder="Your Name *" value={name} onChange={e => setName(e.target.value)} required />
               <input style={inputStyle} placeholder="Phone Number *" value={phone} onChange={e => setPhone(e.target.value)} type="tel" required />
-              <input style={inputStyle} placeholder="Event Date (optional)" value={date} onChange={e => setDate(e.target.value)} type="date" />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <input style={inputStyle} placeholder="Event Date" value={date} onChange={e => setDate(e.target.value)} type="date" />
+                <input style={inputStyle} placeholder="Event Location" value={location} onChange={e => setLocation(e.target.value)} />
+              </div>
               <textarea style={{ ...inputStyle, minHeight: 72, resize: "vertical" }} placeholder="Any message (optional)" value={message} onChange={e => setMessage(e.target.value)} />
 
               <button type="submit" disabled={loading}
