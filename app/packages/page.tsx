@@ -485,18 +485,29 @@ function PackageReference({ categories, variants }: { categories: PackageCategor
         <span style={{ fontSize: 11, color: "#9ca3af" }}>{open ? "▲ Hide" : "▼ Show"}</span>
       </button>
       {open && (
-        <div style={{ padding: "12px 14px", background: "#fff", borderTop: "1px solid #f3f4f6", maxHeight: 300, overflowY: "auto" }}>
+        <div style={{ padding: "12px 14px", background: "#fff", borderTop: "1px solid #f3f4f6", maxHeight: 380, overflowY: "auto" }}>
           {categories.map(cat => {
             const catVars = variants.filter(v => v.category_id === cat.id)
             if (!catVars.length) return null
             return (
-              <div key={cat.id} style={{ marginBottom: 10 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 5px" }}>{cat.name}</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              <div key={cat.id} style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>
+                  {cat.name} <span style={{ fontWeight: 400, color: "#d1d5db" }}>· {catVars.length} packages</span>
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                   {catVars.map(v => (
-                    <div key={v.id} style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", background: "#f3f4f6", borderRadius: 8, padding: "5px 10px", border: "1px solid #e5e7eb" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#111827", whiteSpace: "nowrap" }}>{v.name}</span>
-                      <span style={{ fontSize: 11, color: "#6b7280" }}>₹{(v.base_price || 0).toLocaleString("en-IN")}</span>
+                    <div key={v.id} style={{ background: "#f9fafb", borderRadius: 8, padding: "8px 10px", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#111827", lineHeight: 1.3 }}>{v.name}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5", whiteSpace: "nowrap", flexShrink: 0 }}>₹{(v.base_price || 0).toLocaleString("en-IN")}</span>
+                      </div>
+                      {v.inclusions && v.inclusions.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                          {v.inclusions.map((inc, i) => (
+                            <span key={i} style={{ fontSize: 10, background: "#eef2ff", color: "#6366f1", borderRadius: 4, padding: "1px 5px", lineHeight: 1.5 }}>{inc}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
