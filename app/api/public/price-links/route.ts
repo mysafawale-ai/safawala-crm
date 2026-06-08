@@ -32,6 +32,10 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ success: true, data })
 }
 
+function slugify(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 25) || "quote"
+}
+
 // POST: Create a new price link (admin only)
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -46,9 +50,25 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createClient()
+  const baseSlug = slugify(label || "quote")
+
+  // Deduplicate slug: if "sharmaji" exists try "sharmaji2", "sharmaji3"…
+  let slug = baseSlug
+  let attempt = 1
+  while (true) {
+    const { data: existing } = await supabase
+      .from("package_price_links")
+      .select("id")
+      .eq("link_key", slug)
+      .maybeSingle()
+    if (!existing) break
+    attempt++
+    slug = `${baseSlug}${attempt}`
+  }
+
   const { data, error } = await supabase
     .from("package_price_links")
-    .insert({ custom_prices, label: label || "Custom Quote", is_active: true })
+    .insert({ custom_prices, label: label || "Custom Quote", link_key: slug, is_active: true })
     .select()
     .single()
 
@@ -57,5 +77,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create price link" }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, data, link_key: data.link_key })
+  return NextResponse.json({ success: true, data, link_key: slug, slug })
 }

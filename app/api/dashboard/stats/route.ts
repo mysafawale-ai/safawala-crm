@@ -203,6 +203,85 @@ export async function GET(request: NextRequest) {
       list: upcomingDeliveries.slice(0, 10) // Top 10 most urgent
     }
 
+    // Calculate Owner Executive KPIs (Ronak Dave)
+    let newLeadsCount = 0
+    let ordersInPackingCount = 0
+    let ordersInDispatchCount = 0
+    let materialNotReturnedCount = 0
+    let staffPerformanceData: any[] = []
+
+    try {
+      // 1. New Leads: Quotes in generated or sent status
+      const { count: leadsCount } = await supabase
+        .from("quotes")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["generated", "sent"])
+      newLeadsCount = leadsCount || 0
+
+      // 2. Orders in Packing: active tasks in packing
+      const { count: packingCount } = await supabase
+        .from("work_order_tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("department", "packing")
+        .eq("status", "active")
+      ordersInPackingCount = packingCount || 0
+
+      // 3. Orders in Dispatch: active tasks in dispatch
+      const { count: dispatchCount } = await supabase
+        .from("work_order_tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("department", "dispatch")
+        .eq("status", "active")
+      ordersInDispatchCount = dispatchCount || 0
+
+      // 4. Material Not Returned: active tasks in returns
+      const { count: returnCount } = await supabase
+        .from("work_order_tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("department", "returns")
+        .eq("status", "active")
+      materialNotReturnedCount = returnCount || 0
+
+      // 5. Staff Performance: completed tasks grouped by staff
+      const { data: performanceRes } = await supabase
+        .from("work_order_tasks")
+        .select("assigned_to")
+        .eq("status", "completed")
+      
+      if (performanceRes && performanceRes.length > 0) {
+        const staffIds = [...new Set(performanceRes.map((r: any) => r.assigned_to).filter(Boolean))]
+        let usersMap = new Map()
+        if (staffIds.length > 0) {
+          const { data: usersData } = await supabase
+            .from("users")
+            .select("id, name")
+            .in("id", staffIds)
+          usersData?.forEach((u: any) => usersMap.set(u.id, u.name))
+        }
+
+        const counts: Record<string, number> = {}
+        for (const item of performanceRes) {
+          const name = item.assigned_to ? (usersMap.get(item.assigned_to) || "Staff Member") : "System/Unassigned"
+          counts[name] = (counts[name] || 0) + 1
+        }
+        staffPerformanceData = Object.entries(counts).map(([name, completedCount]) => ({
+          name,
+          completedCount
+        })).sort((a, b) => b.completedCount - a.completedCount)
+      }
+    } catch (err) {
+      console.warn("[Dashboard Stats] Failed to query owner KPIs:", err)
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const eventsTodayCount = bookings.filter((b: any) => 
+      b.status === 'confirmed' && b.event_date && b.event_date === todayStr
+    ).length
+
+    const pendingPaymentsAmount = bookings
+      .filter((b: any) => b.status !== 'cancelled')
+      .reduce((sum: number, b: any) => sum + Math.max(0, (Number(b.total_amount) || 0) - (Number(b.amount_paid) || 0)), 0)
+
     const stats = {
       totalBookings: bookingsCount,
       activeBookings,
@@ -221,7 +300,17 @@ export async function GET(request: NextRequest) {
         overdue: overdueTasks
       },
       paymentReminders,
-      deliveryReminders
+      deliveryReminders,
+      ownerKPIs: {
+        newLeads: newLeadsCount,
+        confirmedOrders: confirmedBookings,
+        ordersInPacking: ordersInPackingCount,
+        ordersInDispatch: ordersInDispatchCount,
+        eventsToday: eventsTodayCount,
+        pendingPayments: Math.round(pendingPaymentsAmount),
+        materialNotReturned: materialNotReturnedCount,
+        staffPerformance: staffPerformanceData
+      }
     }
 
     console.log(`[Dashboard Stats API] Returning stats:`, stats)

@@ -30,6 +30,39 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ success: true, data: data || [] })
 }
 
+// POST — submit a new lead (public, no password)
+export async function POST(request: NextRequest) {
+  const body = await request.json()
+  const { name, phone, event_date, message, source, link_label, price_link_id } = body
+
+  if (!name?.trim() || !phone?.trim()) {
+    return NextResponse.json({ error: "Name and phone required" }, { status: 400 })
+  }
+
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("leads")
+    .insert({
+      name: name.trim(),
+      phone: phone.trim(),
+      event_date: event_date || null,
+      message: message || null,
+      source: source || "package_link",
+      link_label: link_label || null,
+      price_link_id: price_link_id || null,
+      status: "new",
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("[leads POST]", error)
+    return NextResponse.json({ error: "Failed to save enquiry" }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, data })
+}
+
 // PATCH — update lead status (admin password required)
 export async function PATCH(request: NextRequest) {
   if (!checkPassword(request)) {
