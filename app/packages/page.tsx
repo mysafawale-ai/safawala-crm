@@ -5,8 +5,190 @@ import { useSearchParams } from "next/navigation"
 import {
   Crown, Phone, Calendar, MapPin, CheckCircle, ChevronRight,
   X, Loader2, Star, Package, Lock, Link2, Copy, Plus, Minus,
-  Shield, ExternalLink, Search, ChevronDown
+  Shield, ExternalLink, Search, ChevronDown, Eye, EyeOff
 } from "lucide-react"
+
+// ─── Password Gate ─────────────────────────────────────────────────
+function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
+  const [password, setPassword] = useState("")
+  const [show, setShow] = useState(false)
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!password) return
+    setLoading(true)
+    setError("")
+    try {
+      const res = await fetch("/api/public/verify-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        sessionStorage.setItem("safawala_packages_access", "1")
+        onUnlock()
+      } else {
+        setError("Incorrect password. Please try again.")
+        setPassword("")
+      }
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #eef2ff 0%, #f9fafb 50%, #ede9fe 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        fontFamily: "Inter, system-ui, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: 24,
+          padding: "40px 36px",
+          width: "100%",
+          maxWidth: 400,
+          boxShadow: "0 20px 60px rgba(79,70,229,0.12), 0 4px 16px rgba(0,0,0,0.06)",
+          textAlign: "center",
+        }}
+      >
+        {/* Logo */}
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+            borderRadius: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 20px",
+            boxShadow: "0 8px 24px rgba(79,70,229,0.3)",
+          }}
+        >
+          <Crown style={{ width: 28, height: 28, color: "#ffffff" }} />
+        </div>
+
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: "#111827", marginBottom: 6 }}>
+          Safawala Packages
+        </h1>
+        <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 28 }}>
+          Enter the password to view our exclusive wedding packages
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          {/* Password field */}
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                border: `1.5px solid ${error ? "#f87171" : "#e5e7eb"}`,
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#f9fafb",
+                transition: "border-color 0.15s",
+              }}
+            >
+              <Lock
+                style={{
+                  width: 16,
+                  height: 16,
+                  color: "#9ca3af",
+                  marginLeft: 14,
+                  flexShrink: 0,
+                }}
+              />
+              <input
+                type={show ? "text" : "password"}
+                placeholder="Enter password"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError("") }}
+                autoFocus
+                style={{
+                  flex: 1,
+                  border: "none",
+                  background: "transparent",
+                  padding: "13px 12px",
+                  fontSize: 15,
+                  color: "#111827",
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShow(!show)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "0 14px",
+                  color: "#9ca3af",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {show
+                  ? <EyeOff style={{ width: 16, height: 16 }} />
+                  : <Eye style={{ width: 16, height: 16 }} />}
+              </button>
+            </div>
+            {error && (
+              <p style={{ fontSize: 12, color: "#ef4444", marginTop: 6, textAlign: "left" }}>
+                ❌ {error}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !password}
+            style={{
+              width: "100%",
+              background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 12,
+              padding: "13px 0",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: loading || !password ? "not-allowed" : "pointer",
+              opacity: loading || !password ? 0.6 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              transition: "opacity 0.15s",
+              boxShadow: "0 4px 14px rgba(79,70,229,0.35)",
+            }}
+          >
+            {loading ? (
+              <><Loader2 style={{ width: 16, height: 16 }} className="animate-spin" /> Verifying...</>
+            ) : (
+              <><Shield style={{ width: 16, height: 16 }} /> View Packages</>
+            )}
+          </button>
+        </form>
+
+        <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 20 }}>
+          🔒 Safawala — Premium Indian Wedding Accessories
+        </p>
+      </div>
+    </div>
+  )
+}
 
 interface PackageCategory { id: string; name: string; description?: string; display_order?: number }
 interface PackageVariant { id: string; name: string; base_price: number; category_id: string; inclusions?: string[]; display_order?: number }
@@ -541,6 +723,11 @@ function PackagesContent() {
   const searchParams = useSearchParams()
   const priceKey = searchParams.get("pk")
 
+  // Access control
+  const [unlocked, setUnlocked] = useState(false)
+  const [checkingAccess, setCheckingAccess] = useState(true)
+
+  // Page data
   const [categories, setCategories] = useState<PackageCategory[]>([])
   const [variants, setVariants] = useState<PackageVariant[]>([])
   const [customPrices, setCustomPrices] = useState<Record<string, number>>({})
@@ -550,7 +737,16 @@ function PackagesContent() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [expandedCat, setExpandedCat] = useState<string | null>(null)
 
+  // Check sessionStorage for cached access
   useEffect(() => {
+    const cached = sessionStorage.getItem("safawala_packages_access")
+    if (cached === "1") setUnlocked(true)
+    setCheckingAccess(false)
+  }, [])
+
+  // Load packages data — only when unlocked
+  useEffect(() => {
+    if (!unlocked) return
     const load = async () => {
       setLoading(true)
       try {
@@ -577,7 +773,20 @@ function PackagesContent() {
       }
     }
     load()
-  }, [priceKey])
+  }, [priceKey, unlocked])
+
+  // ── Conditional renders (after all hooks) ──
+  if (checkingAccess) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loader2 style={{ width: 24, height: 24, color: "#4f46e5" }} className="animate-spin" />
+      </div>
+    )
+  }
+
+  if (!unlocked) {
+    return <PasswordGate onUnlock={() => setUnlocked(true)} />
+  }
 
   const getPrice = (v: PackageVariant) =>
     customPrices[v.id] !== undefined ? customPrices[v.id] : v.base_price
