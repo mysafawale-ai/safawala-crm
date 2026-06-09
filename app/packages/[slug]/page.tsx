@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import {
   PhoneCall, MessageCircle, Loader2, AlertCircle,
@@ -341,7 +341,6 @@ export default function SlugPage({ params }: { params: { slug: string } }) {
   const [selectedCatId, setSelectedCatId] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const tabsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -441,38 +440,38 @@ export default function SlugPage({ params }: { params: { slug: string } }) {
         </p>
       </div>
 
-      {/* Category Tabs */}
+      {/* Category Grid Selector */}
       {categories.length > 1 && (
-        <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 64, zIndex: 90 }}>
-          <div
-            ref={tabsRef}
-            style={{ display: "flex", gap: 0, overflowX: "auto", padding: "0 16px", scrollbarWidth: "none" }}
-          >
+        <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "14px 14px 10px" }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 10px 2px" }}>Select Category</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
             {categories.map(cat => {
               const active = cat.id === selectedCatId
               const count = variants.filter(v => v.category_id === cat.id).length
+              // Extract number e.g. "41 Safas" → "41"
+              const num = cat.name.match(/\d+/)?.[0] || cat.name
               return (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCatId(cat.id)}
                   style={{
-                    flexShrink: 0,
-                    padding: "14px 16px",
-                    border: "none",
-                    borderBottom: active ? "2.5px solid #4f46e5" : "2.5px solid transparent",
-                    background: "transparent",
-                    fontSize: 13,
-                    fontWeight: active ? 700 : 500,
-                    color: active ? "#4f46e5" : "#6b7280",
+                    border: `2px solid ${active ? "#4f46e5" : "#e5e7eb"}`,
+                    borderRadius: 12,
+                    background: active ? "#4f46e5" : "#fff",
                     cursor: "pointer",
                     fontFamily: "inherit",
-                    whiteSpace: "nowrap",
+                    padding: "10px 6px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 2,
                     transition: "all 0.15s",
                   }}
                 >
-                  {cat.name}
-                  <span style={{ marginLeft: 6, fontSize: 11, background: active ? "#eef2ff" : "#f3f4f6", color: active ? "#4f46e5" : "#9ca3af", borderRadius: 99, padding: "1px 6px", fontWeight: 600 }}>
-                    {count}
+                  <span style={{ fontSize: 18, fontWeight: 900, color: active ? "#fff" : "#111827", lineHeight: 1 }}>{num}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: active ? "rgba(255,255,255,0.8)" : "#6b7280" }}>Safas</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: active ? "rgba(255,255,255,0.2)" : "#f3f4f6", color: active ? "#fff" : "#9ca3af", borderRadius: 99, padding: "1px 7px", marginTop: 2 }}>
+                    {count} pkg
                   </span>
                 </button>
               )

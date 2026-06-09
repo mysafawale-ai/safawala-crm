@@ -51,6 +51,7 @@ interface Product {
   image_url?: string
   is_active: boolean
   _variation_count?: number
+  created_at?: string
 }
 
 // Animated counter hook
@@ -184,8 +185,43 @@ export default function InventoryDashboard() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [stockFilter, setStockFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
-  const [sortBy, setSortBy] = useState<"stock_desc" | "stock_asc" | "name_asc" | "name_desc" | "price_asc" | "price_desc">("stock_desc")
+  const [sortBy, setSortBy] = useState<"created_desc" | "stock_desc" | "stock_asc" | "name_asc" | "name_desc" | "price_asc" | "price_desc">("created_desc")
   const [user, setUser] = useState<User | null>(null)
+
+  // Load filters from sessionStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedSearch = sessionStorage.getItem("inventory_searchTerm")
+      const savedStock = sessionStorage.getItem("inventory_stockFilter")
+      const savedCategory = sessionStorage.getItem("inventory_categoryFilter")
+      const savedSort = sessionStorage.getItem("inventory_sortBy")
+
+      if (savedSearch !== null) {
+        setSearchTerm(savedSearch)
+        setDebouncedSearchTerm(savedSearch)
+      }
+      if (savedStock !== null) setStockFilter(savedStock as any)
+      if (savedCategory !== null) setCategoryFilter(savedCategory)
+      if (savedSort !== null) setSortBy(savedSort as any)
+    }
+  }, [])
+
+  // Clear filters from sessionStorage on client-side navigation away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      ;(window as any).isUnloading = true
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      if (!(window as any).isUnloading) {
+        sessionStorage.removeItem("inventory_searchTerm")
+        sessionStorage.removeItem("inventory_stockFilter")
+        sessionStorage.removeItem("inventory_categoryFilter")
+        sessionStorage.removeItem("inventory_sortBy")
+      }
+    }
+  }, [])
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
@@ -275,6 +311,7 @@ export default function InventoryDashboard() {
         category_name: p.category_name || undefined,
         is_active: p.is_active !== false,
         product_code: p.product_code || p.id?.slice(0, 8) || "CUST",
+        created_at: p.created_at || "",
       }))
 
       // Fetch variation counts
@@ -476,13 +513,15 @@ export default function InventoryDashboard() {
     // Apply sorting
     return filtered.sort((a, b) => {
       switch (sortBy) {
+        case "created_desc":
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
         case "stock_desc": return b.stock_available - a.stock_available
         case "stock_asc": return a.stock_available - b.stock_available
         case "name_asc": return a.name.localeCompare(b.name)
         case "name_desc": return b.name.localeCompare(a.name)
         case "price_asc": return a.rental_price - b.rental_price
         case "price_desc": return b.rental_price - a.rental_price
-        default: return b.stock_available - a.stock_available
+        default: return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       }
     })
   }, [products, debouncedSearchTerm, stockFilter, categoryFilter, sortBy])
@@ -637,13 +676,20 @@ export default function InventoryDashboard() {
               <Input
                 placeholder="Search products, brand, barcode..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setSearchTerm(val)
+                  sessionStorage.setItem("inventory_searchTerm", val)
+                }}
                 className="pl-10 border-[#102516]/15 bg-[#fefaf6] focus:border-[#102516]/40 focus:ring-[#102516]/10 transition-all"
               />
             </div>
           </div>
 
-          <Select value={stockFilter} onValueChange={(value: any) => setStockFilter(value)}>
+          <Select value={stockFilter} onValueChange={(value: any) => {
+            setStockFilter(value)
+            sessionStorage.setItem("inventory_stockFilter", value)
+          }}>
             <SelectTrigger className="w-40 border-[#102516]/15 bg-[#fefaf6]">
               <SelectValue placeholder="Stock Status" />
             </SelectTrigger>
@@ -655,7 +701,10 @@ export default function InventoryDashboard() {
             </SelectContent>
           </Select>
 
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select value={categoryFilter} onValueChange={(value: any) => {
+            setCategoryFilter(value)
+            sessionStorage.setItem("inventory_categoryFilter", value)
+          }}>
             <SelectTrigger className="w-40 border-[#102516]/15 bg-[#fefaf6]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -669,12 +718,16 @@ export default function InventoryDashboard() {
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+          <Select value={sortBy} onValueChange={(value: any) => {
+            setSortBy(value)
+            sessionStorage.setItem("inventory_sortBy", value)
+          }}>
             <SelectTrigger className="w-44 border-[#102516]/15 bg-[#fefaf6]">
               <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-[#102516]/50" />
               <SelectValue placeholder="Sort By" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="created_desc">Last Added First</SelectItem>
               <SelectItem value="stock_desc">Stock: High → Low</SelectItem>
               <SelectItem value="stock_asc">Stock: Low → High</SelectItem>
               <SelectItem value="name_asc">Name: A → Z</SelectItem>
@@ -711,6 +764,9 @@ export default function InventoryDashboard() {
                 setSearchTerm("")
                 setStockFilter("all")
                 setCategoryFilter("all")
+                sessionStorage.removeItem("inventory_searchTerm")
+                sessionStorage.removeItem("inventory_stockFilter")
+                sessionStorage.removeItem("inventory_categoryFilter")
               }}
               className="text-xs text-[#102516]/50 hover:text-[#102516] underline transition-colors"
               style={{ fontFamily: "var(--font-crimson), serif" }}
@@ -769,9 +825,9 @@ export default function InventoryDashboard() {
                   // Resolve category name from the map if not already set
                   category_name: product.category_name || (product.category_id ? categoryNameMap[product.category_id] : undefined),
                 }}
-                onEdit={handleEditProduct}
+                onEdit={(p: any) => handleEditProduct(p)}
                 onDelete={handleDeleteProduct}
-                onGenerateBarcode={(p) => {
+                onGenerateBarcode={(p: any) => {
                   setSelectedProductForBarcode(p)
                   setBarcodeDialogOpen(true)
                 }}
@@ -785,7 +841,7 @@ export default function InventoryDashboard() {
       <ProductEditorModal
         open={editorOpen}
         onOpenChange={setEditorOpen}
-        product={selectedProduct}
+        product={selectedProduct as any}
         onSave={handleSaveProduct}
         franchiseId={user?.franchise_id}
       />
@@ -794,7 +850,7 @@ export default function InventoryDashboard() {
       <BarcodePrintDialog
         open={barcodeDialogOpen}
         onOpenChange={setBarcodeDialogOpen}
-        product={selectedProductForBarcode}
+        product={selectedProductForBarcode as any}
       />
 
       {/* Confirmation Dialog */}

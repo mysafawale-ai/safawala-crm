@@ -68,7 +68,7 @@ Return this exact JSON format:
         { role: "user", content: `Available packages:\n${variantList}\n\nCommand: "${command}"` },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 800,
+      max_tokens: 4000,
       temperature: 0.1,
     }),
   })
@@ -85,11 +85,18 @@ Return this exact JSON format:
   }
 
   const json = await res.json()
-  const raw = (json.choices?.[0]?.message?.content || "").trim()
-  console.log("[ai-quote] raw response:", raw.slice(0, 200))
+  const choice = json.choices?.[0]
+  const raw = (choice?.message?.content || "").trim()
+  console.log("[ai-quote] raw response:", raw.slice(0, 500))
+  console.log("[ai-quote] finish_reason:", choice?.finish_reason)
 
   if (!raw) {
     return NextResponse.json({ error: "AI returned empty response. Try again." }, { status: 500 })
+  }
+
+  if (choice?.finish_reason === "length") {
+    console.error("[ai-quote] Response truncated (finish_reason=length)")
+    return NextResponse.json({ error: "AI response was too long and got cut off. Try a simpler command (e.g. one category at a time)." }, { status: 500 })
   }
 
   // Strip markdown code blocks if present (```json ... ```)
