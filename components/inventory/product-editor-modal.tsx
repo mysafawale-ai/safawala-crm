@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
+import { compressImage } from "@/lib/compress-image"
 import { PricingPanel } from "./pricing-panel"
 import { PhotoGallery } from "./photo-gallery"
 import { VariantManager, ProductVariant } from "./variant-manager"
@@ -334,7 +335,8 @@ export function ProductEditorModal({
 
     try {
       const urls: string[] = []
-      for (const file of files) {
+      for (const rawFile of files) {
+        const file = await compressImage(rawFile)
         const timestamp = Date.now()
         const path = `products/${franchiseId}/${timestamp}-${file.name}`
 

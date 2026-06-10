@@ -25,6 +25,7 @@ import { AlertCircle, Loader2, Check, Upload, X, Camera } from "lucide-react"
 import { toast } from "sonner"
 import { uploadWithProgress } from "@/lib/upload-with-progress"
 import { supabase } from "@/lib/supabase"
+import { compressImage } from "@/lib/compress-image"
 
 interface CustomProductDialogProps {
   open: boolean
@@ -176,8 +177,9 @@ export function CustomProductDialog({
       if (imageFile && imagePreview) {
         setUploadingImage(true)
         try {
-          console.log("Uploading image file:", imageFile.name, imageFile.size, imageFile.type)
-          const uploadResult = await uploadWithProgress(imageFile, { folder: "products" })
+          const compressedFile = await compressImage(imageFile)
+          console.log("Uploading image file:", compressedFile.name, compressedFile.size, compressedFile.type)
+          const uploadResult = await uploadWithProgress(compressedFile, { folder: "products" })
           imageUrl = uploadResult.url
           console.log("Image uploaded successfully:", imageUrl)
           toast.success("Image uploaded successfully!")
