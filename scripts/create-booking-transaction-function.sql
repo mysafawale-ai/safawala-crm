@@ -73,8 +73,8 @@ BEGIN
       bride_additional_whatsapp, venue_address, special_instructions,
       total_amount, subtotal, gst_amount, other_amount
     ) VALUES (
-      v_booking_number, p_customer_id, p_event_date, p_venue_name, 'pending_payment',
-      COALESCE(p_franchise_id, v_customer_record.franchise_id), p_created_by,
+      v_booking_number, p_customer_id, p_event_date, p_venue_name, 'pending',
+      COALESCE(p_franchise_id, v_customer_record.franchise_id), NULLIF(p_created_by, '')::UUID,
       p_booking_data->>'type', p_booking_data->>'event_type', p_booking_data->>'payment_type',
       (p_booking_data->>'delivery_date')::TIMESTAMP, (p_booking_data->>'return_date')::TIMESTAMP,
       p_booking_data->>'event_for', p_booking_data->>'groom_name', p_booking_data->>'groom_home_address',
