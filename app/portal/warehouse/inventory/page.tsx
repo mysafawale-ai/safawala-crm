@@ -27,6 +27,7 @@ export default function InventoryPage() {
   const [generating, setGenerating] = useState(false)
 
   const [errorState, setErrorState] = useState<string | null>(null)
+  const [demoMode, setDemoMode] = useState(false)
 
   useEffect(() => {
     fetchProducts()
@@ -45,8 +46,35 @@ export default function InventoryPage() {
       setDamageReports(data || [])
     } catch (err: any) {
       console.error("Failed to fetch damage reports:", err)
-      setErrorState(prev => prev || err.message || "Failed to fetch damage reports")
-      setDamageReports([])
+      if (err.message?.includes("restricted") || err.message?.includes("quota") || err.message?.includes("limit") || err.message?.includes("Service for this project is restricted")) {
+        setDemoMode(true)
+        const mockReports = [
+          {
+            id: "dr1",
+            qty_damaged: 2,
+            damage_type: "tear",
+            severity: "major",
+            description: "Strap ripped off during handling",
+            reported_at: new Date().toISOString(),
+            status: "pending",
+            product: { name: "Premium Red Safa", sku: "SAF-RED-001", barcode: "10001" }
+          },
+          {
+            id: "dr2",
+            qty_damaged: 1,
+            damage_type: "broken",
+            severity: "total_loss",
+            description: "Kalangi brooch pin completely broken",
+            reported_at: new Date().toISOString(),
+            status: "pending",
+            product: { name: "Silver Pearl Kalangi", sku: "KLG-SLV-001", barcode: "30001" }
+          }
+        ]
+        setDamageReports(mockReports)
+      } else {
+        setErrorState(prev => prev || err.message || "Failed to fetch damage reports")
+        setDamageReports([])
+      }
     } finally {
       setDamageLoading(false)
     }
@@ -55,6 +83,7 @@ export default function InventoryPage() {
   async function fetchProducts() {
     setLoading(true)
     setErrorState(null)
+    setDemoMode(false)
     try {
       const params = new URLSearchParams({ limit: "100" })
       if (filter === "low") params.set("low_stock", "true")
@@ -62,6 +91,9 @@ export default function InventoryPage() {
       const data = await res.json()
       if (!res.ok) {
         throw new Error(data.error || "Failed to fetch products")
+      }
+      if (data.mock) {
+        setDemoMode(true)
       }
       const productsList = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
       setProducts(productsList)
@@ -146,7 +178,18 @@ export default function InventoryPage() {
       />
       <PortalSearchBar value={search} onChange={setSearch} placeholder="Search name, SKU or barcode..." />
 
-      {errorState && (
+      {demoMode && (
+        <div className="mx-4 mb-4 p-4 bg-purple-50 border border-purple-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <p className="text-[12px] font-extrabold text-purple-800 flex items-center gap-1.5">
+            ✨ Running in Demo Mode
+          </p>
+          <p className="text-[11px] font-medium text-purple-700 leading-relaxed">
+            Using local JSON fallback content because your Supabase database is restricted due to quota limits. Active tasks and inventory changes will run locally for simulation.
+          </p>
+        </div>
+      )}
+
+      {errorState && !demoMode && (
         <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
           <p className="text-[12px] font-extrabold text-red-800 flex items-center gap-1.5">
             ⚠️ Database Restriction Active

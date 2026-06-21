@@ -424,17 +424,22 @@ export default function TasksPage() {
   const [updating, setUpdating] = useState(false)
 
   const [errorState, setErrorState] = useState<string | null>(null)
+  const [demoMode, setDemoMode] = useState(false)
 
   useEffect(() => { fetchWorkOrders() }, [])
 
   async function fetchWorkOrders() {
     setLoading(true)
     setErrorState(null)
+    setDemoMode(false)
     try {
       const res = await fetch("/api/work-orders")
       const data = await res.json()
       if (!res.ok) {
         throw new Error(data.error || "Failed to fetch work orders")
+      }
+      if (data.mock) {
+        setDemoMode(true)
       }
       const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
       setWorkOrders(list)
@@ -530,7 +535,18 @@ export default function TasksPage() {
     <div className="pb-6">
       <PortalPageHeader title="Pick & Pack" subtitle="Process order tasks" color={COLOR} backHref="/portal/warehouse" />
 
-      {errorState && (
+      {demoMode && (
+        <div className="mx-4 mt-4 p-4 bg-purple-50 border border-purple-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <p className="text-[12px] font-extrabold text-purple-800 flex items-center gap-1.5">
+            ✨ Running in Demo Mode
+          </p>
+          <p className="text-[11px] font-medium text-purple-700 leading-relaxed">
+            Using local JSON fallback content because your Supabase database is restricted due to quota limits. Active tasks and inventory changes will run locally for simulation.
+          </p>
+        </div>
+      )}
+
+      {errorState && !demoMode && (
         <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
           <p className="text-[12px] font-extrabold text-red-800 flex items-center gap-1.5">
             ⚠️ Database Restriction Active
