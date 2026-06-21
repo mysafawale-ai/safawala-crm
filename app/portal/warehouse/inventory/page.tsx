@@ -26,6 +26,8 @@ export default function InventoryPage() {
   const [lookupLoading, setLookupLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
 
+  const [errorState, setErrorState] = useState<string | null>(null)
+
   useEffect(() => {
     fetchProducts()
     fetchDamageReports()
@@ -41,8 +43,9 @@ export default function InventoryPage() {
       
       if (error) throw error
       setDamageReports(data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch damage reports:", err)
+      setErrorState(prev => prev || err.message || "Failed to fetch damage reports")
       setDamageReports([])
     } finally {
       setDamageLoading(false)
@@ -51,15 +54,24 @@ export default function InventoryPage() {
 
   async function fetchProducts() {
     setLoading(true)
+    setErrorState(null)
     try {
       const params = new URLSearchParams({ limit: "100" })
       if (filter === "low") params.set("low_stock", "true")
       const res = await fetch(`/api/products?${params}`)
       const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch products")
+      }
       const productsList = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
       setProducts(productsList)
-    } catch { setProducts([]) }
-    finally { setLoading(false) }
+    } catch (err: any) {
+      console.error("Failed to fetch products:", err)
+      setErrorState(err.message || "Failed to fetch products")
+      setProducts([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function lookupBarcode(code: string) {
@@ -133,6 +145,19 @@ export default function InventoryPage() {
         action={{ label: "Quick Scan", onClick: () => setScanOpen(true) }}
       />
       <PortalSearchBar value={search} onChange={setSearch} placeholder="Search name, SKU or barcode..." />
+
+      {errorState && (
+        <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <p className="text-[12px] font-extrabold text-red-800 flex items-center gap-1.5">
+            ⚠️ Database Restriction Active
+          </p>
+          <p className="text-[11px] font-medium text-red-700 leading-relaxed">
+            {errorState.includes("restricted") || errorState.includes("quota") || errorState.includes("limit")
+              ? "The Supabase database has hit its storage or egress limits. Please log in to your Supabase Dashboard to upgrade your plan or delete files to restore database services."
+              : errorState}
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
         {["all", "low"].map(f => (

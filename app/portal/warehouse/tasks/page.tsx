@@ -423,17 +423,28 @@ export default function TasksPage() {
   const [photos, setPhotos] = useState<string[]>([])
   const [updating, setUpdating] = useState(false)
 
+  const [errorState, setErrorState] = useState<string | null>(null)
+
   useEffect(() => { fetchWorkOrders() }, [])
 
   async function fetchWorkOrders() {
     setLoading(true)
+    setErrorState(null)
     try {
       const res = await fetch("/api/work-orders")
       const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch work orders")
+      }
       const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
       setWorkOrders(list)
-    } catch { setWorkOrders([]) }
-    finally { setLoading(false) }
+    } catch (err: any) {
+      console.error("Failed to fetch work orders:", err)
+      setErrorState(err.message || "Failed to fetch work orders")
+      setWorkOrders([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Filter tasks based on department mapping to sub-tabs
@@ -518,6 +529,19 @@ export default function TasksPage() {
   return (
     <div className="pb-6">
       <PortalPageHeader title="Pick & Pack" subtitle="Process order tasks" color={COLOR} backHref="/portal/warehouse" />
+
+      {errorState && (
+        <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
+          <p className="text-[12px] font-extrabold text-red-800 flex items-center gap-1.5">
+            ⚠️ Database Restriction Active
+          </p>
+          <p className="text-[11px] font-medium text-red-700 leading-relaxed">
+            {errorState.includes("restricted") || errorState.includes("quota") || errorState.includes("limit")
+              ? "The Supabase database has hit its storage or egress limits. Please log in to your Supabase Dashboard to upgrade your plan or delete files to restore database services."
+              : errorState}
+          </p>
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div className="flex gap-2 px-4 py-3 bg-slate-50 border-b">
