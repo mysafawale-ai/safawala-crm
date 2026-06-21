@@ -1307,6 +1307,42 @@ Thank you for your business!
       },
     ],
   },
+  {
+    name: "direct_sale_confirmation",
+    category: "UTILITY",
+    language: "en",
+    description: "Direct sale purchase confirmation notification",
+    status: "PENDING",
+    components: [
+      {
+        type: "HEADER",
+        format: "TEXT",
+        text: "🛍️ Purchase Confirmed",
+      },
+      {
+        type: "BODY",
+        text: `Dear {{1}},
+
+Thank you for your purchase! Your direct sale has been completed. 🎉
+
+📋 *Purchase Details:*
+• Invoice/Sale ID: {{2}}
+• Total Amount: {{3}}
+• Date: {{4}}
+
+Thank you for choosing Safawala! 🙏
+
+📞 For any queries, contact us at +91 97252 95692`,
+        example: {
+          body_text: [["Rahul Kumar", "INV-2026-0001", "₹15,000", "17 Jun 2026"]],
+        },
+      },
+      {
+        type: "FOOTER",
+        text: "Safawala - Premium Wedding Accessories",
+      },
+    ],
+  },
 
   // FRANCHISE MANAGEMENT TEMPLATES
   {

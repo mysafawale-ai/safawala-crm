@@ -158,6 +158,31 @@ For any queries, please contact us.`
     })
   }
 
+  async sendDirectSaleConfirmation(phone: string, sale: any): Promise<boolean> {
+    const customerName = sale.customerName || sale.customer_name || "Valued Customer"
+
+    const message = `🛍️ *Invoice Generated - Safawala*
+
+Dear ${customerName},
+
+Thank you for your purchase! Your direct sale has been completed.
+
+📋 *Purchase Details:*
+• Invoice/Sale ID: ${sale.id}
+• Total Amount: ₹${sale.totalAmount?.toLocaleString() || sale.total_amount?.toLocaleString() || 0}
+• Date: ${new Date().toLocaleDateString()}
+
+Thank you for choosing Safawala! 🙏
+
+For any queries, please contact us.`
+
+    return this.sendMessage({
+      to: phone,
+      type: "text",
+      text: { body: message },
+    })
+  }
+
   async sendBookingUpdate(phone: string, booking: any, status: string): Promise<boolean> {
     const statusEmoji =
       {

@@ -43,6 +43,8 @@ import {
   TrendingUp,
   Building2,
   X,
+  ShieldCheck,
+  FileText
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -50,6 +52,7 @@ import type { User, Customer } from "@/lib/types"
 import { TableSkeleton, StatCardSkeleton, PageLoader } from "@/components/ui/skeleton-loader"
 import { CustomerFormDialog } from "@/components/customers/customer-form-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { KYCDialog } from "@/components/customers/kyc-dialog"
 
 export default function CustomersPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -58,6 +61,7 @@ export default function CustomersPage() {
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [kycDialogOpen, setKycDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -437,7 +441,8 @@ export default function CustomersPage() {
                     <TableHead>Address</TableHead>
                     {user.role === "super_admin" && <TableHead>Franchise</TableHead>}
                     <TableHead className="w-[100px]">Status</TableHead>
-                    <TableHead className="text-right w-[150px]">Actions</TableHead>
+                    <TableHead className="w-[120px]">KYC Status</TableHead>
+                    <TableHead className="text-right w-[180px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -473,6 +478,22 @@ export default function CustomersPage() {
                           {customer.status || "active"}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline"
+                          className={`text-[10px] uppercase font-semibold tracking-wider ${
+                            customer.kyc_status === 'verified' 
+                              ? 'bg-green-50 text-green-700 border-green-200' 
+                              : customer.kyc_status === 'rejected'
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : customer.kyc_status === 'submitted'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {customer.kyc_status || 'pending'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Button
@@ -504,6 +525,22 @@ export default function CustomersPage() {
                               <MessageCircle className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`h-8 w-8 ${
+                              customer.kyc_status === 'verified'
+                                ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                                : 'text-slate-500 hover:text-slate-900'
+                            }`}
+                            onClick={() => {
+                              setSelectedCustomer(customer)
+                              setKycDialogOpen(true)
+                            }}
+                            title="Verify KYC"
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -725,6 +762,109 @@ export default function CustomersPage() {
                   </div>
                 )}
 
+                {/* KYC Details Section */}
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-slate-700" />
+                    KYC Verification Details
+                  </h3>
+                  <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-muted-foreground uppercase font-semibold">Verification Status</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge 
+                            variant="outline"
+                            className={`text-[10px] uppercase font-semibold tracking-wider ${
+                              selectedCustomer.kyc_status === 'verified' 
+                                ? 'bg-green-50 text-green-700 border-green-200' 
+                                : selectedCustomer.kyc_status === 'rejected'
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : selectedCustomer.kyc_status === 'submitted'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {selectedCustomer.kyc_status || 'pending'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setViewDialogOpen(false)
+                          setKycDialogOpen(true)
+                        }}
+                        className="h-8 text-xs font-semibold text-slate-700 hover:text-slate-900 border-slate-200 rounded-lg gap-1.5"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                        <span>Update KYC Details</span>
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 text-sm border-t pt-3 border-slate-100">
+                      <div>
+                        <span className="text-xs text-muted-foreground font-semibold uppercase">Aadhaar Card</span>
+                        <p className="font-mono mt-0.5 text-slate-800">
+                          {selectedCustomer.aadhar_number 
+                            ? selectedCustomer.aadhar_number.replace(/(\d{4})/g, '$1 ').trim() 
+                            : 'Not Provided'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedCustomer.kyc_document_url && (
+                      <div className="border-t pt-3 border-slate-100">
+                        <span className="text-xs text-muted-foreground font-semibold uppercase block mb-1.5">Attached Documents</span>
+                        <div className="flex flex-wrap gap-2">
+                          {(() => {
+                            try {
+                              const docs = JSON.parse(selectedCustomer.kyc_document_url)
+                              return Object.entries(docs).map(([key, url]: any) => (
+                                <Button
+                                  key={key}
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(url, "_blank")}
+                                  className="h-7 text-[10px] text-slate-600 rounded-md border-slate-200 hover:bg-slate-50 gap-1"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  <span>{key === 'aadhar_front' ? 'Aadhaar Front' : 'Aadhaar Back'}</span>
+                                </Button>
+                              ))
+                            } catch {
+                              return (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(selectedCustomer.kyc_document_url, "_blank")}
+                                  className="h-7 text-[10px] text-slate-600 rounded-md border-slate-200 hover:bg-slate-50 gap-1"
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  <span>Aadhaar Document</span>
+                                </Button>
+                              )
+                            }
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedCustomer.kyc_notes && (
+                      <div className="border-t pt-3 border-slate-100">
+                        <span className="text-xs text-muted-foreground font-semibold uppercase block">Audit Notes</span>
+                        <p className="text-xs mt-1 text-slate-600 italic bg-white p-2 rounded border border-slate-100 whitespace-pre-wrap">
+                          {selectedCustomer.kyc_notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                   <div className="text-center">
@@ -784,6 +924,17 @@ export default function CustomersPage() {
           onCustomerCreated={refresh}
           mode="create"
         />
+
+        {selectedCustomer && (
+          <KYCDialog
+            open={kycDialogOpen}
+            onOpenChange={setKycDialogOpen}
+            customer={selectedCustomer}
+            onKYCUpdated={(updatedCust) => {
+              handleCustomerUpdated(updatedCust)
+            }}
+          />
+        )}
       </div>
     </DashboardLayout>
   )

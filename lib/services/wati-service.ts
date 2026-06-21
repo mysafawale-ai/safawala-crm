@@ -544,6 +544,89 @@ export async function sendBookingConfirmation(params: {
 
 
 /**
+ * Send direct sale confirmation to customer
+ */
+export async function sendDirectSaleConfirmation(params: {
+  phone: string
+  customerName: string
+  saleNumber: string
+  saleDate: string
+  totalAmount: number
+}): Promise<{ success: boolean; error?: string }> {
+  // Try sending the template first
+  let res = await sendTemplateMessage({
+    phone: params.phone,
+    templateName: 'direct_sale_confirmation',
+    parameters: [
+      params.customerName,                                         // {{1}}
+      params.saleNumber,                                           // {{2}}
+      `₹${params.totalAmount.toLocaleString('en-IN')}`,              // {{3}}
+      params.saleDate,                                             // {{4}}
+    ],
+  })
+
+  // Fallback to custom session text message if template fails
+  if (!res.success) {
+    console.log("[WATI] direct_sale_confirmation template failed/pending, trying session text message fallback")
+    const formattedPhone = formatPhone(params.phone)
+    const config = await getWATIConfig()
+    if (config && config.is_active) {
+      try {
+        const message = `🛍️ *Invoice Generated - Safawala*
+
+Dear ${params.customerName},
+
+Thank you for your purchase! Your direct sale has been completed.
+
+📋 *Purchase Details:*
+• Invoice/Sale ID: ${params.saleNumber}
+• Total Amount: ₹${params.totalAmount.toLocaleString('en-IN')}
+• Date: ${params.saleDate}
+
+Thank you for choosing Safawala! 🙏
+
+For any queries, please contact us.`
+
+        const response = await fetch(`${config.base_url}/api/v1/sendSessionMessage/${formattedPhone}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.api_key}`,
+            'Content-Type': 'application/json-patch+json',
+          },
+          body: JSON.stringify({
+            messageText: message,
+          }),
+        })
+
+        const responseText = await response.text()
+        let data: any
+        try {
+          data = JSON.parse(responseText)
+        } catch (e: any) {
+          return { success: false, error: `Session fallback JSON parse failed: ${responseText}` }
+        }
+
+        if (response.ok && data.result === true) {
+          await logMessage({
+            phone: formattedPhone,
+            type: 'text',
+            content: message,
+            status: 'sent',
+            messageId: data.messageId,
+          })
+          return { success: true, messageId: data.messageId }
+        }
+        return { success: false, error: data.message || data.info || "Failed to send session fallback message" }
+      } catch (e: any) {
+        return { success: false, error: e.message }
+      }
+    }
+  }
+  return res
+}
+
+
+/**
  * Send booking status update to customer
  */
 export async function sendBookingStatusUpdate(params: {
@@ -757,4 +840,132 @@ export async function sendPaymentReminder(params: {
       params.daysUntilEvent.toString(),
     ],
   })
+}
+
+/**
+ * Send a welcome / thank you WhatsApp message to a new lead
+ */
+export async function sendLeadWelcome(params: {
+  phone: string
+  customerName: string
+  packageName?: string
+}): Promise<{ success: boolean; error?: string }> {
+  // Try sending the template first if one is approved
+  let res = await sendTemplateMessage({
+    phone: params.phone,
+    templateName: 'lead_welcome',
+    parameters: [
+      params.customerName,
+      params.packageName || "Wedding Accessories",
+    ],
+  })
+
+  // Fallback to custom session text message if template fails
+  if (!res.success) {
+    console.log("[WATI] lead_welcome template failed/pending, trying session text message fallback")
+    const formattedPhone = formatPhone(params.phone)
+    const config = await getWATIConfig()
+    if (config && config.is_active) {
+      try {
+        const message = `✨ *Welcome to Safawala!* ✨\n\nDear ${params.customerName},\n\nThank you for your enquiry! We have received your request for our wedding accessories services.\n\nOur team will review the details and get back to you shortly. In the meantime, feel free to browse our collection or message us here.\n\nThank you for choosing Safawala! 🙏`
+        
+        const response = await fetch(`${config.base_url}/api/v1/sendSessionMessage/${formattedPhone}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.api_key}`,
+            'Content-Type': 'application/json-patch+json',
+          },
+          body: JSON.stringify({
+            messageText: message,
+          }),
+        })
+
+        const responseText = await response.text()
+        let data: any
+        try {
+          data = JSON.parse(responseText)
+        } catch (e: any) {
+          return { success: false, error: `Session fallback JSON parse failed: ${responseText}` }
+        }
+
+        if (response.ok && data.result === true) {
+          await logMessage({
+            phone: formattedPhone,
+            type: 'text',
+            content: message,
+            status: 'sent',
+            messageId: data.messageId,
+          })
+          return { success: true, messageId: data.messageId }
+        }
+        return { success: false, error: data.message || data.info || "Failed to send session fallback message" }
+      } catch (e: any) {
+        return { success: false, error: e.message }
+      }
+    }
+  }
+  return res
+}
+
+/**
+ * Send review / feedback request to customer
+ */
+export async function sendReviewRequest(params: {
+  phone: string
+  customerName: string
+}): Promise<{ success: boolean; error?: string }> {
+  // Try sending the template first if one is approved
+  let res = await sendTemplateMessage({
+    phone: params.phone,
+    templateName: 'customer_feedback',
+    parameters: [
+      params.customerName,
+    ],
+  })
+
+  // Fallback to custom session text message if template fails or isn't approved
+  if (!res.success) {
+    console.log("[WATI] customer_feedback template failed/pending, trying session text message fallback")
+    const formattedPhone = formatPhone(params.phone)
+    const config = await getWATIConfig()
+    if (config && config.is_active) {
+      try {
+        const message = `Dear ${params.customerName},\n\nThank you for choosing Safawala for your wedding accessories! We hope you loved our collection and service.\n\nCould you please take a moment to share your feedback and review us? It helps us grow and serve you better!\n\n🌐 Website: https://www.safawala.com\n📸 Instagram: https://www.instagram.com/safawala\n⭐ Google Review: https://g.page/r/safawala/review\n\nThank you once again! 🙏`
+
+        const response = await fetch(`${config.base_url}/api/v1/sendSessionMessage/${formattedPhone}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.api_key}`,
+            'Content-Type': 'application/json-patch+json',
+          },
+          body: JSON.stringify({
+            messageText: message,
+          }),
+        })
+
+        const responseText = await response.text()
+        let data: any
+        try {
+          data = JSON.parse(responseText)
+        } catch (e: any) {
+          return { success: false, error: `Session fallback JSON parse failed: ${responseText}` }
+        }
+
+        if (response.ok && data.result === true) {
+          await logMessage({
+            phone: formattedPhone,
+            type: 'text',
+            content: message,
+            status: 'sent',
+            messageId: data.messageId,
+          })
+          return { success: true, messageId: data.messageId }
+        }
+        return { success: false, error: data.message || data.info || "Failed to send session feedback message" }
+      } catch (e: any) {
+        return { success: false, error: e.message }
+      }
+    }
+  }
+  return res
 }

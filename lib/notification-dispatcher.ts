@@ -29,6 +29,9 @@ export class NotificationDispatcher {
         case "booking_created":
           success = await whatsappService.sendBookingConfirmation(notification.recipient, notification.data)
           break
+        case "direct_sale_created":
+          success = await whatsappService.sendDirectSaleConfirmation(notification.recipient, notification.data)
+          break
         case "booking_updated":
           success = await whatsappService.sendBookingUpdate(
             notification.recipient,
@@ -80,11 +83,12 @@ export class NotificationDispatcher {
 
   static async notifyBookingCreated(booking: any) {
     if (booking.customer_phone) {
+      const isSale = booking.type === "sale" || booking.booking_type === "sale"
       await this.dispatch({
-        type: "booking_created",
+        type: isSale ? "direct_sale_created" : "booking_created",
         recipient: booking.customer_phone,
         data: booking,
-        templateName: "booking_confirmation",
+        templateName: isSale ? "direct_sale_confirmation" : "booking_confirmation",
       })
     }
   }

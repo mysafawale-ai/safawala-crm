@@ -12,6 +12,9 @@ import {
   sendPaymentReminder,
   sendBookingCancelled,
   sendBookingStatusUpdate,
+  sendDirectSaleConfirmation,
+  sendReviewRequest,
+  sendLeadWelcome,
 } from "@/lib/services/wati-service"
 import { format, differenceInDays } from "date-fns"
 
@@ -291,17 +294,25 @@ export async function onBookingCreated(params: {
       return { sent: false, error: "Customer phone number not available" }
     }
 
-    const result = await sendBookingConfirmation({
-      phone: booking.customerPhone,
-      customerName: booking.customerName,
-      bookingNumber: booking.bookingNumber,
-      eventDate: booking.eventDate ? format(new Date(booking.eventDate), "dd MMM yyyy") : "TBD",
-      eventTime: booking.eventTime || "TBD",
-      venueName: booking.venueName,
-      itemsSummary: booking.itemsSummary,
-      totalAmount: booking.totalAmount,
-      paymentStatus: booking.paymentStatus,
-    })
+    const result = booking.type === "direct_sale"
+      ? await sendDirectSaleConfirmation({
+          phone: booking.customerPhone,
+          customerName: booking.customerName,
+          saleNumber: booking.bookingNumber,
+          saleDate: booking.eventDate ? format(new Date(booking.eventDate), "dd MMM yyyy") : format(new Date(), "dd MMM yyyy"),
+          totalAmount: booking.totalAmount,
+        })
+      : await sendBookingConfirmation({
+          phone: booking.customerPhone,
+          customerName: booking.customerName,
+          bookingNumber: booking.bookingNumber,
+          eventDate: booking.eventDate ? format(new Date(booking.eventDate), "dd MMM yyyy") : "TBD",
+          eventTime: booking.eventTime || "TBD",
+          venueName: booking.venueName,
+          itemsSummary: booking.itemsSummary,
+          totalAmount: booking.totalAmount,
+          paymentStatus: booking.paymentStatus,
+        })
 
     // Update message with booking reference
     if (result.success && result.messageId) {
@@ -359,14 +370,22 @@ export async function onBookingStatusChange(params: {
 
     const friendlyStatus = statusLabels[params.newStatus] || params.newStatus.replace(/_/g, " ")
 
-    const result = await sendBookingStatusUpdate({
-      phone: booking.customerPhone,
-      customerName: booking.customerName,
-      bookingNumber: booking.bookingNumber,
-      newStatus: friendlyStatus.toUpperCase(),
-      updatedDate: format(new Date(), "dd MMM yyyy HH:mm"),
-      nextAction: params.newStatus === 'confirmed' ? "Preparing accessories for handover" : "Contact store for any questions"
-    })
+    let result
+    if (params.newStatus === "returned" || params.newStatus === "order_complete") {
+      result = await sendReviewRequest({
+        phone: booking.customerPhone,
+        customerName: booking.customerName,
+      })
+    } else {
+      result = await sendBookingStatusUpdate({
+        phone: booking.customerPhone,
+        customerName: booking.customerName,
+        bookingNumber: booking.bookingNumber,
+        newStatus: friendlyStatus.toUpperCase(),
+        updatedDate: format(new Date(), "dd MMM yyyy HH:mm"),
+        nextAction: params.newStatus === 'confirmed' ? "Preparing accessories for handover" : "Contact store for any questions"
+      })
+    }
 
     if (result.success && result.messageId) {
       await supabase.from("whatsapp_messages")
@@ -850,4 +869,48 @@ export async function processReturnReminders(): Promise<{ processed: number; sen
   }
 
   return { processed, sent, errors }
+}
+
+/**
+ * Trigger: New Lead Created
+ */
+export async function onLeadCreated(params: {
+  leadId: string
+  franchiseId?: string
+}): Promise<{ sent: boolean; error?: string }> {
+  try {
+    // 1. Fetch lead details
+    const { data: lead, error } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("id", params.leadId)
+      .single()
+
+    if (error || !lead) {
+      return { sent: false, error: "Lead not found in database" }
+    }
+
+    if (!lead.phone) {
+      return { sent: false, error: "Lead has no phone number" }
+    }
+
+    // 2. Send welcome message
+    const result = await sendLeadWelcome({
+      phone: lead.phone,
+      customerName: lead.name,
+      packageName: lead.package_interest || undefined
+    })
+
+    // Update message log if needed
+    if (result.success && result.messageId) {
+      await supabase.from("whatsapp_messages")
+        .update({ franchise_id: params.franchiseId || lead.franchise_id })
+        .eq("wati_message_id", result.messageId)
+    }
+
+    return { sent: result.success, error: result.error }
+  } catch (error: any) {
+    console.error("[WhatsApp Triggers] onLeadCreated error:", error)
+    return { sent: false, error: error.message }
+  }
 }

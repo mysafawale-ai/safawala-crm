@@ -93,7 +93,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Fetch by ID only (no franchise filter). Keep payload lean.
     const { data: customer, error } = await supabaseServer
       .from("customers")
-      .select("id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, franchise_id, status, created_at, updated_at")
+      .select("id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, franchise_id, status, kyc_status, aadhar_number, pan_number, kyc_document_url, kyc_notes, lead_id, created_at, updated_at")
       .eq("id", id)
       .single()
 
@@ -210,7 +210,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { name, email, phone, whatsapp, address, city, state, pincode, notes, is_active } = body
+    const { name, email, phone, whatsapp, address, city, state, pincode, notes, is_active, kyc_status, aadhar_number, pan_number, kyc_document_url, kyc_notes } = body
 
     // Validation
     if (name !== undefined && (typeof name !== "string" || name.trim().length === 0)) {
@@ -331,6 +331,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (pincode !== undefined) updateData.pincode = pincode.replace(/<[^>]*>/g, "").trim()
     if (notes !== undefined) updateData.notes = notes ? notes.replace(/<[^>]*>/g, "").trim() : null
     if (is_active !== undefined) updateData.is_active = Boolean(is_active)
+    if (kyc_status !== undefined) updateData.kyc_status = kyc_status
+    if (aadhar_number !== undefined) updateData.aadhar_number = aadhar_number
+    if (pan_number !== undefined) updateData.pan_number = pan_number
+    if (kyc_document_url !== undefined) updateData.kyc_document_url = kyc_document_url
+    if (kyc_notes !== undefined) updateData.kyc_notes = kyc_notes
 
     // Update the customer
     const { data: updatedCustomer, error: updateError } = await supabaseServer
@@ -565,7 +570,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Parse request body
     const body = await request.json()
-    const { name, phone, whatsapp, email, address, city, state, pincode, is_active } = body
+    const { name, phone, whatsapp, email, address, city, state, pincode, is_active, kyc_status, aadhar_number, pan_number, kyc_document_url, kyc_notes } = body
 
     // Validation
     if (!name || name.trim().length === 0) {
@@ -625,11 +630,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.is_active = is_active
     }
 
+    if (kyc_status !== undefined) updateData.kyc_status = kyc_status
+    if (aadhar_number !== undefined) updateData.aadhar_number = aadhar_number
+    if (pan_number !== undefined) updateData.pan_number = pan_number
+    if (kyc_document_url !== undefined) updateData.kyc_document_url = kyc_document_url
+    if (kyc_notes !== undefined) updateData.kyc_notes = kyc_notes
+
     const { data: updatedCustomer, error: updateError } = await supabaseServer
       .from("customers")
       .update(updateData)
       .eq("id", id)
-      .select("id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, franchise_id, status, created_at, updated_at")
+      .select("id, customer_code, name, phone, whatsapp, email, address, city, state, pincode, franchise_id, status, kyc_status, aadhar_number, pan_number, kyc_document_url, kyc_notes, lead_id, created_at, updated_at")
       .single()
 
     if (updateError) {

@@ -35,6 +35,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import type { Customer, Booking, Payment } from "@/lib/types"
+import { BookingWorkflowStepper } from "@/components/shared"
 
 export default function CustomerDetailPage() {
   const router = useRouter()
@@ -370,6 +371,20 @@ export default function CustomerDetailPage() {
           </Button>
         </div>
       </div>
+
+      <BookingWorkflowStepper
+        currentStep="customer"
+        customerId={customerId}
+        bookingId={bookings[0]?.id}
+        bookingNumber={bookings[0]?.booking_number}
+        customerData={{
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email || undefined,
+          address: customer.address || undefined,
+          city: customer.city || undefined,
+        }}
+      />
 
       {/* Customer Header Card */}
       <Card>

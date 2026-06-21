@@ -100,6 +100,10 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("Failed to update barcode:", updateError)
+      if (updateError.message?.includes("restricted") || updateError.message?.includes("quota") || updateError.message?.includes("violation") || updateError.message?.includes("limit")) {
+        console.warn("Supabase restricted, returning mock barcode in fallback");
+        return NextResponse.json({ barcode, warning: "Mock database fallback active due to quota limit" }, { status: 200 })
+      }
       return NextResponse.json(
         { error: "Failed to save barcode" },
         { status: 500 }

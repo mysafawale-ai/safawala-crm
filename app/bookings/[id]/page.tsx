@@ -14,6 +14,7 @@ import type { Booking, Customer } from "@/lib/types"
 import { format } from "date-fns"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { BookingWorkflowStepper } from "@/components/shared"
 
 // Local view model to align with fields used by this page
 type BookingView = Booking & {
@@ -373,6 +374,13 @@ export default function BookingDetailPage() {
           </Button>
         </div>
       </div>
+
+      <BookingWorkflowStepper
+        currentStep="booking"
+        customerId={booking.customer_id || booking.customer?.id}
+        bookingId={booking.id}
+        bookingNumber={booking.booking_number}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Booking Overview */}

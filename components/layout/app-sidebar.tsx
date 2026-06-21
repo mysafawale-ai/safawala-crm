@@ -83,6 +83,13 @@ const navigationItems = {
       description: "Manage wedding bookings, event schedules, and customer appointments",
     },
     {
+      title: "Quotes",
+      url: "/quotes",
+      icon: FileText,
+      permission: "bookings",
+      description: "Generate and manage customer quotes, accept and convert to bookings",
+    },
+    {
       title: "Customers",
       url: "/customers",
       icon: Users,

@@ -1,18 +1,30 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { format } from "date-fns"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { format, parseISO } from "date-fns"
 import {
   Users, Phone, MapPin, Calendar, Search, RefreshCw, Filter,
-  CheckCircle, Clock, TrendingUp, X, MessageSquare, ExternalLink,
-  Copy, ChevronDown, Loader2, Star
+  CheckCircle, Clock, X, MessageSquare, ExternalLink,
+  Copy, ChevronDown, Loader2, Plus, Edit2, Mail, Building2, Globe, Check
 } from "lucide-react"
 import { toast } from "sonner"
+import { DashboardLayout } from "@/components/layout/dashboard-layout"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { createClient } from "@/lib/supabase"
+import { KYCDialog } from "@/components/customers/kyc-dialog"
 
 interface Lead {
   id: string
   name: string
   phone: string
+  email: string | null
   event_date: string | null
   location: string | null
   message: string | null
@@ -20,6 +32,8 @@ interface Lead {
   status: "new" | "contacted" | "interested" | "converted" | "lost"
   source: string
   notes: string | null
+  assigned_to: string | null
+  franchise_id: string | null
   created_at: string
 }
 
@@ -31,50 +45,290 @@ const STATUS_CONFIG = {
   lost:       { label: "Lost",       color: "bg-red-500/10 text-red-400 border-red-500/20",          dot: "bg-red-400" },
 }
 
+const SOURCE_OPTIONS = [
+  { label: "Website", value: "website" },
+  { label: "Instagram", value: "instagram" },
+  { label: "Facebook", value: "facebook" },
+  { label: "Google Search", value: "google" },
+  { label: "Walk-in", value: "walk_in" },
+  { label: "Referral", value: "referral" },
+  { label: "Manual Entry", value: "manual" },
+  { label: "Other", value: "other" },
+]
+
+const getWhatsAppLink = (phone: string) => {
+  const trimmed = phone.trim()
+  
+  // If it explicitly starts with '+', it already contains the country code
+  if (trimmed.startsWith("+")) {
+    const clean = trimmed.replace(/\D/g, "")
+    return `https://wa.me/${clean}`
+  }
+
+  let clean = trimmed.replace(/\D/g, "")
+
+  // Handle leading '00' as a replacement for '+'
+  if (clean.startsWith("00")) {
+    clean = clean.slice(2)
+    return `https://wa.me/${clean}`
+  }
+
+  // Handle local 11-digit numbers starting with '0' (common in India, e.g., 09876543210)
+  if (clean.length === 11 && clean.startsWith("0")) {
+    clean = clean.slice(1)
+  }
+
+  // Default to India country code '91' for standard 10-digit local numbers
+  if (clean.length === 10) {
+    return `https://wa.me/91${clean}`
+  }
+
+  // If it's already longer and has a country code (like 919876543210 or 97150...)
+  return `https://wa.me/${clean}`
+}
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [sourceFilter, setSourceFilter] = useState("all")
+  const [franchiseFilter, setFranchiseFilter] = useState("all")
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [noteInput, setNoteInput] = useState("")
 
+  // KYC states
+  const [kycDialogOpen, setKycDialogOpen] = useState(false)
+  const [kycCustomer, setKycCustomer] = useState<any>(null)
+  const [loadingKycCustomer, setLoadingKycCustomer] = useState(false)
+
+  const handleStartKYC = async () => {
+    if (!selectedLead) return
+    setLoadingKycCustomer(true)
+    try {
+      const res = await fetch(`/api/customers?search=${encodeURIComponent(selectedLead.phone)}`)
+      if (!res.ok) throw new Error("Failed to search customer")
+      const result = await res.json()
+      if (result.success && result.data && result.data.length > 0) {
+        // Find matching lead_id or fallback to phone match
+        const matched = result.data.find((c: any) => c.lead_id === selectedLead.id) || result.data[0]
+        setKycCustomer(matched)
+        setKycDialogOpen(true)
+      } else {
+        toast.error("No customer record found for this lead. Make sure status is set to Converted.")
+      }
+    } catch (err: any) {
+      console.error("Error opening KYC Dialog from lead:", err)
+      toast.error("Failed to load customer profile for KYC")
+    } finally {
+      setLoadingKycCustomer(false)
+    }
+  }
+
+  // Master Data
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [staffMembers, setStaffMembers] = useState<any[]>([])
+  const [franchises, setFranchises] = useState<any[]>([])
+
+  // Form States (Add Lead)
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newPhone, setNewPhone] = useState("")
+  const [newEmail, setNewEmail] = useState("")
+  const [newEventDate, setNewEventDate] = useState("")
+  const [newLocation, setNewLocation] = useState("")
+  const [newPackage, setNewPackage] = useState("")
+  const [newSource, setNewSource] = useState("manual")
+  const [newStatus, setNewStatus] = useState("new")
+  const [newAssignedTo, setNewAssignedTo] = useState("")
+  const [newFranchiseId, setNewFranchiseId] = useState("")
+  const [newRequirements, setNewRequirements] = useState("")
+  const [newNotes, setNewNotes] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+
+  // Details Edit States
+  const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editPhone, setEditPhone] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editEventDate, setEditEventDate] = useState("")
+  const [editLocation, setEditLocation] = useState("")
+  const [editMessage, setEditMessage] = useState("")
+
+  // Get current user session
+  useEffect(() => {
+    const userStr = localStorage.getItem("safawala_user")
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        setCurrentUser(user)
+        if (user.franchise_id) {
+          setNewFranchiseId(user.franchise_id)
+        }
+      } catch (err) {
+        console.error("Failed to parse user session:", err)
+      }
+    }
+  }, [])
+
+  // Load master data (Staff and Franchises)
+  useEffect(() => {
+    async function loadMasterData() {
+      try {
+        const supabase = createClient()
+
+        // Fetch staff
+        let staffQuery = supabase
+          .from("users")
+          .select("id, name, role, franchise_id")
+          .eq("is_active", true)
+
+        if (currentUser && !currentUser.is_super_admin && currentUser.franchise_id) {
+          staffQuery = staffQuery.or(`franchise_id.eq.${currentUser.franchise_id},role.eq.super_admin`)
+        }
+        
+        const { data: staff } = await staffQuery.order("name")
+        setStaffMembers(staff || [])
+
+        // Fetch franchises
+        let franchiseQuery = supabase
+          .from("franchises")
+          .select("id, name, code")
+          .eq("is_active", true)
+
+        if (currentUser && !currentUser.is_super_admin && currentUser.franchise_id) {
+          franchiseQuery = franchiseQuery.eq("id", currentUser.franchise_id)
+        }
+
+        const { data: franchisesData } = await franchiseQuery.order("name")
+        setFranchises(franchisesData || [])
+      } catch (err) {
+        console.error("Failed to load master data:", err)
+      }
+    }
+
+    if (currentUser) {
+      loadMasterData()
+    }
+  }, [currentUser])
+
+  // Fetch leads based on search, source, and franchise filters
   const fetchLeads = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (statusFilter !== "all") params.set("status", statusFilter)
       if (search) params.set("search", search)
+      if (sourceFilter !== "all") params.set("source", sourceFilter)
+      if (franchiseFilter !== "all") params.set("franchise_id", franchiseFilter)
+      
       const res = await fetch(`/api/leads?${params}`)
       const data = await res.json()
-      setLeads(data.data || [])
+      
+      const loadedLeads = data.data || []
+      setLeads(loadedLeads)
+      
+      // Update selected lead reference if it's currently open
+      if (selectedLead) {
+        const updatedSelected = loadedLeads.find((l: Lead) => l.id === selectedLead.id)
+        if (updatedSelected) {
+          setSelectedLead(updatedSelected)
+        }
+      }
     } catch (err) {
       toast.error("Failed to load leads")
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, search])
+  }, [search, sourceFilter, franchiseFilter, selectedLead])
 
   useEffect(() => {
     const t = setTimeout(fetchLeads, 300)
     return () => clearTimeout(t)
-  }, [fetchLeads])
+  }, [search, sourceFilter, franchiseFilter])
 
-  const updateStatus = async (id: string, status: string, notes?: string) => {
+  // Reset Add Lead form
+  const resetAddForm = () => {
+    setNewName("")
+    setNewPhone("")
+    setNewEmail("")
+    setNewEventDate("")
+    setNewLocation("")
+    setNewPackage("")
+    setNewSource("manual")
+    setNewStatus("new")
+    setNewAssignedTo("")
+    setNewFranchiseId(currentUser?.franchise_id || "")
+    setNewRequirements("")
+    setNewNotes("")
+  }
+
+  // Create lead manually
+  const handleAddLead = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newName.trim() || !newPhone.trim() || !newEventDate) {
+      toast.error("Name, WhatsApp number, and Event Date are required")
+      return
+    }
+
+    try {
+      setSubmitting(true)
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName,
+          phone: newPhone,
+          email: newEmail || null,
+          event_date: newEventDate,
+          location: newLocation || null,
+          package_interest: newPackage || null,
+          source: newSource,
+          status: newStatus,
+          assigned_to: newAssignedTo === "none" || !newAssignedTo ? null : newAssignedTo,
+          franchise_id: newFranchiseId === "none" || !newFranchiseId ? null : newFranchiseId,
+          message: newRequirements || null,
+          notes: newNotes || null,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Lead created successfully")
+        setShowAddDialog(false)
+        resetAddForm()
+        fetchLeads()
+      } else {
+        toast.error(data.error || "Failed to create lead")
+      }
+    } catch (err) {
+      toast.error("Something went wrong")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Update lead fields
+  const handleUpdateLeadField = async (id: string, fields: Partial<Lead>) => {
     setUpdatingId(id)
     try {
       const res = await fetch("/api/leads", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status, notes }),
+        body: JSON.stringify({ id, ...fields }),
       })
       if (res.ok) {
+        const data = await res.json()
         toast.success("Lead updated")
-        fetchLeads()
+        
+        // Fast local update
+        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...fields } : l)))
+        
         if (selectedLead?.id === id) {
-          setSelectedLead((prev) => prev ? { ...prev, status: status as any, notes: notes ?? prev.notes } : null)
+          setSelectedLead((prev) => (prev ? { ...prev, ...fields } : null))
         }
+      } else {
+        toast.error("Failed to update lead")
       }
     } catch {
       toast.error("Failed to update")
@@ -83,348 +337,786 @@ export default function LeadsPage() {
     }
   }
 
-  const copyPhone = (phone: string) => {
+  // Save edit details panel
+  const handleSaveDetails = async () => {
+    if (!editName.trim() || !editPhone.trim() || !editEventDate) {
+      toast.error("Name, WhatsApp number, and Event Date are required")
+      return
+    }
+
+    await handleUpdateLeadField(selectedLead!.id, {
+      name: editName,
+      phone: editPhone,
+      email: editEmail || null,
+      event_date: editEventDate,
+      location: editLocation || null,
+      message: editMessage || null,
+    })
+    setIsEditingDetails(false)
+  }
+
+  // Set edit details inputs
+  const handleStartEditDetails = () => {
+    if (!selectedLead) return
+    setEditName(selectedLead.name)
+    setEditPhone(selectedLead.phone)
+    setEditEmail(selectedLead.email || "")
+    setEditEventDate(selectedLead.event_date || "")
+    setEditLocation(selectedLead.location || "")
+    setEditMessage(selectedLead.message || "")
+    setIsEditingDetails(true)
+  }
+
+  // Format date helper
+  const formatDateString = (dateStr: string | null) => {
+    if (!dateStr) return "Not specified"
+    try {
+      return format(parseISO(dateStr), "dd MMM yyyy")
+    } catch (e) {
+      return dateStr
+    }
+  }
+
+  // Filter leads list locally by status filter
+  const localFilteredLeads = useMemo(() => {
+    return leads.filter((l) => statusFilter === "all" || l.status === statusFilter)
+  }, [leads, statusFilter])
+
+  // Counts based on fetched leads matching source/franchise/search filters
+  const counts = useMemo(() => {
+    return {
+      all: leads.length,
+      new: leads.filter((l) => l.status === "new").length,
+      contacted: leads.filter((l) => l.status === "contacted").length,
+      interested: leads.filter((l) => l.status === "interested").length,
+      converted: leads.filter((l) => l.status === "converted").length,
+      lost: leads.filter((l) => l.status === "lost").length,
+    }
+  }, [leads])
+
+  const copyWhatsApp = (phone: string) => {
     navigator.clipboard.writeText(phone)
-    toast.success("Phone copied!")
+    toast.success("WhatsApp number copied!")
   }
 
-  const counts = {
-    all: leads.length,
-    new: leads.filter((l) => l.status === "new").length,
-    contacted: leads.filter((l) => l.status === "contacted").length,
-    interested: leads.filter((l) => l.status === "interested").length,
-    converted: leads.filter((l) => l.status === "converted").length,
-    lost: leads.filter((l) => l.status === "lost").length,
+  const getSourceLabel = (src: string) => {
+    const opt = SOURCE_OPTIONS.find((o) => o.value === src)
+    return opt ? opt.label : src
   }
 
-  const publicUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/packages`
-    : "/packages"
+  const getSourceBadgeColor = (src: string) => {
+    switch (src?.toLowerCase()) {
+      case "website":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200"
+      case "instagram":
+        return "bg-pink-50 text-pink-700 border-pink-200"
+      case "facebook":
+        return "bg-blue-50 text-blue-700 border-blue-200"
+      case "google":
+        return "bg-amber-50 text-amber-700 border-amber-200"
+      case "walk_in":
+        return "bg-teal-50 text-teal-700 border-teal-200"
+      case "referral":
+        return "bg-indigo-50 text-indigo-700 border-indigo-200"
+      case "manual":
+        return "bg-slate-100 text-slate-700 border-slate-200"
+      default:
+        return "bg-gray-50 text-gray-700 border-gray-200"
+    }
+  }
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6 text-purple-500" />
-            Leads
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Enquiries from your public packages page
-          </p>
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-serif font-semibold text-gray-900 tracking-tight flex items-center gap-2">
+              <Users className="w-8 h-8 text-[#102516]" />
+              Leads Center
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Track package enquiries, manage manual leads, filter sources, and assign follow-ups.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={fetchLeads} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button 
+              onClick={() => { resetAddForm(); setShowAddDialog(true) }} 
+              size="sm" 
+              className="bg-[#102516] hover:bg-[#1a3a26] text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Lead
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(publicUrl)
-              toast.success("Link copied! Share it with customers.")
-            }}
-            className="flex items-center gap-2 text-sm border rounded-lg px-3 py-2 hover:bg-accent transition"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Copy Public Link
-          </button>
-          <a
-            href="/packages"
-            target="_blank"
-            className="flex items-center gap-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg px-3 py-2 transition"
-          >
-            <ExternalLink className="w-4 h-4" />
-            View Public Page
-          </a>
-          <button
-            onClick={fetchLeads}
-            className="flex items-center gap-2 text-sm border rounded-lg px-3 py-2 hover:bg-accent transition"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-5 gap-3 px-6 py-4 border-b">
-        {(["new", "contacted", "interested", "converted", "lost"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s === statusFilter ? "all" : s)}
-            className={`rounded-xl p-3 border text-left transition-all ${
-              statusFilter === s ? "border-purple-500 bg-purple-500/10" : "border-border hover:border-purple-500/30"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[s].dot}`} />
-              <span className="text-xs text-muted-foreground">{STATUS_CONFIG[s].label}</span>
-            </div>
-            <p className="text-2xl font-bold">{counts[s]}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* Search + Filter */}
-      <div className="flex items-center gap-3 px-6 py-3 border-b">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            placeholder="Search by name, phone, location..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/30"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none"
-        >
-          <option value="all">All Status ({counts.all})</option>
-          <option value="new">New ({counts.new})</option>
-          <option value="contacted">Contacted ({counts.contacted})</option>
-          <option value="interested">Interested ({counts.interested})</option>
-          <option value="converted">Converted ({counts.converted})</option>
-          <option value="lost">Lost ({counts.lost})</option>
-        </select>
-      </div>
-
-      {/* Table + Detail Panel */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Lead List */}
-        <div className={`flex flex-col overflow-auto transition-all ${selectedLead ? "w-[55%]" : "w-full"}`}>
-          {loading ? (
-            <div className="flex items-center justify-center flex-1 py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : leads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center flex-1 py-20 text-muted-foreground">
-              <Users className="w-12 h-12 mb-3 opacity-20" />
-              <p className="font-medium">No leads yet</p>
-              <p className="text-sm mt-1">Share your public packages link to get enquiries</p>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {(["new", "contacted", "interested", "converted", "lost"] as const).map((s) => {
+            const cfg = STATUS_CONFIG[s]
+            const isActive = statusFilter === s
+            return (
               <button
-                onClick={() => { navigator.clipboard.writeText(publicUrl); toast.success("Link copied!") }}
-                className="mt-4 text-sm bg-purple-600 text-white rounded-lg px-4 py-2 hover:bg-purple-500 transition"
+                key={s}
+                onClick={() => setStatusFilter(isActive ? "all" : s)}
+                className={`rounded-xl p-4 border text-left transition-all ${
+                  isActive 
+                    ? "border-[#102516] bg-[#102516]/5 shadow-sm font-semibold" 
+                    : "border-gray-200 bg-white hover:border-[#102516]/30"
+                }`}
               >
-                Copy Public Link
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{cfg.label}</span>
+                </div>
+                <p className="text-3xl font-bold font-serif mt-1 text-gray-900">{counts[s]}</p>
               </button>
+            )
+          })}
+        </div>
+
+        {/* Filters Toolbar */}
+        <Card className="shadow-sm border-gray-100">
+          <CardContent className="p-4 flex flex-col md:flex-row gap-3 items-end">
+            <div className="flex-1 w-full space-y-1">
+              <Label className="text-xs font-semibold text-gray-700">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name, WhatsApp, location..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-10 border-gray-200 focus:border-[#102516] focus:ring-[#102516]"
+                />
+              </div>
             </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-background border-b">
-                <tr className="text-muted-foreground text-xs uppercase tracking-wide">
-                  <th className="text-left px-6 py-3 font-medium">Lead</th>
-                  <th className="text-left px-4 py-3 font-medium">Event</th>
-                  <th className="text-left px-4 py-3 font-medium">Package</th>
-                  <th className="text-left px-4 py-3 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 font-medium">Received</th>
-                  <th className="text-left px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {leads.map((lead) => {
-                  const cfg = STATUS_CONFIG[lead.status]
-                  return (
-                    <tr
-                      key={lead.id}
-                      onClick={() => { setSelectedLead(lead); setNoteInput(lead.notes || "") }}
-                      className={`hover:bg-accent/50 cursor-pointer transition ${selectedLead?.id === lead.id ? "bg-accent" : ""}`}
-                    >
-                      <td className="px-6 py-3">
-                        <div className="font-medium">{lead.name}</div>
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Phone className="w-3 h-3" />
-                          {lead.phone}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {lead.event_date ? (
-                          <div className="flex items-center gap-1 text-xs">
-                            <Calendar className="w-3 h-3" />
-                            {format(new Date(lead.event_date), "d MMM yyyy")}
-                          </div>
-                        ) : <span className="text-muted-foreground text-xs">—</span>}
-                        {lead.location && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                            <MapPin className="w-3 h-3" />
-                            {lead.location}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {lead.package_interest ? (
-                          <span className="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full px-2 py-0.5">
-                            {lead.package_interest}
-                          </span>
-                        ) : <span className="text-muted-foreground text-xs">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs border rounded-full px-2 py-0.5 flex items-center gap-1 w-fit ${cfg.color}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                          {cfg.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {format(new Date(lead.created_at), "d MMM, h:mm a")}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={`tel:${lead.phone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-7 h-7 flex items-center justify-center bg-green-500/10 text-green-400 rounded-lg hover:bg-green-500/20 transition"
-                            title="Call"
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                          </a>
-                          <a
-                            href={`https://wa.me/91${lead.phone.replace(/\D/g, "")}`}
-                            target="_blank"
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-7 h-7 flex items-center justify-center bg-green-500/10 text-green-400 rounded-lg hover:bg-green-500/20 transition"
-                            title="WhatsApp"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      </td>
+
+            <div className="w-full md:w-44 space-y-1">
+              <Label className="text-xs font-semibold text-gray-700">Lead Source</Label>
+              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                <SelectTrigger className="h-10 border-gray-200">
+                  <SelectValue placeholder="All Sources" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="all">All Sources</SelectItem>
+                  {SOURCE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {currentUser?.is_super_admin && (
+              <div className="w-full md:w-48 space-y-1">
+                <Label className="text-xs font-semibold text-gray-700">Franchise</Label>
+                <Select value={franchiseFilter} onValueChange={setFranchiseFilter}>
+                  <SelectTrigger className="h-10 border-gray-200">
+                    <SelectValue placeholder="All Franchises" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Franchises</SelectItem>
+                    <SelectItem value="unassigned">Unassigned Leads</SelectItem>
+                    {franchises.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch("")
+                setSourceFilter("all")
+                setFranchiseFilter("all")
+                setStatusFilter("all")
+              }}
+              className="h-10 text-muted-foreground hover:text-gray-900 border border-dashed border-gray-200"
+            >
+              Reset Filters
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Content Area: Table + Detail Panel */}
+        <div className="flex gap-4 items-start overflow-hidden">
+          {/* Leads Table */}
+          <div className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-all ${selectedLead ? "w-[58%]" : "w-full"}`}>
+            {loading ? (
+              <div className="p-20 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
+                <Loader2 className="w-8 h-8 animate-spin text-[#102516]" />
+                <span className="text-sm font-medium">Fetching lead entries...</span>
+              </div>
+            ) : localFilteredLeads.length === 0 ? (
+              <div className="p-20 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
+                <Users className="w-16 h-16 opacity-25 text-gray-400 stroke-1" />
+                <p className="font-semibold text-gray-700">No leads found</p>
+                <p className="text-sm text-gray-400 max-w-xs">Try adjusting your filters or create a manual entry.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 border-b">
+                    <tr className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">
+                      <th className="px-5 py-3">Lead details</th>
+                      <th className="px-4 py-3">Event Date</th>
+                      <th className="px-4 py-3">Source</th>
+                      {currentUser?.is_super_admin && <th className="px-4 py-3">Franchise</th>}
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {localFilteredLeads.map((lead) => {
+                      const cfg = STATUS_CONFIG[lead.status]
+                      const franchiseObj = franchises.find((f) => f.id === lead.franchise_id)
+                      const isSelected = selectedLead?.id === lead.id
+                      return (
+                        <tr
+                          key={lead.id}
+                          onClick={() => {
+                            setSelectedLead(lead)
+                            setNoteInput(lead.notes || "")
+                            setIsEditingDetails(false)
+                          }}
+                          className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${
+                            isSelected ? "bg-slate-50" : ""
+                          }`}
+                        >
+                          <td className="px-5 py-4">
+                            <div className="font-semibold text-gray-900">{lead.name}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-0.5">{lead.phone}</div>
+                          </td>
+                          <td className="px-4 py-4 text-xs font-medium text-gray-700">
+                            {formatDateString(lead.event_date)}
+                            {lead.location && (
+                              <div className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                                <MapPin className="w-3 h-3 text-gray-400" />
+                                {lead.location}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <Badge variant="outline" className={`font-semibold text-[10px] ${getSourceBadgeColor(lead.source)}`}>
+                              {getSourceLabel(lead.source)}
+                            </Badge>
+                          </td>
+                          {currentUser?.is_super_admin && (
+                            <td className="px-4 py-4 text-xs font-semibold text-gray-600">
+                              {franchiseObj ? franchiseObj.name : <span className="text-gray-400 italic font-normal">Unassigned</span>}
+                            </td>
+                          )}
+                          <td className="px-4 py-4">
+                            <span className={`text-[10px] font-semibold border rounded-full px-2 py-0.5 flex items-center gap-1.5 w-fit ${cfg.color}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                              {cfg.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end gap-1.5">
+                              <a
+                                href={`tel:${lead.phone}`}
+                                className="w-8 h-8 flex items-center justify-center border border-gray-200 bg-white text-gray-600 rounded-lg hover:bg-slate-50 hover:text-gray-900 transition"
+                                title="Call Number"
+                              >
+                                <Phone className="w-3.5 h-3.5" />
+                              </a>
+                              <a
+                                href={getWhatsAppLink(lead.phone)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-8 h-8 flex items-center justify-center border border-emerald-100 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition"
+                                title="WhatsApp Chat"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
-        {/* Detail Panel */}
-        {selectedLead && (
-          <div className="w-[45%] border-l flex flex-col overflow-auto">
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <h3 className="font-semibold">Lead Details</h3>
-              <button
-                onClick={() => setSelectedLead(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-accent transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto p-5 space-y-5">
-              {/* Contact */}
-              <div className="bg-accent/50 rounded-xl p-4 space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Contact</h4>
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-lg">{selectedLead.name}</span>
+          {/* Lead Detail Panel */}
+          {selectedLead && (
+            <div className="w-[42%] bg-white border rounded-xl overflow-hidden shadow-sm flex flex-col max-h-[85vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <div>
+                  <h3 className="font-semibold text-gray-900">Lead Details</h3>
+                  <span className="text-[10px] text-muted-foreground font-mono">ID: {selectedLead.id.slice(0, 8)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{selectedLead.phone}</span>
-                  <button
-                    onClick={() => copyPhone(selectedLead.phone)}
-                    className="text-muted-foreground hover:text-foreground transition"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="flex gap-3 mt-3">
-                  <a
-                    href={`tel:${selectedLead.phone}`}
-                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white rounded-lg py-2 text-sm font-medium transition"
-                  >
-                    <Phone className="w-4 h-4" /> Call
-                  </a>
-                  <a
-                    href={`https://wa.me/91${selectedLead.phone.replace(/\D/g, "")}`}
-                    target="_blank"
-                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg py-2 text-sm font-medium transition"
-                  >
-                    <MessageSquare className="w-4 h-4" /> WhatsApp
-                  </a>
+                  {!isEditingDetails && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" onClick={handleStartEditDetails}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedLead(null); setIsEditingDetails(false) }}>
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
-              {/* Event Info */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Event Details</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-accent/30 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Event Date</p>
-                    <p className="font-medium text-sm">
-                      {selectedLead.event_date
-                        ? format(new Date(selectedLead.event_date), "d MMMM yyyy")
-                        : "Not specified"}
-                    </p>
+              {/* Detail Contents */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {isEditingDetails ? (
+                  // Detail Edit Mode
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-gray-700">Full Name *</Label>
+                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-9" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-gray-700">WhatsApp / Phone *</Label>
+                      <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="h-9" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-gray-700">Email Address</Label>
+                      <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="h-9" placeholder="Optional" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-gray-700">Event Date *</Label>
+                        <Input type="date" value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} className="h-9" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-gray-700">Location</Label>
+                        <Input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="h-9" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-gray-700">Requirements Box</Label>
+                      <Textarea value={editMessage} onChange={(e) => setEditMessage(e.target.value)} rows={3} className="resize-none" />
+                    </div>
+                    <div className="flex gap-2 justify-end pt-2">
+                      <Button variant="outline" size="sm" onClick={() => setIsEditingDetails(false)}>Cancel</Button>
+                      <Button size="sm" onClick={handleSaveDetails} className="bg-[#102516] hover:bg-[#1a3a26] text-white">Save Changes</Button>
+                    </div>
                   </div>
-                  <div className="bg-accent/30 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Location</p>
-                    <p className="font-medium text-sm">{selectedLead.location || "Not specified"}</p>
-                  </div>
-                </div>
-                {selectedLead.package_interest && (
-                  <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
-                    <p className="text-xs text-purple-400 mb-1">Package Interest</p>
-                    <p className="font-medium text-sm text-purple-300">{selectedLead.package_interest}</p>
-                  </div>
-                )}
-                {selectedLead.message && (
-                  <div className="bg-accent/30 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground mb-1">Message</p>
-                    <p className="text-sm">{selectedLead.message}</p>
-                  </div>
-                )}
-              </div>
+                ) : (
+                  // Detail View Mode
+                  <>
+                    {/* Contact Quick card */}
+                    <div className="bg-slate-50/50 rounded-xl p-4 border border-slate-100 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-900 leading-tight">{selectedLead.name}</h4>
+                          {selectedLead.email && <span className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><Mail className="w-3.5 h-3.5 text-gray-400" /> {selectedLead.email}</span>}
+                        </div>
+                      </div>
 
-              {/* Status Update */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Update Status</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {(Object.keys(STATUS_CONFIG) as (keyof typeof STATUS_CONFIG)[]).map((s) => {
-                    const cfg = STATUS_CONFIG[s]
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => updateStatus(selectedLead.id, s)}
+                      <div className="flex items-center gap-2 text-sm text-gray-700 font-mono">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span>{selectedLead.phone}</span>
+                        <button onClick={() => copyWhatsApp(selectedLead.phone)} className="text-gray-400 hover:text-gray-600 transition" title="Copy">
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {selectedLead.location && (
+                        <div className="text-xs text-gray-600 flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span>{selectedLead.location}</span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-1.5">
+                        <a
+                          href={`tel:${selectedLead.phone}`}
+                          className="flex-1 flex items-center justify-center gap-2 border border-gray-200 bg-white text-gray-700 hover:bg-slate-50 rounded-lg py-2 text-xs font-semibold transition"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-gray-400" /> Call Number
+                        </a>
+                         <a
+                           href={getWhatsAppLink(selectedLead.phone)}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           className="flex-1 flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#20ba56] text-white rounded-lg py-2 text-xs font-semibold transition shadow-sm"
+                         >
+                          <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Metadata details */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Event & Lead Details</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-slate-50/20 rounded-lg p-3 border border-gray-100">
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Event Date</p>
+                          <p className="font-semibold text-sm mt-0.5 text-gray-900">{formatDateString(selectedLead.event_date)}</p>
+                        </div>
+                        <div className="bg-slate-50/20 rounded-lg p-3 border border-gray-100">
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold">Lead Source</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className={`font-semibold text-[10px] ${getSourceBadgeColor(selectedLead.source)}`}>
+                              {getSourceLabel(selectedLead.source)}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dropdowns */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground uppercase font-semibold">Assigned Staff</Label>
+                          <Select
+                            value={selectedLead.assigned_to || "unassigned"}
+                            onValueChange={(val) => handleUpdateLeadField(selectedLead.id, { assigned_to: val === "unassigned" ? null : val })}
+                            disabled={updatingId === selectedLead.id}
+                          >
+                            <SelectTrigger className="h-9 text-xs border-gray-200">
+                              <SelectValue placeholder="Assign Staff" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                              <SelectItem value="unassigned">Unassigned</SelectItem>
+                              {staffMembers.map((staff) => (
+                                <SelectItem key={staff.id} value={staff.id}>
+                                  {staff.name} ({staff.role.replace("_", " ")})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground uppercase font-semibold">Lead Source</Label>
+                          <Select
+                            value={selectedLead.source}
+                            onValueChange={(val) => handleUpdateLeadField(selectedLead.id, { source: val })}
+                            disabled={updatingId === selectedLead.id}
+                          >
+                            <SelectTrigger className="h-9 text-xs border-gray-200">
+                              <SelectValue placeholder="Source" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                              {SOURCE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {currentUser?.is_super_admin && (
+                          <div className="space-y-1 md:col-span-2">
+                            <Label className="text-[10px] text-muted-foreground uppercase font-semibold">Franchise Assignment</Label>
+                            <Select
+                              value={selectedLead.franchise_id || "unassigned"}
+                              onValueChange={(val) => handleUpdateLeadField(selectedLead.id, { franchise_id: val === "unassigned" ? null : val })}
+                              disabled={updatingId === selectedLead.id}
+                            >
+                              <SelectTrigger className="h-9 text-xs border-gray-200">
+                                <SelectValue placeholder="Select Franchise" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white">
+                                <SelectItem value="unassigned">Unassigned (Global)</SelectItem>
+                                {franchises.map((f) => (
+                                  <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Requirements box */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Requirements Box</h4>
+                      <div className="bg-[#102516]/5 border border-[#102516]/10 rounded-xl p-3.5 text-sm leading-relaxed text-gray-800 font-medium">
+                        {selectedLead.message ? selectedLead.message : <span className="text-gray-400 italic font-normal">No specific requirements mentioned</span>}
+                      </div>
+                    </div>
+
+                    {/* Lead Status */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Update Status</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {(Object.keys(STATUS_CONFIG) as (keyof typeof STATUS_CONFIG)[]).map((s) => {
+                          const cfg = STATUS_CONFIG[s]
+                          const isActive = selectedLead.status === s
+                          return (
+                            <button
+                              key={s}
+                              onClick={() => handleUpdateLeadField(selectedLead.id, { status: s })}
+                              disabled={updatingId === selectedLead.id}
+                              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-xs font-medium transition-all ${
+                                isActive
+                                  ? cfg.color + " border-2 ring-1 ring-[#102516]/10"
+                                  : "border-gray-200 hover:bg-slate-50 text-gray-600"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                              {cfg.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* KYC Section if Converted */}
+                    {selectedLead.status === "converted" && (
+                      <div className="space-y-2 border-t border-slate-100 pt-3">
+                        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Customer KYC</h4>
+                        <Button
+                          type="button"
+                          onClick={handleStartKYC}
+                          disabled={loadingKycCustomer}
+                          className="w-full text-white bg-green-700 hover:bg-green-800 h-9 flex items-center justify-center gap-2 rounded-lg font-medium shadow-sm transition-all"
+                        >
+                          {loadingKycCustomer ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4" />
+                          )}
+                          <span>Start Customer KYC</span>
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Internal Notes */}
+                    <div className="space-y-2 pt-1">
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Internal Notes</h4>
+                      <Textarea
+                        value={noteInput}
+                        onChange={(e) => setNoteInput(e.target.value)}
+                        placeholder="Add internal log or notes..."
+                        rows={3}
+                        className="w-full text-xs border-gray-200 focus:border-[#102516] focus:ring-[#102516] resize-none"
+                      />
+                      <Button
+                        onClick={() => handleUpdateLeadField(selectedLead.id, { notes: noteInput })}
                         disabled={updatingId === selectedLead.id}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
-                          selectedLead.status === s
-                            ? cfg.color + " ring-2 ring-offset-1 ring-offset-background"
-                            : "border-border hover:bg-accent"
-                        }`}
+                        size="sm"
+                        className="w-full text-white bg-[#102516] hover:bg-[#1a3a26] h-8 flex items-center justify-center gap-1"
                       >
-                        <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-                        {cfg.label}
-                      </button>
-                    )
-                  })}
-                </div>
+                        {updatingId === selectedLead.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Save Notes
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
 
-              {/* Notes */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Internal Notes</h4>
-                <textarea
-                  value={noteInput}
-                  onChange={(e) => setNoteInput(e.target.value)}
-                  placeholder="Add notes about this lead..."
-                  rows={4}
-                  className="w-full text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/30 resize-none"
-                />
-                <button
-                  onClick={() => updateStatus(selectedLead.id, selectedLead.status, noteInput)}
-                  disabled={updatingId === selectedLead.id}
-                  className="w-full text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg py-2 font-medium transition flex items-center justify-center gap-2"
-                >
-                  {updatingId === selectedLead.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Save Notes
-                </button>
-              </div>
-
-              <div className="text-xs text-muted-foreground">
-                Received: {format(new Date(selectedLead.created_at), "d MMMM yyyy, h:mm a")}
-                {selectedLead.source && ` · via ${selectedLead.source}`}
+              {/* Footer info */}
+              <div className="px-5 py-3 border-t bg-gray-50 text-[10px] text-muted-foreground flex justify-between">
+                <span>Received: {format(parseISO(selectedLead.created_at), "dd MMM yyyy, hh:mm a")}</span>
+                {selectedLead.source && <span>via {getSourceLabel(selectedLead.source)}</span>}
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Manual Add Lead Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-white border border-slate-100 shadow-lg rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-serif font-semibold text-gray-900">Add New Lead Manually</DialogTitle>
+            <DialogDescription>Create a new lead entry inside the CRM dashboard database.</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddLead} className="space-y-4 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-name" className="text-xs font-semibold text-gray-700">Full Name *</Label>
+                <Input
+                  id="lead-name"
+                  placeholder="Enter customer name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  required
+                  className="border-gray-200 focus:border-[#102516]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-phone" className="text-xs font-semibold text-gray-700">WhatsApp / Phone *</Label>
+                <Input
+                  id="lead-phone"
+                  placeholder="e.g. +91 9876543210"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  required
+                  className="border-gray-200 focus:border-[#102516]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-email" className="text-xs font-semibold text-gray-700">Email Address (Optional)</Label>
+                <Input
+                  id="lead-email"
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="border-gray-200 focus:border-[#102516]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-date" className="text-xs font-semibold text-gray-700">Event Date *</Label>
+                <Input
+                  id="lead-date"
+                  type="date"
+                  value={newEventDate}
+                  onChange={(e) => setNewEventDate(e.target.value)}
+                  required
+                  className="border-gray-200 focus:border-[#102516]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-location" className="text-xs font-semibold text-gray-700">Location</Label>
+                <Input
+                  id="lead-location"
+                  placeholder="Event venue or city"
+                  value={newLocation}
+                  onChange={(e) => setNewLocation(e.target.value)}
+                  className="border-gray-200 focus:border-[#102516]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-package" className="text-xs font-semibold text-gray-700">Package Interest</Label>
+                <Input
+                  id="lead-package"
+                  placeholder="Turban pack, jewelry etc."
+                  value={newPackage}
+                  onChange={(e) => setNewPackage(e.target.value)}
+                  className="border-gray-200 focus:border-[#102516]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-source" className="text-xs font-semibold text-gray-700">Lead Source</Label>
+                <Select value={newSource} onValueChange={setNewSource}>
+                  <SelectTrigger id="lead-source" className="border-gray-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    {SOURCE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-status" className="text-xs font-semibold text-gray-700">Initial Status</Label>
+                <Select value={newStatus} onValueChange={setNewStatus}>
+                  <SelectTrigger id="lead-status" className="border-gray-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="contacted">Contacted</SelectItem>
+                    <SelectItem value="interested">Interested</SelectItem>
+                    <SelectItem value="converted">Converted</SelectItem>
+                    <SelectItem value="lost">Lost</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="lead-assignee" className="text-xs font-semibold text-gray-700">Assigned Staff</Label>
+                <Select value={newAssignedTo} onValueChange={setNewAssignedTo}>
+                  <SelectTrigger id="lead-assignee" className="border-gray-200">
+                    <SelectValue placeholder="Select follow-up staff" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {staffMembers.map((staff) => (
+                      <SelectItem key={staff.id} value={staff.id}>
+                        {staff.name} ({staff.role.replace("_", " ")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {currentUser?.is_super_admin ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="lead-franchise" className="text-xs font-semibold text-gray-700">Franchise Assignment</Label>
+                  <Select value={newFranchiseId} onValueChange={setNewFranchiseId}>
+                    <SelectTrigger id="lead-franchise" className="border-gray-200">
+                      <SelectValue placeholder="Select Franchise" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="none">Unassigned (Global)</SelectItem>
+                      {franchises.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-1.5 flex flex-col justify-end">
+                  <span className="text-xs text-muted-foreground italic mb-1.5">
+                    Lead will be auto-assigned to your franchise: <b>{franchises.find(f => f.id === currentUser?.franchise_id)?.name || "Your Franchise"}</b>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="lead-req" className="text-xs font-semibold text-gray-700">Requirements Box</Label>
+              <Textarea
+                id="lead-req"
+                placeholder="Enter details on client requests (safas, turban designs, count...)"
+                value={newRequirements}
+                onChange={(e) => setNewRequirements(e.target.value)}
+                rows={2}
+                className="resize-none border-gray-200 focus:border-[#102516]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="lead-notes" className="text-xs font-semibold text-gray-700">Internal Notes</Label>
+              <Textarea
+                id="lead-notes"
+                placeholder="Staff follow-up logs, notes, or calls..."
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                rows={2}
+                className="resize-none border-gray-200 focus:border-[#102516]"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting} className="bg-[#102516] hover:bg-[#1a3a26] text-white">
+                {submitting ? "Creating Lead..." : "Create Lead"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {kycCustomer && (
+        <KYCDialog
+          open={kycDialogOpen}
+          onOpenChange={setKycDialogOpen}
+          customer={kycCustomer}
+          onKYCUpdated={(updatedCust) => {
+            setKycCustomer(updatedCust)
+          }}
+        />
+      )}
+    </DashboardLayout>
   )
 }

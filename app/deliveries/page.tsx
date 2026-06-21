@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import { BookingWorkflowStepper } from "@/components/shared"
 import { Search, Plus, Truck, Package, Clock, CheckCircle, CheckCircle2, XCircle, Eye, Edit, ArrowLeft, CalendarClock, Loader2, RotateCcw, PackageCheck, Play, Ban, Phone } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 
@@ -1588,6 +1589,13 @@ export default function DeliveriesPage() {
           </Dialog>
         </div>
       </div>
+
+      <BookingWorkflowStepper
+        currentStep="delivery"
+        customerId={selectedDelivery?.customer_id || filteredDeliveries[0]?.customer_id || deliveries[0]?.customer_id || undefined}
+        bookingId={selectedDelivery?.booking_id || filteredDeliveries[0]?.booking_id || deliveries[0]?.booking_id || undefined}
+        bookingNumber={selectedDelivery?.booking_number || selectedDelivery?.booking?.booking_number || filteredDeliveries[0]?.booking_number || deliveries[0]?.booking_number || undefined}
+      />
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">

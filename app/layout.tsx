@@ -14,10 +14,22 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 export const metadata: Metadata = {
   title: "Safawala CRM — Wedding Accessories Management",
   description: "CRM solution for premium wedding turban and accessories rental business",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Safawala",
+  },
   icons: {
     icon: '/safaicon.svg',
     apple: '/safaicon.svg',
     shortcut: '/safaicon.svg',
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
   },
 }
 
@@ -28,6 +40,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        <meta name="theme-color" content="#f5ebe0" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'))}` }} />
+      </head>
       <body className={`${inter.className} antialiased`}>
         <TooltipProvider>{children}</TooltipProvider>
         <div className="print:hidden">

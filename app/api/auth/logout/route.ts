@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({ success: true, message: "Logged out successfully" })
 
-    // Clear both cookies for backward compatibility
+    // Clear cookies
     response.cookies.set("safawala_token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -28,6 +28,14 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
+      maxAge: 0, // Expire immediately
+      path: "/",
+    })
+
+    response.cookies.set("safawala_user", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 0, // Expire immediately
       path: "/",
     })

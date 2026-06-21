@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { DashboardErrorBoundary } from "@/components/error-boundary"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -14,7 +14,7 @@ import type { User } from "@/lib/types"
 import { 
   ClipboardList, Search, Warehouse, Package, Truck, 
   MapPin, RotateCcw, DollarSign, Calendar, Clock, 
-  ChevronRight, RefreshCw, AlertCircle, ArrowLeft
+  ChevronRight, RefreshCw, ArrowLeft, ArrowRightLeft, TrendingDown
 } from "lucide-react"
 import { format } from "date-fns"
 import { toast } from "sonner"
@@ -45,6 +45,9 @@ interface WorkOrder {
   work_order_tasks: Task[]
 }
 
+const isRentalSource = (source: string) =>
+  source === "product_orders" || source === "package_bookings"
+
 export default function WorkOrdersPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
@@ -52,6 +55,7 @@ export default function WorkOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all") // all, new, in_progress, completed
+  const [typeFilter, setTypeFilter] = useState<"all" | "rental" | "sales">("all")
   const [activeTab, setActiveTab] = useState<'warehouse' | 'packing' | 'dispatch' | 'event_team' | 'returns' | 'accounts'>('warehouse')
 
   useEffect(() => {
@@ -101,9 +105,16 @@ export default function WorkOrdersPage() {
       // 2. Status filter
       const matchesStatus = statusFilter === "all" || wo.status === statusFilter
 
-      return matchesSearch && matchesStatus
+      // 3. Type filter (Rental vs Sales)
+      const isRental = isRentalSource(wo.booking_source)
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "rental" && isRental) ||
+        (typeFilter === "sales" && !isRental)
+
+      return matchesSearch && matchesStatus && matchesType
     })
-  }, [workOrders, searchQuery, statusFilter])
+  }, [workOrders, searchQuery, statusFilter, typeFilter])
 
   // Get tasks matching the active tab (department) from filtered work orders
   const departmentTasks = useMemo(() => {
@@ -224,7 +235,7 @@ export default function WorkOrdersPage() {
           {/* Filters Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border shadow-sm">
             <div className="flex items-center gap-3 flex-wrap flex-1">
-              <div className="relative min-w-[240px] max-w-sm flex-1">
+              <div className="relative min-w-[200px] max-w-sm flex-1">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
                 <Input
                   placeholder="Search order #, booking # or client..."
@@ -235,16 +246,33 @@ export default function WorkOrdersPage() {
               </div>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px] h-10 text-xs border-slate-200">
-                  <SelectValue placeholder="Work Order Status" />
+                <SelectTrigger className="w-[160px] h-10 text-xs border-slate-200">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
-                  <SelectItem value="all" className="text-xs">All Work Orders</SelectItem>
+                  <SelectItem value="all" className="text-xs">All Statuses</SelectItem>
                   <SelectItem value="new" className="text-xs">New</SelectItem>
                   <SelectItem value="in_progress" className="text-xs">In Progress</SelectItem>
                   <SelectItem value="completed" className="text-xs">Completed</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* Rental vs Sales Quick Filter */}
+              <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
+                {(["all", "rental", "sales"] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setTypeFilter(t)}
+                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all capitalize ${
+                      typeFilter === t
+                        ? "bg-white shadow text-indigo-700 border border-slate-200"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {t === "rental" ? "🔄 Rental" : t === "sales" ? "📦 Sales" : "All"}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -306,18 +334,19 @@ export default function WorkOrdersPage() {
                 const totalChecklist = task.checklist?.length || 0
                 const checkedChecklist = task.checklist?.filter(c => c.checked).length || 0
                 const isUrgent = getPriorityLabel(workOrder.event_date).includes("Critical")
+                const isRental = isRentalSource(workOrder.booking_source)
 
                 return (
                   <Card 
                     key={task.id}
                     onClick={() => router.push(`/work-orders/${workOrder.id}`)}
                     className={`bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer border-t-4 ${
-                      isUrgent ? 'border-t-red-500' : 'border-t-indigo-500'
+                      isUrgent ? 'border-t-red-500' : isRental ? 'border-t-indigo-500' : 'border-t-emerald-500'
                     }`}
                   >
                     <CardHeader className="pb-3 pt-4 px-4 flex flex-row items-start justify-between space-y-0">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-black text-indigo-600 tracking-wider">
                             {task.task_number}
                           </span>
@@ -325,6 +354,16 @@ export default function WorkOrdersPage() {
                           <span className="text-xs font-semibold text-slate-500">
                             {workOrder.work_order_number}
                           </span>
+                          {/* Rental / Sales Type Pill */}
+                          {isRental ? (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full">
+                              <ArrowRightLeft className="h-2.5 w-2.5" /> Rental
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                              <TrendingDown className="h-2.5 w-2.5" /> Sale
+                            </span>
+                          )}
                         </div>
                         <CardTitle className="text-sm font-bold text-slate-800 line-clamp-1">
                           {workOrder.customer_name}
@@ -335,13 +374,12 @@ export default function WorkOrdersPage() {
                     </CardHeader>
 
                     <CardContent className="pb-4 px-4 space-y-3">
-                      {/* Priority Badges */}
+                      {/* Priority & Date */}
                       <div className="flex items-center justify-between gap-2 border-y py-2 text-[11px] text-slate-500">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-slate-400" />
                           Event: {workOrder.event_date ? format(new Date(workOrder.event_date), "dd MMM yyyy") : "N/A"}
                         </span>
-                        
                         <Badge variant="outline" className={`text-[9px] border font-bold ${getPriorityColor(workOrder.event_date)}`}>
                           {getPriorityLabel(workOrder.event_date)}
                         </Badge>
@@ -349,10 +387,7 @@ export default function WorkOrdersPage() {
 
                       {/* Task Info & Progress */}
                       <div className="space-y-1.5">
-                        <p className="text-xs font-bold text-slate-700 leading-snug">
-                          {task.title}
-                        </p>
-                        
+                        <p className="text-xs font-bold text-slate-700 leading-snug">{task.title}</p>
                         {task.instructions && (
                           <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
                             {task.instructions.replace(/•/g, '').trim()}
@@ -368,15 +403,15 @@ export default function WorkOrdersPage() {
                             <span>{checkedChecklist}/{totalChecklist} ({Math.round((checkedChecklist/totalChecklist)*100)}%)</span>
                           </div>
                           <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                            <div 
-                              className="bg-indigo-600 h-full transition-all duration-300"
+                            <div
+                              className={`h-full transition-all duration-300 ${isRental ? 'bg-indigo-600' : 'bg-emerald-600'}`}
                               style={{ width: `${(checkedChecklist/totalChecklist)*100}%` }}
                             />
                           </div>
                         </div>
                       )}
 
-                      {/* Action Button Indicator */}
+                      {/* Action CTA */}
                       <div className="flex items-center justify-end text-[11px] text-indigo-600 font-bold pt-1 gap-0.5 hover:translate-x-0.5 transition-transform">
                         Execute Workflow
                         <ChevronRight className="h-3 w-3" />

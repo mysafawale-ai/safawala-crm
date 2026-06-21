@@ -4,8 +4,10 @@ export interface User {
   email: string
   name: string
   role: "super_admin" | "franchise_admin" | "staff" | "readonly"
+  department?: "admin" | "manager" | "booking" | "warehouse" | "qc" | "delivery" | "styling" | "accounts" | "franchise"
   franchise_id?: string
   franchise_name?: string
+  franchise_code?: string
   permissions?: UserPermissions
   is_active: boolean
   created_at: string
@@ -59,6 +61,12 @@ export interface Customer {
   assigned_staff_id?: string
   last_contact_date?: string
   status?: 'active' | 'inactive' | 'lead' | 'prospect'
+  kyc_status?: 'pending' | 'submitted' | 'verified' | 'rejected'
+  aadhar_number?: string
+  pan_number?: string
+  kyc_document_url?: string
+  kyc_notes?: string
+  lead_id?: string
   created_at: string
   updated_at: string
   // Related data

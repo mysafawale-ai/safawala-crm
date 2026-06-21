@@ -3,16 +3,27 @@
 import type { User } from "./types"
 import { createClient } from "./supabase/client"
 
+function getOrCreateDeviceId(): string {
+  if (typeof window === "undefined") return "server"
+  let deviceId = localStorage.getItem("safawala_device_id")
+  if (!deviceId) {
+    deviceId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
+    localStorage.setItem("safawala_device_id", deviceId)
+  }
+  return deviceId
+}
+
 export async function signIn(email: string, password: string) {
   try {
     console.log("[v0] Attempting login with:", email)
+    const deviceId = getOrCreateDeviceId()
 
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, deviceId }),
     })
 
     if (!response.ok) {

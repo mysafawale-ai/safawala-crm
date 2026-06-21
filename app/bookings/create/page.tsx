@@ -112,6 +112,21 @@ export default function CreateBookingPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("customer")
+
+  useEffect(() => {
+    // Recalculate/update booking items prices when type changes
+    setBookingItems((prev) =>
+      prev.map((item) => {
+        const unitPrice = formData.type === "rental" ? item.product?.rental_price || item.unit_price : item.product?.price || item.unit_price
+        return {
+          ...item,
+          unit_price: unitPrice,
+          total_price: unitPrice * item.quantity,
+        }
+      })
+    )
+  }, [formData.type])
 
   // Customer search and selection
   const [customerSearch, setCustomerSearch] = useState("")
@@ -364,12 +379,16 @@ export default function CreateBookingPage() {
     }
 
     if (!formData.event_date) {
-      toast({
-        title: "Validation Error",
-        description: "Please select an event date",
-        variant: "destructive",
-      })
-      return false
+      if (formData.type === "sale") {
+        formData.event_date = new Date().toISOString().split("T")[0]
+      } else {
+        toast({
+          title: "Validation Error",
+          description: "Please select an event date",
+          variant: "destructive",
+        })
+        return false
+      }
     }
 
     return true
@@ -500,22 +519,47 @@ export default function CreateBookingPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Create New Booking</h1>
-          <p className="text-muted-foreground">Create a new rental or direct sale booking</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Create New Booking</h1>
+            <p className="text-muted-foreground">Create a new rental or direct sale booking</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-lg border shadow-sm">
+          <Label htmlFor="booking-type-header" className="font-semibold text-gray-700 text-sm whitespace-nowrap">Booking Type:</Label>
+          <Select
+            value={formData.type}
+            onValueChange={(value: "rental" | "sale") => {
+              handleInputChange("type", value)
+              // If type changes to sale and current active tab is "booking" (Details), automatically transition to products
+              if (value === "sale" && activeTab === "booking") {
+                setActiveTab("products")
+              }
+            }}
+          >
+            <SelectTrigger className="w-[180px] h-9 bg-transparent border-gray-300 hover:border-gray-400 focus:ring-forest-500">
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rental">Rental</SelectItem>
+              <SelectItem value="sale">Direct Sale</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Tabs defaultValue="customer" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className={`grid w-full ${formData.type === "sale" ? "grid-cols-3" : "grid-cols-4"}`}>
             <TabsTrigger value="customer">Customer</TabsTrigger>
-            <TabsTrigger value="booking">Booking Details</TabsTrigger>
+            {formData.type !== "sale" && (
+              <TabsTrigger value="booking">Booking Details</TabsTrigger>
+            )}
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="summary">Summary</TabsTrigger>
           </TabsList>
@@ -676,174 +720,164 @@ export default function CreateBookingPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="booking">
-            {/* Booking Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Booking Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="booking-type">Type</Label>
-                    <Select value={formData.type} onValueChange={(value) => handleInputChange("type", value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="rental">Rental</SelectItem>
-                        <SelectItem value="sale">Direct Sale</SelectItem>
-                      </SelectContent>
-                    </Select>
+          {formData.type !== "sale" && (
+            <TabsContent value="booking">
+              {/* Booking Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Booking Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="event-type">Event Type</Label>
+                      <Select
+                        value={formData.event_type}
+                        onValueChange={(value) => handleInputChange("event_type", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="wedding">Wedding</SelectItem>
+                          <SelectItem value="engagement">Engagement</SelectItem>
+                          <SelectItem value="reception">Reception</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="event-type">Event Type</Label>
+                    <Label htmlFor="event-date">Event Date *</Label>
+                    <Input
+                      id="event-date"
+                      type="date"
+                      value={formData.event_date}
+                      onChange={(e) => handleInputChange("event_date", e.target.value)}
+                    />
+                  </div>
+
+                  {formData.type === "rental" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="delivery-date">Delivery Date</Label>
+                        <Input
+                          id="delivery-date"
+                          type="date"
+                          value={formData.delivery_date}
+                          onChange={(e) => handleInputChange("delivery_date", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="return-date">Return Date</Label>
+                        <Input
+                          id="return-date"
+                          type="date"
+                          value={formData.return_date}
+                          onChange={(e) => handleInputChange("return_date", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-type">Payment Type</Label>
                     <Select
-                      value={formData.event_type}
-                      onValueChange={(value) => handleInputChange("event_type", value)}
+                      value={formData.payment_type}
+                      onValueChange={(value) => handleInputChange("payment_type", value)}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="wedding">Wedding</SelectItem>
-                        <SelectItem value="engagement">Engagement</SelectItem>
-                        <SelectItem value="reception">Reception</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="advance">Advance</SelectItem>
+                        <SelectItem value="full">Full Payment</SelectItem>
+                        <SelectItem value="cod">Cash on Delivery</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="space-y-2">
-                  <Label htmlFor="event-date">Event Date *</Label>
-                  <Input
-                    id="event-date"
-                    type="date"
-                    value={formData.event_date}
-                    onChange={(e) => handleInputChange("event_date", e.target.value)}
-                  />
-                </div>
-
-                {formData.type === "rental" && (
+              {/* Additional Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Additional Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="delivery-date">Delivery Date</Label>
+                      <Label htmlFor="venue-name">Venue Name</Label>
                       <Input
-                        id="delivery-date"
-                        type="date"
-                        value={formData.delivery_date}
-                        onChange={(e) => handleInputChange("delivery_date", e.target.value)}
+                        id="venue-name"
+                        value={formData.venue_name}
+                        onChange={(e) => handleInputChange("venue_name", e.target.value)}
+                        placeholder="Event venue name"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="return-date">Return Date</Label>
+                      <Label htmlFor="event-for">Event For</Label>
+                      <Select value={formData.event_for} onValueChange={(value) => handleInputChange("event_for", value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="groom">Groom</SelectItem>
+                          <SelectItem value="bride">Bride</SelectItem>
+                          <SelectItem value="both">Both</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="venue-address">Venue Address</Label>
+                    <Textarea
+                      id="venue-address"
+                      value={formData.venue_address}
+                      onChange={(e) => handleInputChange("venue_address", e.target.value)}
+                      placeholder="Complete venue address"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="groom-name">Groom Name</Label>
                       <Input
-                        id="return-date"
-                        type="date"
-                        value={formData.return_date}
-                        onChange={(e) => handleInputChange("return_date", e.target.value)}
+                        id="groom-name"
+                        value={formData.groom_name}
+                        onChange={(e) => handleInputChange("groom_name", e.target.value)}
+                        placeholder="Groom's name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bride-name">Bride Name</Label>
+                      <Input
+                        id="bride-name"
+                        value={formData.bride_name}
+                        onChange={(e) => handleInputChange("bride_name", e.target.value)}
+                        placeholder="Bride's name"
                       />
                     </div>
                   </div>
-                )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="payment-type">Payment Type</Label>
-                  <Select
-                    value={formData.payment_type}
-                    onValueChange={(value) => handleInputChange("payment_type", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="advance">Advance</SelectItem>
-                      <SelectItem value="full">Full Payment</SelectItem>
-                      <SelectItem value="cod">Cash on Delivery</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Additional Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Additional Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="venue-name">Venue Name</Label>
-                    <Input
-                      id="venue-name"
-                      value={formData.venue_name}
-                      onChange={(e) => handleInputChange("venue_name", e.target.value)}
-                      placeholder="Event venue name"
+                    <Label htmlFor="special-instructions">Special Instructions</Label>
+                    <Textarea
+                      id="special-instructions"
+                      value={formData.special_instructions}
+                      onChange={(e) => handleInputChange("special_instructions", e.target.value)}
+                      placeholder="Any special instructions or notes"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="event-for">Event For</Label>
-                    <Select value={formData.event_for} onValueChange={(value) => handleInputChange("event_for", value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="groom">Groom</SelectItem>
-                        <SelectItem value="bride">Bride</SelectItem>
-                        <SelectItem value="both">Both</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="venue-address">Venue Address</Label>
-                  <Textarea
-                    id="venue-address"
-                    value={formData.venue_address}
-                    onChange={(e) => handleInputChange("venue_address", e.target.value)}
-                    placeholder="Complete venue address"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="groom-name">Groom Name</Label>
-                    <Input
-                      id="groom-name"
-                      value={formData.groom_name}
-                      onChange={(e) => handleInputChange("groom_name", e.target.value)}
-                      placeholder="Groom's name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bride-name">Bride Name</Label>
-                    <Input
-                      id="bride-name"
-                      value={formData.bride_name}
-                      onChange={(e) => handleInputChange("bride_name", e.target.value)}
-                      placeholder="Bride's name"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="special-instructions">Special Instructions</Label>
-                  <Textarea
-                    id="special-instructions"
-                    value={formData.special_instructions}
-                    onChange={(e) => handleInputChange("special_instructions", e.target.value)}
-                    placeholder="Any special instructions or notes"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
 
           <TabsContent value="products">
             {/* Product Selection */}

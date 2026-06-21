@@ -223,7 +223,10 @@ export async function PUT(request: NextRequest) {
     const supabase = createClient()
 
     const body = await request.json()
-    const { id, name, phone, whatsapp, email, address, city, state, pincode, notes } = body || {}
+    const { 
+      id, name, phone, whatsapp, email, address, city, state, pincode, notes,
+      kyc_status, aadhar_number, pan_number, kyc_document_url, kyc_notes
+    } = body || {}
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: "Valid customer ID is required" }, { status: 400 })
@@ -268,6 +271,13 @@ export async function PUT(request: NextRequest) {
     if (typeof notes !== 'undefined') {
       updateData.notes = typeof notes === 'string' ? notes.trim() : notes ?? null
     }
+
+    // Include KYC fields if provided
+    if (kyc_status !== undefined) updateData.kyc_status = kyc_status
+    if (aadhar_number !== undefined) updateData.aadhar_number = aadhar_number
+    if (pan_number !== undefined) updateData.pan_number = pan_number
+    if (kyc_document_url !== undefined) updateData.kyc_document_url = kyc_document_url
+    if (kyc_notes !== undefined) updateData.kyc_notes = kyc_notes
 
     const { data: updated, error: updateError } = await supabase
       .from('customers')

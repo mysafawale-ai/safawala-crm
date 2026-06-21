@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { signIn, getCurrentUser } from "@/lib/auth"
+import { getDefaultPortalForRole } from "@/lib/portal-config"
 import { toast } from "@/hooks/use-toast"
 
 export default function AuthLoginPage() {
@@ -31,15 +32,22 @@ export default function AuthLoginPage() {
 
     try {
       console.log("[v0] Attempting login with:", email)
-      await signIn(email, password)
+      const data = await signIn(email, password)
       toast({
         title: "Success",
         description: "Logged in successfully",
       })
-      console.log("[v0] Login successful, redirecting to dashboard")
+      console.log("[v0] Login successful, redirecting...")
       const urlParams = new URLSearchParams(window.location.search)
-      const redirectTo = urlParams.get("redirect") || "/dashboard"
-      router.push(redirectTo)
+      const explicitRedirect = urlParams.get("redirect")
+      if (explicitRedirect) {
+        router.push(explicitRedirect)
+      } else if (data?.user?.department) {
+        router.push(`/portal/${data.user.department}`)
+      } else {
+        const portalSlug = getDefaultPortalForRole(data?.user?.role || "staff")
+        router.push(`/portal/${portalSlug}`)
+      }
     } catch (error: any) {
       console.error("[v0] Login error:", error)
       const errorMessage = error.message || "Login failed. Please try again."

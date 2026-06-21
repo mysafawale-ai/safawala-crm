@@ -104,9 +104,11 @@ export async function sendInvoicePDFAndWhatsAppInternal(params: {
   // Template body has: • Total Amount: {{7}}  (NO ₹ prefix in template)
   // So we include ₹ in the value we send
   const totalAmountStr = `₹${(orderData.total_amount || 0).toLocaleString("en-IN")}`
-  const paymentStatus = orderData.amount_paid > 0
-    ? `Advance ₹${orderData.amount_paid.toLocaleString("en-IN")} Paid`
-    : "Pending"
+  const paymentStatus = orderData.status === "quote" || orderData.is_quote
+    ? "Quote Estimate"
+    : orderData.amount_paid > 0
+      ? `Advance ₹${orderData.amount_paid.toLocaleString("en-IN")} Paid`
+      : "Pending"
 
   console.log("[WhatsApp Invoice] Sending booking_invoice_document template to:", phone)
   console.log("[WhatsApp Invoice] Parameters:", {

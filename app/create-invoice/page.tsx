@@ -71,6 +71,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { supabase as supabaseClient } from "@/lib/supabase"
 import { fetchProductsWithBarcodes } from "@/lib/product-barcode-service"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { BookingWorkflowStepper } from "@/components/shared"
+import { cn } from "@/lib/utils"
 
 
 interface Customer {
@@ -257,10 +259,19 @@ export default function CreateInvoicePage() {
   const [sendWhatsAppInvoice, setSendWhatsAppInvoice] = useState(true)
   const [applyGst, setApplyGst] = useState(false)
 
+  // Leads selection and conversion states
+  const [customerMode, setCustomerMode] = useState<"customer" | "lead">("customer")
+  const [leads, setLeads] = useState<any[]>([])
+  const [leadsLoading, setLeadsLoading] = useState(false)
+  const [leadSearch, setLeadSearch] = useState("")
+  const [selectedLeadToConvert, setSelectedLeadToConvert] = useState<any | null>(null)
+  const [convertingLead, setConvertingLead] = useState(false)
+
   // Modification Form States
   const [modService, setModService] = useState<string>("")
   const [modCost, setModCost] = useState<number>(0)
   const [customModService, setCustomModService] = useState<string>("")
+  const [headSize, setHeadSize] = useState<string>("")
 
   // Invoice Data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -402,6 +413,7 @@ export default function CreateInvoicePage() {
       loadCustomers()
       loadProductsAndCategories()
       loadStaffMembers()
+      loadLeads()
     }
     loadCompanySettings()
   }, [])
@@ -533,6 +545,126 @@ export default function CreateInvoicePage() {
       setCustomers([])
     } finally {
       setCustomersLoading(false)
+    }
+  }
+
+  const loadLeads = async () => {
+    setLeadsLoading(true)
+    try {
+      const response = await fetch("/api/leads", {
+        cache: "no-store",
+        credentials: "include",
+      })
+      if (response.ok) {
+        const json = await response.json()
+        const activeLeads = (json.data || []).filter((l: any) => l.status !== "converted")
+        setLeads(activeLeads)
+      }
+    } catch (e) {
+      console.error("Failed to load leads:", e)
+    } finally {
+      setLeadsLoading(false)
+    }
+  }
+
+  const handleConvertLead = async (lead: any) => {
+    setConvertingLead(true)
+    try {
+      const response = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, status: "converted" }),
+      })
+      
+      if (!response.ok) {
+        throw new Error("Failed to convert lead")
+      }
+      
+      const resData = await response.json()
+      if (!resData.success) {
+        throw new Error(resData.error || "Failed to convert lead")
+      }
+
+      toast({
+        title: "Lead Converted",
+        description: `Successfully converted "${lead.name}" to Customer.`,
+        variant: "default",
+      })
+
+      // Reload lists
+      await Promise.all([loadCustomers(), loadLeads()])
+
+      // Find the new customer (preferring the one returned from the API response)
+      let newCust = resData.customer
+      
+      if (!newCust) {
+        const cleanPhone = lead.phone?.trim()
+        // Fallback: Query database directly to bypass API caches and guarantee retrieve
+        await new Promise(resolve => setTimeout(resolve, 500))
+        const { data: directCustData } = await supabaseClient
+          .from("customers")
+          .select("*")
+          .eq("phone", cleanPhone)
+          .maybeSingle()
+
+        newCust = directCustData
+        if (!newCust) {
+          const { data: directCustByLead } = await supabaseClient
+            .from("customers")
+            .select("*")
+            .eq("lead_id", lead.id)
+            .maybeSingle()
+          newCust = directCustByLead
+        }
+      }
+
+      if (newCust) {
+        // Add to local state so it appears in the dropdown list
+        setCustomers((prev) => {
+          if (prev.some(c => c.id === newCust.id)) return prev
+          return [newCust as any, ...prev]
+        })
+        setSelectedCustomer(newCust as any)
+        setCustomerMode("customer") // Switch tab to customer to show the active profile
+        
+        // Pre-fill invoice data
+        setInvoiceData((prev: any) => {
+          const next = { ...prev }
+          if (lead.event_date) {
+            next.event_date = formatDateForInput(lead.event_date)
+            next.delivery_date = formatDateForInput(lead.event_date)
+          }
+          if (lead.location) {
+            next.venue_address = lead.location
+          }
+          if (lead.name) {
+            next.groom_name = lead.name
+          }
+          return next
+        })
+
+        toast({
+          title: "Customer Selected",
+          description: `Successfully converted "${newCust.name}" and auto-selected them.`,
+          variant: "default",
+        })
+      } else {
+        toast({
+          title: "Customer Created",
+          description: "Profile created, please search and select manually in the Customers tab.",
+          variant: "default",
+        })
+      }
+      setSelectedLeadToConvert(null)
+    } catch (error: any) {
+      console.error("Conversion error:", error)
+      toast({
+        title: "Conversion Failed",
+        description: error.message || "Something went wrong during lead conversion.",
+        variant: "default",
+      })
+    } finally {
+      setConvertingLead(false)
     }
   }
 
@@ -1040,7 +1172,7 @@ export default function CreateInvoicePage() {
       // Map order items to invoice items (using denormalized columns directly)
       const items = (orderItems || []).map((item: any) => ({
         id: item.id,
-        product_id: item.product_id,
+        product_id: item.product_id === '00000000-0000-0000-0000-000000000000' ? 'modification-service' : (item.product_id || (item.category === 'Modification' ? 'modification-service' : null)),
         product_name: item.product_name || "Unknown Product",
         barcode: item.barcode || "",
         category: item.category || "",
@@ -1097,7 +1229,14 @@ export default function CreateInvoicePage() {
 
   // Add a modification service to the items list
   const handleAddModService = () => {
-    const finalServiceName = modService === "Other" ? customModService : modService
+    let finalServiceName = modService === "Other" ? customModService : modService
+    if (modService === "Stitching") {
+      if (!headSize || headSize.length !== 2) {
+        toast({ title: "Error", description: "Please enter a valid 2-digit head size for Stitching", variant: "destructive" })
+        return
+      }
+      finalServiceName = `Stitching (Head Size: ${headSize})`
+    }
     if (!finalServiceName.trim()) {
       toast({ title: "Error", description: "Please enter or select a service name", variant: "destructive" })
       return
@@ -1132,6 +1271,7 @@ export default function CreateInvoicePage() {
     setModService("")
     setModCost(0)
     setCustomModService("")
+    setHeadSize("")
     
     toast({ title: "Service Added", description: `Added "${finalServiceName}" modification service` })
   }
@@ -1179,6 +1319,14 @@ export default function CreateInvoicePage() {
     : customers.filter(c =>
         c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
         c.phone.includes(customerSearch)
+      )
+
+  // Filter leads
+  const filteredLeads = leadSearch.trim() === ""
+    ? leads
+    : leads.filter(l =>
+        l.name.toLowerCase().includes(leadSearch.toLowerCase()) ||
+        l.phone.includes(leadSearch)
       )
 
   // Filter products
@@ -1684,7 +1832,7 @@ export default function CreateInvoicePage() {
         const itemsData = [
           ...invoiceItems.map(item => ({
             order_id: order.id,
-            product_id: item.product_id,
+            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
@@ -1696,7 +1844,7 @@ export default function CreateInvoicePage() {
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
-            product_id: item.product_id,
+            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
@@ -1722,7 +1870,24 @@ export default function CreateInvoicePage() {
 
       const message = isUpdate ? `Quote ${order.order_number} updated` : `Quote ${order.order_number} created`
       toast({ title: isUpdate ? "Quote Updated" : "Quote Saved", description: message })
-      router.push("/bookings?refresh=" + Date.now())
+
+      // Auto-send Quote via WhatsApp (fire & forget, only when checkbox is ON)
+      if (order?.id && sendWhatsAppInvoice) {
+        sendInvoiceViaWhatsApp({ 
+          orderId: order.id, 
+          orderType: "product_order", 
+          sendConfirmation: false 
+        })
+          .then(r => {
+            if (r.success) {
+              toast({ title: "WhatsApp", description: "Quote sent on WhatsApp!" })
+            } else {
+              toast({ title: "WhatsApp Failed", description: "Quote not sent — please resend manually.", variant: "destructive" })
+            }
+          })
+      }
+
+      router.push("/quotes?refresh=" + Date.now())
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" })
     }
@@ -1731,6 +1896,15 @@ export default function CreateInvoicePage() {
 
   // Create or Update Order
   const handleCreateOrder = async () => {
+    if (mode === "edit" && !editingQuote) {
+      toast({
+        title: "Order Locked",
+        description: "Confirmed orders/bookings cannot be modified once created.",
+        variant: "destructive"
+      })
+      return
+    }
+
     if (!selectedCustomer) {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })
       return
@@ -1889,7 +2063,7 @@ export default function CreateInvoicePage() {
         const itemsData = [
           ...invoiceItems.map(item => ({
             order_id: order.id,
-            product_id: item.product_id,
+            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
@@ -1901,7 +2075,7 @@ export default function CreateInvoicePage() {
           })),
           ...extraItems.map(item => ({
             order_id: order.id,
-            product_id: item.product_id,
+            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.total_price,
@@ -2056,11 +2230,16 @@ export default function CreateInvoicePage() {
       toast({ title: isUpdate ? "Booking Updated" : "Booking Created", description: message })
 
       // Auto-send invoice via WhatsApp (fire & forget, only when checkbox is ON)
-      if (order?.id && sendWhatsAppInvoice && (!isUpdate || isConvertFromQuote)) {
-        sendInvoiceViaWhatsApp({ orderId: order.id, orderType: "product_order", sendConfirmation: true })
+      if (order?.id && sendWhatsAppInvoice) {
+        const sendConfirmation = !isUpdate || isConvertFromQuote
+        sendInvoiceViaWhatsApp({ 
+          orderId: order.id, 
+          orderType: "product_order", 
+          sendConfirmation 
+        })
           .then(r => {
             if (r.success) {
-              toast({ title: "WhatsApp", description: "Invoice sent on WhatsApp!" })
+              toast({ title: "WhatsApp", description: isUpdate && !isConvertFromQuote ? "Updated invoice sent on WhatsApp!" : "Invoice sent on WhatsApp!" })
             } else {
               toast({ title: "WhatsApp Failed", description: "Invoice not sent — please resend manually.", variant: "destructive" })
             }
@@ -2182,6 +2361,1008 @@ export default function CreateInvoicePage() {
     )
   }
 
+
+  // Render sub-sections to prevent duplicate code and handle direct sales POS layout
+  const renderCustomerCard = () => (
+                        <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-emerald-100 rounded-lg">
+                                <User className="h-4 w-4 text-indigo-700" />
+                              </div>
+                              <span className="font-semibold text-gray-800">Customer Details</span>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              className="print:hidden h-8 text-xs border-slate-200 text-indigo-700 hover:bg-indigo-700 hover:text-white transition-all"
+                              onClick={() => setShowNewCustomerDialog(true)}
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1" />
+                              New
+                            </Button>
+                          </div>
+    
+                          {/* Customer / Lead Toggle */}
+                          {!selectedCustomer && (
+                            <div className="flex bg-slate-100 p-0.5 rounded-lg mb-3 print:hidden">
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex-1 py-1.5 text-xs font-semibold rounded-md transition-all",
+                                  customerMode === "customer"
+                                    ? "bg-white text-indigo-700 shadow-sm"
+                                    : "text-slate-600 hover:text-slate-900"
+                                )}
+                                onClick={() => setCustomerMode("customer")}
+                              >
+                                Customers
+                              </button>
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex-1 py-1.5 text-xs font-semibold rounded-md transition-all",
+                                  customerMode === "lead"
+                                    ? "bg-white text-indigo-700 shadow-sm"
+                                    : "text-slate-600 hover:text-slate-900"
+                                )}
+                                onClick={() => setCustomerMode("lead")}
+                              >
+                                Leads
+                              </button>
+                            </div>
+                          )}
+    
+                          {/* Customer Search or Lead Search */}
+                          {!selectedCustomer && (
+                            <div className="print:hidden mb-3">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                {customerMode === "customer" ? (
+                                  <Input
+                                    placeholder="Search customers..."
+                                    value={customerSearch}
+                                    onChange={(e) => setCustomerSearch(e.target.value)}
+                                    className="pl-10 h-9 text-xs bg-white border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                ) : (
+                                  <Input
+                                    placeholder="Search leads by name, WhatsApp, location..."
+                                    value={leadSearch}
+                                    onChange={(e) => setLeadSearch(e.target.value)}
+                                    className="pl-10 h-9 text-xs bg-white border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          )}
+    
+                          {/* Customer List or Selected Customer */}
+                          {selectedCustomer ? (
+                            <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-800/10 flex items-start justify-between">
+                              <div className="space-y-0.5">
+                                <div className="font-semibold text-slate-900 text-sm">
+                                  {selectedCustomer.name}
+                                </div>
+                                <div className="text-xs text-emerald-800 flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {selectedCustomer.phone}
+                                </div>
+                                {selectedCustomer.email && (
+                                  <div className="text-xs text-emerald-700">
+                                    {selectedCustomer.email}
+                                  </div>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="print:hidden h-7 w-7 p-0 hover:bg-emerald-100 text-indigo-700"
+                                onClick={() => setSelectedCustomer(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : customerMode === "customer" ? (
+                            <div className="border border-gray-100 rounded-lg max-h-36 overflow-y-auto text-sm print:hidden bg-white">
+                              {customersLoading ? (
+                                <div className="space-y-0">
+                                  {[1, 2, 3].map((i) => (
+                                    <div key={i} className="p-2.5 border-b last:border-b-0">
+                                      <div className="h-4 w-24 mb-1 bg-gray-200 rounded animate-pulse" />
+                                      <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <>
+                                  {(customerSearch ? filteredCustomers : customers.slice(0, 3)).map((c) => (
+                                    <button
+                                      key={c.id}
+                                      type="button"
+                                      onClick={() => setSelectedCustomer(c)}
+                                      className="w-full text-left p-2 border-b last:border-b-0 hover:bg-emerald-50/45 transition-colors group flex items-center justify-between"
+                                    >
+                                      <div>
+                                        <div className="font-medium text-gray-800 group-hover:text-emerald-900 text-xs">{c.name}</div>
+                                        <div className="text-[10px] text-gray-500">{c.phone}</div>
+                                      </div>
+                                      <Check className="h-3.5 w-3.5 text-emerald-700 opacity-0 group-hover:opacity-100" />
+                                    </button>
+                                  ))}
+                                  {customerSearch && filteredCustomers.length === 0 && (
+                                    <div className="p-3 text-xs text-gray-500 text-center">
+                                      No matches found
+                                    </div>
+                                  )}
+                                  {!customerSearch && customers.length > 3 && (
+                                    <div className="p-2 text-[10px] text-gray-500 text-center bg-gray-50/50 border-t">
+                                      Type to search {customers.length} customers...
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="border border-gray-100 rounded-lg max-h-36 overflow-y-auto text-sm print:hidden bg-white">
+                              {leadsLoading ? (
+                                <div className="space-y-0">
+                                  {[1, 2, 3].map((i) => (
+                                    <div key={i} className="p-2.5 border-b last:border-b-0">
+                                      <div className="h-4 w-24 mb-1 bg-gray-200 rounded animate-pulse" />
+                                      <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <>
+                                  {(leadSearch ? filteredLeads : leads.slice(0, 3)).map((lead) => (
+                                    <button
+                                      key={lead.id}
+                                      type="button"
+                                      onClick={() => setSelectedLeadToConvert(lead)}
+                                      className="w-full text-left p-2 border-b last:border-b-0 hover:bg-emerald-50/45 transition-colors group flex items-center justify-between"
+                                    >
+                                      <div className="text-left">
+                                        <div className="font-medium text-gray-800 group-hover:text-emerald-900 text-xs flex items-center gap-1.5">
+                                          {lead.name}
+                                          {lead.status && (
+                                            <Badge variant="outline" className="text-[9px] px-1 py-0 scale-90 capitalize border-amber-200 bg-amber-50 text-amber-700">
+                                              {lead.status}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5">
+                                          <span>📱 {lead.phone}</span>
+                                          {lead.event_date && (
+                                            <span>📅 Event: {new Date(lead.event_date).toLocaleDateString()}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-[10px] font-bold text-indigo-700 opacity-0 group-hover:opacity-100 pr-1">
+                                        Convert & Select ✓
+                                      </div>
+                                    </button>
+                                  ))}
+                                  {leadSearch && filteredLeads.length === 0 && (
+                                    <div className="p-3 text-xs text-gray-500 text-center">
+                                      No leads matching search
+                                    </div>
+                                  )}
+                                  {!leadSearch && leads.length === 0 && (
+                                    <div className="p-3 text-xs text-gray-500 text-center">
+                                      No active leads found
+                                    </div>
+                                  )}
+                                  {!leadSearch && leads.length > 3 && (
+                                    <div className="p-2 text-[10px] text-gray-500 text-center bg-gray-50/50 border-t">
+                                      Type to search {leads.length} active leads...
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </Card>
+  );
+
+  const renderEventAndGroomBrideCards = () => (
+    <>
+                        {invoiceData.invoice_type === "rental" && (
+                          <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-emerald-100 rounded-lg">
+                                <CalendarIcon className="h-4 w-4 text-indigo-700" />
+                              </div>
+                              <span className="font-semibold text-gray-800">Event Details</span>
+                            </div>
+    
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Type</Label>
+                                <Select
+                                  value={invoiceData.event_type}
+                                  onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
+                                >
+                                  <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="wedding">Wedding</SelectItem>
+                                    <SelectItem value="engagement">Engagement</SelectItem>
+                                    <SelectItem value="reception">Reception</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">For</Label>
+                                <Select
+                                  value={invoiceData.event_participant}
+                                  onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
+                                >
+                                  <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="both">Both</SelectItem>
+                                    <SelectItem value="groom">Groom Only</SelectItem>
+                                    <SelectItem value="bride">Bride Only</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Date *</Label>
+                                <Input
+                                  type="date"
+                                  value={invoiceData.event_date}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
+                                  className="h-8 text-xs bg-white border-gray-200"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Time</Label>
+                                <Input
+                                  type="time"
+                                  value={invoiceData.event_time}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
+                                  className="h-8 text-xs bg-white border-gray-200"
+                                />
+                              </div>
+    
+                              <div className="col-span-2 pt-2 border-t border-gray-200/50 mt-1">
+                                <Label className="text-[10px] text-gray-500 mb-1 flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  Venue Address
+                                </Label>
+                                <Textarea
+                                  value={invoiceData.venue_address}
+                                  onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
+                                  placeholder="Enter venue address..."
+                                  rows={1.5}
+                                  className="bg-white border-gray-200 resize-none text-xs"
+                                />
+                              </div>
+                            </div>
+                          </Card>
+                        )}
+    
+                        {/* Groom & Bride details */}
+                        {invoiceData.invoice_type === "rental" && (
+                          <div className={`grid gap-3 ${invoiceData.event_participant === "both" ? "grid-cols-2" : "grid-cols-1"}`}>
+                            {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && (
+                              <Card className="p-3 shadow-sm border-l-4 border-l-sky-500 bg-white">
+                                <div className="flex items-center gap-1.5 mb-2 border-b border-gray-200/50 pb-1">
+                                  <User className="h-3.5 w-3.5 text-sky-600" />
+                                  <span className="font-semibold text-gray-800 text-xs">Groom Details</span>
+                                </div>
+                                <div className="space-y-2 text-xs">
+                                  <div>
+                                    <Label className="text-[10px] text-gray-500 mb-0.5 block">Name</Label>
+                                    <Input
+                                      value={invoiceData.groom_name}
+                                      onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
+                                      placeholder="Groom name"
+                                      className="h-8 bg-white border-gray-200 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] text-gray-500 mb-0.5 block">WhatsApp</Label>
+                                    <Input
+                                      value={invoiceData.groom_whatsapp}
+                                      onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
+                                      placeholder="WhatsApp number"
+                                      className="h-8 bg-white border-gray-200 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] text-gray-500 mb-0.5 block">Address</Label>
+                                    <Textarea
+                                      value={invoiceData.groom_address}
+                                      onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
+                                      placeholder="Address"
+                                      rows={1.5}
+                                      className="bg-white border-gray-200 resize-none text-xs"
+                                    />
+                                  </div>
+                                </div>
+                              </Card>
+                            )}
+                            {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && (
+                              <Card className="p-3 shadow-sm border-l-4 border-l-pink-500 bg-white">
+                                <div className="flex items-center gap-1.5 mb-2 border-b border-gray-200/50 pb-1">
+                                  <User className="h-3.5 w-3.5 text-pink-600" />
+                                  <span className="font-semibold text-gray-800 text-xs">Bride Details</span>
+                                </div>
+                                <div className="space-y-2 text-xs">
+                                  <div>
+                                    <Label className="text-[10px] text-gray-500 mb-0.5 block">Name</Label>
+                                    <Input
+                                      value={invoiceData.bride_name}
+                                      onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
+                                      placeholder="Bride name"
+                                      className="h-8 bg-white border-gray-200 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] text-gray-500 mb-0.5 block">WhatsApp</Label>
+                                    <Input
+                                      value={invoiceData.bride_whatsapp}
+                                      onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
+                                      placeholder="WhatsApp number"
+                                      className="h-8 bg-white border-gray-200 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] text-gray-500 mb-0.5 block">Address</Label>
+                                    <Textarea
+                                      value={invoiceData.bride_address}
+                                      onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
+                                      placeholder="Address"
+                                      rows={1.5}
+                                      className="bg-white border-gray-200 resize-none text-xs"
+                                    />
+                                  </div>
+                                </div>
+                              </Card>
+                            )}
+                          </div>
+                        )}
+    </>
+  );
+
+  const renderProductSelectorCards = () => (
+    <>
+                        {invoiceData.invoice_type === "rental" && (
+                          <Card className="p-3 bg-white border border-slate-200 shadow-sm">
+                            <Label className="text-xs font-semibold mb-2 block">Selection Mode</Label>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant={selectionMode === "products" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => {
+                                  setSelectionMode("products")
+                                  setSelectedPackage(null)
+                                  setSelectedPackageVariant(null)
+                                  setSelectedPackageCategory("")
+                                  setUseCustomPackagePrice(false)
+                                  setCustomPackagePrice(0)
+                                }}
+                                className={`flex-1 text-xs h-8 ${selectionMode === "products" ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+                              >
+                                <Package className="h-3.5 w-3.5 mr-1" />
+                                Individual Products
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={selectionMode === "package" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setSelectionMode("package")}
+                                className={`flex-1 text-xs h-8 ${selectionMode === "package" ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+                              >
+                                <Tag className="h-3.5 w-3.5 mr-1" />
+                                Package
+                              </Button>
+                            </div>
+                          </Card>
+                        )}
+    
+                        {/* Package Selector */}
+                        {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
+                          <Card className="p-4 bg-white border border-slate-200 shadow-sm">
+                            {packagesLoading ? (
+                              <div className="flex items-center justify-center py-6">
+                                <Loader2 className="h-5 w-5 animate-spin text-indigo-700" />
+                                <span className="ml-2 text-xs text-gray-500">Loading packages...</span>
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                {/* Package Category Selection */}
+                                <div>
+                                  <Label className="text-xs font-semibold mb-2 block">1. Select Category</Label>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    {packagesCategories.map((cat) => (
+                                      <Button
+                                        key={cat.id}
+                                        type="button"
+                                        variant={selectedPackageCategory === cat.id ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => {
+                                          const match = cat.name.match(/(\d+)\s*Safa/i)
+                                          const limit = match ? parseInt(match[1]) : null
+                                          setSafaLimit(limit)
+                                          setSelectedPackageCategory(cat.id)
+                                          setSelectedPackage(null)
+                                          setSelectedPackageVariant(null)
+                                          setUseCustomPackagePrice(false)
+                                          setCustomPackagePrice(0)
+                                        }}
+                                        className={`justify-start text-xs h-8 ${selectedPackageCategory === cat.id ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+                                      >
+                                        {cat.name}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+    
+                                {/* Package Selection */}
+                                {selectedPackageCategory && (
+                                  <div className="border-t border-gray-200/50 pt-3">
+                                    <Label className="text-xs font-semibold mb-2 block">2. Select Variant</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                      {packages
+                                        .filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory)
+                                        .map((pkg) => (
+                                          <div
+                                            key={pkg.id}
+                                            className={`p-3 border-2 rounded-xl cursor-pointer transition-all hover:shadow-sm flex items-center justify-between ${
+                                              selectedPackage?.id === pkg.id
+                                                ? "border-indigo-600 bg-emerald-50/20"
+                                                : "border-gray-200 hover:border-gray-300"
+                                            }`}
+                                            onClick={() => {
+                                              setSelectedPackage(pkg)
+                                              setSelectedPackageVariant(null)
+                                              setUseCustomPackagePrice(false)
+                                              setCustomPackagePrice(0)
+                                              if (pkg.security_deposit && pkg.security_deposit > 0) {
+                                                setInvoiceData(prev => ({
+                                                  ...prev,
+                                                  security_deposit: pkg.security_deposit
+                                                }))
+                                              }
+                                            }}
+                                          >
+                                            <div className="min-w-0 flex-1">
+                                              <h4 className="font-semibold text-xs text-gray-800">{pkg.name || pkg.variant_name}</h4>
+                                              {pkg.inclusions && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {(Array.isArray(pkg.inclusions)
+                                                    ? pkg.inclusions
+                                                    : typeof pkg.inclusions === 'string'
+                                                      ? pkg.inclusions.split(',').map((s: string) => s.trim())
+                                                      : []
+                                                  ).slice(0, 2).map((inc: string, i: number) => (
+                                                    <Badge key={i} variant="outline" className="text-[9px] scale-95 origin-left">{inc}</Badge>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="text-right pl-2 flex-shrink-0">
+                                              <p className="text-sm font-bold text-emerald-800">₹{pkg.base_price?.toLocaleString('en-IN') || 0}</p>
+                                              {pkg.security_deposit > 0 && (
+                                                <p className="text-[9px] text-gray-400">+₹{pkg.security_deposit} dep</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Card>
+                        )}
+    
+                        {/* Package Summary & Add products to package */}
+                        {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
+                          <Card className="p-3 bg-emerald-50/20 border border-emerald-800/10 rounded-xl space-y-3">
+                            <div className="flex items-center justify-between text-xs">
+                              <div>
+                                <span className="font-semibold text-slate-900">Package: {selectedPackage.name || selectedPackage.variant_name}</span>
+                                {selectedPackage.inclusions && (
+                                  <p className="text-[10px] text-emerald-800 mt-0.5">Includes: {Array.isArray(selectedPackage.inclusions) ? selectedPackage.inclusions.join(', ') : selectedPackage.inclusions}</p>
+                                )}
+                              </div>
+                              <span className="font-bold text-sm text-emerald-800">₹{packagePrice.toLocaleString('en-IN')}</span>
+                            </div>
+    
+                            {/* Additional package items */}
+                            <div className="border-t border-gray-200/50 pt-3">
+                              <Label className="text-[10px] text-gray-500 font-semibold mb-2 block uppercase">Add Products to Package</Label>
+                              <ProductSelector
+                                products={products.map(p => ({
+                                  ...p,
+                                  category: p.category || '',
+                                  security_deposit: p.security_deposit || 0,
+                                  sale_price: p.sale_price || p.rental_price,
+                                }))}
+                                categories={categories}
+                                subcategories={subcategories}
+                                selectedItems={invoiceItems.map(item => ({
+                                  product_id: item.product_id,
+                                  quantity: item.quantity
+                                }))}
+                                bookingType={invoiceData.invoice_type}
+                                eventDate={invoiceData.event_date}
+                                onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
+                                onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
+                              />
+                            </div>
+                          </Card>
+                        )}
+    
+                        {/* Safa Limit Control */}
+                        {selectedPackage && (
+                          <div className="border-l-4 border-l-purple-600 bg-purple-50/50 p-3 rounded-lg flex items-center justify-between text-xs">
+                            <div>
+                              <p className="font-semibold text-violet-900">
+                                Safa Limit Control {safaLimit !== null && `(Max: ${safaLimit} safas)`}
+                              </p>
+                              <p className="text-[10px] text-purple-800">
+                                Current Safas: {countSafasInInvoice()} {safaLimit !== null && !bypassSafaLimit && `(Remaining: ${Math.max(0, safaLimit - countSafasInInvoice())})`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Checkbox
+                                id="bypassSafaLimit"
+                                checked={bypassSafaLimit}
+                                onCheckedChange={(checked) => setBypassSafaLimit(checked as boolean)}
+                                disabled={safaLimit === null}
+                              />
+                              <label htmlFor="bypassSafaLimit" className="cursor-pointer font-medium text-violet-900">
+                                Bypass
+                              </label>
+                            </div>
+                          </div>
+                        )}
+    
+                        {/* Product Selector for Individual Selection */}
+                        {!skipProductSelection && (selectionMode === "products" || invoiceData.invoice_type === "sale") && (
+                          <div className="mb-2">
+                            <ProductSelector
+                              products={products.map(p => ({
+                                ...p,
+                                category: p.category || '',
+                                security_deposit: p.security_deposit || 0,
+                                sale_price: p.sale_price || p.rental_price,
+                              }))}
+                              categories={categories}
+                              subcategories={subcategories}
+                              selectedItems={invoiceItems.map(item => ({
+                                product_id: item.product_id,
+                                quantity: item.quantity
+                              }))}
+                              bookingType={invoiceData.invoice_type}
+                              eventDate={invoiceData.event_date}
+                              onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
+                              onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
+                            />
+                          </div>
+                        )}
+    
+                        {/* Modifications Section */}
+                        <Card className="p-4 shadow-sm border-l-4 border-l-amber-600 bg-white overflow-visible mt-4">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <Checkbox
+                              id="hasModifications"
+                              checked={invoiceData.has_modifications}
+                              onCheckedChange={(checked) =>
+                                setInvoiceData({
+                                  ...invoiceData,
+                                  has_modifications: checked === true,
+                                })
+                              }
+                            />
+                            <Label htmlFor="hasModifications" className="text-xs font-semibold text-gray-800 cursor-pointer flex items-center gap-1.5">
+                              🔧 Modifications & Stitching
+                            </Label>
+                          </div>
+    
+                          {invoiceData.has_modifications && (
+                            <div className="space-y-3 bg-orange-50 p-3 rounded-lg border border-slate-200 text-xs">
+                              {/* List of modifications added to the cart */}
+                              <div>
+                                <Label className="text-[10px] font-semibold text-indigo-700 mb-1.5 block">Added Modification Services:</Label>
+                                {invoiceItems.filter(item => item.product_id === 'modification-service').length === 0 ? (
+                                  <p className="text-[10px] text-gray-500 italic">No modification services added yet. Use the form below to add service and cost.</p>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    {invoiceItems
+                                      .filter(item => item.product_id === 'modification-service')
+                                      .map((item) => (
+                                        <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
+                                          <span className="font-medium text-gray-800">{item.product_name}</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-slate-700 font-mono">₹{item.unit_price}</span>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-5 w-5 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                              onClick={() => removeItem(item.id)}
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+    
+                              {/* Form to add a modification service */}
+                              <div className="border-t border-slate-200 pt-3 space-y-2">
+                                <Label className="text-[10px] font-semibold text-indigo-700">Add Custom Service & Cost</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Select
+                                      value={modService}
+                                      onValueChange={setModService}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                        <SelectValue placeholder="Select Service" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="Stitching">Stitching</SelectItem>
+                                        <SelectItem value="Alteration">Alteration</SelectItem>
+                                        <SelectItem value="Dry Cleaning">Dry Cleaning</SelectItem>
+                                        <SelectItem value="Pressing">Pressing</SelectItem>
+                                        <SelectItem value="Custom fitting">Custom fitting</SelectItem>
+                                        <SelectItem value="Other">Other Service</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="flex gap-1.5">
+                                    <Input
+                                      type="number"
+                                      placeholder="Cost (₹)"
+                                      value={modCost || ''}
+                                      onChange={(e) => setModCost(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                                      className="h-8 text-xs bg-white"
+                                    />
+                                    <Button
+                                      type="button"
+                                      onClick={handleAddModService}
+                                      className="h-8 text-xs bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 whitespace-nowrap"
+                                    >
+                                      Add
+                                    </Button>
+                                  </div>
+                                </div>
+                                {modService === "Stitching" && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Label className="text-[10px] text-slate-600 font-medium whitespace-nowrap">Head Size (2 digits):</Label>
+                                    <Input
+                                      type="text"
+                                      placeholder="e.g. 22"
+                                      value={headSize}
+                                      onChange={(e) => {
+                                        const cleanVal = e.target.value.replace(/[^0-9]/g, "");
+                                        if (cleanVal.length <= 2) {
+                                          setHeadSize(cleanVal);
+                                        }
+                                      }}
+                                      className="h-8 text-xs bg-white w-24 border-gray-200"
+                                    />
+                                  </div>
+                                )}
+                                {modService === "Other" && (
+                                  <Input
+                                    placeholder="Enter custom service name..."
+                                    value={customModService}
+                                    onChange={(e) => setCustomModService(e.target.value)}
+                                    className="h-8 text-xs bg-white mt-1"
+                                  />
+                                )}
+                              </div>
+    
+                              {/* Completion Date/Time */}
+                              <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
+                                <div>
+                                  <Label className="text-[10px] font-medium text-indigo-700 mb-0.5 block">Completion Date</Label>
+                                  <Input
+                                    type="date"
+                                    value={invoiceData.modification_date ? formatDateForInput(invoiceData.modification_date) : ""}
+                                    onChange={(e) =>
+                                      setInvoiceData({
+                                        ...invoiceData,
+                                        modification_date: e.target.value ? new Date(e.target.value).toISOString() : "",
+                                      })
+                                    }
+                                    className="h-8 text-xs bg-white border-gray-200"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] font-medium text-indigo-700 mb-0.5 block">Completion Time</Label>
+                                  <Input
+                                    type="time"
+                                    value={invoiceData.modification_time}
+                                    onChange={(e) =>
+                                      setInvoiceData({ ...invoiceData, modification_time: e.target.value })
+                                    }
+                                    className="h-8 text-xs bg-white border-gray-200"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+    </>
+  );
+
+  const renderSettlementCards = () => (
+    <>
+                          <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
+                            <div className="font-semibold mb-3 text-sm text-gray-800 flex items-center gap-2">
+                              <FileCheck className="h-4 w-4 text-indigo-700" />
+                              Payment & Staff
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Payment Method</Label>
+                                <Select
+                                  value={invoiceData.payment_method}
+                                  onValueChange={(v) => setInvoiceData({ ...invoiceData, payment_method: v as any })}
+                                >
+                                  <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
+                                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                    <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
+                                    <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
+                                    <SelectItem value="International Payment">International Payment</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+    
+                              <div>
+                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Sales Staff</Label>
+                                <Select
+                                  value={invoiceData.sales_closed_by_id}
+                                  onValueChange={(v) => setInvoiceData({ ...invoiceData, sales_closed_by_id: v })}
+                                >
+                                  <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
+                                    <SelectValue placeholder="Select staff member" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {staffMembers.map((staff) => (
+                                      <SelectItem key={staff.id} value={staff.id}>
+                                        {staff.name} ({staff.role})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+    
+                            {/* WhatsApp Invoice Toggle */}
+                            <div className="border-t border-gray-200/50 pt-3 mt-3">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id="sendWhatsAppInvoice"
+                                  checked={sendWhatsAppInvoice}
+                                  onCheckedChange={(checked) => setSendWhatsAppInvoice(checked === true)}
+                                />
+                                <Label htmlFor="sendWhatsAppInvoice" className="text-xs font-medium cursor-pointer flex items-center gap-1.5">
+                                  <Send className="h-3.5 w-3.5 text-green-600" /> Send bill on WhatsApp (WATI)
+                                </Label>
+                              </div>
+                              {sendWhatsAppInvoice && (
+                                <p className="text-[10px] text-green-600 mt-1 ml-6">Invoice will be auto-sent to customer + owner on WhatsApp</p>
+                              )}
+                            </div>
+                          </Card>
+    
+                          {/* Lost/Damaged Items Section */}
+                          {invoiceData.invoice_type === "rental" && (
+                            <Card className="p-4 shadow-sm border-l-4 border-l-red-500 bg-white overflow-visible">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                                  <span className="font-semibold text-gray-800 text-sm">Lost / Damaged Items</span>
+                                  <Badge variant="destructive" className="text-[9px]">Stock will be reduced</Badge>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  type="button"
+                                  onClick={() => addLostDamagedItem()}
+                                  className="h-7 text-[10px] border-red-200 text-red-700 hover:bg-red-50"
+                                >
+                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
+                                </Button>
+                              </div>
+    
+                              {lostDamagedItems.length === 0 ? (
+                                <div className="text-center py-4 text-gray-400 text-xs border border-dashed rounded-lg bg-white">
+                                  No lost or damaged items added.
+                                </div>
+                              ) : (
+                                <div className="border border-gray-100 rounded-lg bg-white overflow-visible">
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                      <thead className="bg-red-50/50 text-red-950">
+                                        <tr>
+                                          <th className="text-left p-2 font-medium">Product</th>
+                                          <th className="text-center p-2 font-medium w-24">Type</th>
+                                          <th className="text-center p-2 font-medium w-16">Qty</th>
+                                          <th className="text-right p-2 font-medium w-24">Charge</th>
+                                          <th className="text-right p-2 font-medium w-24">Total</th>
+                                          <th className="w-10"></th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100">
+                                        {lostDamagedItems.map((item) => (
+                                          <tr key={item.id} className="hover:bg-red-50/10">
+                                            <td className="p-2 relative" style={{ overflow: 'visible' }}>
+                                              {item.product_name ? (
+                                                <div className="flex items-center gap-1.5 max-w-[150px]">
+                                                  <span className="font-medium truncate">{item.product_name}</span>
+                                                  {item.barcode && <span className="text-[9px] text-gray-400">({item.barcode})</span>}
+                                                  <button
+                                                    type="button"
+                                                    className="text-gray-400 hover:text-gray-600"
+                                                    onClick={() => {
+                                                      updateLostDamagedItem(item.id, "product_id", "")
+                                                      updateLostDamagedItem(item.id, "product_name", "")
+                                                    }}
+                                                  >
+                                                    <X className="h-3 w-3" />
+                                                  </button>
+                                                </div>
+                                              ) : (
+                                                <div className="relative">
+                                                  <Input
+                                                    placeholder="Search product..."
+                                                    onFocus={() => setLostDamagedProductSearch(item.id)}
+                                                    onChange={(e) => setProductSearch(e.target.value)}
+                                                    className="h-7 text-xs"
+                                                  />
+                                                  {lostDamagedProductSearch === item.id && productSearch && (
+                                                    <div className="absolute z-[9999] left-0 right-0 mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto" style={{ top: '100%' }}>
+                                                      {products
+                                                        .filter(p => 
+                                                          p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                                          p.barcode?.toLowerCase().includes(productSearch.toLowerCase())
+                                                        )
+                                                        .slice(0, 8)
+                                                        .map((product) => (
+                                                          <div
+                                                            key={product.id}
+                                                            className="p-1.5 hover:bg-gray-50 cursor-pointer border-b last:border-0 text-left"
+                                                            onClick={() => {
+                                                              updateLostDamagedItemProduct(item.id, product)
+                                                              setLostDamagedProductSearch(null)
+                                                              setProductSearch("")
+                                                            }}
+                                                          >
+                                                            <div className="font-medium text-xs">{product.name}</div>
+                                                            <div className="text-[9px] text-gray-500 flex gap-1.5">
+                                                              {product.barcode && <span>{product.barcode}</span>}
+                                                              <span>Stock: {product.stock_available}</span>
+                                                              <span className="text-emerald-700">₹{product.rental_price}</span>
+                                                            </div>
+                                                          </div>
+                                                        ))}
+                                                      {products.filter(p => 
+                                                        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                                                        p.barcode?.toLowerCase().includes(productSearch.toLowerCase())
+                                                      ).length === 0 && (
+                                                        <div className="p-2 text-xs text-gray-400">No products found</div>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </td>
+                                            <td className="p-2 text-center">
+                                              <select
+                                                value={item.type}
+                                                onChange={(e) => updateLostDamagedItem(item.id, "type", e.target.value)}
+                                                className="h-7 text-xs bg-white border border-gray-200 rounded px-1"
+                                              >
+                                                <option value="damaged">Damaged</option>
+                                                <option value="lost">Lost</option>
+                                              </select>
+                                            </td>
+                                            <td className="p-2 text-center">
+                                              <Input
+                                                type="number"
+                                                value={item.quantity}
+                                                onChange={(e) => updateLostDamagedItem(item.id, "quantity", parseInt(e.target.value) || 1)}
+                                                className="h-7 w-12 text-center"
+                                                min={1}
+                                              />
+                                            </td>
+                                            <td className="p-2">
+                                              <Input
+                                                type="number"
+                                                value={item.charge_per_item}
+                                                onChange={(e) => updateLostDamagedItem(item.id, "charge_per_item", parseFloat(e.target.value) || 0)}
+                                                className="h-7 w-20 text-right font-mono"
+                                                placeholder="₹0"
+                                              />
+                                            </td>
+                                            <td className="p-2 text-right font-semibold text-red-600 font-mono">
+                                              ₹{item.total_charge.toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="p-2 text-center">
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                type="button"
+                                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                                onClick={() => removeLostDamagedItem(item.id)}
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
+                            </Card>
+                          )}
+    
+                          {/* Notes Card */}
+                          <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
+                            <Label className="text-xs font-semibold text-gray-800 mb-2 block">Order Notes</Label>
+                            <Textarea
+                              value={invoiceData.notes}
+                              onChange={(e) => setInvoiceData({ ...invoiceData, notes: e.target.value })}
+                              placeholder="Any additional notes..."
+                              rows={2}
+                              className="bg-white border-gray-200 resize-none text-xs"
+                            />
+                          </Card>
+    
+                          {/* Terms & Conditions Card */}
+                          <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white text-xs">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileCheck className="h-4 w-4 text-indigo-500" />
+                              <span className="font-semibold text-gray-800">Terms & Conditions</span>
+                            </div>
+                            <div className="text-[10px] text-gray-600 max-h-40 overflow-y-auto leading-relaxed">
+                              {invoiceData.invoice_type === "sale" ? (
+                                <ul className="list-disc list-inside space-y-1">
+                                  <li>Products purchased under the sale category are non-returnable and non-exchangeable.</li>
+                                  <li>This agreement and any related matters shall be governed by the jurisdiction of Vadodara, Gujarat.</li>
+                                </ul>
+                              ) : (
+                                <ol className="list-decimal list-inside space-y-0.5">
+                                  <li>All product selections and order details are considered approved by the customer at the time of booking. Any changes requested after confirmation may not be possible, especially close to the event date.</li>
+                                  <li>For the best service experience, Safa Wale bookings should preferably be confirmed at least 30 days before the event.</li>
+                                  <li>The remaining payment, including the Security Deposit, must be completed before the event date.</li>
+                                  <li>Safas and rental items remain the responsibility of the customer until they are collected by our team. Any lost, damaged, torn, burnt, or unreturned items will be charged as per the applicable lost/damage rates.</li>
+                                  <li>Our team will arrange the collection of safas after the event. If items are not available for collection on the agreed date, additional rental charges may apply and can be adjusted from the Security Deposit.</li>
+                                  <li>Safa Wale service includes up to 5 hours of assistance. Additional hours, if required, will be charged at ₹1,500 per hour.</li>
+                                  <li>Service timings are subject to the booking location. Local city services include up to 1 hour of assistance, while outstation services are available for up to 4 hours and until 9:30 PM. Any additional time may be adjusted against the Security Deposit.</li>
+                                  <li>Sold products are non-returnable and non-exchangeable. All bookings and services are subject to Vadodara jurisdiction.</li>
+                                </ol>
+                              )}
+                            </div>
+                          </Card>
+    </>
+  );
+
   return (
     <>
       <style>{`
@@ -2201,6 +3382,13 @@ export default function CreateInvoicePage() {
             padding: 0;
             height: auto;
             font-size: 11px;
+          }
+        }
+        @media screen {
+          .invoice-scaled {
+            zoom: 0.8;
+            -moz-transform: scale(0.8);
+            -moz-transform-origin: top center;
           }
         }
       `}</style>
@@ -2250,9 +3438,9 @@ export default function CreateInvoicePage() {
         </div>
       )}
 
-      <div className="min-h-screen bg-slate-50 p-4 print:p-0 print:bg-white">
+      <div className="min-h-screen bg-slate-50 p-4 print:p-0 print:bg-white invoice-scaled">
       {/* Header - Hidden on print */}
-      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between print:hidden">
+      <div className="max-w-[64%] mx-auto mb-4 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Link href="/bookings">
             <Button variant="outline" size="sm">
@@ -2298,15 +3486,28 @@ export default function CreateInvoicePage() {
               Save as Quote
             </Button>
           )}
-          <Button size="sm" onClick={handleCreateOrder} disabled={saving}>
+          <Button 
+            size="sm" 
+            onClick={handleCreateOrder} 
+            disabled={saving || (mode === "edit" && !editingQuote)}
+          >
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
             {mode === "edit" && editingQuote ? "Convert to Booking" : mode === "edit" ? "Update Order" : "Create Order"}
           </Button>
         </div>
       </div>
 
+      {mode === "edit" && !editingQuote && (
+        <div className="max-w-[64%] mx-auto mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2.5 text-sm font-medium print:hidden">
+          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 animate-pulse" />
+          <div>
+            <span className="font-bold">Order Locked:</span> This confirmed sales/rental order is finalized and cannot be modified.
+          </div>
+        </div>
+      )}
+
       {/* Invoice Document */}
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:rounded-none print:max-w-full">
+      <div className="max-w-[64%] mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:rounded-none print:max-w-full">
         
         {/* ========== PRINT-ONLY HEADER ========== */}
         <div className="hidden print:block bg-slate-50 border-b border-slate-300 px-3 py-2">
@@ -2335,7 +3536,7 @@ export default function CreateInvoicePage() {
             {/* Invoice Info */}
             <div className="text-right">
               <div className="text-sm font-bold text-slate-600 uppercase">
-                {mode === "final-bill" ? "Final Bill" : invoiceData.invoice_type === "rental" ? "Rental Invoice" : "Sale Invoice"}
+                {editingQuote ? "Quote Estimate" : mode === "final-bill" ? "Final Bill" : invoiceData.invoice_type === "rental" ? "Rental Invoice" : "Sale Invoice"}
               </div>
               <div className="text-[10px] mt-0.5">
                 <div><span className="text-gray-500">Invoice #:</span> <strong>{invoiceData.invoice_number}</strong></div>
@@ -2457,911 +3658,62 @@ export default function CreateInvoicePage() {
 
           {/* ================= WEB-ONLY CONTENT START ================= */}
           <div className="p-4 md:p-6 print:hidden bg-white space-y-6">
-            <Tabs defaultValue="details" className="w-full">
-                  <TabsList className="grid grid-cols-3 bg-slate-100 p-1 rounded-lg mb-4 border border-slate-200">
-                    <TabsTrigger value="details" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm text-slate-500 rounded-md py-1.5 font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
-                      <User className="h-4 w-4" />
-                      Details
-                    </TabsTrigger>
-                    <TabsTrigger value="items" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm text-slate-500 rounded-md py-1.5 font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
-                      <Package className="h-4 w-4" />
-                      Products
-                    </TabsTrigger>
-                    <TabsTrigger value="settlement" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm text-slate-500 rounded-md py-1.5 font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
-                      <FileCheck className="h-4 w-4" />
-                      Settlement
-                    </TabsTrigger>
-                  </TabsList>
 
-                  {/* TAB 1: CUSTOMER & EVENT DETAILS */}
-                  <TabsContent value="details" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
-                    
-                    {/* Customer Selection Card */}
-                    <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-emerald-100 rounded-lg">
-                            <User className="h-4 w-4 text-indigo-700" />
-                          </div>
-                          <span className="font-semibold text-gray-800">Customer Details</span>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          type="button"
-                          className="print:hidden h-8 text-xs border-slate-200 text-indigo-700 hover:bg-indigo-700 hover:text-white transition-all"
-                          onClick={() => setShowNewCustomerDialog(true)}
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          New
-                        </Button>
-                      </div>
 
-                      {/* Customer Search */}
-                      <div className="print:hidden mb-3">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            placeholder="Search customers..."
-                            value={customerSearch}
-                            onChange={(e) => setCustomerSearch(e.target.value)}
-                            className="pl-10 h-9 text-xs bg-white border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                          />
-                        </div>
-                      </div>
 
-                      {/* Customer List or Selected Customer */}
-                      {selectedCustomer ? (
-                        <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-800/10 flex items-start justify-between">
-                          <div className="space-y-0.5">
-                            <div className="font-semibold text-slate-900 text-sm">
-                              {selectedCustomer.name}
-                            </div>
-                            <div className="text-xs text-emerald-800 flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {selectedCustomer.phone}
-                            </div>
-                            {selectedCustomer.email && (
-                              <div className="text-xs text-emerald-700">
-                                {selectedCustomer.email}
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="print:hidden h-7 w-7 p-0 hover:bg-emerald-100 text-indigo-700"
-                            onClick={() => setSelectedCustomer(null)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="border border-gray-100 rounded-lg max-h-36 overflow-y-auto text-sm print:hidden bg-white">
-                          {customersLoading ? (
-                            <div className="space-y-0">
-                              {[1, 2, 3].map((i) => (
-                                <div key={i} className="p-2.5 border-b last:border-b-0">
-                                  <div className="h-4 w-24 mb-1 bg-gray-200 rounded animate-pulse" />
-                                  <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <>
-                              {(customerSearch ? filteredCustomers : customers.slice(0, 3)).map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  onClick={() => setSelectedCustomer(c)}
-                                  className="w-full text-left p-2 border-b last:border-b-0 hover:bg-emerald-50/45 transition-colors group flex items-center justify-between"
-                                >
-                                  <div>
-                                    <div className="font-medium text-gray-800 group-hover:text-emerald-900 text-xs">{c.name}</div>
-                                    <div className="text-[10px] text-gray-500">{c.phone}</div>
-                                  </div>
-                                  <Check className="h-3.5 w-3.5 text-emerald-700 opacity-0 group-hover:opacity-100" />
-                                </button>
-                              ))}
-                              {customerSearch && filteredCustomers.length === 0 && (
-                                <div className="p-3 text-xs text-gray-500 text-center">
-                                  No matches found
-                                </div>
-                              )}
-                              {!customerSearch && customers.length > 3 && (
-                                <div className="p-2 text-[10px] text-gray-500 text-center bg-gray-50/50 border-t">
-                                  Type to search {customers.length} customers...
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </Card>
+            <div className={cn(
+              invoiceData.invoice_type === "sale" ? "grid grid-cols-12 gap-6 items-start" : "space-y-6"
+            )}>
+              <div className={cn(
+                invoiceData.invoice_type === "sale" ? "col-span-12 lg:col-span-8 space-y-6" : "w-full"
+              )}>
+                {invoiceData.invoice_type === "sale" ? (
+                  <div className="space-y-6">
+                    {renderCustomerCard()}
+                    {renderProductSelectorCards()}
+                    {renderSettlementCards()}
+                  </div>
+                ) : (
+                  <Tabs defaultValue="details" className="w-full">
+                    <TabsList className="grid grid-cols-3 bg-slate-100 p-1 rounded-lg mb-4 border border-slate-200">
+                      <TabsTrigger value="details" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm text-slate-500 rounded-md py-1.5 font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
+                        <User className="h-4 w-4" />
+                        Details
+                      </TabsTrigger>
+                      <TabsTrigger value="items" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm text-slate-500 rounded-md py-1.5 font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
+                        <Package className="h-4 w-4" />
+                        Products
+                      </TabsTrigger>
+                      <TabsTrigger value="settlement" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm text-slate-500 rounded-md py-1.5 font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5">
+                        <FileCheck className="h-4 w-4" />
+                        Settlement
+                      </TabsTrigger>
+                    </TabsList>
 
-                    {/* Event Details Card */}
-                    {invoiceData.invoice_type === "rental" && (
-                      <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="p-1.5 bg-emerald-100 rounded-lg">
-                            <CalendarIcon className="h-4 w-4 text-indigo-700" />
-                          </div>
-                          <span className="font-semibold text-gray-800">Event Details</span>
-                        </div>
+                    {/* TAB 1: CUSTOMER & EVENT DETAILS */}
+                    <TabsContent value="details" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
+                      {renderCustomerCard()}
+                      {renderEventAndGroomBrideCards()}
+                    </TabsContent>
 
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Type</Label>
-                            <Select
-                              value={invoiceData.event_type}
-                              onValueChange={(v) => setInvoiceData({ ...invoiceData, event_type: v as any })}
-                            >
-                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="wedding">Wedding</SelectItem>
-                                <SelectItem value="engagement">Engagement</SelectItem>
-                                <SelectItem value="reception">Reception</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-gray-500 mb-0.5 block">For</Label>
-                            <Select
-                              value={invoiceData.event_participant}
-                              onValueChange={(v) => setInvoiceData({ ...invoiceData, event_participant: v as any })}
-                            >
-                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="both">Both</SelectItem>
-                                <SelectItem value="groom">Groom Only</SelectItem>
-                                <SelectItem value="bride">Bride Only</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Date *</Label>
-                            <Input
-                              type="date"
-                              value={invoiceData.event_date}
-                              onChange={(e) => setInvoiceData({ ...invoiceData, event_date: e.target.value })}
-                              className="h-8 text-xs bg-white border-gray-200"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Event Time</Label>
-                            <Input
-                              type="time"
-                              value={invoiceData.event_time}
-                              onChange={(e) => setInvoiceData({ ...invoiceData, event_time: e.target.value })}
-                              className="h-8 text-xs bg-white border-gray-200"
-                            />
-                          </div>
-
-                          <div className="col-span-2 pt-2 border-t border-gray-200/50 mt-1">
-                            <Label className="text-[10px] text-gray-500 mb-1 flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              Venue Address
-                            </Label>
-                            <Textarea
-                              value={invoiceData.venue_address}
-                              onChange={(e) => setInvoiceData({ ...invoiceData, venue_address: e.target.value })}
-                              placeholder="Enter venue address..."
-                              rows={1.5}
-                              className="bg-white border-gray-200 resize-none text-xs"
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    )}
-
-                    {/* Groom & Bride details */}
-                    {invoiceData.invoice_type === "rental" && (
-                      <div className={`grid gap-3 ${invoiceData.event_participant === "both" ? "grid-cols-2" : "grid-cols-1"}`}>
-                        {(invoiceData.event_participant === "groom" || invoiceData.event_participant === "both") && (
-                          <Card className="p-3 shadow-sm border-l-4 border-l-sky-500 bg-white">
-                            <div className="flex items-center gap-1.5 mb-2 border-b border-gray-200/50 pb-1">
-                              <User className="h-3.5 w-3.5 text-sky-600" />
-                              <span className="font-semibold text-gray-800 text-xs">Groom Details</span>
-                            </div>
-                            <div className="space-y-2 text-xs">
-                              <div>
-                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Name</Label>
-                                <Input
-                                  value={invoiceData.groom_name}
-                                  onChange={(e) => setInvoiceData({ ...invoiceData, groom_name: e.target.value })}
-                                  placeholder="Groom name"
-                                  className="h-8 bg-white border-gray-200 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-gray-500 mb-0.5 block">WhatsApp</Label>
-                                <Input
-                                  value={invoiceData.groom_whatsapp}
-                                  onChange={(e) => setInvoiceData({ ...invoiceData, groom_whatsapp: e.target.value })}
-                                  placeholder="WhatsApp number"
-                                  className="h-8 bg-white border-gray-200 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Address</Label>
-                                <Textarea
-                                  value={invoiceData.groom_address}
-                                  onChange={(e) => setInvoiceData({ ...invoiceData, groom_address: e.target.value })}
-                                  placeholder="Address"
-                                  rows={1.5}
-                                  className="bg-white border-gray-200 resize-none text-xs"
-                                />
-                              </div>
-                            </div>
-                          </Card>
-                        )}
-                        {(invoiceData.event_participant === "bride" || invoiceData.event_participant === "both") && (
-                          <Card className="p-3 shadow-sm border-l-4 border-l-pink-500 bg-white">
-                            <div className="flex items-center gap-1.5 mb-2 border-b border-gray-200/50 pb-1">
-                              <User className="h-3.5 w-3.5 text-pink-600" />
-                              <span className="font-semibold text-gray-800 text-xs">Bride Details</span>
-                            </div>
-                            <div className="space-y-2 text-xs">
-                              <div>
-                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Name</Label>
-                                <Input
-                                  value={invoiceData.bride_name}
-                                  onChange={(e) => setInvoiceData({ ...invoiceData, bride_name: e.target.value })}
-                                  placeholder="Bride name"
-                                  className="h-8 bg-white border-gray-200 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-gray-500 mb-0.5 block">WhatsApp</Label>
-                                <Input
-                                  value={invoiceData.bride_whatsapp}
-                                  onChange={(e) => setInvoiceData({ ...invoiceData, bride_whatsapp: e.target.value })}
-                                  placeholder="WhatsApp number"
-                                  className="h-8 bg-white border-gray-200 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-gray-500 mb-0.5 block">Address</Label>
-                                <Textarea
-                                  value={invoiceData.bride_address}
-                                  onChange={(e) => setInvoiceData({ ...invoiceData, bride_address: e.target.value })}
-                                  placeholder="Address"
-                                  rows={1.5}
-                                  className="bg-white border-gray-200 resize-none text-xs"
-                                />
-                              </div>
-                            </div>
-                          </Card>
-                        )}
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  {/* TAB 2: PRODUCTS & ITEMS */}
-                  <TabsContent value="items" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
-                    
-                    {/* Selection Mode Toggle */}
-                    {invoiceData.invoice_type === "rental" && (
-                      <Card className="p-3 bg-white border border-slate-200 shadow-sm">
-                        <Label className="text-xs font-semibold mb-2 block">Selection Mode</Label>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant={selectionMode === "products" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              setSelectionMode("products")
-                              setSelectedPackage(null)
-                              setSelectedPackageVariant(null)
-                              setSelectedPackageCategory("")
-                              setUseCustomPackagePrice(false)
-                              setCustomPackagePrice(0)
-                            }}
-                            className={`flex-1 text-xs h-8 ${selectionMode === "products" ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
-                          >
-                            <Package className="h-3.5 w-3.5 mr-1" />
-                            Individual Products
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={selectionMode === "package" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setSelectionMode("package")}
-                            className={`flex-1 text-xs h-8 ${selectionMode === "package" ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
-                          >
-                            <Tag className="h-3.5 w-3.5 mr-1" />
-                            Package
-                          </Button>
-                        </div>
-                      </Card>
-                    )}
-
-                    {/* Package Selector */}
-                    {!skipProductSelection && selectionMode === "package" && invoiceData.invoice_type === "rental" && (
-                      <Card className="p-4 bg-white border border-slate-200 shadow-sm">
-                        {packagesLoading ? (
-                          <div className="flex items-center justify-center py-6">
-                            <Loader2 className="h-5 w-5 animate-spin text-indigo-700" />
-                            <span className="ml-2 text-xs text-gray-500">Loading packages...</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {/* Package Category Selection */}
-                            <div>
-                              <Label className="text-xs font-semibold mb-2 block">1. Select Category</Label>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {packagesCategories.map((cat) => (
-                                  <Button
-                                    key={cat.id}
-                                    type="button"
-                                    variant={selectedPackageCategory === cat.id ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => {
-                                      const match = cat.name.match(/(\d+)\s*Safa/i)
-                                      const limit = match ? parseInt(match[1]) : null
-                                      setSafaLimit(limit)
-                                      setSelectedPackageCategory(cat.id)
-                                      setSelectedPackage(null)
-                                      setSelectedPackageVariant(null)
-                                      setUseCustomPackagePrice(false)
-                                      setCustomPackagePrice(0)
-                                    }}
-                                    className={`justify-start text-xs h-8 ${selectedPackageCategory === cat.id ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
-                                  >
-                                    {cat.name}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Package Selection */}
-                            {selectedPackageCategory && (
-                              <div className="border-t border-gray-200/50 pt-3">
-                                <Label className="text-xs font-semibold mb-2 block">2. Select Variant</Label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                                  {packages
-                                    .filter(pkg => pkg.category_id === selectedPackageCategory || (pkg as any).package_id === selectedPackageCategory)
-                                    .map((pkg) => (
-                                      <div
-                                        key={pkg.id}
-                                        className={`p-3 border-2 rounded-xl cursor-pointer transition-all hover:shadow-sm flex items-center justify-between ${
-                                          selectedPackage?.id === pkg.id
-                                            ? "border-indigo-600 bg-emerald-50/20"
-                                            : "border-gray-200 hover:border-gray-300"
-                                        }`}
-                                        onClick={() => {
-                                          setSelectedPackage(pkg)
-                                          setSelectedPackageVariant(null)
-                                          setUseCustomPackagePrice(false)
-                                          setCustomPackagePrice(0)
-                                          if (pkg.security_deposit && pkg.security_deposit > 0) {
-                                            setInvoiceData(prev => ({
-                                              ...prev,
-                                              security_deposit: pkg.security_deposit
-                                            }))
-                                          }
-                                        }}
-                                      >
-                                        <div className="min-w-0 flex-1">
-                                          <h4 className="font-semibold text-xs text-gray-800">{pkg.name || pkg.variant_name}</h4>
-                                          {pkg.inclusions && (
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                              {(Array.isArray(pkg.inclusions)
-                                                ? pkg.inclusions
-                                                : typeof pkg.inclusions === 'string'
-                                                  ? pkg.inclusions.split(',').map((s: string) => s.trim())
-                                                  : []
-                                              ).slice(0, 2).map((inc: string, i: number) => (
-                                                <Badge key={i} variant="outline" className="text-[9px] scale-95 origin-left">{inc}</Badge>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="text-right pl-2 flex-shrink-0">
-                                          <p className="text-sm font-bold text-emerald-800">₹{pkg.base_price?.toLocaleString('en-IN') || 0}</p>
-                                          {pkg.security_deposit > 0 && (
-                                            <p className="text-[9px] text-gray-400">+₹{pkg.security_deposit} dep</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </Card>
-                    )}
-
-                    {/* Package Summary & Add products to package */}
-                    {selectionMode === "package" && selectedPackage && invoiceData.invoice_type === "rental" && (
-                      <Card className="p-3 bg-emerald-50/20 border border-emerald-800/10 rounded-xl space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <div>
-                            <span className="font-semibold text-slate-900">Package: {selectedPackage.name || selectedPackage.variant_name}</span>
-                            {selectedPackage.inclusions && (
-                              <p className="text-[10px] text-emerald-800 mt-0.5">Includes: {Array.isArray(selectedPackage.inclusions) ? selectedPackage.inclusions.join(', ') : selectedPackage.inclusions}</p>
-                            )}
-                          </div>
-                          <span className="font-bold text-sm text-emerald-800">₹{packagePrice.toLocaleString('en-IN')}</span>
-                        </div>
-
-                        {/* Additional package items */}
-                        <div className="border-t border-gray-200/50 pt-3">
-                          <Label className="text-[10px] text-gray-500 font-semibold mb-2 block uppercase">Add Products to Package</Label>
-                          <ProductSelector
-                            products={products.map(p => ({
-                              ...p,
-                              category: p.category || '',
-                              security_deposit: p.security_deposit || 0,
-                              sale_price: p.sale_price || p.rental_price,
-                            }))}
-                            categories={categories}
-                            subcategories={subcategories}
-                            selectedItems={invoiceItems.map(item => ({
-                              product_id: item.product_id,
-                              quantity: item.quantity
-                            }))}
-                            bookingType={invoiceData.invoice_type}
-                            eventDate={invoiceData.event_date}
-                            onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
-                            onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
-                          />
-                        </div>
-                      </Card>
-                    )}
-
-                    {/* Safa Limit Control */}
-                    {selectedPackage && (
-                      <div className="border-l-4 border-l-purple-600 bg-purple-50/50 p-3 rounded-lg flex items-center justify-between text-xs">
-                        <div>
-                          <p className="font-semibold text-violet-900">
-                            Safa Limit Control {safaLimit !== null && `(Max: ${safaLimit} safas)`}
-                          </p>
-                          <p className="text-[10px] text-purple-800">
-                            Current Safas: {countSafasInInvoice()} {safaLimit !== null && !bypassSafaLimit && `(Remaining: ${Math.max(0, safaLimit - countSafasInInvoice())})`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Checkbox
-                            id="bypassSafaLimit"
-                            checked={bypassSafaLimit}
-                            onCheckedChange={(checked) => setBypassSafaLimit(checked as boolean)}
-                            disabled={safaLimit === null}
-                          />
-                          <label htmlFor="bypassSafaLimit" className="cursor-pointer font-medium text-violet-900">
-                            Bypass
-                          </label>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Product Selector for Individual Selection */}
-                    {!skipProductSelection && (selectionMode === "products" || invoiceData.invoice_type === "sale") && (
-                      <div className="mb-2">
-                        <ProductSelector
-                          products={products.map(p => ({
-                            ...p,
-                            category: p.category || '',
-                            security_deposit: p.security_deposit || 0,
-                            sale_price: p.sale_price || p.rental_price,
-                          }))}
-                          categories={categories}
-                          subcategories={subcategories}
-                          selectedItems={invoiceItems.map(item => ({
-                            product_id: item.product_id,
-                            quantity: item.quantity
-                          }))}
-                          bookingType={invoiceData.invoice_type}
-                          eventDate={invoiceData.event_date}
-                          onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
-                          onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
-                        />
-                      </div>
-                    )}
-
-                    {/* Modifications Section */}
-                    <Card className="p-4 shadow-sm border-l-4 border-l-amber-600 bg-white overflow-visible mt-4">
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Checkbox
-                          id="hasModifications"
-                          checked={invoiceData.has_modifications}
-                          onCheckedChange={(checked) =>
-                            setInvoiceData({
-                              ...invoiceData,
-                              has_modifications: checked === true,
-                            })
-                          }
-                        />
-                        <Label htmlFor="hasModifications" className="text-xs font-semibold text-gray-800 cursor-pointer flex items-center gap-1.5">
-                          🔧 Modifications & Stitching
-                        </Label>
-                      </div>
-
-                      {invoiceData.has_modifications && (
-                        <div className="space-y-3 bg-orange-50 p-3 rounded-lg border border-slate-200 text-xs">
-                          {/* List of modifications added to the cart */}
-                          <div>
-                            <Label className="text-[10px] font-semibold text-indigo-700 mb-1.5 block">Added Modification Services:</Label>
-                            {invoiceItems.filter(item => item.product_id === 'modification-service').length === 0 ? (
-                              <p className="text-[10px] text-gray-500 italic">No modification services added yet. Use the form below to add service and cost.</p>
-                            ) : (
-                              <div className="space-y-1.5">
-                                {invoiceItems
-                                  .filter(item => item.product_id === 'modification-service')
-                                  .map((item) => (
-                                    <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
-                                      <span className="font-medium text-gray-800">{item.product_name}</span>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-slate-700 font-mono">₹{item.unit_price}</span>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-5 w-5 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                          onClick={() => removeItem(item.id)}
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Form to add a modification service */}
-                          <div className="border-t border-slate-200 pt-3 space-y-2">
-                            <Label className="text-[10px] font-semibold text-indigo-700">Add Custom Service & Cost</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Select
-                                  value={modService}
-                                  onValueChange={setModService}
-                                >
-                                  <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
-                                    <SelectValue placeholder="Select Service" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="Stitching">Stitching</SelectItem>
-                                    <SelectItem value="Alteration">Alteration</SelectItem>
-                                    <SelectItem value="Dry Cleaning">Dry Cleaning</SelectItem>
-                                    <SelectItem value="Pressing">Pressing</SelectItem>
-                                    <SelectItem value="Custom fitting">Custom fitting</SelectItem>
-                                    <SelectItem value="Other">Other Service</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="flex gap-1.5">
-                                <Input
-                                  type="number"
-                                  placeholder="Cost (₹)"
-                                  value={modCost || ''}
-                                  onChange={(e) => setModCost(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                                  className="h-8 text-xs bg-white"
-                                />
-                                <Button
-                                  type="button"
-                                  onClick={handleAddModService}
-                                  className="h-8 text-xs bg-indigo-700 hover:bg-indigo-800 text-white px-2.5 whitespace-nowrap"
-                                >
-                                  Add
-                                </Button>
-                              </div>
-                            </div>
-                            {modService === "Other" && (
-                              <Input
-                                placeholder="Enter custom service name..."
-                                value={customModService}
-                                onChange={(e) => setCustomModService(e.target.value)}
-                                className="h-8 text-xs bg-white mt-1"
-                              />
-                            )}
-                          </div>
-
-                          {/* Completion Date/Time */}
-                          <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
-                            <div>
-                              <Label className="text-[10px] font-medium text-indigo-700 mb-0.5 block">Completion Date</Label>
-                              <Input
-                                type="date"
-                                value={invoiceData.modification_date ? formatDateForInput(invoiceData.modification_date) : ""}
-                                onChange={(e) =>
-                                  setInvoiceData({
-                                    ...invoiceData,
-                                    modification_date: e.target.value ? new Date(e.target.value).toISOString() : "",
-                                  })
-                                }
-                                className="h-8 text-xs bg-white border-gray-200"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-[10px] font-medium text-indigo-700 mb-0.5 block">Completion Time</Label>
-                              <Input
-                                type="time"
-                                value={invoiceData.modification_time}
-                                onChange={(e) =>
-                                  setInvoiceData({ ...invoiceData, modification_time: e.target.value })
-                                }
-                                className="h-8 text-xs bg-white border-gray-200"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                  </TabsContent>
+                    {/* TAB 2: PRODUCTS & ITEMS */}
+                    <TabsContent value="items" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
+                      {renderProductSelectorCards()}
+                    </TabsContent>
 
                     {/* TAB 3: SETTLEMENT */}
                     <TabsContent value="settlement" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
-                      
-                      {/* Payment Method & Staff Attribution */}
-                      <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
-                        <div className="font-semibold mb-3 text-sm text-gray-800 flex items-center gap-2">
-                          <FileCheck className="h-4 w-4 text-indigo-700" />
-                          Payment & Staff
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                          <div>
-                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Payment Method</Label>
-                            <Select
-                              value={invoiceData.payment_method}
-                              onValueChange={(v) => setInvoiceData({ ...invoiceData, payment_method: v as any })}
-                            >
-                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="UPI / QR Payment">UPI / QR Payment</SelectItem>
-                                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                                <SelectItem value="Debit / Credit Card">Debit / Credit Card</SelectItem>
-                                <SelectItem value="Cash / Offline Payment">Cash / Offline Payment</SelectItem>
-                                <SelectItem value="International Payment">International Payment</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label className="text-[10px] text-gray-500 mb-0.5 block">Sales Staff</Label>
-                            <Select
-                              value={invoiceData.sales_closed_by_id}
-                              onValueChange={(v) => setInvoiceData({ ...invoiceData, sales_closed_by_id: v })}
-                            >
-                              <SelectTrigger className="h-8 text-xs bg-white border-gray-200">
-                                <SelectValue placeholder="Select staff member" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {staffMembers.map((staff) => (
-                                  <SelectItem key={staff.id} value={staff.id}>
-                                    {staff.name} ({staff.role})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        {/* WhatsApp Invoice Toggle */}
-                        <div className="border-t border-gray-200/50 pt-3 mt-3">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="sendWhatsAppInvoice"
-                              checked={sendWhatsAppInvoice}
-                              onCheckedChange={(checked) => setSendWhatsAppInvoice(checked === true)}
-                            />
-                            <Label htmlFor="sendWhatsAppInvoice" className="text-xs font-medium cursor-pointer flex items-center gap-1.5">
-                              <Send className="h-3.5 w-3.5 text-green-600" /> Send bill on WhatsApp (WATI)
-                            </Label>
-                          </div>
-                          {sendWhatsAppInvoice && (
-                            <p className="text-[10px] text-green-600 mt-1 ml-6">Invoice will be auto-sent to customer + owner on WhatsApp</p>
-                          )}
-                        </div>
-                      </Card>
-
-                      {/* Lost/Damaged Items Section */}
-                      {invoiceData.invoice_type === "rental" && (
-                        <Card className="p-4 shadow-sm border-l-4 border-l-red-500 bg-white overflow-visible">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <AlertTriangle className="h-4 w-4 text-red-500" />
-                              <span className="font-semibold text-gray-800 text-sm">Lost / Damaged Items</span>
-                              <Badge variant="destructive" className="text-[9px]">Stock will be reduced</Badge>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              type="button"
-                              onClick={() => addLostDamagedItem()}
-                              className="h-7 text-[10px] border-red-200 text-red-700 hover:bg-red-50"
-                            >
-                              <Plus className="h-3.5 w-3.5 mr-1" /> Add Item
-                            </Button>
-                          </div>
-
-                          {lostDamagedItems.length === 0 ? (
-                            <div className="text-center py-4 text-gray-400 text-xs border border-dashed rounded-lg bg-white">
-                              No lost or damaged items added.
-                            </div>
-                          ) : (
-                            <div className="border border-gray-100 rounded-lg bg-white overflow-visible">
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
-                                  <thead className="bg-red-50/50 text-red-950">
-                                    <tr>
-                                      <th className="text-left p-2 font-medium">Product</th>
-                                      <th className="text-center p-2 font-medium w-24">Type</th>
-                                      <th className="text-center p-2 font-medium w-16">Qty</th>
-                                      <th className="text-right p-2 font-medium w-24">Charge</th>
-                                      <th className="text-right p-2 font-medium w-24">Total</th>
-                                      <th className="w-10"></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-100">
-                                    {lostDamagedItems.map((item) => (
-                                      <tr key={item.id} className="hover:bg-red-50/10">
-                                        <td className="p-2 relative" style={{ overflow: 'visible' }}>
-                                          {item.product_name ? (
-                                            <div className="flex items-center gap-1.5 max-w-[150px]">
-                                              <span className="font-medium truncate">{item.product_name}</span>
-                                              {item.barcode && <span className="text-[9px] text-gray-400">({item.barcode})</span>}
-                                              <button
-                                                type="button"
-                                                className="text-gray-400 hover:text-gray-600"
-                                                onClick={() => {
-                                                  updateLostDamagedItem(item.id, "product_id", "")
-                                                  updateLostDamagedItem(item.id, "product_name", "")
-                                                }}
-                                              >
-                                                <X className="h-3 w-3" />
-                                              </button>
-                                            </div>
-                                          ) : (
-                                            <div className="relative">
-                                              <Input
-                                                placeholder="Search product..."
-                                                onFocus={() => setLostDamagedProductSearch(item.id)}
-                                                onChange={(e) => setProductSearch(e.target.value)}
-                                                className="h-7 text-xs"
-                                              />
-                                              {lostDamagedProductSearch === item.id && productSearch && (
-                                                <div className="absolute z-[9999] left-0 right-0 mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto" style={{ top: '100%' }}>
-                                                  {products
-                                                    .filter(p => 
-                                                      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-                                                      p.barcode?.toLowerCase().includes(productSearch.toLowerCase())
-                                                    )
-                                                    .slice(0, 8)
-                                                    .map((product) => (
-                                                      <div
-                                                        key={product.id}
-                                                        className="p-1.5 hover:bg-gray-50 cursor-pointer border-b last:border-0 text-left"
-                                                        onClick={() => {
-                                                          updateLostDamagedItemProduct(item.id, product)
-                                                          setLostDamagedProductSearch(null)
-                                                          setProductSearch("")
-                                                        }}
-                                                      >
-                                                        <div className="font-medium text-xs">{product.name}</div>
-                                                        <div className="text-[9px] text-gray-500 flex gap-1.5">
-                                                          {product.barcode && <span>{product.barcode}</span>}
-                                                          <span>Stock: {product.stock_available}</span>
-                                                          <span className="text-emerald-700">₹{product.rental_price}</span>
-                                                        </div>
-                                                      </div>
-                                                    ))}
-                                                  {products.filter(p => 
-                                                    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-                                                    p.barcode?.toLowerCase().includes(productSearch.toLowerCase())
-                                                  ).length === 0 && (
-                                                    <div className="p-2 text-xs text-gray-400">No products found</div>
-                                                  )}
-                                                </div>
-                                              )}
-                                            </div>
-                                          )}
-                                        </td>
-                                        <td className="p-2 text-center">
-                                          <select
-                                            value={item.type}
-                                            onChange={(e) => updateLostDamagedItem(item.id, "type", e.target.value)}
-                                            className="h-7 text-xs bg-white border border-gray-200 rounded px-1"
-                                          >
-                                            <option value="damaged">Damaged</option>
-                                            <option value="lost">Lost</option>
-                                          </select>
-                                        </td>
-                                        <td className="p-2 text-center">
-                                          <Input
-                                            type="number"
-                                            value={item.quantity}
-                                            onChange={(e) => updateLostDamagedItem(item.id, "quantity", parseInt(e.target.value) || 1)}
-                                            className="h-7 w-12 text-center"
-                                            min={1}
-                                          />
-                                        </td>
-                                        <td className="p-2">
-                                          <Input
-                                            type="number"
-                                            value={item.charge_per_item}
-                                            onChange={(e) => updateLostDamagedItem(item.id, "charge_per_item", parseFloat(e.target.value) || 0)}
-                                            className="h-7 w-20 text-right font-mono"
-                                            placeholder="₹0"
-                                          />
-                                        </td>
-                                        <td className="p-2 text-right font-semibold text-red-600 font-mono">
-                                          ₹{item.total_charge.toLocaleString('en-IN')}
-                                        </td>
-                                        <td className="p-2 text-center">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            type="button"
-                                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                            onClick={() => removeLostDamagedItem(item.id)}
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </Button>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          )}
-                        </Card>
-                      )}
-
-                      {/* Notes Card */}
-                      <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
-                        <Label className="text-xs font-semibold text-gray-800 mb-2 block">Order Notes</Label>
-                        <Textarea
-                          value={invoiceData.notes}
-                          onChange={(e) => setInvoiceData({ ...invoiceData, notes: e.target.value })}
-                          placeholder="Any additional notes..."
-                          rows={2}
-                          className="bg-white border-gray-200 resize-none text-xs"
-                        />
-                      </Card>
-
-                      {/* Terms & Conditions Card */}
-                      <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white text-xs">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileCheck className="h-4 w-4 text-indigo-500" />
-                          <span className="font-semibold text-gray-800">Terms & Conditions</span>
-                        </div>
-                        <div className="text-[10px] text-gray-600 max-h-40 overflow-y-auto leading-relaxed">
-                          {invoiceData.invoice_type === "sale" ? (
-                            <ul className="list-disc list-inside space-y-1">
-                              <li>Products purchased under the sale category are non-returnable and non-exchangeable.</li>
-                              <li>This agreement and any related matters shall be governed by the jurisdiction of Vadodara, Gujarat.</li>
-                            </ul>
-                          ) : (
-                            <ol className="list-decimal list-inside space-y-0.5">
-                              <li>All product selections and order details are considered approved by the customer at the time of booking. Any changes requested after confirmation may not be possible, especially close to the event date.</li>
-                              <li>For the best service experience, Safa Wale bookings should preferably be confirmed at least 30 days before the event.</li>
-                              <li>The remaining payment, including the Security Deposit, must be completed before the event date.</li>
-                              <li>Safas and rental items remain the responsibility of the customer until they are collected by our team. Any lost, damaged, torn, burnt, or unreturned items will be charged as per the applicable lost/damage rates.</li>
-                              <li>Our team will arrange the collection of safas after the event. If items are not available for collection on the agreed date, additional rental charges may apply and can be adjusted from the Security Deposit.</li>
-                              <li>Safa Wale service includes up to 5 hours of assistance. Additional hours, if required, will be charged at ₹1,500 per hour.</li>
-                              <li>Service timings are subject to the booking location. Local city services include up to 1 hour of assistance, while outstation services are available for up to 4 hours and until 9:30 PM. Any additional time may be adjusted against the Security Deposit.</li>
-                              <li>Sold products are non-returnable and non-exchangeable. All bookings and services are subject to Vadodara jurisdiction.</li>
-                            </ol>
-                          )}
-                        </div>
-                      </Card>
+                      {renderSettlementCards()}
                     </TabsContent>
                   </Tabs>
+                )}
+              </div>
 
-                  {/* CHECKOUT SECTION */}
-                  <div className="space-y-4 mt-6">
-                    <Card className="shadow-sm border border-slate-200 bg-white overflow-hidden">
+              {/* Right Column / POS checkout container OR bottom checkout container */}
+              <div className={cn(
+                invoiceData.invoice_type === "sale" ? "col-span-12 lg:col-span-4 lg:sticky lg:top-20" : "space-y-4 mt-6"
+              )}>
+                <Card className="shadow-sm border border-slate-200 bg-white overflow-hidden">
                       {/* Sidebar Header */}
                       <div className="p-3 bg-slate-900 text-white flex justify-between items-center">
                         <div>
@@ -3375,7 +3727,10 @@ export default function CreateInvoicePage() {
                         </Badge>
                       </div>
 
-                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <div className={cn(
+                        "p-4 grid gap-6 items-start",
+                        invoiceData.invoice_type === "sale" ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
+                      )}>
                         {/* Left Column: Added Items & package/lost/damaged details */}
                         <div className="space-y-4">
                           {/* Added Items / Cart List */}
@@ -3660,8 +4015,8 @@ export default function CreateInvoicePage() {
                         <Button 
                           size="default" 
                           onClick={handleCreateOrder} 
-                          disabled={saving || !selectedCustomer}
-                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-10 font-semibold text-sm"
+                          disabled={saving || !selectedCustomer || (mode === "edit" && !editingQuote)}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-10 font-semibold text-sm disabled:opacity-50"
                         >
                           {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                           {mode === "edit" && editingQuote ? "CONVERT TO BOOKING" : mode === "edit" ? "UPDATE ORDER" : "CREATE ORDER"}
@@ -3697,6 +4052,7 @@ export default function CreateInvoicePage() {
               </div>
             </div>
           </div>
+        </div>
         {/* ================= END WEB-ONLY CONTENT ================= */}
 
         {/* ================= PRINT-ONLY ITEMS & SUMMARY SECTION ================= */}
@@ -4186,6 +4542,47 @@ export default function CreateInvoicePage() {
                     Create & Add
                   </>
                 )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lead Conversion Confirmation Dialog */}
+      <Dialog open={!!selectedLeadToConvert} onOpenChange={(open) => !open && setSelectedLeadToConvert(null)}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900 font-bold">Convert Lead to Customer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Are you sure you want to convert the lead <strong>{selectedLeadToConvert?.name}</strong> to a customer profile and select it for this booking?
+            </p>
+            {selectedLeadToConvert && (
+              <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1 text-slate-700 border border-slate-100">
+                <div><strong>Name:</strong> {selectedLeadToConvert.name}</div>
+                <div><strong>WhatsApp:</strong> {selectedLeadToConvert.phone}</div>
+                {selectedLeadToConvert.event_date && (
+                  <div><strong>Event Date:</strong> {new Date(selectedLeadToConvert.event_date).toLocaleDateString()}</div>
+                )}
+                {selectedLeadToConvert.location && (
+                  <div><strong>Location/Venue:</strong> {selectedLeadToConvert.location}</div>
+                )}
+                {selectedLeadToConvert.package_interest && (
+                  <div><strong>Package Interest:</strong> {selectedLeadToConvert.package_interest}</div>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSelectedLeadToConvert(null)} disabled={convertingLead} className="text-xs">
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => handleConvertLead(selectedLeadToConvert)} 
+                disabled={convertingLead}
+                className="bg-[#113c2c] hover:bg-[#0c2e22] text-white text-xs font-semibold"
+              >
+                {convertingLead ? "Converting..." : "Convert & Select"}
               </Button>
             </div>
           </div>

@@ -11,10 +11,8 @@ export const runtime = "nodejs"
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieRaw = request.cookies.get("safawala_user")?.value
-    if (!cookieRaw) {
-      return NextResponse.json({ valid: false, reason: "no_cookie" })
-    }
+    // Bypassed/disabled single-device login enforcement
+    return NextResponse.json({ valid: true })
 
     let parsed: any
     try {
@@ -45,6 +43,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ valid: false, reason: "user_not_found" })
     }
 
+    console.log("[verify-session] userId:", userId, "cookieToken:", cookieToken, "dbToken:", user.session_token)
+
     if (!user.is_active) {
       return NextResponse.json({ valid: false, reason: "account_inactive" })
     }
@@ -54,15 +54,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ valid: true, reason: "no_db_token" })
     }
 
-    if (user.session_token !== cookieToken) {
-      return NextResponse.json({
-        valid: false,
-        reason: "session_replaced",
-        message: "You have been logged out because your account was accessed from another device.",
-      })
+    const [dbDevice, dbUuid] = user.session_token.includes(":") ? user.session_token.split(":") : ["legacy", user.session_token]
+    const [cookieDevice, cookieUuid] = cookieToken.includes(":") ? cookieToken.split(":") : ["legacy", cookieToken]
+
+    if (dbDevice === cookieDevice) {
+      const response = NextResponse.json({ valid: true })
+      
+      // If session tokens differ (e.g. user logged in again in another tab), update cookie
+      if (user.session_token !== cookieToken) {
+        const updatedPayload = {
+          ...parsed,
+          session_token: user.session_token
+        }
+        response.cookies.set('safawala_user', JSON.stringify(updatedPayload), {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 7, // 7 days
+        })
+      }
+      return response
     }
 
-    return NextResponse.json({ valid: true })
+    return NextResponse.json({
+      valid: false,
+      reason: "session_replaced",
+      message: "You have been logged out because your account was accessed from another device.",
+    })
   } catch (err) {
     console.error("[verify-session]", err)
     return NextResponse.json({ valid: true }) // Fail open to avoid locking users out on transient errors

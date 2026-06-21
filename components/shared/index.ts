@@ -11,6 +11,7 @@
 export { ItemsDisplayDialog } from './dialogs/items-display-dialog'
 export { ItemsSelectionDialog } from './dialogs/items-selection-dialog'
 export { CompactItemsDisplayDialog } from './dialogs/compact-items-display-dialog'
+export { BookingWorkflowStepper } from './booking-workflow-stepper'
 
 // ============================================================================
 // HOOKS

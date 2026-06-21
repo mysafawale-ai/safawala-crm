@@ -647,8 +647,8 @@ export function SafawalaAIAssistant() {
                   onKeyDown={handleKeyDown}
                   placeholder="Ask anything about your CRM..."
                   rows={1}
-                  className="flex-1 bg-white/8 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-yellow-500/50 resize-none leading-5 max-h-24 overflow-y-auto"
-                  style={{ minHeight: "40px" }}
+                  className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:border-yellow-500/50 resize-none leading-5 max-h-24 overflow-y-auto"
+                  style={{ minHeight: "40px", backgroundColor: "#ffffff", color: "#0f172a" }}
                 />
                 <button
                   onClick={() => sendMessage(input)}

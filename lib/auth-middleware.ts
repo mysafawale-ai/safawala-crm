@@ -74,7 +74,27 @@ export async function authenticateRequest(
     const authClient = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user: authUser }, error: authError } = await authClient.auth.getUser();
 
-    if (authError || !authUser?.email) {
+    let authUserEmail = authUser?.email;
+    let authUserId = authUser?.id;
+
+    if (authError || !authUserEmail) {
+      // Fallback: Read from httpOnly safawala_user cookie
+      const userCookie = cookieStore.get("safawala_user")?.value;
+      if (userCookie) {
+        try {
+          const parsed = JSON.parse(userCookie);
+          if (parsed?.email) {
+            authUserEmail = parsed.email;
+            authUserId = parsed.id;
+            console.log("[Auth Middleware] Authenticated via safawala_user cookie fallback:", authUserEmail);
+          }
+        } catch (e) {
+          console.warn("[Auth Middleware] Failed to parse safawala_user cookie:", e);
+        }
+      }
+    }
+
+    if (!authUserEmail) {
       return {
         authorized: false,
         error: { error: 'Unauthorized', message: 'Authentication required' },
@@ -99,13 +119,13 @@ export async function authenticateRequest(
           code
         )
       `)
-      .ilike('email', authUser.email)
+      .ilike('email', authUserEmail)
       .eq('is_active', true)
       .single();
 
     // If user profile doesn't exist, try to create a default one
-    if ((profileError || !appUser) && authUser.email) {
-      console.warn(`[Auth] User profile not found for ${authUser.email}, attempting to create default profile`);
+    if ((profileError || !appUser) && authUserEmail) {
+      console.warn(`[Auth] User profile not found for ${authUserEmail}, attempting to create default profile`);
       
       // Try to get first franchise as default
       let defaultFranchiseId: string | null = null;
@@ -125,9 +145,9 @@ export async function authenticateRequest(
         const { data: newUser } = await supabaseServer
           .from('users')
           .insert({
-            id: authUser.id,
-            email: authUser.email,
-            name: authUser.user_metadata?.name || authUser.email.split('@')[0] || 'User',
+            id: authUserId || crypto.randomUUID(),
+            email: authUserEmail,
+            name: authUser?.user_metadata?.name || authUserEmail.split('@')[0] || 'User',
             role: 'staff', // Default role
             franchise_id: defaultFranchiseId,
             is_active: true,
@@ -151,7 +171,7 @@ export async function authenticateRequest(
         
         if (newUser) {
           appUser = newUser;
-          console.log(`[Auth] Created default user profile for ${authUser.email}`);
+          console.log(`[Auth] Created default user profile for ${authUserEmail}`);
         }
       } catch (createErr: any) {
         console.error('[Auth] Failed to create user profile:', createErr.message);

@@ -1,0 +1,199 @@
+export type DepartmentSlug =
+  | "admin"
+  | "manager"
+  | "booking"
+  | "warehouse"
+  | "qc"
+  | "delivery"
+  | "styling"
+  | "accounts"
+  | "franchise"
+
+export interface PortalTab {
+  icon: string
+  label: string
+  href: string
+}
+
+export interface PortalConfig {
+  slug: DepartmentSlug
+  label: string
+  portalName: string
+  icon: string
+  color: string
+  gradient: string
+  allowedRoles: string[]
+  tabs: PortalTab[]
+}
+
+export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
+  admin: {
+    slug: "admin",
+    label: "Administration",
+    portalName: "Admin Portal",
+    icon: "crown",
+    color: "#f97316",
+    gradient: "from-orange-500 to-orange-600",
+    allowedRoles: ["super_admin"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/admin" },
+      { icon: "globe", label: "Franchises", href: "/portal/admin/franchises" },
+      { icon: "users", label: "Staff", href: "/portal/admin/staff" },
+      { icon: "bar-chart", label: "Reports", href: "/portal/admin/reports" },
+      { icon: "settings", label: "Settings", href: "/portal/admin/settings" },
+    ],
+  },
+
+  manager: {
+    slug: "manager",
+    label: "Branch Management",
+    portalName: "Manager Portal",
+    icon: "building",
+    color: "#3b82f6",
+    gradient: "from-blue-500 to-blue-600",
+    allowedRoles: ["franchise_admin", "manager"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/manager" },
+      { icon: "calendar", label: "Bookings", href: "/portal/manager/bookings" },
+      { icon: "team", label: "Team", href: "/portal/manager/staff" },
+      { icon: "bar-chart", label: "Reports", href: "/portal/manager/reports" },
+      { icon: "user", label: "Me", href: "/portal/manager/profile" },
+    ],
+  },
+
+  booking: {
+    slug: "booking",
+    label: "Sales & Booking",
+    portalName: "Booking Portal",
+    icon: "target",
+    color: "#22c55e",
+    gradient: "from-green-500 to-green-600",
+    allowedRoles: ["super_admin", "franchise_admin", "staff", "booking_staff"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/booking" },
+      { icon: "calendar", label: "Bookings", href: "/portal/booking/bookings" },
+      { icon: "users", label: "Customers", href: "/portal/booking/customers" },
+      { icon: "document", label: "Quotes", href: "/portal/booking/quotes" },
+      { icon: "user", label: "Me", href: "/portal/booking/profile" },
+    ],
+  },
+
+  warehouse: {
+    slug: "warehouse",
+    label: "Inventory & Warehouse",
+    portalName: "Warehouse Portal",
+    icon: "box",
+    color: "#a855f7",
+    gradient: "from-purple-500 to-purple-600",
+    allowedRoles: ["super_admin", "franchise_admin", "staff", "warehouse_staff"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/warehouse" },
+      { icon: "clipboard", label: "Pick & Pack", href: "/portal/warehouse/tasks" },
+      { icon: "package", label: "Stock", href: "/portal/warehouse/inventory" },
+      { icon: "laundry", label: "Laundry", href: "/portal/warehouse/laundry" },
+      { icon: "user", label: "Me", href: "/portal/warehouse/profile" },
+    ],
+  },
+
+  qc: {
+    slug: "qc",
+    label: "Quality Control",
+    portalName: "QC Portal",
+    icon: "search",
+    color: "#eab308",
+    gradient: "from-yellow-500 to-yellow-600",
+    allowedRoles: ["super_admin", "franchise_admin", "staff", "qc_staff"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/qc" },
+      { icon: "search", label: "Inspect", href: "/portal/qc/inspect" },
+      { icon: "alert-triangle", label: "Damage", href: "/portal/qc/damage" },
+      { icon: "clipboard", label: "Orders", href: "/portal/qc/work-orders" },
+      { icon: "user", label: "Me", href: "/portal/qc/profile" },
+    ],
+  },
+
+  delivery: {
+    slug: "delivery",
+    label: "Dispatch & Shipping",
+    portalName: "Dispatch Portal",
+    icon: "truck",
+    color: "#14b8a6",
+    gradient: "from-teal-500 to-teal-600",
+    allowedRoles: ["super_admin", "franchise_admin", "staff", "delivery_staff"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/delivery" },
+      { icon: "truck", label: "Dispatch", href: "/portal/delivery/deliveries" },
+      { icon: "refresh", label: "Returns", href: "/portal/delivery/returns" },
+      { icon: "map-pin", label: "Track", href: "/portal/delivery/routes" },
+      { icon: "user", label: "Me", href: "/portal/delivery/profile" },
+    ],
+  },
+
+  styling: {
+    slug: "styling",
+    label: "Safa Styling",
+    portalName: "Stylist Portal",
+    icon: "scissors",
+    color: "#ec4899",
+    gradient: "from-pink-500 to-pink-600",
+    allowedRoles: ["super_admin", "franchise_admin", "staff", "stylist"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/styling" },
+      { icon: "clipboard", label: "Assignments", href: "/portal/styling/assignments" },
+      { icon: "rupee", label: "Earnings", href: "/portal/styling/earnings" },
+      { icon: "calendar", label: "Attendance", href: "/portal/styling/attendance" },
+      { icon: "user", label: "Me", href: "/portal/styling/profile" },
+    ],
+  },
+
+  accounts: {
+    slug: "accounts",
+    label: "Finance & Accounts",
+    portalName: "Accounts Portal",
+    icon: "rupee",
+    color: "#ef4444",
+    gradient: "from-red-500 to-red-600",
+    allowedRoles: ["super_admin", "franchise_admin", "accounts_staff"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/accounts" },
+      { icon: "credit-card", label: "Payments", href: "/portal/accounts/payments" },
+      { icon: "receipt", label: "Expenses", href: "/portal/accounts/expenses" },
+      { icon: "bar-chart", label: "Reports", href: "/portal/accounts/reports" },
+      { icon: "user", label: "Me", href: "/portal/accounts/profile" },
+    ],
+  },
+
+  franchise: {
+    slug: "franchise",
+    label: "Franchise Operations",
+    portalName: "Franchise Portal",
+    icon: "globe",
+    color: "#8b5cf6",
+    gradient: "from-violet-500 to-violet-600",
+    allowedRoles: ["franchise_owner", "franchise_admin"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/franchise" },
+      { icon: "rupee", label: "Revenue", href: "/portal/franchise/revenue" },
+      { icon: "package", label: "Inventory", href: "/portal/franchise/inventory" },
+      { icon: "users", label: "Staff", href: "/portal/franchise/staff" },
+      { icon: "user", label: "Me", href: "/portal/franchise/profile" },
+    ],
+  },
+}
+
+export function getPortalConfig(dept: string): PortalConfig | null {
+  return PORTAL_CONFIG[dept as DepartmentSlug] ?? null
+}
+
+/** Map a user role to their default portal when no department is assigned */
+export function getDefaultPortalForRole(role: string): DepartmentSlug {
+  switch (role) {
+    case "super_admin":
+      return "admin"
+    case "franchise_admin":
+    case "franchise_owner":
+      return "manager"
+    default:
+      return "booking"
+  }
+}

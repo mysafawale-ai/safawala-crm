@@ -122,7 +122,25 @@ export async function GET(request: NextRequest) {
     const auth = createRouteHandlerClient({ cookies: () => cookieStore })
     const { data: { user: authUser }, error: authError } = await auth.auth.getUser()
 
-    if (authError || !authUser?.email) {
+    let authUserEmail = authUser?.email
+
+    if (authError || !authUserEmail) {
+      // Fallback: Read from httpOnly safawala_user cookie
+      const userCookie = cookieStore.get("safawala_user")?.value
+      if (userCookie) {
+        try {
+          const parsed = JSON.parse(userCookie)
+          if (parsed?.email) {
+            authUserEmail = parsed.email
+            console.log("[Auth User API] Found authenticated user email in safawala_user cookie fallback:", authUserEmail)
+          }
+        } catch (e) {
+          console.warn("[Auth User API] Failed to parse safawala_user cookie:", e)
+        }
+      }
+    }
+
+    if (!authUserEmail) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 

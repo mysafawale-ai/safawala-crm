@@ -66,6 +66,7 @@ import { BookingTypeDialog } from "@/components/quotes/booking-type-dialog"
 import { getCurrentUser } from "@/lib/auth"
 import { format } from "date-fns"
 import { supabase } from "@/lib/supabase"
+import { DashboardLayout } from "@/components/layout/dashboard-layout"
 
 interface QuoteStats {
   total: number
@@ -2085,15 +2086,17 @@ const getStatusBadge = (status: string) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <DashboardLayout userRole={user?.role}>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <DashboardLayout userRole={user?.role}>
+      <div className="space-y-6">
       {/* Header */}
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -3439,6 +3442,6 @@ const getStatusBadge = (status: string) => {
       </AlertDialog>
 
       </div>
-    </div>
+    </DashboardLayout>
   )
 }

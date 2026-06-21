@@ -5,13 +5,17 @@ export class NotificationService {
   static async notifyBookingCreated(booking: any) {
     // Notify customer
     if (booking.customer_phone) {
-      await whatsappService.sendBookingConfirmation(booking.customer_phone, {
-        customerName: booking.customer_name,
-        eventDate: booking.event_date,
-        venue: booking.venue,
-        totalAmount: booking.total_amount,
-        id: booking.id,
-      })
+      if (booking.type === "sale" || booking.booking_type === "sale") {
+        await whatsappService.sendDirectSaleConfirmation(booking.customer_phone, booking)
+      } else {
+        await whatsappService.sendBookingConfirmation(booking.customer_phone, {
+          customerName: booking.customer_name,
+          eventDate: booking.event_date,
+          venue: booking.venue,
+          totalAmount: booking.total_amount,
+          id: booking.id,
+        })
+      }
     }
 
     // Notify staff
