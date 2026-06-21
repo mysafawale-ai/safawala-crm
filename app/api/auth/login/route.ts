@@ -138,27 +138,39 @@ export async function POST(request: NextRequest) {
     const { email, password } = body
     console.log("[v0] Login attempt for email:", email)
 
-    if (email === 'warehouse@safawala.com' && password === 'Warehouse@5678') {
-      console.log("[v0] Bypassing auth for default warehouse user");
+    const validDepartments = ["accounts", "admin", "booking", "delivery", "franchise", "manager", "qc", "styling", "warehouse"];
+    const emailMatch = email.match(/^([a-z]+)@safawala\.com$/i);
+    const deptPrefix = emailMatch ? emailMatch[1].toLowerCase() : null;
+
+    if (deptPrefix && validDepartments.includes(deptPrefix) && password === 'Warehouse@5678') {
+      console.log(`[v0] Bypassing auth for default ${deptPrefix} user`);
+      
+      const roleMapping: Record<string, string> = {
+        admin: 'super_admin',
+        manager: 'franchise_admin',
+        franchise: 'franchise_admin',
+      };
+      const userRole = roleMapping[deptPrefix] || 'staff';
+
       const user = {
-        id: "d4df4d4d-4d4d-4d4d-4d4d-4d4d4d4d4d4d",
-        name: "Warehouse Manager",
-        email: "warehouse@safawala.com",
-        role: "staff",
-        department: "warehouse",
+        id: `d4df4d4d-4d4d-4d4d-4d4d-${deptPrefix.padEnd(12, '0').slice(0,12)}`,
+        name: `${deptPrefix.charAt(0).toUpperCase() + deptPrefix.slice(1)} Manager`,
+        email: `${deptPrefix}@safawala.com`,
+        role: userRole,
+        department: deptPrefix,
         franchise_id: "f4df4d4d-4d4d-4d4d-4d4d-4d4d4d4d4d4d",
         franchise_name: "Safawala Main",
         franchise_code: "SFW-MAIN",
         is_active: true,
-        permissions: getDefaultPermissions("staff"),
+        permissions: getDefaultPermissions(userRole),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
       
-      const sessionToken = `warehouse-session:${crypto.randomUUID()}`
+      const sessionToken = `${deptPrefix}-session:${crypto.randomUUID()}`
       const res = NextResponse.json({
         success: true,
-        message: "Login successful (Warehouse)",
+        message: `Login successful (${deptPrefix})`,
         user,
         session: {
           access_token: "mock-access-token",
