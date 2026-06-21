@@ -42,30 +42,8 @@ export default function InventoryPage() {
       if (error) throw error
       setDamageReports(data || [])
     } catch (err) {
-      console.warn("Failed to fetch damage reports, using mock fallback:", err)
-      const mockReports = [
-        {
-          id: "dr1",
-          qty_damaged: 2,
-          damage_type: "tear",
-          severity: "major",
-          description: "Strap ripped off during handling",
-          reported_at: new Date().toISOString(),
-          status: "pending",
-          product: { name: "Premium Red Safa", sku: "SAF-RED-001", barcode: "10001" }
-        },
-        {
-          id: "dr2",
-          qty_damaged: 1,
-          damage_type: "broken",
-          severity: "total_loss",
-          description: "Kalangi brooch pin completely broken",
-          reported_at: new Date().toISOString(),
-          status: "pending",
-          product: { name: "Silver Pearl Kalangi", sku: "KLG-SLV-001", barcode: "30001" }
-        }
-      ]
-      setDamageReports(mockReports)
+      console.error("Failed to fetch damage reports:", err)
+      setDamageReports([])
     } finally {
       setDamageLoading(false)
     }

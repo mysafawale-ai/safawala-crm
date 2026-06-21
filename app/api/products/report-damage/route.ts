@@ -71,14 +71,6 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error("Failed to insert damage report:", insertError)
-      if (insertError.message?.includes("restricted") || insertError.message?.includes("quota") || insertError.message?.includes("violation") || insertError.message?.includes("limit")) {
-        console.warn("Supabase restricted, performing mock response fallback");
-        return NextResponse.json({
-          success: true,
-          mock: true,
-          message: "Report logged successfully (Mock Fallback due to DB limits)"
-        }, { status: 200 })
-      }
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
