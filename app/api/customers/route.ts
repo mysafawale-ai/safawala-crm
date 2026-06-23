@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
     // Permissions: In basic mode (used by booking wizard), allow read for authenticated roles
     // while still enforcing franchise isolation. Otherwise require explicit module permission.
     if (!basic) {
-      const permissions = await getUserPermissions(authContext!.user.id)
-      if (!hasModuleAccess(permissions, 'customers')) {
+      const permissions = authContext!.user.permissions
+      if (!permissions.customers) {
         return NextResponse.json(
           { error: 'You do not have permission to view customers' },
           { status: 403 }
@@ -146,8 +146,7 @@ export async function POST(request: NextRequest) {
     }
     const { authContext } = authResult
     const userId = authContext!.user.id
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'customers')) {
+    if (!authContext!.user.permissions.customers) {
       return NextResponse.json(
         { error: 'You do not have permission to create customers' },
         { status: 403 }

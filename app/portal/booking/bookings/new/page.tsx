@@ -39,7 +39,7 @@ function NewBookingInner() {
 
   const [step, setStep] = useState(1)
   const [bookingType, setBookingType] = useState<"rental"|"sale">("rental")
-  const [isQuote, setIsQuote] = useState(false)
+  const [isQuote, setIsQuote] = useState(searchParams.get("is_quote") === "true")
 
   // Customer
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -99,10 +99,10 @@ function NewBookingInner() {
   const loadProducts = useCallback(async () => {
     setLoadingProducts(true)
     try {
-      const res = await fetch("/api/inventory?limit=300")
+      const res = await fetch("/api/products")
       const data = await res.json()
-      const list = Array.isArray(data)?data:data.data||data.products||[]
-      setProducts(list.filter((p:any)=>p.name&&(p.rental_price>0||p.sale_price>0)))
+      const list: any[] = Array.isArray(data) ? data : data.data || data.products || []
+      setProducts(list.filter((p:any) => p.name && (Number(p.rental_price) > 0 || Number(p.sale_price) > 0)))
     } catch {} finally { setLoadingProducts(false) }
   }, [])
 
