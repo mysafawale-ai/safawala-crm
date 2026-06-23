@@ -153,15 +153,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // 🔒 SECURITY: Authenticate user and get franchise context
-    const auth = await authenticateRequest(request, { minRole: 'franchise_admin', requirePermission: 'staff' })
+    // Allow franchise_admin and hr_staff to create staff members
+    const auth = await authenticateRequest(request, { minRole: 'staff' })
     if (!auth.authorized) {
       return NextResponse.json(auth.error, { status: auth.statusCode || 401 })
     }
     const { user } = auth
 
   const body = await request.json()
-  const { name, email, password, role, permissions, is_active = true } = body
+  const { name, email, password, role, permissions, is_active = true, department, base_salary } = body
     
     // 🔒 RBAC: Franchise admins cannot create super admins
     if (!user!.is_super_admin && role === 'super_admin') {
@@ -220,17 +220,21 @@ export async function POST(request: NextRequest) {
     const safePermissions = sanitizePermissions(permissions, role)
 
     // Insert new user in database
+    const insertData: any = {
+      name,
+      email,
+      password_hash,
+      role,
+      franchise_id: staffFranchiseId,
+      permissions: safePermissions,
+      is_active,
+    }
+    if (department) insertData.department = department
+    if (base_salary) insertData.base_salary = parseFloat(base_salary)
+
     const { data, error } = await supabase
       .from("users")
-      .insert([{
-        name,
-        email,
-        password_hash,
-        role,
-        franchise_id: staffFranchiseId,
-        permissions: safePermissions,
-        is_active
-      }])
+      .insert([insertData])
       .select(`
         *,
         franchise:franchises(name, code)

@@ -97,6 +97,10 @@ export default function StaffPage() {
     s.department?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(80,55,30,0.5)", display: "block", marginBottom: 5 }
+  const inputStyle = (valid: boolean): React.CSSProperties => ({ width: "100%", height: 44, borderRadius: 12, border: `1.5px solid ${valid ? "#e2e8f0" : "#fca5a5"}`, padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box", background: "white", color: "#1e1208" })
+  const selectStyle: React.CSSProperties = { width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", padding: "0 12px", fontSize: 13, fontFamily: "inherit", outline: "none", background: "white", color: "#1e1208", appearance: "auto" }
+
   return (
     <div style={{ fontFamily: "'Inter','Segoe UI',sans-serif", paddingBottom: 80 }}>
       {toast && (
@@ -192,44 +196,77 @@ export default function StaffPage() {
 
       {/* Add Staff Sheet */}
       {showAdd && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100 }}>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }} onClick={() => setShowAdd(false)} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "white", borderRadius: "24px 24px 0 0", padding: "20px 20px calc(env(safe-area-inset-bottom,20px)+20px)", maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(0,0,0,0.1)" }} />
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }} onClick={() => setShowAdd(false)} />
+          <div style={{ position: "relative", width: "100%", maxWidth: 520, background: "white", borderRadius: "24px 24px 0 0", maxHeight: "92vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+            {/* Handle */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: "#e2e8f0" }} />
             </div>
-            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900 }}>Add Staff Member</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[
-                { key: "name", label: "Full Name *", type: "text" },
-                { key: "email", label: "Email *", type: "email" },
-                { key: "phone", label: "Phone / WhatsApp", type: "tel" },
-                { key: "password", label: "Temporary Password *", type: "password" },
-                { key: "base_salary", label: "Base Salary (₹/month)", type: "number" },
-              ].map(f => (
-                <div key={f.key}>
-                  <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(80,55,30,0.5)", display: "block", marginBottom: 4 }}>{f.label}</label>
-                  <input type={f.type} value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+            {/* Header */}
+            <div style={{ padding: "16px 20px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#1e1208" }}>Add Staff Member</h3>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(80,55,30,0.45)" }}>Fill all required fields to create a login</p>
+              </div>
+              <button onClick={() => setShowAdd(false)} style={{ width: 32, height: 32, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>×</button>
+            </div>
+
+            <div style={{ padding: "16px 20px calc(env(safe-area-inset-bottom,20px) + 20px)", display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Name + Phone row */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <label style={labelStyle}>Full Name *</label>
+                  <input type="text" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Ronak Dave" style={inputStyle(!!form.name)} />
                 </div>
-              ))}
-              <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(80,55,30,0.5)", display: "block", marginBottom: 4 }}>Department *</label>
-                <select value={form.department} onChange={e => setForm(p => ({ ...p, department: e.target.value }))}
-                  style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", background: "white" }}>
-                  {DEPTS.filter(d => d !== "all").map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
-                </select>
+                <div>
+                  <label style={labelStyle}>Phone / WhatsApp</label>
+                  <input type="tel" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="9876543210" style={inputStyle(true)} />
+                </div>
               </div>
+
+              {/* Email full width */}
               <div>
-                <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(80,55,30,0.5)", display: "block", marginBottom: 4 }}>Role *</label>
-                <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))}
-                  style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", background: "white" }}>
-                  {ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, " ")}</option>)}
-                </select>
+                <label style={labelStyle}>Email Address *</label>
+                <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="ronak@safawala.com" style={inputStyle(!!form.email)} />
               </div>
+
+              {/* Password + Salary row */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <label style={labelStyle}>Temp. Password *</label>
+                  <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 8 chars" style={inputStyle(!!form.password)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Base Salary (₹/mo)</label>
+                  <input type="number" value={form.base_salary} onChange={e => setForm(p => ({ ...p, base_salary: e.target.value }))} placeholder="15000" style={inputStyle(true)} />
+                </div>
+              </div>
+
+              {/* Dept + Role row */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <label style={labelStyle}>Department *</label>
+                  <select value={form.department} onChange={e => setForm(p => ({ ...p, department: e.target.value }))} style={selectStyle}>
+                    {DEPTS.filter(d => d !== "all").map(d => (
+                      <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Role *</label>
+                  <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} style={selectStyle}>
+                    {ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, " ")}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div style={{ borderTop: "1px solid #f1f5f9", margin: "4px 0" }} />
+
               <button onClick={addStaff} disabled={saving}
-                style={{ width: "100%", height: 50, borderRadius: 14, border: "none", background: COLOR, color: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.6 : 1, marginTop: 4 }}>
-                {saving ? "Adding…" : "Add Staff Member"}
+                style={{ width: "100%", height: 52, borderRadius: 16, border: "none", background: saving ? "#a5b4fc" : COLOR, color: "white", fontSize: 15, fontWeight: 800, cursor: saving ? "default" : "pointer", fontFamily: "inherit", letterSpacing: 0.3, transition: "background 0.2s" }}>
+                {saving ? "Creating Account…" : "Add Staff Member"}
               </button>
             </div>
           </div>
