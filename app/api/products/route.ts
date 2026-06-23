@@ -121,12 +121,33 @@ export async function GET(req: NextRequest) {
     const franchiseId = auth.user!.franchise_id
     const isSuperAdmin = auth.user!.is_super_admin
 
+    const { searchParams } = new URL(req.url)
+    const barcodeParam = searchParams.get("barcode")
+    const searchParam = searchParams.get("search")
+    const limitParam = parseInt(searchParams.get("limit") || "500", 10)
+    const idParam = searchParams.get("id")
+
     const supabase = createClient()
-    let query = supabase.from("products").select("*").order("name")
+    let query = supabase.from("products").select("*").order("name").limit(limitParam)
 
     // Franchise isolation
     if (!isSuperAdmin && franchiseId) {
       query = query.eq("franchise_id", franchiseId)
+    }
+
+    // Barcode lookup
+    if (barcodeParam) {
+      query = query.ilike("barcode", barcodeParam.trim())
+    }
+
+    // Text search
+    if (searchParam) {
+      query = query.or(`name.ilike.%${searchParam}%,barcode.ilike.%${searchParam}%,product_code.ilike.%${searchParam}%`)
+    }
+
+    // Single product by id
+    if (idParam) {
+      query = query.eq("id", idParam)
     }
 
     const { data: products, error } = await query

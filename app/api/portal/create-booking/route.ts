@@ -23,16 +23,21 @@ export async function POST(req: NextRequest) {
       booking_type = 'rental',
       is_quote = false,
       event_date,
+      event_time,
       delivery_date,
       delivery_time,
       return_date,
       return_time,
       event_type = 'wedding',
+      event_participant = 'both',
       venue_address = '',
       groom_name = '',
       groom_whatsapp,
+      groom_address = '',
       bride_name = '',
       bride_whatsapp,
+      bride_address = '',
+      sales_staff_id,
       total_amount = 0,
       subtotal_amount = 0,
       amount_paid = 0,
@@ -47,8 +52,9 @@ export async function POST(req: NextRequest) {
     if (!customer_id) {
       return NextResponse.json({ error: "Customer is required" }, { status: 400 })
     }
-    if (!event_date) {
-      return NextResponse.json({ error: "Event date is required" }, { status: 400 })
+    // For rental bookings, event_date is required. For sales, delivery_date or no date is fine.
+    if (booking_type === 'rental' && !is_quote && !event_date) {
+      return NextResponse.json({ error: "Event date is required for rental bookings" }, { status: 400 })
     }
 
     const supabase = createClient()
@@ -73,17 +79,22 @@ export async function POST(req: NextRequest) {
       customer_id,
       franchise_id: franchiseId,
       booking_type,
-      event_type,
-      event_date,
+      event_type: booking_type === 'sale' ? null : event_type,
+      event_date: event_date || null,
+      event_time: event_time || null,
       delivery_date: delivery_date || null,
       delivery_time: delivery_time || null,
       return_date: return_date || null,
       return_time: return_time || null,
-      venue_address,
-      groom_name,
-      groom_whatsapp: groom_whatsapp || null,
-      bride_name,
-      bride_whatsapp: bride_whatsapp || null,
+      event_participant: booking_type === 'sale' ? null : (event_participant || 'both'),
+      venue_address: booking_type === 'sale' ? '' : venue_address,
+      groom_name: booking_type === 'sale' ? '' : groom_name,
+      groom_whatsapp: booking_type === 'sale' ? null : (groom_whatsapp || null),
+      groom_address: booking_type === 'sale' ? '' : (groom_address || ''),
+      bride_name: booking_type === 'sale' ? '' : bride_name,
+      bride_whatsapp: booking_type === 'sale' ? null : (bride_whatsapp || null),
+      bride_address: booking_type === 'sale' ? '' : (bride_address || ''),
+      sales_closed_by_id: sales_staff_id || null,
       payment_method,
       amount_paid: Number(amount_paid) || 0,
       total_amount: Number(total_amount) || 0,

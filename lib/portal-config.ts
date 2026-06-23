@@ -52,9 +52,9 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
     icon: "building",
     color: "#3b82f6",
     gradient: "from-blue-500 to-blue-600",
-    allowedRoles: ["franchise_admin", "manager"],
+    allowedRoles: ["franchise_admin", "manager", "super_admin"],
     tabs: [
-      { icon: "home", label: "Home", href: "/portal/manager" },
+      { icon: "home", label: "Hub", href: "/portal/manager" },
       { icon: "calendar", label: "Bookings", href: "/portal/manager/bookings" },
       { icon: "team", label: "Team", href: "/portal/manager/staff" },
       { icon: "bar-chart", label: "Reports", href: "/portal/manager/reports" },
