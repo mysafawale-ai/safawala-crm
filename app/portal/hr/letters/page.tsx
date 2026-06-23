@@ -2,19 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { PortalPageHeader, PortalSectionLabel } from "@/components/portal/portal-shared"
+import { PortalIcon } from "@/components/portal/portal-icons"
 
 const COLOR = "#6366f1"
 
 const LETTER_TYPES = [
-  { key: "offer",      label: "Offer Letter",          icon: "🤝", color: "#22c55e" },
-  { key: "joining",    label: "Joining Letter",         icon: "🎉", color: "#3b82f6" },
-  { key: "experience", label: "Experience Letter",      icon: "📜", color: "#8b5cf6" },
-  { key: "salary",     label: "Salary Increment",      icon: "📈", color: "#f97316" },
-  { key: "warning",    label: "Warning Letter",         icon: "⚠️",  color: "#ef4444" },
-  { key: "termination",label: "Termination Letter",    icon: "🚫", color: "#dc2626" },
-  { key: "noc",        label: "No Objection (NOC)",    icon: "✅",  color: "#14b8a6" },
-  { key: "appointment",label: "Appointment Letter",    icon: "📋", color: "#eab308" },
-  { key: "relieving",  label: "Relieving Letter",      icon: "👋", color: "#94a3b8" },
+  { key: "offer",       label: "Offer Letter",        icon: "handshake",   color: "#22c55e" },
+  { key: "joining",     label: "Joining Letter",       icon: "award",       color: "#3b82f6" },
+  { key: "experience",  label: "Experience Letter",    icon: "star",        color: "#8b5cf6" },
+  { key: "salary",      label: "Salary Increment",     icon: "trending-up", color: "#f97316" },
+  { key: "warning",     label: "Warning Letter",       icon: "alert-triangle", color: "#ef4444" },
+  { key: "termination", label: "Termination Letter",   icon: "ban",         color: "#dc2626" },
+  { key: "noc",         label: "No Objection (NOC)",   icon: "file-check",  color: "#14b8a6" },
+  { key: "appointment", label: "Appointment Letter",   icon: "clipboard",   color: "#eab308" },
+  { key: "relieving",   label: "Relieving Letter",     icon: "log-out",     color: "#94a3b8" },
 ]
 
 function getTemplate(type: string, data: any): string {
@@ -243,8 +244,10 @@ export default function LettersPage() {
           <div style={{ padding: "0 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {LETTER_TYPES.map(l => (
               <button key={l.key} onClick={() => { setSelectedType(l.key); setFields({}) }}
-                style={{ padding: "16px 12px", borderRadius: 18, border: `2px solid ${l.color}20`, background: `${l.color}10`, cursor: "pointer", fontFamily: "inherit", textAlign: "center" }}>
-                <div style={{ fontSize: 26, marginBottom: 6 }}>{l.icon}</div>
+                style={{ padding: "16px 12px", borderRadius: 18, border: `2px solid ${l.color}20`, background: `${l.color}10`, cursor: "pointer", fontFamily: "inherit", textAlign: "center", color: l.color }}>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                  <PortalIcon name={l.icon} size={26} />
+                </div>
                 <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: l.color }}>{l.label}</p>
               </button>
             ))}
@@ -260,7 +263,10 @@ export default function LettersPage() {
               ←
             </button>
             <div>
-              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#1e1208" }}>{selectedMeta.icon} {selectedMeta.label}</p>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#1e1208", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: selectedMeta.color }}><PortalIcon name={selectedMeta.icon} size={18} /></span>
+              {selectedMeta.label}
+            </p>
               <p style={{ margin: 0, fontSize: 10, color: "rgba(80,55,30,0.45)", fontWeight: 500 }}>Fill details below to generate</p>
             </div>
           </div>
@@ -292,8 +298,9 @@ export default function LettersPage() {
             </div>
 
             <button onClick={generate}
-              style={{ width: "100%", height: 52, borderRadius: 16, border: "none", background: selectedMeta.color, color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", marginTop: 8, letterSpacing: 0.3 }}>
-              {selectedMeta.icon} Generate {selectedMeta.label}
+              style={{ width: "100%", height: 52, borderRadius: 16, border: "none", background: selectedMeta.color, color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", marginTop: 8, letterSpacing: 0.3, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <PortalIcon name="printer" size={18} />
+              Generate {selectedMeta.label}
             </button>
           </div>
         </div>

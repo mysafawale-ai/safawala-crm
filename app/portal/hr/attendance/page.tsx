@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { PortalPageHeader, PortalSectionLabel, PortalEmptyState, PortalSkeleton } from "@/components/portal/portal-shared"
+import { PortalIcon } from "@/components/portal/portal-icons"
 
 const COLOR = "#6366f1"
 const COLOR_DARK = "#4f46e5"
@@ -186,11 +187,11 @@ export default function HrAttendancePage() {
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => handleLeaveAction(l.id, "approved")} disabled={actioning === l.id}
                     style={{ flex: 1, height: 38, borderRadius: 12, border: "none", background: "#22c55e", color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: actioning === l.id ? 0.6 : 1 }}>
-                    {actioning === l.id ? "…" : "✓ Approve"}
+                    {actioning === l.id ? "…" : <span style={{ display: "flex", alignItems: "center", gap: 5 }}><PortalIcon name="check" size={14} /> Approve</span>}
                   </button>
                   <button onClick={() => handleLeaveAction(l.id, "rejected")} disabled={actioning === l.id}
-                    style={{ flex: 1, height: 38, borderRadius: 12, border: "none", background: "#ef4444", color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: actioning === l.id ? 0.6 : 1 }}>
-                    ✕ Reject
+                    style={{ flex: 1, height: 38, borderRadius: 12, border: "none", background: "#ef4444", color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: actioning === l.id ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                    <PortalIcon name="x" size={14} /> Reject
                   </button>
                 </div>
               </div>

@@ -2,18 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { PortalPageHeader, PortalSectionLabel, PortalEmptyState, PortalSkeleton } from "@/components/portal/portal-shared"
+import { PortalIcon } from "@/components/portal/portal-icons"
 
 const COLOR = "#6366f1"
 const COLOR_DARK = "#4f46e5"
 
 const STAGES: { key: string; label: string; color: string; icon: string }[] = [
-  { key: "applied",              label: "Applied",             color: "#94a3b8", icon: "📋" },
-  { key: "screening",           label: "Screening",           color: "#eab308", icon: "🔍" },
-  { key: "interview_scheduled", label: "Interview Scheduled", color: "#3b82f6", icon: "📅" },
-  { key: "interview_done",      label: "Interview Done",      color: "#8b5cf6", icon: "✅" },
-  { key: "offer_made",          label: "Offer Made",          color: "#f97316", icon: "🤝" },
-  { key: "joined",              label: "Joined",              color: "#22c55e", icon: "🎉" },
-  { key: "rejected",            label: "Rejected",            color: "#ef4444", icon: "❌" },
+  { key: "applied",              label: "Applied",             color: "#94a3b8", icon: "clipboard" },
+  { key: "screening",           label: "Screening",           color: "#eab308", icon: "search" },
+  { key: "interview_scheduled", label: "Interview Scheduled", color: "#3b82f6", icon: "calendar" },
+  { key: "interview_done",      label: "Interview Done",      color: "#8b5cf6", icon: "check-circle" },
+  { key: "offer_made",          label: "Offer Made",          color: "#f97316", icon: "handshake" },
+  { key: "joined",              label: "Joined",              color: "#22c55e", icon: "award" },
+  { key: "rejected",            label: "Rejected",            color: "#ef4444", icon: "x-circle" },
 ]
 
 const DEPTS = ["booking", "warehouse", "qc", "delivery", "styling", "accounts", "hr"]
@@ -110,10 +111,10 @@ export default function RecruitmentPage() {
 
       {/* Pipeline overview */}
       <div style={{ padding: "12px 16px 0", display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-        {[{ key: "all", label: "All", color: COLOR, icon: "👥" }, ...STAGES].map(s => (
+        {[{ key: "all", label: "All", color: COLOR, icon: "team" }, ...STAGES].map(s => (
           <button key={s.key} onClick={() => setStageFilter(s.key)}
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "8px 12px", borderRadius: 14, border: stageFilter === s.key ? `2px solid ${s.color}` : "2px solid transparent", background: stageFilter === s.key ? `${s.color}15` : "rgba(255,255,255,0.6)", cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
-            <span style={{ fontSize: 16 }}>{s.icon}</span>
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "8px 12px", borderRadius: 14, border: stageFilter === s.key ? `2px solid ${s.color}` : "2px solid transparent", background: stageFilter === s.key ? `${s.color}15` : "rgba(255,255,255,0.6)", cursor: "pointer", flexShrink: 0, fontFamily: "inherit", color: stageFilter === s.key ? s.color : "rgba(80,55,30,0.4)" }}>
+            <PortalIcon name={s.icon} size={18} />
             <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, color: stageFilter === s.key ? s.color : "rgba(80,55,30,0.45)" }}>{s.label}</span>
             {s.key !== "all" && <span style={{ fontSize: 11, fontWeight: 900, color: s.color }}>{stageCounts[s.key] ?? 0}</span>}
           </button>
@@ -141,14 +142,15 @@ export default function RecruitmentPage() {
                         {c.department} {c.position ? `· ${c.position}` : ""}
                       </p>
                     </div>
-                    <span style={{ background: `${stage.color}20`, color: stage.color, fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-                      {stage.icon} {stage.label}
+                    <span style={{ background: `${stage.color}20`, color: stage.color, fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                      <PortalIcon name={stage.icon} size={12} />
+                      {stage.label}
                     </span>
                   </div>
-                  <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: 10, color: "rgba(80,55,30,0.4)" }}>
-                    {c.phone && <span>📞 {c.phone}</span>}
-                    {c.interview_date && <span>📅 {c.interview_date} {c.interview_time ?? ""}</span>}
-                    {c.source && <span>📌 {c.source}</span>}
+                  <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: 10, color: "rgba(80,55,30,0.4)", alignItems: "center" }}>
+                    {c.phone && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><PortalIcon name="smartphone" size={11} />{c.phone}</span>}
+                    {c.interview_date && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><PortalIcon name="calendar" size={11} />{c.interview_date} {c.interview_time ?? ""}</span>}
+                    {c.source && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><PortalIcon name="map-pin" size={11} />{c.source}</span>}
                   </div>
                 </div>
 
@@ -173,8 +175,8 @@ export default function RecruitmentPage() {
                       )}
                       {c.phone && (
                         <a href={`https://wa.me/91${c.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                          style={{ height: 38, padding: "0 16px", borderRadius: 12, background: "#25d366", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", textDecoration: "none" }}>
-                          📲 WA
+                          style={{ height: 38, padding: "0 14px", borderRadius: 12, background: "#25d366", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+                          <PortalIcon name="whatsapp" size={14} /> WA
                         </a>
                       )}
                     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { PortalPageHeader, PortalSearchBar, PortalSectionLabel, PortalEmptyState, PortalSkeleton } from "@/components/portal/portal-shared"
+import { PortalIcon } from "@/components/portal/portal-icons"
 
 const COLOR = "#6366f1"
 const COLOR_DARK = "#4f46e5"
@@ -13,14 +14,14 @@ const DEPT_COLORS: Record<string, string> = {
 }
 
 const DOC_TYPES = [
-  { key: "aadhaar",    label: "Aadhaar Card",     icon: "🪪", required: true },
-  { key: "pan",        label: "PAN Card",           icon: "💳", required: true },
-  { key: "photo",      label: "Passport Photo",     icon: "📷", required: true },
-  { key: "bank",       label: "Bank Passbook",      icon: "🏦", required: true },
-  { key: "resume",     label: "Resume / CV",        icon: "📄", required: false },
-  { key: "address",    label: "Address Proof",      icon: "📋", required: false },
-  { key: "degree",     label: "Education Cert",     icon: "🎓", required: false },
-  { key: "police",     label: "Police Verification",icon: "👮", required: false },
+  { key: "aadhaar", label: "Aadhaar Card",      icon: "id-card",        required: true },
+  { key: "pan",     label: "PAN Card",           icon: "credit-card",    required: true },
+  { key: "photo",   label: "Passport Photo",     icon: "camera",         required: true },
+  { key: "bank",    label: "Bank Passbook",      icon: "landmark",       required: true },
+  { key: "resume",  label: "Resume / CV",        icon: "document",       required: false },
+  { key: "address", label: "Address Proof",      icon: "map-pin",        required: false },
+  { key: "degree",  label: "Education Cert",     icon: "graduation-cap", required: false },
+  { key: "police",  label: "Police Verification",icon: "shield",         required: false },
 ]
 
 interface KycDoc { key: string; status: "pending" | "uploaded" | "verified" | "rejected"; url?: string; note?: string }
@@ -146,8 +147,10 @@ export default function KycPage() {
                 return (
                   <div key={doc.key} style={{ background: "white", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 18, padding: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 20 }}>{doc.icon}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", flexShrink: 0 }}>
+                          <PortalIcon name={doc.icon} size={18} />
+                        </div>
                         <div>
                           <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>{doc.label}</p>
                           {doc.required && <p style={{ margin: 0, fontSize: 9, color: "#ef4444", fontWeight: 600 }}>Required</p>}
@@ -163,8 +166,8 @@ export default function KycPage() {
                         </a>
                       )}
                       {/* Upload button */}
-                      <label style={{ flex: 1, height: 36, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#64748b", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                        {uploading === doc.key ? "Uploading…" : "📎 Upload"}
+                      <label style={{ flex: 1, height: 36, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#64748b", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer" }}>
+                        {uploading === doc.key ? "Uploading…" : <><PortalIcon name="upload-cloud" size={14} /> Upload</>}
                         <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) handleFileUpload(doc.key, e.target.files[0]) }} disabled={uploading === doc.key} />
                       </label>
                       {d.status === "uploaded" && (
@@ -211,7 +214,7 @@ export default function KycPage() {
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#1e1208" }}>{s.name}</p>
                       <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(80,55,30,0.45)", fontWeight: 600, textTransform: "uppercase" }}>{s.department ?? "—"}</p>
                     </div>
-                    <span style={{ fontSize: 16, color: "rgba(80,55,30,0.3)" }}>›</span>
+                    <span style={{ color: "rgba(80,55,30,0.25)" }}><PortalIcon name="chevron-right" size={16} /></span>
                   </div>
                 )
               })

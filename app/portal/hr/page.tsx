@@ -2,18 +2,25 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { PortalIcon } from "@/components/portal/portal-icons"
 
 const COLOR = "#6366f1"
 
 const MODULES = [
-  { href: "/portal/hr/staff",      icon: "👥", label: "Staff",       sub: "Manage team members",      color: "#6366f1" },
-  { href: "/portal/hr/attendance", icon: "📅", label: "Attendance",  sub: "Daily presence tracker",   color: "#3b82f6" },
-  { href: "/portal/hr/payroll",    icon: "💰", label: "Payroll",     sub: "Salary & payslips",         color: "#22c55e" },
-  { href: "/portal/hr/recruitment",icon: "🎯", label: "Recruitment", sub: "Interview pipeline",        color: "#f97316" },
-  { href: "/portal/hr/letters",    icon: "📄", label: "HR Letters",  sub: "Offer, joining & more",    color: "#8b5cf6" },
-  { href: "/portal/hr/kyc",        icon: "🪪", label: "KYC Docs",   sub: "Employee verification",     color: "#14b8a6" },
-  { href: "/portal/hr/ledger",     icon: "📊", label: "Ledger",      sub: "Advances & allowances",    color: "#ef4444" },
-  { href: "/portal/hr/profile",    icon: "👤", label: "My Profile",  sub: "Account settings",          color: "#94a3b8" },
+  { href: "/portal/hr/staff",       icon: "team",        label: "Staff",       sub: "Manage team members",    color: "#6366f1" },
+  { href: "/portal/hr/attendance",  icon: "calendar",    label: "Attendance",  sub: "Daily presence tracker", color: "#3b82f6" },
+  { href: "/portal/hr/payroll",     icon: "rupee",       label: "Payroll",     sub: "Salary & payslips",      color: "#22c55e" },
+  { href: "/portal/hr/recruitment", icon: "target",      label: "Recruitment", sub: "Interview pipeline",     color: "#f97316" },
+  { href: "/portal/hr/letters",     icon: "document",    label: "HR Letters",  sub: "Offer, joining & more",  color: "#8b5cf6" },
+  { href: "/portal/hr/kyc",         icon: "id-card",     label: "KYC Docs",   sub: "Employee verification",  color: "#14b8a6" },
+  { href: "/portal/hr/ledger",      icon: "bar-chart",   label: "Ledger",      sub: "Advances & allowances",  color: "#ef4444" },
+  { href: "/portal/hr/profile",     icon: "user",        label: "My Profile",  sub: "Account settings",       color: "#94a3b8" },
+]
+
+const QUICK_ACTIONS = [
+  { href: "/portal/hr/letters",    label: "Generate Offer Letter",   icon: "handshake",    color: "#8b5cf6" },
+  { href: "/portal/hr/attendance", label: "Mark Today's Attendance", icon: "check-circle", color: "#22c55e" },
+  { href: "/portal/hr/recruitment",label: "Schedule Interview",       icon: "calendar",     color: "#3b82f6" },
 ]
 
 export default function HrHomePage() {
@@ -28,7 +35,6 @@ export default function HrHomePage() {
     const raw = localStorage.getItem("safawala_user")
     if (raw) { try { setUser(JSON.parse(raw)) } catch {} }
 
-    // Load summary stats
     Promise.allSettled([
       fetch("/api/users?limit=1").then(r => r.json()),
       fetch(`/api/attendance?date=${today}&limit=1`).then(r => r.json()),
@@ -36,13 +42,13 @@ export default function HrHomePage() {
       fetch("/api/recruitment?status=interview_scheduled&limit=1").then(r => r.json()),
     ]).then(([staffRes, attRes, leaveRes, recruitRes]) => {
       setStats({
-        staff: staffRes.status === "fulfilled" ? (staffRes.value.total ?? staffRes.value.data?.length ?? 0) : 0,
-        todayPresent: attRes.status === "fulfilled" ? (attRes.value.total ?? attRes.value.data?.length ?? 0) : 0,
-        pendingLeaves: leaveRes.status === "fulfilled" ? (leaveRes.value.total ?? leaveRes.value.data?.length ?? 0) : 0,
-        openRoles: recruitRes.status === "fulfilled" ? (recruitRes.value.total ?? recruitRes.value.data?.length ?? 0) : 0,
+        staff:         staffRes.status  === "fulfilled" ? (staffRes.value.total  ?? staffRes.value.data?.length  ?? 0) : 0,
+        todayPresent:  attRes.status    === "fulfilled" ? (attRes.value.total    ?? attRes.value.data?.length    ?? 0) : 0,
+        pendingLeaves: leaveRes.status  === "fulfilled" ? (leaveRes.value.total  ?? leaveRes.value.data?.length  ?? 0) : 0,
+        openRoles:     recruitRes.status === "fulfilled" ? (recruitRes.value.total ?? recruitRes.value.data?.length ?? 0) : 0,
       })
     })
-  }, [])
+  }, [today])
 
   return (
     <div style={{ fontFamily: "'Inter','Segoe UI',sans-serif", paddingBottom: 40 }}>
@@ -54,14 +60,14 @@ export default function HrHomePage() {
       </div>
 
       {/* Stats strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0, background: "white", borderBottom: "1px solid #f1f5f9" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", background: "white", borderBottom: "1px solid #f1f5f9" }}>
         {[
-          { label: "Staff", value: stats.staff, color: COLOR },
-          { label: "Present", value: stats.todayPresent, color: "#22c55e" },
-          { label: "Leaves", value: stats.pendingLeaves, color: "#f97316" },
-          { label: "Interviews", value: stats.openRoles, color: "#3b82f6" },
-        ].map(s => (
-          <div key={s.label} style={{ padding: "12px 8px", textAlign: "center", borderRight: "1px solid #f1f5f9" }}>
+          { label: "Staff",      value: stats.staff,         color: COLOR },
+          { label: "Present",    value: stats.todayPresent,  color: "#22c55e" },
+          { label: "Leaves",     value: stats.pendingLeaves, color: "#f97316" },
+          { label: "Interviews", value: stats.openRoles,     color: "#3b82f6" },
+        ].map((s, i) => (
+          <div key={s.label} style={{ padding: "12px 8px", textAlign: "center", borderRight: i < 3 ? "1px solid #f1f5f9" : "none" }}>
             <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 900, color: s.color }}>{s.value}</p>
             <p style={{ margin: 0, fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#94a3b8" }}>{s.label}</p>
           </div>
@@ -72,9 +78,9 @@ export default function HrHomePage() {
       <div style={{ padding: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {MODULES.map(m => (
           <Link key={m.href} href={m.href} style={{ textDecoration: "none" }}>
-            <div style={{ background: "white", border: `2px solid ${m.color}20`, borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 8, transition: "transform 0.15s", cursor: "pointer" }}>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: `${m.color}15`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-                {m.icon}
+            <div style={{ background: "white", border: `2px solid ${m.color}20`, borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10, cursor: "pointer" }}>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: `${m.color}15`, display: "flex", alignItems: "center", justifyContent: "center", color: m.color }}>
+                <PortalIcon name={m.icon} size={22} />
               </div>
               <div>
                 <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 800, color: "#1e1208" }}>{m.label}</p>
@@ -85,19 +91,19 @@ export default function HrHomePage() {
         ))}
       </div>
 
-      {/* Quick links */}
+      {/* Quick actions */}
       <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         <p style={{ margin: "8px 0 4px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "rgba(80,55,30,0.35)" }}>Quick Actions</p>
-        {[
-          { href: "/portal/hr/letters?type=offer",  label: "Generate Offer Letter",   icon: "🤝" },
-          { href: "/portal/hr/attendance",           label: "Mark Today's Attendance", icon: "✅" },
-          { href: "/portal/hr/recruitment",          label: "Schedule Interview",       icon: "📅" },
-        ].map(a => (
+        {QUICK_ACTIONS.map(a => (
           <Link key={a.href} href={a.href}
             style={{ display: "flex", alignItems: "center", gap: 12, background: "white", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 14, padding: "12px 16px", textDecoration: "none" }}>
-            <span style={{ fontSize: 18 }}>{a.icon}</span>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: `${a.color}15`, display: "flex", alignItems: "center", justifyContent: "center", color: a.color, flexShrink: 0 }}>
+              <PortalIcon name={a.icon} size={16} />
+            </div>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#1e1208" }}>{a.label}</span>
-            <span style={{ marginLeft: "auto", color: "rgba(80,55,30,0.3)", fontSize: 14 }}>›</span>
+            <div style={{ marginLeft: "auto", color: "rgba(80,55,30,0.25)" }}>
+              <PortalIcon name="chevron-right" size={16} />
+            </div>
           </Link>
         ))}
       </div>

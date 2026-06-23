@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { PortalPageHeader, PortalSectionLabel, PortalEmptyState, PortalSkeleton, PortalSearchBar } from "@/components/portal/portal-shared"
+import { PortalIcon } from "@/components/portal/portal-icons"
 
 const COLOR = "#6366f1"
 const COLOR_DARK = "#4f46e5"
@@ -142,8 +143,8 @@ export default function StaffLedgerPage() {
                 const isDebit = (txMeta?.sign ?? 1) < 0
                 return (
                   <div key={tx.id ?? i} style={{ background: "white", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: isDebit ? "#fee2e2" : "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-                      {isDebit ? "↓" : "↑"}
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: isDebit ? "#fee2e2" : "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", color: isDebit ? "#dc2626" : "#16a34a", flexShrink: 0 }}>
+                      <PortalIcon name={isDebit ? "arrow-down" : "arrow-up"} size={18} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: 700 }}>{txMeta?.label ?? tx.type}</p>
@@ -235,6 +236,7 @@ export default function StaffLedgerPage() {
                       }
                       <p style={{ margin: "2px 0 0", fontSize: 9, color: "rgba(80,55,30,0.35)", fontWeight: 600 }}>Base: {fmt(s.baseSalary ?? 0)}</p>
                     </div>
+                    <span style={{ color: "rgba(80,55,30,0.25)", marginLeft: 4 }}><PortalIcon name="chevron-right" size={16} /></span>
                   </div>
                 )
               })

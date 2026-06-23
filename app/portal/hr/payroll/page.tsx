@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { PortalPageHeader, PortalSectionLabel, PortalEmptyState, PortalSkeleton } from "@/components/portal/portal-shared"
+import { PortalIcon } from "@/components/portal/portal-icons"
 
 const COLOR = "#6366f1"
 const COLOR_DARK = "#4f46e5"
@@ -217,12 +218,12 @@ ${(s.deductions - (s.advance_deduction || 0)) > 0 ? `<div class="row"><span>PF /
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={() => generatePayslip(s)}
-                        style={{ flex: 1, height: 38, borderRadius: 12, border: "none", background: COLOR, color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                        📄 Payslip PDF
+                        style={{ flex: 1, height: 38, borderRadius: 12, border: "none", background: COLOR, color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                        <PortalIcon name="printer" size={14} /> Payslip PDF
                       </button>
                       <button onClick={() => whatsappPayslip(s)}
-                        style={{ flex: 1, height: 38, borderRadius: 12, border: "none", background: "#25d366", color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                        📲 WhatsApp
+                        style={{ flex: 1, height: 38, borderRadius: 12, border: "none", background: "#25d366", color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                        <PortalIcon name="whatsapp" size={14} /> WhatsApp
                       </button>
                     </div>
                   </div>
