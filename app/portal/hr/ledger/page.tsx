@@ -94,6 +94,8 @@ export default function StaffLedgerPage() {
 
   const totalOutstanding = ledgers.reduce((s, l) => s + (l.utilizedCredit ?? 0), 0)
 
+  const txLbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(80,55,30,0.5)", display: "block", marginBottom: 6 }
+
   return (
     <div style={{ fontFamily: "'Inter','Segoe UI',sans-serif", paddingBottom: 80 }}>
       {toast && (
@@ -162,32 +164,60 @@ export default function StaffLedgerPage() {
 
           {/* Add Transaction Sheet */}
           {showAdd && (
-            <div style={{ position: "fixed", inset: 0, zIndex: 100 }}>
-              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }} onClick={() => setShowAdd(false)} />
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "white", borderRadius: "24px 24px 0 0", padding: "20px 20px calc(env(safe-area-inset-bottom,20px)+20px)" }}>
-                <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 900 }}>Add Transaction</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }} onClick={() => setShowAdd(false)} />
+              <div style={{ position: "relative", width: "100%", maxWidth: 520, background: "white", borderRadius: "24px 24px 0 0", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
+                <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+                  <div style={{ width: 40, height: 4, borderRadius: 2, background: "#e2e8f0" }} />
+                </div>
+                <div style={{ padding: "16px 20px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
-                    <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(80,55,30,0.5)", display: "block", marginBottom: 4 }}>Type</label>
-                    <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}
-                      style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", background: "white" }}>
-                      {TX_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
-                    </select>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#1e1208" }}>Add Transaction</h3>
+                    <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(80,55,30,0.45)" }}>For {selected?.name}</p>
                   </div>
-                  {[
-                    { key: "amount", label: "Amount (₹)", type: "number" },
-                    { key: "date", label: "Date", type: "date" },
-                    { key: "notes", label: "Notes", type: "text" },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <label style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(80,55,30,0.5)", display: "block", marginBottom: 4 }}>{f.label}</label>
-                      <input type={f.type} value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                  <button onClick={() => setShowAdd(false)} style={{ width: 32, height: 32, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>×</button>
+                </div>
+
+                <div style={{ padding: "16px 20px calc(env(safe-area-inset-bottom,20px) + 20px)", display: "flex", flexDirection: "column", gap: 12 }}>
+                  {/* Type full width */}
+                  <div>
+                    <label style={txLbl}>Transaction Type</label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      {TX_TYPES.map(t => (
+                        <button key={t.key} onClick={() => setForm(p => ({ ...p, type: t.key }))}
+                          style={{ height: 40, borderRadius: 12, border: `2px solid ${form.type === t.key ? t.color : "#e2e8f0"}`, background: form.type === t.key ? `${t.color}15` : "white", color: form.type === t.key ? t.color : "#64748b", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Amount + Date */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div>
+                      <label style={txLbl}>Amount (₹) *</label>
+                      <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="e.g. 5000"
+                        style={{ width: "100%", height: 44, borderRadius: 12, border: `1.5px solid ${!form.amount ? "#fca5a5" : "#e2e8f0"}`, padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                    </div>
+                    <div>
+                      <label style={txLbl}>Date</label>
+                      <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                         style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
                     </div>
-                  ))}
-                  <button onClick={addTransaction} disabled={saving}
-                    style={{ width: "100%", height: 50, borderRadius: 14, border: "none", background: COLOR, color: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: saving ? 0.6 : 1 }}>
-                    {saving ? "Adding…" : "Add Transaction"}
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label style={txLbl}>Notes / Remarks</label>
+                    <input type="text" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Reason or description"
+                      style={{ width: "100%", height: 44, borderRadius: 12, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+
+                  <div style={{ borderTop: "1px solid #f1f5f9", margin: "2px 0" }} />
+
+                  <button onClick={addTransaction} disabled={saving || !form.amount}
+                    style={{ width: "100%", height: 52, borderRadius: 16, border: "none", background: saving || !form.amount ? "#a5b4fc" : COLOR, color: "white", fontSize: 15, fontWeight: 800, cursor: saving || !form.amount ? "default" : "pointer", fontFamily: "inherit", letterSpacing: 0.3 }}>
+                    {saving ? "Adding…" : `Add ${TX_TYPES.find(t => t.key === form.type)?.label ?? "Transaction"}`}
                   </button>
                 </div>
               </div>

@@ -34,13 +34,14 @@ function getTemplate(type: string, data: any): string {
 <title>${type.toUpperCase()} — ${franchise}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Arial', sans-serif; max-width: 740px; margin: 0 auto; color: #1e293b; font-size: 13.5px; line-height: 1.75; padding: 48px 48px 40px; }
-  .letterhead { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid ${COLOR}; }
-  .brand { color: ${COLOR}; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
-  .brand-tag { font-size: 11px; color: #94a3b8; margin-top: 3px; letter-spacing: 0.5px; text-transform: uppercase; }
-  .meta { text-align: right; font-size: 11.5px; color: #64748b; line-height: 1.8; }
-  .meta strong { color: #334155; }
-  .doc-title { font-size: 15px; font-weight: 900; text-transform: uppercase; text-align: center; letter-spacing: 2px; color: ${COLOR}; margin: 28px 0 24px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
+  body { font-family: 'Arial', sans-serif; max-width: 760px; margin: 0 auto; color: #1e293b; font-size: 13.5px; line-height: 1.75; padding: 40px 48px; }
+  .letterhead { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0; padding-bottom: 16px; border-bottom: 3px solid ${COLOR}; }
+  .brand-logo { height: 52px; width: auto; display: block; }
+  .brand-info { margin-top: 6px; font-size: 10.5px; color: #64748b; line-height: 1.7; }
+  .brand-info a { color: ${COLOR}; text-decoration: none; }
+  .meta { text-align: right; font-size: 11.5px; color: #64748b; line-height: 1.9; }
+  .meta strong { color: #334155; display: block; }
+  .doc-title { font-size: 15px; font-weight: 900; text-transform: uppercase; text-align: center; letter-spacing: 2px; color: ${COLOR}; margin: 26px 0 22px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
   .salutation { margin-bottom: 14px; }
   p { margin-bottom: 12px; }
   .info-table { width: 100%; border-collapse: collapse; margin: 18px 0; }
@@ -53,11 +54,10 @@ function getTemplate(type: string, data: any): string {
   .conditions li { margin-bottom: 6px; font-size: 13px; color: #334155; }
   .signature-block { margin-top: 52px; }
   .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 8px; }
-  .sig-box { }
   .sig-line { border-top: 1.5px solid #334155; margin-top: 48px; padding-top: 6px; }
   .sig-name { font-weight: 700; font-size: 13px; color: #1e293b; }
   .sig-role { font-size: 11px; color: #64748b; }
-  .footer-note { margin-top: 32px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 10.5px; color: #94a3b8; text-align: center; line-height: 1.6; }
+  .footer-note { margin-top: 28px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 10.5px; color: #94a3b8; text-align: center; line-height: 1.7; }
   .print-btn { display: block; margin: 32px auto 0; padding: 12px 48px; background: ${COLOR}; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px; }
   @media print { .print-btn { display: none; } body { padding: 28px 36px; } }
 </style>
@@ -65,12 +65,18 @@ function getTemplate(type: string, data: any): string {
 <body>
 <div class="letterhead">
   <div>
-    <div class="brand">${franchise}</div>
-    <div class="brand-tag">Fashion Rental &amp; Styling</div>
+    <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/safawalalogo.svg" alt="${franchise}" class="brand-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+    <div style="display:none;font-size:26px;font-weight:900;color:${COLOR};letter-spacing:-0.5px">${franchise}</div>
+    <div class="brand-info">
+      Fashion Rental &amp; Styling &bull; Wedding Turbans &amp; Accessories<br>
+      <a href="mailto:info@safawala.com">info@safawala.com</a> &bull; <a href="tel:+919876543210">+91 98765 43210</a><br>
+      www.safawala.com &bull; Mumbai, Maharashtra, India
+    </div>
   </div>
   <div class="meta">
-    <div><strong>Date:</strong> ${today}</div>
-    <div><strong>Ref No.:</strong> ${ref}</div>
+    <strong>Date:</strong> ${today}
+    <strong>Ref No.:</strong> ${ref}
+    <strong>Issuing Authority:</strong> Human Resources
   </div>
 </div>`
 
@@ -93,8 +99,9 @@ function getTemplate(type: string, data: any): string {
   </div>
 </div>
 <div class="footer-note">
-  This is a computer-generated document issued by ${franchise}. For any queries, contact Human Resources.<br>
-  Generated on ${today} &bull; Ref: ${ref}
+  <strong>${franchise}</strong> &bull; Fashion Rental &amp; Styling &bull; Wedding Turbans &amp; Accessories<br>
+  info@safawala.com &bull; +91 98765 43210 &bull; www.safawala.com &bull; Mumbai, Maharashtra, India<br>
+  <span style="color:#cbd5e1">This is a computer-generated document. For queries contact HR &bull; Ref: ${ref} &bull; ${today}</span>
 </div>
 <button class="print-btn" onclick="window.print()">Print / Download PDF</button>
 </body></html>`

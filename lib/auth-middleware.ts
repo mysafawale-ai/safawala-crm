@@ -216,8 +216,10 @@ export async function authenticateRequest(
             }
             console.log('[Auth Middleware] Using cookie fallback user:', fallbackUser.email, 'franchise:', cookieFranchiseId)
 
-            // Check role — department roles like hr_staff treated as staff level
-            const userLevel2 = ROLE_LEVELS[fallbackUser.role] ?? (fallbackUser.role?.endsWith('_staff') || fallbackUser.role === 'stylist' ? 2 : 0)
+            // Check role — map all custom roles to levels
+            const userLevel2 = ROLE_LEVELS[fallbackUser.role] ??
+              (fallbackUser.role === 'manager' || fallbackUser.role === 'franchise_owner' ? 3 :
+               fallbackUser.role?.endsWith('_staff') || fallbackUser.role === 'stylist' ? 2 : 0)
             const requiredLevel2 = ROLE_LEVELS[minRole] || 0
             if (userLevel2 < requiredLevel2) {
               return { authorized: false, error: { error: 'Forbidden', message: `Requires ${minRole} role` }, statusCode: 403 }
@@ -253,8 +255,10 @@ export async function authenticateRequest(
     };
 
     // 3. Check role hierarchy
-    // Department-specific roles (hr_staff, booking_staff, etc.) are treated as staff level
-    const userLevel = ROLE_LEVELS[user.role] ?? (user.role?.endsWith('_staff') || user.role === 'stylist' ? 2 : 0);
+    // Department-specific roles mapped to appropriate levels
+    const userLevel = ROLE_LEVELS[user.role] ??
+      (user.role === 'manager' || user.role === 'franchise_owner' ? 3 :
+       user.role?.endsWith('_staff') || user.role === 'stylist' ? 2 : 0);
     const requiredLevel = ROLE_LEVELS[minRole] || 0;
 
     if (userLevel < requiredLevel) {
