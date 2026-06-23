@@ -418,20 +418,6 @@ export default function DeptLoginPage() {
             </button>
           </form>
 
-          {/* Portal selector link */}
-          <div style={{ textAlign: "center", marginTop: 24 }}>
-            <button
-              onClick={() => router.push("/auth/portals")}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 13, color: "rgba(0,0,0,0.4)", fontFamily: "inherit",
-                fontWeight: 500,
-              }}
-            >
-              Wrong portal? &nbsp;
-              <span style={{ color: config.color, fontWeight: 700 }}>View all portals →</span>
-            </button>
-          </div>
         </div>
 
         {/* Brand footer */}
