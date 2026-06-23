@@ -220,6 +220,8 @@ export async function POST(request: Request, { params }: { params: { bookingId: 
         if (pdfUrl) {
           await supabase.from("invoices").update({ pdf_url: pdfUrl, pdf_generated: true }).eq("id", invoice.id)
         }
+      } catch (uploadErr) {
+        console.warn("PDF upload to R2 failed:", uploadErr)
       }
     } catch (pdfError) {
       console.warn("Settlement PDF generation failed:", pdfError)
