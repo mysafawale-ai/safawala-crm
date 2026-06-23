@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { PortalPageHeader, PortalSectionLabel, PortalInfoRow, PortalSkeleton } from "@/components/portal/portal-shared"
 
 const COLOR = "#a855f7"
@@ -29,8 +28,12 @@ export default function ProductDetailPortalPage() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from("products").select("*").eq("id", id).single()
-    if (!error) { setProduct(data); setQty(String(data.quantity ?? data.total_quantity ?? 0)) }
+    try {
+      const res = await fetch(`/api/products?id=${id}`)
+      const data = await res.json()
+      const p = Array.isArray(data.data) ? data.data[0] : (data.data ?? data)
+      if (p) { setProduct(p); setQty(String(p.quantity ?? p.total_quantity ?? 0)) }
+    } catch {}
     setLoading(false)
   }
 
@@ -39,8 +42,15 @@ export default function ProductDetailPortalPage() {
     setSaving(true)
     const newQty = parseInt(qty, 10)
     if (isNaN(newQty)) { setToast("Invalid quantity"); setSaving(false); return }
-    const { error } = await supabase.from("products").update({ quantity: newQty, updated_at: new Date().toISOString() }).eq("id", id)
-    if (!error) { setProduct({ ...product, quantity: newQty }); setToast("Stock updated") }
+    try {
+      const res = await fetch("/api/products/bulk-update-stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: [{ id, quantity: newQty }] }),
+      })
+      if (res.ok) { setProduct({ ...product, quantity: newQty }); setToast("Stock updated") }
+      else setToast("Failed to update stock")
+    } catch { setToast("Error updating stock") }
     setSaving(false)
   }
 

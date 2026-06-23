@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { PortalPageHeader, PortalSectionLabel } from "@/components/portal/portal-shared"
 
 const COLOR = "#ef4444"
@@ -44,8 +43,10 @@ export default function RecordPaymentPage() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
 
   useEffect(() => {
-    supabase.from("bookings").select("id, booking_number, total_amount, paid_amount, customer:customers(name, phone)").eq("status", "confirmed").order("created_at", { ascending: false }).limit(50)
-      .then(({ data }: { data: any[] | null }) => setBookings(data ?? []))
+    fetch("/api/bookings?limit=50&status=confirmed")
+      .then(r => r.json())
+      .then(d => setBookings(d.data ?? d ?? []))
+      .catch(() => setBookings([]))
   }, [])
 
   useEffect(() => {
@@ -64,20 +65,21 @@ export default function RecordPaymentPage() {
     const amount = parseFloat(form.amount)
     if (isNaN(amount) || amount <= 0) { setError("Enter a valid amount"); return }
     setSaving(true); setError("")
-    const { error: err } = await supabase.from("payments").insert([{
-      booking_id: form.booking_id,
-      amount,
-      payment_method: form.payment_method,
-      payment_date: form.payment_date,
-      reference_number: form.reference || null,
-      notes: form.notes || null,
-      status: "paid",
-      created_at: new Date().toISOString(),
-    }])
-    if (err) { setError(err.message); setSaving(false); return }
-    // Update booking paid_amount
-    const newPaid = (selectedBooking?.paid_amount ?? 0) + amount
-    await supabase.from("bookings").update({ paid_amount: newPaid, updated_at: new Date().toISOString() }).eq("id", form.booking_id)
+    const res = await fetch("/api/payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        booking_id: form.booking_id,
+        amount,
+        payment_method: form.payment_method,
+        payment_date: form.payment_date,
+        reference_number: form.reference || null,
+        notes: form.notes || null,
+        status: "paid",
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || "Failed to record payment"); setSaving(false); return }
     router.push("/portal/accounts/payments")
   }
 

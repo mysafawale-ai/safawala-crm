@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { PortalPageHeader, PortalSectionLabel } from "@/components/portal/portal-shared"
 
 const COLOR = "#ec4899"
@@ -46,20 +45,18 @@ export default function ApplyLeavePage() {
     if (form.end_date < form.start_date) { setError("End date must be after start date"); return }
     setSaving(true); setError("")
 
-    // Get current user from localStorage
-    let userId: string | null = null
-    try { userId = JSON.parse(localStorage.getItem("safawala_user") ?? "{}").id } catch {}
-
-    const { error: err } = await supabase.from("leave_requests").insert([{
-      user_id: userId,
-      leave_type: form.leave_type,
-      start_date: form.start_date,
-      end_date: form.end_date,
-      reason: form.reason || null,
-      status: "pending",
-      created_at: new Date().toISOString(),
-    }])
-    if (err) { setError(err.message); setSaving(false); return }
+    const res = await fetch("/api/leave-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        leave_type: form.leave_type,
+        start_date: form.start_date,
+        end_date: form.end_date,
+        reason: form.reason || null,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || "Failed to submit leave request"); setSaving(false); return }
     router.push("/portal/styling/attendance")
   }
 

@@ -111,3 +111,49 @@ export async function GET(
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> | { id: string } }
+) {
+  try {
+    const params = 'then' in context.params ? await context.params : context.params
+    const { id } = params
+
+    const authResult = await requireAuth(request, 'write')
+    if (!authResult.success) {
+      return NextResponse.json(authResult.response, { status: 401 })
+    }
+    const user = authResult.authContext!.user
+    const franchiseId = user.franchise_id
+    const isSuperAdmin = user.role === 'super_admin'
+
+    const body = await request.json()
+    const allowedFields = ['notes', 'status', 'priority', 'due_date']
+    const updates: Record<string, any> = {}
+    for (const key of allowedFields) {
+      if (key in body) updates[key] = body[key]
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 })
+    }
+
+    const supabase = createClient()
+
+    // Fetch to check franchise ownership
+    const { data: existing } = await supabase.from("work_orders").select("franchise_id").eq("id", id).single()
+    if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (!isSuperAdmin && existing.franchise_id && existing.franchise_id !== franchiseId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const { data, error } = await supabase.from("work_orders").update(updates).eq("id", id).select().single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true, data })
+  } catch (error: any) {
+    console.error("[Work Order PATCH] Error:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+  }
+}

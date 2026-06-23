@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { PortalPageHeader, PortalSectionLabel, PortalInfoRow, PortalSkeleton, PortalStatusBadge } from "@/components/portal/portal-shared"
 
 const COLOR = "#14b8a6"
@@ -28,37 +27,49 @@ export default function DeliveryDetailPage() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from("deliveries")
-      .select("*, booking:bookings(booking_number, event_date, total_amount, customer:customers(name, phone, whatsapp, address, city))")
-      .eq("id", id)
-      .single()
-    if (!error) { setDelivery(data); setAwb(data.awb_number ?? "") }
+    try {
+      const res = await fetch(`/api/deliveries/${id}`)
+      const data = await res.json()
+      const d = data.data ?? data
+      if (d?.id) { setDelivery(d); setAwb(d.awb_number ?? "") }
+    } catch {}
     setLoading(false)
   }
 
   async function updateStatus(newStatus: string) {
     if (!delivery || updating) return
     setUpdating(true)
-    const updates: any = { status: newStatus, updated_at: new Date().toISOString() }
+    const updates: any = { status: newStatus }
     if (awb.trim()) updates.awb_number = awb.trim()
     if (newStatus === "dispatched") updates.dispatched_at = new Date().toISOString()
     if (newStatus === "delivered") updates.delivered_at = new Date().toISOString()
-    const { error } = await supabase.from("deliveries").update(updates).eq("id", id)
-    if (!error) { setDelivery({ ...delivery, ...updates }); setToast(`Marked as ${newStatus}`) }
+    try {
+      const res = await fetch(`/api/deliveries/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
+      if (res.ok) { setDelivery({ ...delivery, ...updates }); setToast(`Marked as ${newStatus}`) }
+    } catch {}
     setUpdating(false)
   }
 
   async function saveAwb() {
     if (!delivery || updating || !awb.trim()) return
     setUpdating(true)
-    await supabase.from("deliveries").update({ awb_number: awb.trim(), updated_at: new Date().toISOString() }).eq("id", id)
-    setToast("AWB saved")
+    try {
+      await fetch(`/api/deliveries/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ awb_number: awb.trim() }),
+      })
+      setToast("AWB saved")
+    } catch {}
     setUpdating(false)
   }
 
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"
-  const customer = delivery?.booking?.customer
+  const customer = delivery?.customer ?? delivery?.booking?.customer
 
   if (loading) return (
     <div>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { PortalPageHeader, PortalSectionLabel, PortalInfoRow, PortalSkeleton, PortalStatusBadge } from "@/components/portal/portal-shared"
 
 const COLOR = "#eab308"
@@ -28,28 +27,40 @@ export default function WorkOrderDetailPage() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from("work_orders")
-      .select("*, product:products(name, category, barcode), assigned_to:users(first_name, last_name, email)")
-      .eq("id", id)
-      .single()
-    if (!error) { setWo(data); setNotes(data.notes ?? "") }
+    try {
+      const res = await fetch(`/api/work-orders/${id}`)
+      const data = await res.json()
+      const w = data.data ?? data
+      if (w?.id) { setWo(w); setNotes(w.notes ?? "") }
+    } catch {}
     setLoading(false)
   }
 
   async function updateStatus(newStatus: string) {
     if (!wo || updating) return
     setUpdating(true)
-    const { error } = await supabase.from("work_orders").update({ status: newStatus, notes, updated_at: new Date().toISOString() }).eq("id", id)
-    if (!error) { setWo({ ...wo, status: newStatus }); setToast("Status updated") }
+    try {
+      await fetch(`/api/work-orders/tasks/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus, notes }),
+      })
+      setWo({ ...wo, status: newStatus }); setToast("Status updated")
+    } catch {}
     setUpdating(false)
   }
 
   async function saveNotes() {
     if (!wo || updating) return
     setUpdating(true)
-    await supabase.from("work_orders").update({ notes, updated_at: new Date().toISOString() }).eq("id", id)
-    setToast("Notes saved")
+    try {
+      await fetch(`/api/work-orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes }),
+      })
+      setToast("Notes saved")
+    } catch {}
     setUpdating(false)
   }
 

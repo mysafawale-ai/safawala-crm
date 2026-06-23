@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { PortalPageHeader, PortalSectionLabel } from "@/components/portal/portal-shared"
 
 const COLOR = "#ef4444"
@@ -45,17 +44,21 @@ export default function AddExpensePage() {
     const amount = parseFloat(form.amount)
     if (isNaN(amount) || amount <= 0) { setError("Enter a valid amount"); return }
     setSaving(true); setError("")
-    const { error: err } = await supabase.from("expenses").insert([{
-      description: form.description,
-      amount,
-      category: form.category || "other",
-      expense_date: form.expense_date,
-      vendor: form.vendor || null,
-      notes: form.notes || null,
-      status: "approved",
-      created_at: new Date().toISOString(),
-    }])
-    if (err) { setError(err.message); setSaving(false); return }
+    const res = await fetch("/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: form.description,
+        amount,
+        category: form.category || "other",
+        expense_date: form.expense_date,
+        vendor: form.vendor || null,
+        notes: form.notes || null,
+        status: "approved",
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || "Failed to save expense"); setSaving(false); return }
     router.push("/portal/accounts/expenses")
   }
 

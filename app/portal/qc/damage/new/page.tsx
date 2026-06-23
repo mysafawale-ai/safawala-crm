@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
 import { PortalPageHeader, PortalSectionLabel } from "@/components/portal/portal-shared"
 
 const COLOR = "#eab308"
@@ -41,7 +40,10 @@ export default function LogDamagePage() {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    supabase.from("products").select("id, name, category, barcode").order("name").then(({ data }: { data: any[] | null }) => setProducts(data ?? []))
+    fetch("/api/products?limit=500")
+      .then(r => r.json())
+      .then(d => setProducts(d.data ?? d ?? []))
+      .catch(() => setProducts([]))
   }, [])
 
   const set = (key: string) => (val: string) => setForm(f => ({ ...f, [key]: val }))
@@ -49,16 +51,19 @@ export default function LogDamagePage() {
   async function save() {
     if (!form.product_id || !form.damage_type) { setError("Product and damage type are required"); return }
     setSaving(true); setError("")
-    const { error: err } = await supabase.from("damage_reports").insert([{
-      product_id: form.product_id,
-      damage_type: form.damage_type,
-      severity: form.severity,
-      description: form.description || null,
-      qty_damaged: parseInt(form.qty_damaged, 10) || 1,
-      reported_at: new Date().toISOString(),
-      status: "pending",
-    }])
-    if (err) { setError(err.message); setSaving(false); return }
+    const res = await fetch("/api/products/report-damage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productId: form.product_id,
+        damage_type: form.damage_type,
+        severity: form.severity,
+        description: form.description || null,
+        qty_damaged: parseInt(form.qty_damaged, 10) || 1,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || "Failed to log damage"); setSaving(false); return }
     router.push("/portal/qc/damage")
   }
 
