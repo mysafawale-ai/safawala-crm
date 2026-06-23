@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(authResult.response, { status: 401 })
     }
     const { authContext } = authResult
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'bookings')) {
+    const permissions = authContext!.user.permissions
+    if (!permissions.bookings) {
       return NextResponse.json(
         { error: 'You do not have permission to view bookings' },
         { status: 403 }
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
       `)
       .eq('franchise_id', franchiseId)
       .eq('booking_type', 'rental')
+      .neq('is_quote', true)
       .order("created_at", { ascending: false })
 
     // ============ PRODUCT ORDERS (SALES ONLY) ============
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
       `)
       .eq('franchise_id', franchiseId)
       .eq('booking_type', 'sale')
+      .neq('is_quote', true)
       .order("created_at", { ascending: false })
 
     // ============ DIRECT SALES ORDERS (FROM DIRECT_SALES_ORDERS TABLE) ============
@@ -614,8 +616,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(authResult.response, { status: 401 })
     }
     const { authContext } = authResult
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'bookings')) {
+    const permissions = authContext!.user.permissions
+    if (!permissions.bookings) {
       return NextResponse.json(
         { error: 'You do not have permission to create bookings' },
         { status: 403 }

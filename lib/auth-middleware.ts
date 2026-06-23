@@ -179,32 +179,62 @@ export async function authenticateRequest(
     }
 
     if (profileError && !appUser) {
-      const errMsg = profileError.message || '';
-      const isRestricted = errMsg.includes("restricted") || errMsg.includes("quota") || errMsg.includes("limit") || errMsg.includes("violation") || errMsg.includes("Service for this project is restricted");
-      
-      if (isRestricted) {
-        console.warn("[Auth Middleware] Database is restricted. Falling back to mock user profile for local simulation.");
-        appUser = {
-          id: authUserId || "mock-user-id",
-          name: authUser?.user_metadata?.name || authUserEmail.split('@')[0] || "Demo User",
-          email: authUserEmail,
-          role: "super_admin",
-          franchise_id: "mock-franchise-id",
-          is_active: true,
-          permissions: null,
-          franchises: [{
-            id: "mock-franchise-id",
-            name: "Mock HQ Franchise",
-            code: "HQ"
-          }]
-        };
-      } else {
-        return {
-          authorized: false,
-          error: { error: 'Forbidden', message: 'User profile not found or inactive' },
-          statusCode: 403,
-        };
+      // Last-resort fallback for department logins: build user from cookie data
+      // This handles cases where the DB upsert hasn't run yet or failed
+      const cookieStore2 = cookies()
+      const rawCookie2 = cookieStore2.get('safawala_user')?.value
+      if (rawCookie2) {
+        try {
+          const parsed2 = JSON.parse(rawCookie2)
+          const isDeptEmail = /^[a-z]+@safawala\.com$/i.test(parsed2?.email || '')
+          if (isDeptEmail && parsed2?.role) {
+            const cookieRole = parsed2.role as AppRole
+            let cookieFranchiseId = parsed2.franchise_id
+
+            // If the franchise_id looks like a placeholder UUID, look up the real one
+            const placeholderPattern = /^00000000-0000-4000-8001-/
+            if (!cookieFranchiseId || placeholderPattern.test(cookieFranchiseId)) {
+              try {
+                const { data: fData } = await supabaseServer
+                  .from('franchises')
+                  .select('id, name, code')
+                  .order('created_at', { ascending: true })
+                  .limit(1)
+                  .single()
+                if (fData?.id) cookieFranchiseId = fData.id
+              } catch (_) {}
+            }
+
+            const fallbackUser: AuthenticatedUser = {
+              id: parsed2.id || crypto.randomUUID(),
+              email: parsed2.email,
+              name: parsed2.email.split('@')[0].charAt(0).toUpperCase() + parsed2.email.split('@')[0].slice(1) + ' Manager',
+              role: cookieRole,
+              franchise_id: cookieFranchiseId || undefined,
+              permissions: getDefaultPermissions(cookieRole),
+              is_super_admin: cookieRole === 'super_admin',
+            }
+            console.log('[Auth Middleware] Using cookie fallback user:', fallbackUser.email, 'franchise:', cookieFranchiseId)
+
+            // Check role
+            const userLevel2 = ROLE_LEVELS[fallbackUser.role] || 0
+            const requiredLevel2 = ROLE_LEVELS[minRole] || 0
+            if (userLevel2 < requiredLevel2) {
+              return { authorized: false, error: { error: 'Forbidden', message: `Requires ${minRole} role` }, statusCode: 403 }
+            }
+            if (requirePermission && !fallbackUser.permissions[requirePermission] && !fallbackUser.is_super_admin) {
+              return { authorized: false, error: { error: 'Forbidden', message: `No permission: ${requirePermission}` }, statusCode: 403 }
+            }
+            return { authorized: true, user: fallbackUser }
+          }
+        } catch (_) {}
       }
+
+      return {
+        authorized: false,
+        error: { error: 'Forbidden', message: 'User profile not found or inactive: ' + profileError.message },
+        statusCode: 403,
+      };
     }
 
     const franchise = Array.isArray(appUser.franchises) ? appUser.franchises[0] : appUser.franchises;

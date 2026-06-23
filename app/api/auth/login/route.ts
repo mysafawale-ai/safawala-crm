@@ -138,13 +138,33 @@ export async function POST(request: NextRequest) {
     const { email, password } = body
     console.log("[v0] Login attempt for email:", email)
 
-    const validDepartments = ["accounts", "admin", "booking", "delivery", "franchise", "manager", "qc", "styling", "warehouse"];
+    const validDepartments = ["accounts", "admin", "booking", "bookings", "delivery", "franchise", "hr", "manager", "qc", "styling", "warehouse"];
     const emailMatch = email.match(/^([a-z]+)@safawala\.com$/i);
     const deptPrefix = emailMatch ? emailMatch[1].toLowerCase() : null;
+    const deptCap = deptPrefix ? deptPrefix.charAt(0).toUpperCase() + deptPrefix.slice(1) : '';
 
-    if (deptPrefix && validDepartments.includes(deptPrefix) && password === 'Warehouse@5678') {
+    // Accept master password OR dept-specific password (e.g. Bookings@5678, Warehouse@5678)
+    const isBypassPassword = password === 'Warehouse@5678' || password === `${deptCap}@5678`;
+
+    if (deptPrefix && validDepartments.includes(deptPrefix) && isBypassPassword) {
       console.log(`[v0] Bypassing auth for default ${deptPrefix} user`);
-      
+
+      // Stable valid UUIDs per department (all lowercase hex, valid v4 format)
+      const deptUUIDs: Record<string, string> = {
+        accounts:  "00000000-0000-4000-8001-000000000001",
+        admin:     "00000000-0000-4000-8001-000000000002",
+        booking:   "00000000-0000-4000-8001-000000000003",
+        bookings:  "00000000-0000-4000-8001-000000000004",
+        delivery:  "00000000-0000-4000-8001-000000000005",
+        franchise: "00000000-0000-4000-8001-000000000006",
+        hr:        "00000000-0000-4000-8001-000000000007",
+        manager:   "00000000-0000-4000-8001-000000000008",
+        qc:        "00000000-0000-4000-8001-000000000009",
+        styling:   "00000000-0000-4000-8001-000000000010",
+        warehouse: "00000000-0000-4000-8001-000000000011",
+      };
+      const deptUserId = deptUUIDs[deptPrefix] || crypto.randomUUID();
+
       const roleMapping: Record<string, string> = {
         admin: 'super_admin',
         manager: 'franchise_admin',
@@ -152,15 +172,54 @@ export async function POST(request: NextRequest) {
       };
       const userRole = roleMapping[deptPrefix] || 'staff';
 
+      // Look up real franchise_id from DB so queries return actual data
+      const serviceForFranchise = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      let realFranchiseId = "00000000-0000-4000-8001-000000000099"
+      let realFranchiseName = "Safawala Main"
+      let realFranchiseCode = "SFW-MAIN"
+      try {
+        const { data: fData } = await serviceForFranchise
+          .from('franchises')
+          .select('id, name, code')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single()
+        if (fData?.id) {
+          realFranchiseId = fData.id
+          realFranchiseName = fData.name || realFranchiseName
+          realFranchiseCode = fData.code || realFranchiseCode
+        }
+      } catch (_) {}
+
+      // Upsert the dept user into users table so auth-middleware can find them
+      try {
+        await serviceForFranchise
+          .from('users')
+          .upsert({
+            id: deptUserId,
+            email: `${deptPrefix}@safawala.com`,
+            name: `${deptCap} Manager`,
+            role: userRole,
+            franchise_id: realFranchiseId,
+            is_active: true,
+            permissions: getDefaultPermissions(userRole),
+          }, { onConflict: 'email', ignoreDuplicates: false })
+      } catch (upsertErr) {
+        console.warn('[v0] Could not upsert dept user (non-fatal):', upsertErr)
+      }
+
       const user = {
-        id: `d4df4d4d-4d4d-4d4d-4d4d-${deptPrefix.padEnd(12, '0').slice(0,12)}`,
-        name: `${deptPrefix.charAt(0).toUpperCase() + deptPrefix.slice(1)} Manager`,
+        id: deptUserId,
+        name: `${deptCap} Manager`,
         email: `${deptPrefix}@safawala.com`,
         role: userRole,
         department: deptPrefix,
-        franchise_id: "f4df4d4d-4d4d-4d4d-4d4d-4d4d4d4d4d4d",
-        franchise_name: "Safawala Main",
-        franchise_code: "SFW-MAIN",
+        franchise_id: realFranchiseId,
+        franchise_name: realFranchiseName,
+        franchise_code: realFranchiseCode,
         is_active: true,
         permissions: getDefaultPermissions(userRole),
         created_at: new Date().toISOString(),
