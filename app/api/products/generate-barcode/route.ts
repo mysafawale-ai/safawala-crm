@@ -74,9 +74,9 @@ export async function POST(req: NextRequest) {
         .from("products")
         .select("id")
         .eq("barcode", barcode)
-        .single()
+        .limit(1)
 
-      if (!existing) {
+      if (!existing || existing.length === 0) {
         // Barcode is unique
         break
       }
@@ -100,10 +100,6 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("Failed to update barcode:", updateError)
-      if (updateError.message?.includes("restricted") || updateError.message?.includes("quota") || updateError.message?.includes("violation") || updateError.message?.includes("limit") || updateError.message?.includes("Service for this project is restricted")) {
-        console.warn("Supabase restricted, returning mock barcode in fallback");
-        return NextResponse.json({ barcode, warning: "Mock database fallback active due to quota limit", mock: true }, { status: 200 })
-      }
       return NextResponse.json(
         { error: "Failed to save barcode: " + updateError.message },
         { status: 500 }
