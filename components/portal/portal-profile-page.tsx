@@ -22,10 +22,10 @@ export function PortalProfilePage({ dept, color, backHref }: { dept: string; col
     try {
       await signOut()
       localStorage.removeItem("safawala_user")
-      router.push("/auth/login")
+      router.push(`/login/${dept}`)
     } catch {
       localStorage.removeItem("safawala_user")
-      router.push("/auth/login")
+      router.push(`/login/${dept}`)
     }
   }
 
@@ -60,22 +60,6 @@ export function PortalProfilePage({ dept, color, backHref }: { dept: string; col
         <PortalInfoRow label="Department" value={user.department ?? dept} />
         {user.franchise_name && <PortalInfoRow label="Franchise" value={user.franchise_name} />}
         {user.franchise_code && <PortalInfoRow label="Branch Code" value={user.franchise_code} />}
-      </div>
-
-      {/* Quick links */}
-      <PortalSectionLabel label="Quick Links" />
-      <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.9)" }}>
-        <button className="w-full flex items-center gap-3 px-4 py-3.5 border-b" style={{ borderColor: "rgba(0,0,0,0.04)" }}
-          onClick={() => router.push("/dashboard")}>
-          <span style={{ color }}><PortalIcon name="monitor" size={18} /></span>
-          <span className="text-[13px] font-semibold flex-1 text-left" style={{ color: "#1e1208" }}>Open Full CRM Dashboard</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(80,55,30,0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
-        </button>
-        <button className="w-full flex items-center gap-3 px-4 py-3.5" onClick={() => router.push("/settings")}>
-          <span style={{ color }}><PortalIcon name="settings" size={18} /></span>
-          <span className="text-[13px] font-semibold flex-1 text-left" style={{ color: "#1e1208" }}>Settings</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(80,55,30,0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
-        </button>
       </div>
 
       {/* Logout */}

@@ -28,7 +28,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
     const raw = localStorage.getItem("safawala_user")
     if (!raw) {
-      router.replace(`/auth/login?redirect=/portal/${dept}`)
+      router.replace(`/login/${dept}`)
       return
     }
 
@@ -36,7 +36,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     try {
       user = JSON.parse(raw)
     } catch {
-      router.replace("/auth/login")
+      router.replace(`/login/${dept}`)
       return
     }
 
