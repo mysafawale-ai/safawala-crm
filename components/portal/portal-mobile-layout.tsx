@@ -2,6 +2,7 @@
 
 import type { PortalConfig } from "@/lib/portal-config"
 import { PortalBottomNav } from "./portal-bottom-nav"
+import { PortalSidebar } from "./portal-sidebar"
 
 interface PortalMobileLayoutProps {
   config: PortalConfig
@@ -10,27 +11,36 @@ interface PortalMobileLayoutProps {
 
 export function PortalMobileLayout({ config, children }: PortalMobileLayoutProps) {
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        background: "#f5ebe0",
-        maxWidth: "480px",
-        margin: "0 auto",
-        position: "relative",
-      }}
-    >
-      {/* Subtle top color bar */}
-      <div className="h-1" style={{ background: config.color }} />
-
-      {/* Scrollable content area with padding for bottom nav */}
-      <div
-        className="overflow-y-auto"
-        style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
-      >
-        {children}
+    <>
+      {/* ── DESKTOP layout (md+) ── */}
+      <div className="hidden md:flex min-h-screen" style={{ background: "#f5ebe0" }}>
+        <PortalSidebar config={config} />
+        <main className="flex-1 overflow-y-auto" style={{ marginLeft: 240 }}>
+          <div className="max-w-4xl mx-auto py-6 px-8">
+            {children}
+          </div>
+        </main>
       </div>
 
-      <PortalBottomNav tabs={config.tabs} color={config.color} />
-    </div>
+      {/* ── MOBILE layout (<md) ── */}
+      <div
+        className="md:hidden min-h-screen"
+        style={{
+          background: "#f5ebe0",
+          maxWidth: "480px",
+          margin: "0 auto",
+          position: "relative",
+        }}
+      >
+        <div className="h-1" style={{ background: config.color }} />
+        <div
+          className="overflow-y-auto"
+          style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
+        >
+          {children}
+        </div>
+        <PortalBottomNav tabs={config.tabs} color={config.color} />
+      </div>
+    </>
   )
 }
