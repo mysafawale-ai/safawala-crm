@@ -86,15 +86,6 @@ export async function POST(
 
     if (updateError) {
       console.error("[Task Update Status POST] Update error:", updateError)
-      if (updateError.message?.includes("restricted") || updateError.message?.includes("quota") || updateError.message?.includes("violation") || updateError.message?.includes("limit") || updateError.message?.includes("Service for this project is restricted")) {
-        console.warn("Supabase restricted, returning mock updated task");
-        return NextResponse.json({
-          success: true,
-          data: { id: taskId, status, checklist, photos },
-          transitions: ["Activated mock task transition (Demo Mode)"],
-          mock: true
-        })
-      }
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 

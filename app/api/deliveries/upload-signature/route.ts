@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { authenticateRequest } from "@/lib/auth-middleware"
+import { uploadToR2 } from "@/lib/r2-storage"
 
 export const dynamic = "force-dynamic"
 
@@ -26,36 +27,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
-    
     // Create unique file path
     const fileName = `handover-signature-${deliveryId}-${Date.now()}.png`
-    const filePath = `deliveries/${deliveryId}/${fileName}`
+    const filePath = `deliveries/${deliveryId}`
 
-    // Upload to storage
-    const { error: uploadError } = await supabase.storage
-      .from("delivery-handovers")
-      .upload(filePath, file, {
-        upsert: false
-      })
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError)
-      return NextResponse.json(
-        { error: "Failed to upload signature" },
-        { status: 500 }
-      )
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from("delivery-handovers")
-      .getPublicUrl(filePath)
+    // Upload to R2 storage
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(new Uint8Array(arrayBuffer))
+    
+    const { publicUrl, key } = await uploadToR2(
+      buffer,
+      fileName,
+      file.type || "image/png",
+      filePath
+    )
 
     return NextResponse.json({
       success: true,
       url: publicUrl,
-      path: filePath
+      path: key
     })
 
   } catch (error: any) {

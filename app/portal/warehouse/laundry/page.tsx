@@ -9,14 +9,12 @@ export default function LaundryPage() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [errorState, setErrorState] = useState<string | null>(null)
-  const [demoMode, setDemoMode] = useState(false)
 
   useEffect(() => { fetchLaundry() }, [])
 
   async function fetchLaundry() {
     setLoading(true)
     setErrorState(null)
-    setDemoMode(false)
     try {
       const res = await fetch("/api/laundry?limit=50")
       const data = await res.json()
@@ -26,18 +24,8 @@ export default function LaundryPage() {
       setItems(Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []))
     } catch (err: any) {
       console.error("Failed to fetch laundry:", err)
-      const isRestricted = err.message?.includes("restricted") || err.message?.includes("quota") || err.message?.includes("limit") || err.message?.includes("Service for this project is restricted")
-      if (isRestricted) {
-        setDemoMode(true)
-        const mockLaundry = [
-          { id: "l1", product_name: "Premium Red Safa", item_name: "Premium Red Safa", sent_at: new Date().toISOString(), status: "in_laundry", notes: "Dry clean only - stain near border" },
-          { id: "l2", product_name: "Gold Zari Safa", item_name: "Gold Zari Safa", sent_at: new Date().toISOString(), status: "in_laundry", notes: "Standard wash" }
-        ]
-        setItems(mockLaundry)
-      } else {
-        setErrorState(err.message || "Failed to fetch laundry items")
-        setItems([])
-      }
+      setErrorState(err.message || "Failed to fetch laundry items")
+      setItems([])
     } finally {
       setLoading(false)
     }
@@ -50,26 +38,13 @@ export default function LaundryPage() {
     <div>
       <PortalPageHeader title="Laundry Queue" subtitle={`${pending.length} pending`} color={COLOR} backHref="/portal/warehouse" />
 
-      {demoMode && (
-        <div className="mx-4 mt-4 p-4 bg-purple-50 border border-purple-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
-          <p className="text-[12px] font-extrabold text-purple-800 flex items-center gap-1.5">
-            ✨ Running in Demo Mode
-          </p>
-          <p className="text-[11px] font-medium text-purple-700 leading-relaxed">
-            Using local JSON fallback content because your Supabase database is restricted due to quota limits. Active tasks and inventory changes will run locally for simulation.
-          </p>
-        </div>
-      )}
-
-      {errorState && !demoMode && (
+      {errorState && (
         <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-col gap-1.5 shadow-sm">
           <p className="text-[12px] font-extrabold text-red-800 flex items-center gap-1.5">
-            ⚠️ Database Restriction Active
+            ⚠️ Error
           </p>
           <p className="text-[11px] font-medium text-red-700 leading-relaxed">
-            {errorState.includes("restricted") || errorState.includes("quota") || errorState.includes("limit")
-              ? "The Supabase database has hit its storage or egress limits. Please log in to your Supabase Dashboard to upgrade your plan or delete files to restore database services."
-              : errorState}
+            {errorState}
           </p>
         </div>
       )}

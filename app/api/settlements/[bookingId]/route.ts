@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import AuditLogger from "@/lib/audit-logger"
 import { generateSettlementInvoicePDF } from "@/lib/settlement-invoice"
+import { uploadToR2 } from "@/lib/r2-storage"
 
 // Input JSON:
 // {
@@ -211,17 +212,11 @@ export async function POST(request: Request, { params }: { params: { bookingId: 
       const buffer = new Uint8Array(arrayBuffer)
 
       // Choose storage bucket and path
-      const bucket = process.env.NEXT_PUBLIC_INVOICES_BUCKET || "uploads"
       const key = `invoices/settlements/${invoice.invoice_number}.pdf`
 
-      const { data: uploadRes, error: uploadErr } = await supabase.storage
-        .from(bucket)
-        .upload(key, buffer, { contentType: "application/pdf", upsert: true })
-      if (uploadErr) {
-        console.warn("Settlement PDF upload failed:", uploadErr)
-      } else {
-        const { data: pub } = await supabase.storage.from(bucket).getPublicUrl(key)
-        const pdfUrl = pub?.publicUrl || null
+      try {
+        const { publicUrl } = await uploadToR2(buffer, key, "application/pdf", "invoices/settlements")
+        const pdfUrl = publicUrl || null
         if (pdfUrl) {
           await supabase.from("invoices").update({ pdf_url: pdfUrl, pdf_generated: true }).eq("id", invoice.id)
         }

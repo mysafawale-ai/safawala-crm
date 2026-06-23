@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { authenticateRequest } from '@/lib/auth-middleware'
 import { v4 as uuidv4 } from 'uuid'
+import { uploadToR2 } from '@/lib/r2-storage'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -251,35 +252,23 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Upload base64 image to Supabase Storage
+ * Upload base64 image to Cloudflare R2
  */
 async function uploadImage(base64Data: string, productCode: string): Promise<string | null> {
   try {
-    const supabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
     // Convert base64 to buffer
     const buffer = Buffer.from(base64Data, 'base64')
     const filename = `${Date.now()}-${productCode}.jpg`
-    const filepath = `inventory/${filename}`
+    const filepath = `inventory`
 
-    const { data, error } = await supabase.storage
-      .from('product-images')
-      .upload(filepath, buffer, {
-        contentType: 'image/jpeg',
-        upsert: false,
-      })
+    const { publicUrl } = await uploadToR2(
+      buffer,
+      filename,
+      'image/jpeg',
+      filepath
+    )
 
-    if (error) throw error
-
-    // Get public URL
-    const { data: publicUrl } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(filepath)
-
-    return publicUrl.publicUrl
+    return publicUrl
   } catch (error) {
     console.error('[Image Upload] Error:', error)
     return null

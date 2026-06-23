@@ -63,8 +63,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
     const { authContext } = authResult;
     // Module permission: require "customers" access even for readers
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'customers')) {
+    const permissions = authContext!.user.permissions
+    if (!permissions.customers) {
       return NextResponse.json(
         ApiResponseBuilder.forbiddenError('You do not have permission to view customers'),
         { status: 403 }
@@ -182,8 +182,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
     const { authContext } = authResult;
     // Module permission: require "customers" access for update
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'customers')) {
+    const permissions = authContext!.user.permissions
+    if (!permissions.customers) {
       return NextResponse.json(
         ApiResponseBuilder.forbiddenError('You do not have permission to update customers'),
         { status: 403 }
@@ -395,8 +395,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
     const { authContext } = authResult;
     // Module permission: require "customers" access for delete
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'customers')) {
+    const permissions = authContext!.user.permissions
+    if (!permissions.customers) {
       return NextResponse.json(
         ApiResponseBuilder.forbiddenError('You do not have permission to delete customers'),
         { status: 403 }
@@ -542,8 +542,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     const { authContext } = authResult;
     // Module permission: require "customers" access for patch
-    const permissions = await getUserPermissions(authContext!.user.id)
-    if (!hasModuleAccess(permissions, 'customers')) {
+    const permissions = authContext!.user.permissions
+    if (!permissions.customers) {
       return NextResponse.json(
         ApiResponseBuilder.forbiddenError('You do not have permission to update customers'),
         { status: 403 }

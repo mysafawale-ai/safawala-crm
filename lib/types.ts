@@ -741,3 +741,32 @@ export type UserRole = "super_admin" | "franchise_admin" | "staff" | "readonly"
 export type PaymentMethod = "cash" | "card" | "upi" | "bank_transfer" | "cheque"
 export type TransactionType = "in" | "out" | "adjustment"
 export type QuoteStatus = "generated" | "sent" | "viewed" | "accepted" | "rejected"
+
+// Staff Ledger Types
+export interface StaffLedger {
+  id: string
+  user_id: string
+  base_salary: number
+  utilized_credit: number
+  credit_limit: number
+  created_at: string
+  updated_at: string
+  user?: {
+    id: string
+    email: string
+    name: string
+    role: string
+    department?: string
+  }
+}
+
+export interface StaffLedgerTransaction {
+  id: string
+  ledger_id: string
+  title: string
+  amount: number
+  type: "credit" | "debit"
+  transaction_date: string
+  created_by?: string
+  created_at: string
+}

@@ -8,6 +8,7 @@ export type DepartmentSlug =
   | "styling"
   | "accounts"
   | "franchise"
+  | "hr"
 
 export interface PortalTab {
   icon: string
@@ -133,7 +134,7 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
     slug: "styling",
     label: "Safa Styling",
     portalName: "Stylist Portal",
-    icon: "scissors",
+    icon: "crown",
     color: "#ec4899",
     gradient: "from-pink-500 to-pink-600",
     allowedRoles: ["super_admin", "franchise_admin", "staff", "stylist"],
@@ -141,7 +142,6 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
       { icon: "home", label: "Home", href: "/portal/styling" },
       { icon: "clipboard", label: "Assignments", href: "/portal/styling/assignments" },
       { icon: "rupee", label: "Earnings", href: "/portal/styling/earnings" },
-      { icon: "calendar", label: "Attendance", href: "/portal/styling/attendance" },
       { icon: "user", label: "Me", href: "/portal/styling/profile" },
     ],
   },
@@ -177,6 +177,23 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
       { icon: "package", label: "Inventory", href: "/portal/franchise/inventory" },
       { icon: "users", label: "Staff", href: "/portal/franchise/staff" },
       { icon: "user", label: "Me", href: "/portal/franchise/profile" },
+    ],
+  },
+
+  hr: {
+    slug: "hr",
+    label: "Human Resources",
+    portalName: "HR Portal",
+    icon: "users",
+    color: "#6366f1",
+    gradient: "from-indigo-500 to-indigo-600",
+    allowedRoles: ["super_admin", "franchise_admin", "staff", "hr_staff"],
+    tabs: [
+      { icon: "home", label: "Home", href: "/portal/hr" },
+      { icon: "team", label: "Staff", href: "/portal/hr/staff" },
+      { icon: "calendar", label: "Attendance", href: "/portal/hr/attendance" },
+      { icon: "rupee", label: "Payroll", href: "/portal/hr/payroll" },
+      { icon: "user", label: "Me", href: "/portal/hr/profile" },
     ],
   },
 }

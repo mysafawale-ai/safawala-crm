@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseServer as supabase } from "@/lib/supabase-server-simple"
 import { v4 as uuidv4 } from "uuid"
+import { uploadToR2 } from "@/lib/r2-storage"
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,39 +46,21 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = new Uint8Array(arrayBuffer)
 
-    // Use product-images bucket or fall back to safawala-uploads
-    const bucketName = process.env.PRODUCT_IMAGES_BUCKET || process.env.STORAGE_BUCKET || 'product-images'
-    
-    console.log('[Upload API] Uploading to bucket:', bucketName, 'path:', filePath)
+    // Upload file to Cloudflare R2
+    const { publicUrl, key } = await uploadToR2(
+      Buffer.from(buffer), 
+      fileName, 
+      file.type, 
+      folder || "uploads"
+    )
 
-    // Upload file to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(bucketName)
-      .upload(filePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      })
-
-    if (uploadError) {
-      console.error('[Upload API] Upload error:', uploadError)
-      return NextResponse.json(
-        { error: `Failed to upload file: ${uploadError.message}` },
-        { status: 500 }
-      )
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(filePath)
-
-    console.log('[Upload API] Upload successful:', urlData.publicUrl)
+    console.log('[Upload API] Upload successful:', publicUrl)
 
     return NextResponse.json({
       success: true,
       filename: fileName,
-      filePath: filePath,
-      url: urlData.publicUrl,
+      filePath: key,
+      url: publicUrl,
       size: file.size,
       type: file.type
     })

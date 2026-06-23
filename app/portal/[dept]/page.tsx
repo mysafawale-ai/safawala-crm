@@ -153,7 +153,7 @@ export default function PortalHomePage() {
               icon="plus-circle"
               color={config.color}
               variant="action"
-              onClick={() => router.push("/bookings/create")}
+              onClick={() => router.push("/portal/booking/bookings/new")}
             />
             <PortalHomeCard
               title="All Quotes"
@@ -307,15 +307,6 @@ export default function PortalHomePage() {
                 onClick={() => router.push("/portal/styling/earnings")}
               />
             </div>
-            <PortalHomeCard
-              title="Attendance & Leaves"
-              value="View"
-              subtitle="Mark attendance, apply for leave"
-              icon="calendar"
-              color={config.color}
-              variant="action"
-              onClick={() => router.push("/portal/styling/attendance")}
-            />
           </>
         )}
 
@@ -403,6 +394,49 @@ export default function PortalHomePage() {
             />
           </>
         )}
+
+        {dept === "hr" && (
+          <>
+            <PortalHomeCard
+              title="Staff Directory"
+              value="Manage"
+              subtitle="All registered staff members"
+              icon="team"
+              color={config.color}
+              variant="action"
+              onClick={() => router.push("/portal/hr/staff")}
+            />
+            <PortalHomeCard
+              title="Attendance & Leaves"
+              value="Daily Logs"
+              subtitle="Monitor daily logs & leave requests"
+              icon="calendar"
+              color={config.color}
+              variant="action"
+              onClick={() => router.push("/portal/hr/attendance")}
+            />
+            <PortalHomeCard
+              title="Run Payroll"
+              value="Compensation"
+              subtitle="Review salaries and payouts"
+              icon="rupee"
+              color={config.color}
+              variant="action"
+              onClick={() => router.push("/portal/hr/payroll")}
+            />
+          </>
+        )}
+
+        {/* Khatabook / Ledger Entry Point */}
+        <PortalHomeCard
+          title={dept === "admin" || dept === "manager" || dept === "hr" ? "Staff Ledgers (Khatabook)" : "My Ledger (Khatabook)"}
+          value="Open"
+          subtitle={dept === "admin" || dept === "manager" || dept === "hr" ? "Manage employee advances & credit score" : "Track advances, payouts & credit limit"}
+          icon="credit-card"
+          color={config.color}
+          variant="action"
+          onClick={() => router.push(`/portal/${dept}/ledger`)}
+        />
 
         {/* Always-visible quick link to profile */}
         <div

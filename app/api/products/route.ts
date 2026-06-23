@@ -133,17 +133,6 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("Failed to fetch products:", error)
-      if (error.message?.includes("restricted") || error.message?.includes("quota") || error.message?.includes("violation") || error.message?.includes("limit") || error.message?.includes("Service for this project is restricted")) {
-        console.warn("Supabase restricted, returning mock products");
-        const mockProducts = [
-          { id: "p1", name: "Premium Red Safa", sku: "SAF-RED-001", barcode: "10001", stock_quantity: 12, min_stock_level: 2, category: "Safa", price: 1500, rental_price: 500, is_active: true },
-          { id: "p2", name: "Gold Zari Safa", sku: "SAF-GLD-002", barcode: "10002", stock_quantity: 4, min_stock_level: 5, category: "Safa", price: 2500, rental_price: 800, is_active: true },
-          { id: "p3", name: "Peach Floral Safa", sku: "SAF-PCH-003", barcode: "10003", stock_quantity: 25, min_stock_level: 3, category: "Safa", price: 1800, rental_price: 600, is_active: true },
-          { id: "p4", name: "Royal Sherwani Brooch", sku: "BRH-RYL-001", barcode: "20001", stock_quantity: 1, min_stock_level: 2, category: "Brooch", price: 1200, rental_price: 400, is_active: true },
-          { id: "p5", name: "Silver Pearl Kalangi", sku: "KLG-SLV-001", barcode: "30001", stock_quantity: 8, min_stock_level: 3, category: "Kalangi", price: 2000, rental_price: 700, is_active: true },
-        ];
-        return NextResponse.json({ data: mockProducts, mock: true })
-      }
       return NextResponse.json(
         { error: error.message || "Failed to fetch products" },
         { status: 500 }

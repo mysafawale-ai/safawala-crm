@@ -172,6 +172,14 @@ export async function POST(request: NextRequest) {
       };
       const userRole = roleMapping[deptPrefix] || 'staff';
 
+      // Normalize dept aliases to their portal slug (e.g. "bookings" → "booking")
+      const deptToPortalSlug: Record<string, string> = {
+        bookings: 'booking',
+        franchise: 'manager',
+        admin: 'admin',
+      };
+      const portalSlug = deptToPortalSlug[deptPrefix] || deptPrefix;
+
       // Look up real franchise_id from DB so queries return actual data
       const serviceForFranchise = createServiceClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -216,7 +224,7 @@ export async function POST(request: NextRequest) {
         name: `${deptCap} Manager`,
         email: `${deptPrefix}@safawala.com`,
         role: userRole,
-        department: deptPrefix,
+        department: portalSlug,
         franchise_id: realFranchiseId,
         franchise_name: realFranchiseName,
         franchise_code: realFranchiseCode,

@@ -9,6 +9,7 @@ const DEPARTMENTS = [
   { dept: "delivery",  label: "Delivery",        subtitle: "Dispatch & Returns",     icon: "🚚", color: "#14b8a6", bg: "linear-gradient(135deg, #14b8a6, #0d9488)" },
   { dept: "styling",   label: "Styling",         subtitle: "Safa Stylists",          icon: "✂️", color: "#ec4899", bg: "linear-gradient(135deg, #ec4899, #db2777)" },
   { dept: "accounts",  label: "Accounts",        subtitle: "Finance & Payments",     icon: "💰", color: "#ef4444", bg: "linear-gradient(135deg, #ef4444, #dc2626)" },
+  { dept: "hr",        label: "HR Department",   subtitle: "Human Resources & Payroll", icon: "👥", color: "#6366f1", bg: "linear-gradient(135deg, #6366f1, #4f46e5)" },
   { dept: "manager",   label: "Manager",         subtitle: "Branch Management",      icon: "🏢", color: "#3b82f6", bg: "linear-gradient(135deg, #3b82f6, #2563eb)" },
   { dept: "franchise", label: "Franchise",       subtitle: "Franchise Operations",   icon: "🌐", color: "#8b5cf6", bg: "linear-gradient(135deg, #8b5cf6, #7c3aed)" },
   { dept: "admin",     label: "Admin",           subtitle: "Super Administration",   icon: "👑", color: "#f97316", bg: "linear-gradient(135deg, #f97316, #ea580c)" },

@@ -134,6 +134,19 @@ const DEPT_CONFIG: Record<string, {
     bgPattern: "#fff7ed",
     accentText: "Full system access across all franchises",
   },
+  hr: {
+    label: "HR Portal",
+    subtitle: "Human Resources & Payroll",
+    email: "hr@safawala.com",
+    icon: "👥",
+    emoji: "👥",
+    color: "#6366f1",
+    colorDark: "#4f46e5",
+    gradient: "linear-gradient(145deg, #312e81, #4f46e5, #6366f1)",
+    glowColor: "rgba(99,102,241,0.35)",
+    bgPattern: "#f5f3ff",
+    accentText: "Manage staff, attendance, and payroll records",
+  },
 }
 
 export default function DeptLoginPage() {
