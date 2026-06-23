@@ -132,18 +132,31 @@ export default function StaffPage() {
             return (
               <div key={s.id} style={{ background: "white", border: "1px solid rgba(255,255,255,0.9)", borderRadius: 16, overflow: "hidden" }}>
                 <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setSelected(selected?.id === s.id ? null : s)}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: `${deptColor}20`, display: "flex", alignItems: "center", justifyContent: "center", color: deptColor, fontSize: 13, fontWeight: 800, flexShrink: 0, position: "relative" }}>
+                  {/* Avatar */}
+                  <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${deptColor}, ${deptColor}aa)`, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 14, fontWeight: 900, flexShrink: 0, position: "relative" }}>
                     {(s.name || "?").split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                     {s.is_active === false && (
                       <div style={{ position: "absolute", bottom: -2, right: -2, width: 10, height: 10, borderRadius: "50%", background: "#ef4444", border: "2px solid white" }} />
                     )}
                   </div>
+                  {/* Name + dept badge */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#1e1208" }}>{s.name ?? s.email}</p>
-                    <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(80,55,30,0.45)", fontWeight: 600, textTransform: "uppercase" }}>{s.role?.replace(/_/g, " ")} · {s.department ?? "—"}</p>
+                    <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 800, color: "#1e1208" }}>{s.name ?? s.email}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      {/* Department pill */}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${deptColor}18`, color: deptColor, fontSize: 10, fontWeight: 800, padding: "3px 9px", borderRadius: 20, textTransform: "capitalize", letterSpacing: 0.2 }}>
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: deptColor, flexShrink: 0 }} />
+                        {s.department ?? "No dept"}
+                      </span>
+                      {/* Role */}
+                      <span style={{ fontSize: 9, fontWeight: 600, color: "rgba(80,55,30,0.4)", textTransform: "capitalize" }}>
+                        {s.role?.replace(/_/g, " ") ?? "staff"}
+                      </span>
+                    </div>
                   </div>
-                  <span style={{ background: s.is_active !== false ? "#dcfce7" : "#fee2e2", color: s.is_active !== false ? "#15803d" : "#b91c1c", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 20, textTransform: "uppercase", whiteSpace: "nowrap" }}>
-                    {s.is_active !== false ? "Active" : "Inactive"}
+                  {/* Active status */}
+                  <span style={{ background: s.is_active !== false ? "#dcfce7" : "#fee2e2", color: s.is_active !== false ? "#15803d" : "#b91c1c", fontSize: 9, fontWeight: 700, padding: "4px 9px", borderRadius: 20, textTransform: "uppercase", whiteSpace: "nowrap", letterSpacing: 0.3 }}>
+                    {s.is_active !== false ? "● Active" : "● Inactive"}
                   </span>
                 </div>
 
