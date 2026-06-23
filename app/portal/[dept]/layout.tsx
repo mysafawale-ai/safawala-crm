@@ -6,14 +6,26 @@ import { getPortalConfig, getDefaultPortalForRole } from "@/lib/portal-config"
 import { PortalMobileLayout } from "@/components/portal/portal-mobile-layout"
 import type { User } from "@/lib/types"
 
+// Map known dept aliases to canonical portal slugs
+const DEPT_ALIASES: Record<string, string> = {
+  bookings: "booking",
+}
+
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const params = useParams()
-  const dept = params.dept as string
+  const rawDept = params.dept as string
+  const dept = DEPT_ALIASES[rawDept] || rawDept
   const [ready, setReady] = useState(false)
   const [config, setConfig] = useState(getPortalConfig(dept))
 
   useEffect(() => {
+    // If URL has an alias dept slug, redirect to canonical immediately
+    if (rawDept !== dept) {
+      router.replace(`/portal/${dept}`)
+      return
+    }
+
     const raw = localStorage.getItem("safawala_user")
     if (!raw) {
       router.replace(`/auth/login?redirect=/portal/${dept}`)
@@ -30,15 +42,17 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
     const resolvedConfig = getPortalConfig(dept)
     if (!resolvedConfig) {
-      // Unknown dept — send to their correct portal
-      const correctDept = user.department || getDefaultPortalForRole(user.role)
+      // Unknown dept — send to their correct portal (normalize aliases)
+      const rawCorrect = user.department || getDefaultPortalForRole(user.role)
+      const correctDept = DEPT_ALIASES[rawCorrect] || rawCorrect
       router.replace(`/portal/${correctDept}`)
       return
     }
 
-    // Role guard: super_admin can visit any portal
+    // Role guard: super_admin and franchise_admin can visit any portal
     if (user.role !== "super_admin" && user.role !== "franchise_admin") {
-      const userDept = user.department || getDefaultPortalForRole(user.role)
+      const rawUserDept = user.department || getDefaultPortalForRole(user.role)
+      const userDept = DEPT_ALIASES[rawUserDept] || rawUserDept
       if (userDept !== dept) {
         router.replace(`/portal/${userDept}`)
         return
@@ -47,7 +61,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
     setConfig(resolvedConfig)
     setReady(true)
-  }, [dept, router])
+  }, [dept, rawDept, router])
 
   if (!ready || !config) {
     return (
