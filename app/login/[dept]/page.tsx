@@ -125,6 +125,17 @@ const DEPT_CONFIG: Record<string, {
     glowColor: "rgba(99,102,241,0.4)",
     bgGradient: "linear-gradient(160deg, #f5f3ff 0%, #ede9fe 60%, #ddd6fe 100%)",
   },
+  travels: {
+    label: "Travel Portal",
+    subtitle: "Travels & Ticket Booking",
+    defaultEmail: "travels@safawala.com",
+    icon: "✈️",
+    color: "#0891b2",
+    colorDark: "#0e7490",
+    gradient: "linear-gradient(145deg, #0c4a6e, #0284c7, #0891b2)",
+    glowColor: "rgba(8,145,178,0.4)",
+    bgGradient: "linear-gradient(160deg, #ecfeff 0%, #cffafe 60%, #a5f3fc 100%)",
+  },
 }
 
 export default function DeptLoginPage() {

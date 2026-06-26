@@ -310,13 +310,13 @@ export function ProductRentalInvoice({
                         <div className="flex justify-between items-center pt-2 border-t">
                           <div className="text-sm">
                             <span className="text-gray-600">
-                              {item.quantity || 1} × {formatCurrency(item.unit_price || 0)}
+                              {item.quantity || 1} × Included
                             </span>
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-gray-600">Line Total</p>
                             <p className="text-lg font-bold">
-                              {formatCurrency(item.total_price || 0)}
+                              Included
                             </p>
                           </div>
                         </div>

@@ -9,6 +9,7 @@ export type DepartmentSlug =
   | "accounts"
   | "franchise"
   | "hr"
+  | "travels"
 
 export interface PortalTab {
   icon: string
@@ -198,6 +199,23 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
       { icon: "search",    label: "KYC",        href: "/portal/hr/kyc" },
       { icon: "rupee",     label: "Ledger",     href: "/portal/hr/ledger" },
       { icon: "user",      label: "Me",         href: "/portal/hr/profile" },
+    ],
+  },
+
+  travels: {
+    slug: "travels",
+    label: "Travels & Tickets",
+    portalName: "Travel Portal",
+    icon: "map-pin",
+    color: "#0891b2",
+    gradient: "from-cyan-600 to-cyan-700",
+    allowedRoles: ["super_admin", "franchise_admin", "staff", "travels_staff"],
+    tabs: [
+      { icon: "home",      label: "Home",       href: "/portal/travels" },
+      { icon: "calendar",  label: "Events",     href: "/portal/travels/assignments" },
+      { icon: "map-pin",   label: "Tickets",    href: "/portal/travels/tickets" },
+      { icon: "team",      label: "Stylists",   href: "/portal/travels/stylists" },
+      { icon: "user",      label: "Me",         href: "/portal/travels/profile" },
     ],
   },
 }

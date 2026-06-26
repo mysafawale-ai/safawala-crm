@@ -4131,10 +4131,10 @@ export default function CreateInvoicePage() {
                         </td>
                         <td className="px-1.5 py-0.5 text-center font-medium">{item.quantity}</td>
                         <td className="px-1.5 py-0.5 text-right font-medium text-gray-900">
-                          {isPackageInclusion ? "Included" : formatCurrency(item.unit_price)}
+                          {invoiceData.invoice_type === "rental" ? "Included" : isPackageInclusion ? "Included" : formatCurrency(item.unit_price)}
                         </td>
                         <td className="px-1.5 py-0.5 text-right font-medium text-gray-900">
-                          {isPackageInclusion ? "Included" : formatCurrency(item.total_price)}
+                          {invoiceData.invoice_type === "rental" ? "Included" : isPackageInclusion ? "Included" : formatCurrency(item.total_price)}
                         </td>
                       </tr>
                     );
