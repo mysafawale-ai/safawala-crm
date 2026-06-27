@@ -275,7 +275,7 @@ export default function InventoryDashboard() {
         setCategories([])
       }
 
-      let query = supabase.from("products").select("*").order("created_at", { ascending: false })
+      let query = supabase.from("products").select("*").order("created_at", { ascending: false }).limit(3000)
 
       if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
         query = query.eq("franchise_id", currentUser.franchise_id)
