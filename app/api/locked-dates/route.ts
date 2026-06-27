@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic"
 // GET /api/locked-dates — fetch all locked dates for a franchise
 export async function GET(req: NextRequest) {
   const auth = await requireAuth(req)
-  if (!auth.authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!auth.success) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const franchiseId = req.nextUrl.searchParams.get("franchise_id") || (auth as any).user?.franchise_id
+  const franchiseId = req.nextUrl.searchParams.get("franchise_id") || auth.authContext?.user?.franchise_id
 
   const { data, error } = await supabase
     .from("locked_dates")
@@ -28,12 +28,12 @@ export async function GET(req: NextRequest) {
 // POST /api/locked-dates — create a locked date
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req)
-  if (!auth.authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!auth.success) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
   const { locked_date, whatsapp_number, notes } = body
-  const franchiseId = (auth as any).user?.franchise_id
-  const userId = (auth as any).user?.id
+  const franchiseId = auth.authContext?.user?.franchise_id
+  const userId = auth.authContext?.user?.id
 
   if (!locked_date) {
     return NextResponse.json({ error: "locked_date is required" }, { status: 400 })
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 // DELETE /api/locked-dates?id=xxx — remove a locked date
 export async function DELETE(req: NextRequest) {
   const auth = await requireAuth(req)
-  if (!auth.authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!auth.success) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const id = req.nextUrl.searchParams.get("id")
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
