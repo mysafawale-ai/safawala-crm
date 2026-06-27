@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { PortalPageHeader, PortalSearchBar, PortalListCard, PortalEmptyState, PortalSkeleton } from "@/components/portal/portal-shared"
 
-const COLOR = "#8b5cf6"
+const COLOR = "#a855f7"
 
 export default function FranchiseStaffPage() {
   const [staff, setStaff] = useState<any[]>([])
@@ -29,7 +29,7 @@ export default function FranchiseStaffPage() {
       <PortalPageHeader title="My Staff" subtitle={`${filtered.length} members`} color={COLOR} backHref="/portal/franchise" />
       <PortalSearchBar value={search} onChange={setSearch} placeholder="Search staff name or role..." />
 
-      <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.9)" }}>
+      <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "#ffffff", border: "1px solid #e4e4e7" }}>
         {loading ? <PortalSkeleton rows={5} /> : filtered.length === 0 ? (
           <PortalEmptyState icon="users" title="No staff found" subtitle="Your franchise staff appear here" color={COLOR} />
         ) : filtered.map(s => (

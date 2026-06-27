@@ -25,11 +25,9 @@ export function PortalHomeCard({
     <div
       className="relative overflow-hidden rounded-2xl p-4 cursor-pointer active:scale-95 transition-transform duration-150"
       style={{
-        background: "rgba(255,255,255,0.65)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        border: "1px solid rgba(255,255,255,0.9)",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+        background: "#ffffff",
+        border: "1px solid #e4e4e7",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
       }}
       onClick={onClick}
     >
@@ -43,20 +41,20 @@ export function PortalHomeCard({
         <div className="flex-1 min-w-0">
           <p
             className="text-[10px] font-bold uppercase tracking-widest"
-            style={{ color: "rgba(80,55,30,0.4)" }}
+            style={{ color: "#a1a1aa" }}
           >
             {title}
           </p>
           <p
             className="text-2xl font-black mt-1 leading-none"
-            style={{ color: "#1e1208" }}
+            style={{ color: "#18181b" }}
           >
             {value}
           </p>
           {subtitle && (
             <p
               className="text-[11px] mt-1.5 leading-snug"
-              style={{ color: "rgba(80,55,30,0.5)" }}
+              style={{ color: "#71717a" }}
             >
               {subtitle}
             </p>

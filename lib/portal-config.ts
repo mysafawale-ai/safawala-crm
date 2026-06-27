@@ -169,8 +169,8 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
     label: "Franchise Operations",
     portalName: "Franchise Portal",
     icon: "globe",
-    color: "#8b5cf6",
-    gradient: "from-violet-500 to-violet-600",
+    color: "#a855f7",
+    gradient: "from-purple-500 to-purple-600",
     allowedRoles: ["franchise_owner", "franchise_admin"],
     tabs: [
       { icon: "home", label: "Home", href: "/portal/franchise" },

@@ -65,10 +65,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   if (!ready || !config) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#f5ebe0" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#fafafa" }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#22c55e", borderTopColor: "transparent" }} />
-          <p className="text-xs font-semibold" style={{ color: "rgba(80,55,30,0.5)" }}>Loading portal...</p>
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#a855f7", borderTopColor: "transparent" }} />
+          <p className="text-xs font-semibold" style={{ color: "#a1a1aa" }}>Loading portal...</p>
         </div>
       </div>
     )

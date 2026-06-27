@@ -17,11 +17,11 @@ export function PortalBottomNav({ tabs, color }: PortalBottomNavProps) {
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around"
       style={{
-        background: "rgba(255,255,255,0.88)",
+        background: "rgba(24,24,27,0.97)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.9)",
-        boxShadow: "0 -4px 24px rgba(0,0,0,0.07)",
+        borderTop: "1px solid rgba(255,255,255,0.07)",
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.3)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
         height: "calc(62px + env(safe-area-inset-bottom, 0px))",
       }}
@@ -47,7 +47,7 @@ export function PortalBottomNav({ tabs, color }: PortalBottomNavProps) {
             )}
             <span
               style={{
-                color: isActive ? color : "rgba(80,55,30,0.35)",
+                color: isActive ? color : "rgba(255,255,255,0.35)",
                 transition: "color 0.2s",
               }}
             >
@@ -55,7 +55,7 @@ export function PortalBottomNav({ tabs, color }: PortalBottomNavProps) {
             </span>
             <span
               className="text-[10px] font-semibold leading-none"
-              style={{ color: isActive ? color : "rgba(80,55,30,0.35)" }}
+              style={{ color: isActive ? color : "rgba(255,255,255,0.35)" }}
             >
               {tab.label}
             </span>

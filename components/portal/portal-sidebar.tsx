@@ -40,10 +40,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         top: 0,
         left: 0,
         bottom: 0,
-        background: "rgba(255,255,255,0.75)",
-        backdropFilter: "blur(20px)",
-        borderRight: "1px solid rgba(255,255,255,0.9)",
-        boxShadow: "4px 0 24px rgba(0,0,0,0.06)",
+        background: "#18181b",
+        borderRight: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: "4px 0 32px rgba(0,0,0,0.25)",
         display: "flex",
         flexDirection: "column",
         zIndex: 50,
@@ -53,10 +52,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       <div
         style={{
           padding: "20px 20px 16px",
-          borderBottom: "1px solid rgba(0,0,0,0.05)",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
         }}
       >
-        {/* Color bar */}
+        {/* Accent bar */}
         <div style={{ height: 3, borderRadius: 2, background: config.color, marginBottom: 16 }} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -71,11 +70,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             <PortalIcon name={config.icon as any} size={18} />
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#1e1208", lineHeight: 1.2 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#ffffff", lineHeight: 1.2 }}>
               {config.portalName}
             </p>
             {user?.franchise_name && (
-              <p style={{ margin: 0, fontSize: 10, color: "rgba(80,55,30,0.45)", fontWeight: 500 }}>
+              <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>
                 {user.franchise_name}
               </p>
             )}
@@ -85,7 +84,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
       {/* Navigation */}
       <nav style={{ flex: 1, padding: "12px 12px", overflowY: "auto" }}>
-        <p style={{ margin: "0 0 8px 8px", fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(80,55,30,0.35)" }}>
+        <p style={{ margin: "0 0 8px 8px", fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(255,255,255,0.25)" }}>
           Navigation
         </p>
         {config.tabs.map((tab) => {
@@ -106,8 +105,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 padding: "10px 12px",
                 borderRadius: 12,
                 marginBottom: 2,
-                background: isActive ? `${config.color}15` : "transparent",
-                color: isActive ? config.color : "rgba(80,55,30,0.6)",
+                background: isActive ? `${config.color}20` : "transparent",
+                color: isActive ? config.color : "rgba(255,255,255,0.5)",
                 fontWeight: isActive ? 700 : 500,
                 fontSize: 13,
                 textDecoration: "none",
@@ -118,7 +117,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               {isActive && (
                 <div style={{ width: 3, height: 18, borderRadius: 2, background: config.color, flexShrink: 0 }} />
               )}
-              <span style={{ color: isActive ? config.color : "rgba(80,55,30,0.4)", flexShrink: 0, display: "flex" }}>
+              <span style={{ color: isActive ? config.color : "rgba(255,255,255,0.35)", flexShrink: 0, display: "flex" }}>
                 <PortalIcon name={tab.icon as any} size={18} />
               </span>
               <span>{tab.label}</span>
@@ -131,7 +130,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       <div
         style={{
           padding: "12px 16px",
-          borderTop: "1px solid rgba(0,0,0,0.05)",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
         }}
       >
         {user && (
@@ -147,10 +146,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               {initials}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#1e1208", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {user.name}
               </p>
-              <p style={{ margin: 0, fontSize: 10, color: "rgba(80,55,30,0.4)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.35)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {user.role?.replace(/_/g, " ")}
               </p>
             </div>
@@ -161,8 +160,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           onClick={handleLogout}
           style={{
             width: "100%", height: 36, borderRadius: 10,
-            background: "#fee2e2", color: "#dc2626",
-            border: "none", cursor: "pointer", fontFamily: "inherit",
+            background: "rgba(239,68,68,0.12)", color: "#f87171",
+            border: "1px solid rgba(239,68,68,0.2)", cursor: "pointer", fontFamily: "inherit",
             fontSize: 12, fontWeight: 700,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
           }}

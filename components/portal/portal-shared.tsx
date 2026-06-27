@@ -27,20 +27,20 @@ export function PortalPageHeader({
         <button
           onClick={() => router.push(backHref)}
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
+          style={{ background: "rgba(255,255,255,0.15)", color: "white" }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15,18 9,12 15,6"/></svg>
         </button>
       )}
       <div className="flex-1 min-w-0">
         <h1 className="text-[17px] font-black text-white leading-tight truncate">{title}</h1>
-        {subtitle && <p className="text-[11px] text-white/70 mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-[11px] text-white/60 mt-0.5">{subtitle}</p>}
       </div>
       {action && (
         <button
           onClick={action.onClick}
           className="px-3 py-1.5 rounded-xl text-[11px] font-bold flex-shrink-0"
-          style={{ background: "rgba(255,255,255,0.25)", color: "white" }}
+          style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
         >
           {action.label}
         </button>
@@ -63,9 +63,9 @@ export function PortalSearchBar({
     <div className="px-4 py-3">
       <div
         className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-        style={{ background: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.9)" }}
+        style={{ background: "#f4f4f5", border: "1px solid #e4e4e7" }}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(80,55,30,0.4)" strokeWidth="2" strokeLinecap="round">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2" strokeLinecap="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <input
@@ -73,12 +73,12 @@ export function PortalSearchBar({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 bg-transparent text-[13px] outline-none placeholder:text-[rgba(80,55,30,0.35)]"
-          style={{ color: "#1e1208" }}
+          className="flex-1 bg-transparent text-[13px] outline-none"
+          style={{ color: "#18181b" }}
         />
         {value && (
           <button onClick={() => onChange("")}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(80,55,30,0.4)" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
@@ -101,7 +101,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   partial:           { bg: "#fef9c3", text: "#ca8a04" },
   unpaid:            { bg: "#fee2e2", text: "#dc2626" },
   active:            { bg: "#dcfce7", text: "#16a34a" },
-  inactive:          { bg: "#f1f5f9", text: "#64748b" },
+  inactive:          { bg: "#f4f4f5", text: "#71717a" },
   lead:              { bg: "#fef9c3", text: "#ca8a04" },
   pass:              { bg: "#dcfce7", text: "#16a34a" },
   fail:              { bg: "#fee2e2", text: "#dc2626" },
@@ -114,7 +114,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 }
 
 export function PortalStatusBadge({ status }: { status: string }) {
-  const s = STATUS_COLORS[status?.toLowerCase()] ?? { bg: "#f1f5f9", text: "#64748b" }
+  const s = STATUS_COLORS[status?.toLowerCase()] ?? { bg: "#f4f4f5", text: "#71717a" }
   const label = status?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "—"
   return (
     <span
@@ -148,9 +148,8 @@ export function PortalListCard({
     <div
       className="flex items-center gap-3 px-4 py-3.5 active:opacity-70 cursor-pointer"
       style={{
-        background: "rgba(255,255,255,0.65)",
-        backdropFilter: "blur(12px)",
-        borderBottom: "1px solid rgba(255,255,255,0.5)",
+        background: "#ffffff",
+        borderBottom: "1px solid #f4f4f5",
       }}
       onClick={onClick}
     >
@@ -163,13 +162,13 @@ export function PortalListCard({
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold truncate" style={{ color: "#1e1208" }}>{title}</p>
-        {subtitle && <p className="text-[11px] truncate mt-0.5" style={{ color: "rgba(80,55,30,0.5)" }}>{subtitle}</p>}
+        <p className="text-[13px] font-bold truncate" style={{ color: "#18181b" }}>{title}</p>
+        {subtitle && <p className="text-[11px] truncate mt-0.5" style={{ color: "#a1a1aa" }}>{subtitle}</p>}
       </div>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">
         {badge && <PortalStatusBadge status={badge} />}
-        {meta && <span className="text-[10px]" style={{ color: "rgba(80,55,30,0.4)" }}>{meta}</span>}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(80,55,30,0.25)" strokeWidth="2.5" strokeLinecap="round">
+        {meta && <span className="text-[10px] font-semibold" style={{ color: "#71717a" }}>{meta}</span>}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d4d4d8" strokeWidth="2.5" strokeLinecap="round">
           <polyline points="9,18 15,12 9,6"/>
         </svg>
       </div>
@@ -185,12 +184,12 @@ export function PortalEmptyState({ icon, title, subtitle, color }: {
     <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
       <div
         className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-        style={{ background: `${color}15`, color }}
+        style={{ background: `${color}12`, color }}
       >
         <PortalIcon name={icon} size={28} />
       </div>
-      <p className="text-[14px] font-bold" style={{ color: "#1e1208" }}>{title}</p>
-      {subtitle && <p className="text-[12px] mt-1" style={{ color: "rgba(80,55,30,0.45)" }}>{subtitle}</p>}
+      <p className="text-[14px] font-bold" style={{ color: "#18181b" }}>{title}</p>
+      {subtitle && <p className="text-[12px] mt-1" style={{ color: "#a1a1aa" }}>{subtitle}</p>}
     </div>
   )
 }
@@ -200,13 +199,13 @@ export function PortalSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="space-y-0">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3.5 border-b border-white/50">
-          <div className="w-10 h-10 rounded-xl bg-black/5 animate-pulse flex-shrink-0" />
+        <div key={i} className="flex items-center gap-3 px-4 py-3.5 border-b border-zinc-100">
+          <div className="w-10 h-10 rounded-xl bg-zinc-100 animate-pulse flex-shrink-0" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 bg-black/5 rounded-full animate-pulse w-3/4" />
-            <div className="h-2 bg-black/5 rounded-full animate-pulse w-1/2" />
+            <div className="h-3 bg-zinc-100 rounded-full animate-pulse w-3/4" />
+            <div className="h-2 bg-zinc-100 rounded-full animate-pulse w-1/2" />
           </div>
-          <div className="h-4 bg-black/5 rounded-full animate-pulse w-12" />
+          <div className="h-4 bg-zinc-100 rounded-full animate-pulse w-12" />
         </div>
       ))}
     </div>
@@ -218,7 +217,7 @@ export function PortalSectionLabel({ label }: { label: string }) {
   return (
     <p
       className="px-4 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest"
-      style={{ color: "rgba(80,55,30,0.4)" }}
+      style={{ color: "#71717a" }}
     >
       {label}
     </p>
@@ -229,9 +228,9 @@ export function PortalSectionLabel({ label }: { label: string }) {
 export function PortalInfoRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
-    <div className="flex justify-between items-start py-3 border-b" style={{ borderColor: "rgba(0,0,0,0.04)" }}>
-      <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "rgba(80,55,30,0.4)" }}>{label}</span>
-      <span className="text-[13px] font-semibold text-right ml-4" style={{ color: "#1e1208", maxWidth: "60%" }}>{value}</span>
+    <div className="flex justify-between items-start py-3 border-b" style={{ borderColor: "#f4f4f5" }}>
+      <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#a1a1aa" }}>{label}</span>
+      <span className="text-[13px] font-semibold text-right ml-4" style={{ color: "#18181b", maxWidth: "60%" }}>{value}</span>
     </div>
   )
 }
@@ -240,7 +239,7 @@ export function PortalInfoRow({ label, value }: { label: string; value?: string 
 export function PortalAmount({ amount, size = "md" }: { amount: number; size?: "sm" | "md" | "lg" }) {
   const fmt = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
   const sizes = { sm: "text-[12px]", md: "text-[15px]", lg: "text-[22px]" }
-  return <span className={`font-black ${sizes[size]}`} style={{ color: "#1e1208" }}>{fmt.format(amount)}</span>
+  return <span className={`font-black ${sizes[size]}`} style={{ color: "#18181b" }}>{fmt.format(amount)}</span>
 }
 
 // ─── Float Action Button ──────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { PortalPageHeader, PortalSearchBar, PortalListCard, PortalEmptyState, PortalSkeleton } from "@/components/portal/portal-shared"
 
-const COLOR = "#8b5cf6"
+const COLOR = "#a855f7"
 
 export default function FranchiseInventoryPage() {
   const [products, setProducts] = useState<any[]>([])
@@ -36,13 +36,13 @@ export default function FranchiseInventoryPage() {
         {["all", "low"].map(f => (
           <button key={f} onClick={() => setFilter(f)}
             className="px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap"
-            style={{ background: filter === f ? COLOR : "rgba(255,255,255,0.7)", color: filter === f ? "white" : "rgba(80,55,30,0.5)", border: `1px solid ${filter === f ? COLOR : "rgba(255,255,255,0.9)"}` }}>
+            style={{ background: filter === f ? COLOR : "#f4f4f5", color: filter === f ? "white" : "#71717a", border: `1px solid ${filter === f ? COLOR : "#e4e4e7"}` }}>
             {f === "all" ? "All Stock" : "Low Stock"}
           </button>
         ))}
       </div>
 
-      <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.9)" }}>
+      <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "#ffffff", border: "1px solid #e4e4e7" }}>
         {loading ? <PortalSkeleton rows={6} /> : filtered.length === 0 ? (
           <PortalEmptyState icon="package" title="No products found" subtitle="Your franchise inventory appears here" color={COLOR} />
         ) : filtered.map(p => {

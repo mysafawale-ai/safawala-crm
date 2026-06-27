@@ -13,10 +13,10 @@ export function PortalMobileLayout({ config, children }: PortalMobileLayoutProps
   return (
     <>
       {/* ── DESKTOP layout (md+) ── */}
-      <div className="hidden md:flex min-h-screen" style={{ background: "#f5ebe0" }}>
+      <div className="hidden md:flex min-h-screen" style={{ background: "#fafafa" }}>
         <PortalSidebar config={config} />
         <main className="flex-1 overflow-y-auto" style={{ marginLeft: 240 }}>
-          <div className="max-w-4xl mx-auto py-6 px-8">
+          <div className="max-w-5xl mx-auto py-6 px-8">
             {children}
           </div>
         </main>
@@ -26,7 +26,7 @@ export function PortalMobileLayout({ config, children }: PortalMobileLayoutProps
       <div
         className="md:hidden min-h-screen"
         style={{
-          background: "#f5ebe0",
+          background: "#fafafa",
           maxWidth: "480px",
           margin: "0 auto",
           position: "relative",

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { PortalPageHeader, PortalSectionLabel, PortalListCard, PortalEmptyState, PortalSkeleton, PortalInfoRow } from "@/components/portal/portal-shared"
 
-const COLOR = "#8b5cf6"
+const COLOR = "#a855f7"
 
 export default function FranchiseRevenuePage() {
   const [payments, setPayments] = useState<any[]>([])
@@ -35,16 +35,16 @@ export default function FranchiseRevenuePage() {
           <div className="grid grid-cols-2 gap-3 mx-4 mt-4">
             <div className="rounded-2xl p-4" style={{ background: `linear-gradient(135deg, ${COLOR}18, ${COLOR}06)`, border: `1px solid ${COLOR}22` }}>
               <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: COLOR }}>This Month</p>
-              <p className="text-[22px] font-black" style={{ color: "#1e1208" }}>{fmt(monthTotal)}</p>
+              <p className="text-[22px] font-black" style={{ color: "#18181b" }}>{fmt(monthTotal)}</p>
             </div>
-            <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.9)" }}>
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "rgba(80,55,30,0.4)" }}>All Time</p>
-              <p className="text-[22px] font-black" style={{ color: "#1e1208" }}>{fmt(total)}</p>
+            <div className="rounded-2xl p-4" style={{ background: "#ffffff", border: "1px solid #e4e4e7" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#71717a" }}>All Time</p>
+              <p className="text-[22px] font-black" style={{ color: "#18181b" }}>{fmt(total)}</p>
             </div>
           </div>
 
           <PortalSectionLabel label="Recent Payments" />
-          <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.65)", border: "1px solid rgba(255,255,255,0.9)" }}>
+          <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "#ffffff", border: "1px solid #e4e4e7" }}>
             {loading ? <PortalSkeleton rows={5} /> : payments.length === 0 ? (
               <PortalEmptyState icon="rupee" title="No payments yet" subtitle="Revenue collected will appear here" color={COLOR} />
             ) : payments.slice(0, 20).map(p => (
