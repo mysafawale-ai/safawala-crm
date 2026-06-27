@@ -334,15 +334,15 @@ export default function FranchiseBillingPage() {
 
               {/* Real-time total calculation panel */}
               <div style={{ background: "rgba(201,168,76,0.06)", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 14 }}>
-                <div style={{ display: "flex", justifyContext: "space-between", fontSize: 12, color: BROWN }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: BROWN }}>
                   <span>Setup Fee + Security Deposit:</span>
                   <span style={{ fontWeight: 700 }}>₹{(parseFloat(form.setupFee || "0") + parseFloat(form.securityDeposit || "0")).toLocaleString("en-IN")}</span>
                 </div>
-                <div style={{ display: "flex", justifyContext: "space-between", fontSize: 12, color: BROWN, marginTop: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: BROWN, marginTop: 4 }}>
                   <span>GST Tax ({form.gstRate}% on Setup Fee):</span>
                   <span style={{ fontWeight: 700 }}>₹{(parseFloat(form.setupFee || "0") * (parseFloat(form.gstRate || "18") / 100)).toLocaleString("en-IN")}</span>
                 </div>
-                <div style={{ display: "flex", justifyContext: "space-between", fontSize: 14, color: BROWN, marginTop: 8, borderTop: "1px solid rgba(201,168,76,0.15)", paddingTop: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: BROWN, marginTop: 8, borderTop: "1px solid rgba(201,168,76,0.15)", paddingTop: 8 }}>
                   <strong>Auto Calculated Total Value:</strong>
                   <strong>₹{calculatedTotal.toLocaleString("en-IN")}</strong>
                 </div>

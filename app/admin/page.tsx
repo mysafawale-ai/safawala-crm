@@ -154,6 +154,8 @@ export default function AdminDashboard() {
   const [enquiries, setEnquiries] = useState<any[]>([])
   const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [monthlySales, setMonthlySales] = useState<{ name: string; sales: number }[]>([])
+  const [enquiryStats, setEnquiryStats] = useState<{ name: string; value: number; color: string }[]>([])
 
   const today = new Date()
   const hour = today.getHours()
@@ -170,7 +172,7 @@ export default function AdminDashboard() {
       fetch("/api/customers?limit=200").then(r => r.json()),
       fetch("/api/franchises?limit=50").then(r => r.json()),
       fetch("/api/users?limit=200").then(r => r.json()),
-      fetch("/api/franchise-enquiries?limit=10").then(r => r.json()),
+      fetch("/api/franchise-enquiries?limit=200").then(r => r.json()),
     ]).then(([bRes, pRes, cRes, fRes, uRes, eRes]) => {
       const bookings = bRes.status === "fulfilled" ? (bRes.value.data ?? bRes.value ?? []) : []
       const payments = pRes.status === "fulfilled" ? (pRes.value.data ?? pRes.value ?? []) : []
@@ -208,6 +210,36 @@ export default function AdminDashboard() {
       setFranchises(fData.slice(0, 5))
       setEnquiries(enq.slice(0, 5))
       setRecentOrders(recent)
+
+      // Compute last 6 months of real payment revenue
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+      const salesData = []
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const m = d.getMonth()
+        const y = d.getFullYear()
+        const total = payments.reduce((s: number, p: any) => {
+          const pd = new Date(p.payment_date || p.created_at)
+          return pd.getMonth() === m && pd.getFullYear() === y ? s + (Number(p.amount) || 0) : s
+        }, 0)
+        salesData.push({ name: MONTHS[m], sales: total })
+      }
+      setMonthlySales(salesData)
+
+      // Compute enquiry status breakdown
+      const statusMap: Record<string, { color: string }> = {
+        new: { color: "#f59e0b" },
+        called: { color: "#3b82f6" },
+        converted: { color: "#16a34a" },
+        rejected: { color: "#ef4444" },
+      }
+      setEnquiryStats(
+        Object.entries(statusMap).map(([status, cfg]) => ({
+          name: status.charAt(0).toUpperCase() + status.slice(1),
+          value: enq.filter((e: any) => e.status === status).length,
+          color: cfg.color,
+        }))
+      )
     }).finally(() => setLoading(false))
   }, [])
 
@@ -222,22 +254,6 @@ export default function AdminDashboard() {
     rejected: { bg: "#fef2f2", color: "#dc2626" },
   }
 
-  // Generate charts data
-  const monthlySales = [
-    { month: "Jan", sales: 120000 },
-    { name: "Feb", sales: 150000 },
-    { name: "Mar", sales: 190000 },
-    { name: "Apr", sales: 240000 },
-    { name: "May", sales: 310000 },
-    { name: "Jun", sales: stats.totalRevenue || 380000 },
-  ]
-
-  const leadSources = [
-    { name: "Instagram", value: 45, color: GOLD },
-    { name: "Facebook", value: 25, color: "#3b82f6" },
-    { name: "Google Search", value: 20, color: "#16a34a" },
-    { name: "Referrals", value: 10, color: "#9333ea" },
-  ]
 
   return (
     <div style={{ background: WARM, fontFamily: "system-ui,-apple-system,sans-serif", minHeight: "100vh", paddingBottom: 40 }}>
@@ -249,7 +265,7 @@ export default function AdminDashboard() {
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: BROWN }}>
-            {greeting}, {user?.name?.split(" ")[0] || "Admin"} 👋
+            {greeting}, {user?.name?.split(" ")[0] || "Admin"}
           </h1>
           <p style={{ margin: 0, fontSize: 11, color: "#a07040", marginTop: 2 }}>{dateStr}</p>
         </div>
@@ -326,18 +342,18 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Lead sources chart */}
+          {/* Enquiry status chart */}
           <div style={{ background: CREAM, borderRadius: 16, border: `1px solid ${BORDER}`, padding: "20px 22px" }}>
-            <SectionTitle>Franchise Lead Sources</SectionTitle>
+            <SectionTitle action="View all" href="/admin/enquiries">Franchise Enquiry Pipeline</SectionTitle>
             <div style={{ width: "100%", height: 220 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={leadSources} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={enquiryStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.1)" />
                   <XAxis dataKey="name" stroke="#8b5a2b" fontSize={10} tickLine={false} />
-                  <YAxis stroke="#8b5a2b" fontSize={10} tickLine={false} />
-                  <Tooltip formatter={(value) => `${value}%`} contentStyle={{ background: CREAM, borderColor: GOLD, borderRadius: 10, fontSize: 11, color: BROWN }} />
+                  <YAxis stroke="#8b5a2b" fontSize={10} tickLine={false} allowDecimals={false} />
+                  <Tooltip formatter={(value) => `${value} leads`} contentStyle={{ background: CREAM, borderColor: GOLD, borderRadius: 10, fontSize: 11, color: BROWN }} />
                   <Bar dataKey="value" fill={GOLD} radius={[4, 4, 0, 0]}>
-                    {leadSources.map((entry, index) => (
+                    {enquiryStats.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Bar>

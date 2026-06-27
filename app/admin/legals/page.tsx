@@ -197,7 +197,21 @@ Compliance Director
   }
 
   const printDocument = () => {
-    window.print()
+    const content = documentPreviewContent.trim()
+    const win = window.open("", "_blank", "width=800,height=900")
+    if (!win) return
+    win.document.write(`
+      <html><head><title>Safawala Legal Document</title>
+      <style>
+        body { font-family: serif; font-size: 13px; color: #333; padding: 40px 60px; line-height: 1.7; }
+        pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; }
+        @media print { body { padding: 20px 40px; } }
+      </style></head>
+      <body><pre>${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
+      <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}</script>
+      </body></html>
+    `)
+    win.document.close()
   }
 
   const inputStyle: React.CSSProperties = {

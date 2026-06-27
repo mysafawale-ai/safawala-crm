@@ -152,7 +152,7 @@ export default function AdminReportsPage() {
                   <YAxis stroke={BROWN} fontSize={11} />
                   <Tooltip />
                   <Bar dataKey="revenue" name="Total Revenue (₹)" fill={GOLD} radius={[4, 4, 0, 0]}>
-                    {franchisePerformanceData.map((entry, index) => (
+                    {franchisePerformanceData.map((_entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Bar>
@@ -187,7 +187,7 @@ export default function AdminReportsPage() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                 {expenseBreakdownData.map((e, index) => (
-                  <div key={e.name} style={{ display: "flex", alignItems: "center", justifyContext: "space-between", fontSize: 12, color: BROWN }}>
+                  <div key={e.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: BROWN }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", background: COLORS[index % COLORS.length] }} />
                       <span>{e.name}</span>

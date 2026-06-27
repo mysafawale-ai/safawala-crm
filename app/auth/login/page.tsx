@@ -37,7 +37,7 @@ export default function AuthLoginPage() {
       if (explicitRedirect) {
         router.push(explicitRedirect)
       } else if (data?.user?.role === "super_admin") {
-        router.push("/admin")
+        window.location.href = "/admin"
       } else if (data?.user?.department) {
         router.push(`/portal/${data.user.department}`)
       } else {

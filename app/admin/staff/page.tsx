@@ -248,11 +248,16 @@ export default function AdminStaffPage() {
           }]
         })
       })
-      if (res.ok) {
-        toast.success("Status updated")
+      const data = await res.json()
+      if (res.ok && !data.results?.[0]?.error) {
+        toast.success(`Staff ${!s.is_active ? "activated" : "deactivated"}`)
         load()
+      } else {
+        toast.error(data.results?.[0]?.error || data.error || "Failed to update status")
       }
-    } catch {}
+    } catch {
+      toast.error("Error updating status")
+    }
   }
 
   const inputStyle: React.CSSProperties = {
@@ -364,7 +369,7 @@ export default function AdminStaffPage() {
                         <button
                           onClick={() => toggleStatus(s)}
                           style={{
-                            border: "none", background: "none", cursor: "pointer", padding: 0,
+                            border: "none", background: "none", cursor: "pointer",
                             fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 20,
                             backgroundColor: s.is_active ? "#f0fdf4" : "#fef2f2",
                             color: s.is_active ? "#16a34a" : "#dc2626",

@@ -285,7 +285,7 @@ export default function AdminFranchisesPage() {
                       <button
                         onClick={() => toggleStatus(f)}
                         style={{
-                          border: "none", background: "none", cursor: "pointer", padding: 0,
+                          border: "none", background: "none", cursor: "pointer",
                           fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 20,
                           backgroundColor: f.is_active ? "#f0fdf4" : "#fef2f2",
                           color: f.is_active ? "#16a34a" : "#dc2626",
@@ -294,15 +294,17 @@ export default function AdminFranchisesPage() {
                         {f.is_active ? "Active" : "Inactive"}
                       </button>
                     </td>
-                    <td style={{ padding: "12px 14px", display: "flex", gap: 6 }}>
-                      <button onClick={() => { setSelected(f); setShowView(true) }} style={{
-                        fontSize: 11, fontWeight: 600, padding: "5px 10px", borderRadius: 8,
-                        background: "transparent", border: `1px solid ${BORDER}`, color: BROWN, cursor: "pointer",
-                      }}>View</button>
-                      <button onClick={() => { setSelected(f); resetForm(f); setShowEdit(true) }} style={{
-                        fontSize: 11, fontWeight: 600, padding: "5px 10px", borderRadius: 8,
-                        background: "transparent", border: `1px solid ${BORDER}`, color: BROWN, cursor: "pointer",
-                      }}>Edit</button>
+                    <td style={{ padding: "12px 14px" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => { setSelected(f); setShowView(true) }} style={{
+                          fontSize: 11, fontWeight: 600, padding: "5px 10px", borderRadius: 8,
+                          background: "transparent", border: `1px solid ${BORDER}`, color: BROWN, cursor: "pointer",
+                        }}>View</button>
+                        <button onClick={() => { setSelected(f); resetForm(f); setShowEdit(true) }} style={{
+                          fontSize: 11, fontWeight: 600, padding: "5px 10px", borderRadius: 8,
+                          background: "transparent", border: `1px solid ${BORDER}`, color: BROWN, cursor: "pointer",
+                        }}>Edit</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -374,7 +376,7 @@ export default function AdminFranchisesPage() {
                 <input style={inputStyle} type="number" value={form.commission_rate} onChange={e => setForm({ ...form, commission_rate: e.target.value })} />
               </div>
             </div>
-            <div style={{ display: "flex", justifyContext: "flex-end", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <button type="button" onClick={() => setShowAdd(false)} style={{
                 flex: 1, padding: "10px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "transparent", color: BROWN, cursor: "pointer"
               }}>Cancel</button>
