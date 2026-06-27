@@ -382,7 +382,7 @@ export default function FranchiseBillingPage() {
             </div>
 
             {/* Document Body (Print Layout style) */}
-            <div style={{ padding: 30, color: "#333", fontSize: 13, fontFamily: "serif" }}>
+            <div id="billing-print-doc" style={{ padding: 30, color: "#333", fontSize: 13, fontFamily: "serif" }}>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #333", paddingBottom: 15 }}>
                 <div>
                   <h2 style={{ margin: 0, fontStyle: "italic", color: BROWN }}>SAFAWALA BRAND</h2>
@@ -422,18 +422,18 @@ export default function FranchiseBillingPage() {
                 <tbody>
                   <tr>
                     <td style={{ padding: "12px 0" }}>Franchise Acquisition Brand Fee & Setup Fee (Includes Brand Licensing rights, training program, setup collateral)</td>
-                    <td style={{ padding: "12px 0", textAlign: "right" }}>₹{(selectedItem.amount * 0.85).toLocaleString("en-IN")}</td>
+                    <td style={{ padding: "12px 0", textAlign: "right" }}>₹{Number(selectedItem.setupFee || selectedItem.amount * 0.82).toLocaleString("en-IN")}</td>
                   </tr>
                   <tr style={{ borderTop: "1px solid #eee" }}>
                     <td style={{ padding: "12px 0" }}>Refundable Brand Security Deposit</td>
-                    <td style={{ padding: "12px 0", textAlign: "right" }}>₹{(selectedItem.amount * 0.15).toLocaleString("en-IN")}</td>
+                    <td style={{ padding: "12px 0", textAlign: "right" }}>₹{Number(selectedItem.securityDeposit || selectedItem.amount * 0.18).toLocaleString("en-IN")}</td>
                   </tr>
                 </tbody>
               </table>
 
               <div style={{ borderTop: "2px solid #333", marginTop: 30, paddingTop: 10, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                <div>GST Integrated Tax (18%): ₹{(selectedItem.amount * 0.12).toLocaleString("en-IN")}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>Total Due Value: ₹{selectedItem.amount.toLocaleString("en-IN")}</div>
+                <div>GST Tax ({selectedItem.gstRate || 18}% on Setup Fee): ₹{(Number(selectedItem.setupFee || 0) * ((selectedItem.gstRate || 18) / 100)).toLocaleString("en-IN")}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>Total Due Value: ₹{Number(selectedItem.amount).toLocaleString("en-IN")}</div>
               </div>
 
               <div style={{ marginTop: 40, borderTop: "1px dashed #ccc", paddingTop: 15, fontSize: 11, color: "#666" }}>
@@ -443,7 +443,13 @@ export default function FranchiseBillingPage() {
 
             {/* Footer buttons */}
             <div style={{ borderTop: `1px solid ${BORDER}`, padding: "12px 20px", display: "flex", justifyContent: "flex-end", gap: 10, background: CREAM }}>
-              <button onClick={() => window.print()} style={{ padding: "8px 16px", borderRadius: 8, background: BROWN, color: GOLD, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Print Document</button>
+              <button onClick={() => {
+                const win = window.open("", "_blank", "width=800,height=900")
+                if (!win) return
+                const docEl = document.getElementById("billing-print-doc")
+                win.document.write(`<html><head><title>Safawala Invoice</title><style>body{font-family:serif;font-size:13px;padding:40px;color:#333;line-height:1.6}table{width:100%;border-collapse:collapse}th,td{padding:8px 0}@media print{body{padding:20px}}</style></head><body>${docEl?.innerHTML || ""}<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}<\/script></body></html>`)
+                win.document.close()
+              }} style={{ padding: "8px 16px", borderRadius: 8, background: BROWN, color: GOLD, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Print Document</button>
               <button onClick={() => setSelectedItem(null)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${BORDER}`, background: "transparent", color: BROWN, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Close</button>
             </div>
 
