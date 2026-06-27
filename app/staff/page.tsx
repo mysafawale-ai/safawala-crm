@@ -461,7 +461,6 @@ export default function StaffPage() {
 
       const { user } = await response.json()
 
-      setUsers(prev => [user, ...prev])
       setShowAddDialog(false)
       setNewUserData({
         name: '',
@@ -472,6 +471,7 @@ export default function StaffPage() {
         permissions: getDefaultPermissions('staff')
       })
       toast.success('Staff member added successfully!')
+      fetchUsers()
     } catch (error: any) {
       console.error('Error adding user:', error)
       if (error.message.includes('Email already exists')) {
@@ -557,9 +557,6 @@ export default function StaffPage() {
 
       const { user } = await response.json()
 
-      setUsers(prev => prev.map(u => 
-        u.id === selectedUser.id ? user : u
-      ))
       setShowEditDialog(false)
       setSelectedUser(null)
       setNewUserData({
@@ -571,6 +568,7 @@ export default function StaffPage() {
         permissions: getDefaultPermissions('staff')
       })
       toast.success('Staff member updated successfully!')
+      fetchUsers()
     } catch (error: any) {
       console.error('Error updating user:', error)
       if (error.message.includes('Email already in use')) {
