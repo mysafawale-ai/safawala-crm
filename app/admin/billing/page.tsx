@@ -13,42 +13,42 @@ export default function FranchiseBillingPage() {
   const [activeTab, setActiveTab] = useState("invoices")
   const [franchises, setFranchises] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Lists
-  const [invoices, setInvoices] = useState<any[]>([
-    { id: "INV001", franchiseName: "Vadodara Branch", date: "2026-06-01", amount: 1180000, type: "Setup Fee", status: "paid" },
-    { id: "INV002", franchiseName: "Mumbai Branch", date: "2026-06-15", amount: 1770000, type: "Setup Fee + Inventory", status: "pending" },
-    { id: "INV003", franchiseName: "Surat Branch", date: "2026-06-20", amount: 590000, type: "Renovation Fee", status: "unpaid" },
-  ])
-  const [quotes, setQuotes] = useState<any[]>([
-    { id: "QT001", franchiseName: "Pune Candidate", date: "2026-06-10", amount: 1180000, validity: "2026-07-10", status: "sent" },
-    { id: "QT002", franchiseName: "Delhi Candidate", date: "2026-06-18", amount: 1770000, validity: "2026-07-18", status: "accepted" },
-  ])
-
+  const [saving, setSaving] = useState(false)
+  const [invoices, setInvoices] = useState<any[]>([])
+  const [quotes, setQuotes] = useState<any[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [selectedItem, setSelectedItem] = useState<any>(null)
-  
-  // Form State
+
   const [form, setForm] = useState({
-    franchiseId: "",
-    candidateName: "",
-    type: "Setup Fee",
-    setupFee: "1000000",
-    securityDeposit: "200000",
-    gstRate: "18",
-    status: "pending",
-    notes: ""
+    franchiseId: "", candidateName: "", type: "Setup Fee",
+    setupFee: "1000000", securityDeposit: "200000", gstRate: "18",
+    status: "pending", notes: ""
   })
 
   useEffect(() => {
     fetch("/api/franchises")
       .then(r => r.json())
-      .then(d => {
-        setFranchises(d.data ?? d ?? [])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      .then(d => setFranchises(d.data ?? d ?? []))
+      .catch(() => {})
+    loadInvoices()
+    loadQuotes()
   }, [])
+
+  function loadInvoices() {
+    setLoading(true)
+    fetch("/api/franchise-billing?type=franchise_invoice")
+      .then(r => r.json())
+      .then(d => setInvoices(d.data ?? []))
+      .catch(() => setInvoices([]))
+      .finally(() => setLoading(false))
+  }
+
+  function loadQuotes() {
+    fetch("/api/franchise-billing?type=franchise_quote")
+      .then(r => r.json())
+      .then(d => setQuotes(d.data ?? []))
+      .catch(() => {})
+  }
 
   // Auto calculate total
   const calculatedTotal = useMemo(() => {
@@ -59,36 +59,46 @@ export default function FranchiseBillingPage() {
     return subtotal + (fee * (gst / 100))
   }, [form.setupFee, form.securityDeposit, form.gstRate])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const name = form.franchiseId 
+    const name = form.franchiseId
       ? (franchises.find(f => f.id === form.franchiseId)?.name || "Franchise Branch")
       : form.candidateName || "New Lead Candidate"
-      
-    if (activeTab === "invoices") {
-      const newInv = {
-        id: `INV${Math.floor(100 + Math.random() * 900)}`,
+
+    setSaving(true)
+    try {
+      const isInvoice = activeTab === "invoices"
+      const payload = {
+        record_type: isInvoice ? "invoice" : "quote",
         franchiseName: name,
         date: new Date().toISOString().split("T")[0],
         amount: calculatedTotal,
+        setupFee: parseFloat(form.setupFee || "0"),
+        securityDeposit: parseFloat(form.securityDeposit || "0"),
+        gstRate: parseFloat(form.gstRate || "18"),
         type: form.type,
-        status: form.status
+        status: isInvoice ? form.status : "sent",
+        notes: form.notes,
+        validity: isInvoice ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       }
-      setInvoices([newInv, ...invoices])
-      toast.success("Franchise invoice created")
-    } else {
-      const newQt = {
-        id: `QT${Math.floor(100 + Math.random() * 900)}`,
-        franchiseName: name,
-        date: new Date().toISOString().split("T")[0],
-        amount: calculatedTotal,
-        validity: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        status: "sent"
+      const res = await fetch("/api/franchise-billing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(isInvoice ? "Invoice saved" : "Quotation saved")
+        setShowAdd(false)
+        if (isInvoice) loadInvoices(); else loadQuotes()
+      } else {
+        toast.error(data.error || "Failed to save")
       }
-      setQuotes([newQt, ...quotes])
-      toast.success("Franchise quote generated")
+    } catch {
+      toast.error("Error saving document")
+    } finally {
+      setSaving(false)
     }
-    setShowAdd(false)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -125,7 +135,7 @@ export default function FranchiseBillingPage() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8, borderBottom: `2px solid ${BORDER}`, paddingBottom: 2 }}>
-          <button onClick={() => setActiveTab("invoices")} style={{
+          <button onClick={() => { setActiveTab("invoices"); loadInvoices() }} style={{
             background: "none", border: "none", padding: "10px 20px", fontSize: 14, fontWeight: 700,
             color: activeTab === "invoices" ? BROWN : "#a07040", cursor: "pointer",
             borderBottom: activeTab === "invoices" ? `3px solid ${GOLD}` : "3px solid transparent",
@@ -133,7 +143,7 @@ export default function FranchiseBillingPage() {
           }}>
             Brand Invoices
           </button>
-          <button onClick={() => setActiveTab("quotes")} style={{
+          <button onClick={() => { setActiveTab("quotes"); loadQuotes() }} style={{
             background: "none", border: "none", padding: "10px 20px", fontSize: 14, fontWeight: 700,
             color: activeTab === "quotes" ? BROWN : "#a07040", cursor: "pointer",
             borderBottom: activeTab === "quotes" ? `3px solid ${GOLD}` : "3px solid transparent",
@@ -352,7 +362,7 @@ export default function FranchiseBillingPage() {
 
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <button type="button" onClick={() => setShowAdd(false)} style={{ flex: 1, height: 38, borderRadius: 8, border: `1px solid ${BORDER}`, background: "transparent", color: BROWN, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Cancel</button>
-              <button type="submit" style={{ flex: 1, height: 38, borderRadius: 8, border: "none", background: BROWN, color: GOLD, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Generate Document</button>
+              <button type="submit" disabled={saving} style={{ flex: 1, height: 38, borderRadius: 8, border: "none", background: BROWN, color: GOLD, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>{saving ? "Saving..." : "Generate & Save"}</button>
             </div>
           </form>
         </div>

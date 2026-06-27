@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { toast } from "sonner"
 
 const GOLD = "#c9a84c"
 const BROWN = "#3d1c02"
@@ -23,6 +24,16 @@ interface Franchise {
   manager_name: string
   gst_number: string
   pan_number: string
+  license_number: string
+  bank_account_number: string
+  bank_name: string
+  bank_ifsc: string
+  opening_date: string
+  monthly_target: number
+  security_deposit: number
+  agreement_start_date: string
+  agreement_end_date: string
+  notes: string
   commission_rate: number
   is_active: boolean
   created_at: string
@@ -45,8 +56,11 @@ export default function AdminFranchisesPage() {
   const [form, setForm] = useState({
     name: "", code: "", owner_name: "", manager_name: "",
     phone: "", email: "", address: "", city: "", state: "",
-    pincode: "", gst_number: "", pan_number: "", commission_rate: "15",
-    is_active: true
+    pincode: "", gst_number: "", pan_number: "", license_number: "",
+    bank_account_number: "", bank_name: "", bank_ifsc: "",
+    opening_date: "", monthly_target: "", security_deposit: "",
+    agreement_start_date: "", agreement_end_date: "", notes: "",
+    commission_rate: "15", is_active: true
   })
 
   useEffect(() => {
@@ -80,18 +94,20 @@ export default function AdminFranchisesPage() {
   const resetForm = (f?: Franchise) => {
     if (f) {
       setForm({
-        name: f.name || "",
-        code: f.code || "",
-        owner_name: f.owner_name || "",
-        manager_name: f.manager_name || "",
-        phone: f.phone || "",
-        email: f.email || "",
-        address: f.address || "",
-        city: f.city || "",
-        state: f.state || "",
-        pincode: f.pincode || "",
-        gst_number: f.gst_number || "",
-        pan_number: f.pan_number || "",
+        name: f.name || "", code: f.code || "",
+        owner_name: f.owner_name || "", manager_name: f.manager_name || "",
+        phone: f.phone || "", email: f.email || "",
+        address: f.address || "", city: f.city || "",
+        state: f.state || "", pincode: f.pincode || "",
+        gst_number: f.gst_number || "", pan_number: f.pan_number || "",
+        license_number: f.license_number || "",
+        bank_account_number: f.bank_account_number || "",
+        bank_name: f.bank_name || "", bank_ifsc: f.bank_ifsc || "",
+        opening_date: f.opening_date || "", monthly_target: String(f.monthly_target ?? ""),
+        security_deposit: String(f.security_deposit ?? ""),
+        agreement_start_date: f.agreement_start_date || "",
+        agreement_end_date: f.agreement_end_date || "",
+        notes: f.notes || "",
         commission_rate: String(f.commission_rate ?? 15),
         is_active: f.is_active !== false
       })
@@ -99,8 +115,11 @@ export default function AdminFranchisesPage() {
       setForm({
         name: "", code: "", owner_name: "", manager_name: "",
         phone: "", email: "", address: "", city: "", state: "",
-        pincode: "", gst_number: "", pan_number: "", commission_rate: "15",
-        is_active: true
+        pincode: "", gst_number: "", pan_number: "", license_number: "",
+        bank_account_number: "", bank_name: "", bank_ifsc: "",
+        opening_date: "", monthly_target: "", security_deposit: "",
+        agreement_start_date: "", agreement_end_date: "", notes: "",
+        commission_rate: "15", is_active: true
       })
     }
   }
@@ -123,18 +142,21 @@ export default function AdminFranchisesPage() {
         body: JSON.stringify({
           ...form,
           code: generatedCode,
-          commission_rate: parseFloat(form.commission_rate || "15")
+          commission_rate: parseFloat(form.commission_rate || "15"),
+          monthly_target: form.monthly_target ? parseFloat(form.monthly_target) : null,
+          security_deposit: form.security_deposit ? parseFloat(form.security_deposit) : null,
         })
       })
+      const data = await res.json()
       if (res.ok) {
+        toast.success("Franchise created successfully")
         setShowAdd(false)
         load()
       } else {
-        const err = await res.json()
-        alert(err.error || "Failed to create franchise")
+        toast.error(data.error || "Failed to create franchise")
       }
     } catch {
-      alert("Something went wrong.")
+      toast.error("Something went wrong")
     } finally {
       setSubmitting(false)
     }
@@ -151,19 +173,22 @@ export default function AdminFranchisesPage() {
         body: JSON.stringify({
           id: selected.id,
           ...form,
-          commission_rate: parseFloat(form.commission_rate || "15")
+          commission_rate: parseFloat(form.commission_rate || "15"),
+          monthly_target: form.monthly_target ? parseFloat(form.monthly_target) : null,
+          security_deposit: form.security_deposit ? parseFloat(form.security_deposit) : null,
         })
       })
+      const data = await res.json()
       if (res.ok) {
+        toast.success("Franchise updated successfully")
         setShowEdit(false)
         setSelected(null)
         load()
       } else {
-        const err = await res.json()
-        alert(err.error || "Failed to update franchise")
+        toast.error(data.error || "Failed to update franchise")
       }
     } catch {
-      alert("Something went wrong.")
+      toast.error("Something went wrong")
     } finally {
       setSubmitting(false)
     }
@@ -375,6 +400,56 @@ export default function AdminFranchisesPage() {
                 <label style={labelStyle}>Commission Rate (%)</label>
                 <input style={inputStyle} type="number" value={form.commission_rate} onChange={e => setForm({ ...form, commission_rate: e.target.value })} />
               </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>License Number</label>
+                <input style={inputStyle} value={form.license_number} onChange={e => setForm({ ...form, license_number: e.target.value })} />
+              </div>
+
+              {/* Section: Financial */}
+              <div style={{ gridColumn: "span 2", borderTop: `1px solid ${BORDER}`, paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#a07040", textTransform: "uppercase", marginBottom: 8 }}>Financial & Agreement</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Security Deposit (₹)</label>
+                <input style={inputStyle} type="number" placeholder="e.g. 200000" value={form.security_deposit} onChange={e => setForm({ ...form, security_deposit: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Monthly Target (₹)</label>
+                <input style={inputStyle} type="number" placeholder="e.g. 500000" value={form.monthly_target} onChange={e => setForm({ ...form, monthly_target: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Agreement Start Date</label>
+                <input style={inputStyle} type="date" value={form.agreement_start_date} onChange={e => setForm({ ...form, agreement_start_date: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Agreement End Date</label>
+                <input style={inputStyle} type="date" value={form.agreement_end_date} onChange={e => setForm({ ...form, agreement_end_date: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Opening Date</label>
+                <input style={inputStyle} type="date" value={form.opening_date} onChange={e => setForm({ ...form, opening_date: e.target.value })} />
+              </div>
+
+              {/* Section: Bank */}
+              <div style={{ gridColumn: "span 2", borderTop: `1px solid ${BORDER}`, paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#a07040", textTransform: "uppercase", marginBottom: 8 }}>Bank Details</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Bank Name</label>
+                <input style={inputStyle} placeholder="e.g. HDFC Bank" value={form.bank_name} onChange={e => setForm({ ...form, bank_name: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Account Number</label>
+                <input style={inputStyle} value={form.bank_account_number} onChange={e => setForm({ ...form, bank_account_number: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>IFSC Code</label>
+                <input style={inputStyle} placeholder="e.g. HDFC0001234" value={form.bank_ifsc} onChange={e => setForm({ ...form, bank_ifsc: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gridColumn: "span 2" }}>
+                <label style={labelStyle}>Internal Notes</label>
+                <textarea rows={2} style={{ ...inputStyle, height: 54, padding: 8, resize: "vertical" }} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+              </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <button type="button" onClick={() => setShowAdd(false)} style={{
@@ -451,6 +526,54 @@ export default function AdminFranchisesPage() {
                 <label style={labelStyle}>Commission Rate (%)</label>
                 <input style={inputStyle} type="number" value={form.commission_rate} onChange={e => setForm({ ...form, commission_rate: e.target.value })} />
               </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>License Number</label>
+                <input style={inputStyle} value={form.license_number} onChange={e => setForm({ ...form, license_number: e.target.value })} />
+              </div>
+
+              <div style={{ gridColumn: "span 2", borderTop: `1px solid ${BORDER}`, paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#a07040", textTransform: "uppercase", marginBottom: 8 }}>Financial & Agreement</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Security Deposit (₹)</label>
+                <input style={inputStyle} type="number" value={form.security_deposit} onChange={e => setForm({ ...form, security_deposit: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Monthly Target (₹)</label>
+                <input style={inputStyle} type="number" value={form.monthly_target} onChange={e => setForm({ ...form, monthly_target: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Agreement Start Date</label>
+                <input style={inputStyle} type="date" value={form.agreement_start_date} onChange={e => setForm({ ...form, agreement_start_date: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Agreement End Date</label>
+                <input style={inputStyle} type="date" value={form.agreement_end_date} onChange={e => setForm({ ...form, agreement_end_date: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Opening Date</label>
+                <input style={inputStyle} type="date" value={form.opening_date} onChange={e => setForm({ ...form, opening_date: e.target.value })} />
+              </div>
+
+              <div style={{ gridColumn: "span 2", borderTop: `1px solid ${BORDER}`, paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#a07040", textTransform: "uppercase", marginBottom: 8 }}>Bank Details</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Bank Name</label>
+                <input style={inputStyle} value={form.bank_name} onChange={e => setForm({ ...form, bank_name: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>Account Number</label>
+                <input style={inputStyle} value={form.bank_account_number} onChange={e => setForm({ ...form, bank_account_number: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label style={labelStyle}>IFSC Code</label>
+                <input style={inputStyle} value={form.bank_ifsc} onChange={e => setForm({ ...form, bank_ifsc: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gridColumn: "span 2" }}>
+                <label style={labelStyle}>Internal Notes</label>
+                <textarea rows={2} style={{ ...inputStyle, height: 54, padding: 8, resize: "vertical" }} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+              </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button type="button" onClick={() => { setShowEdit(false); setSelected(null) }} style={{
@@ -467,26 +590,74 @@ export default function AdminFranchisesPage() {
       {/* View Modal */}
       {showView && selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: CREAM, borderRadius: 20, padding: 28, width: "100%", maxWidth: 500, border: `1px solid ${BORDER}`, boxShadow: "0 20px 60px rgba(0,0,0,0.15)" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 700, color: BROWN }}>Franchise Details</h3>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24, fontSize: 13, color: BROWN }}>
-              <div><strong>Branch Code:</strong> {selected.code}</div>
-              <div><strong>Company Name:</strong> {selected.name}</div>
-              <div><strong>Owner Name:</strong> {selected.owner_name || "—"}</div>
-              <div><strong>Manager Name:</strong> {selected.manager_name || "—"}</div>
-              <div><strong>Phone:</strong> {selected.phone || "—"}</div>
-              <div><strong>Email:</strong> {selected.email || "—"}</div>
-              <div><strong>Address:</strong> {selected.address || "—"}, {selected.city}, {selected.state} - {selected.pincode}</div>
-              <div><strong>GSTIN:</strong> {selected.gst_number || "—"}</div>
-              <div><strong>PAN Card:</strong> {selected.pan_number || "—"}</div>
-              <div><strong>Commission rate:</strong> {selected.commission_rate}%</div>
-              <div><strong>Status:</strong> {selected.is_active ? "Active" : "Suspended"}</div>
+          <div style={{ background: CREAM, borderRadius: 20, padding: 28, width: "100%", maxWidth: 560, border: `1px solid ${BORDER}`, boxShadow: "0 20px 60px rgba(0,0,0,0.15)", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: BROWN }}>{selected.name}</h3>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: selected.is_active ? "#f0fdf4" : "#fef2f2", color: selected.is_active ? "#16a34a" : "#dc2626" }}>
+                {selected.is_active ? "Active" : "Suspended"}
+              </span>
             </div>
 
-            <button onClick={() => { setShowView(false); setSelected(null) }} style={{
-              width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "transparent", color: BROWN, cursor: "pointer"
-            }}>Close Panel</button>
+            {/* Basic Info */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16, fontSize: 13, color: BROWN }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>CODE</span><br />{selected.code}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>COMMISSION</span><br />{selected.commission_rate}%</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>OWNER</span><br />{selected.owner_name || "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>MANAGER</span><br />{selected.manager_name || "—"}</div>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                {selected.phone && (
+                  <a href={`tel:${selected.phone}`} style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 8, background: "#f0fdf4", color: "#16a34a", textDecoration: "none", border: "1px solid #bbf7d0" }}>
+                    Call {selected.phone}
+                  </a>
+                )}
+                {selected.phone && (
+                  <a href={`https://wa.me/91${selected.phone.replace(/\D/g, "").slice(-10)}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 8, background: "#f0fdf4", color: "#15803d", textDecoration: "none", border: "1px solid #bbf7d0" }}>
+                    WhatsApp
+                  </a>
+                )}
+              </div>
+              <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>ADDRESS</span><br />{[selected.address, selected.city, selected.state, selected.pincode].filter(Boolean).join(", ")}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>GSTIN</span><br />{selected.gst_number || "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>PAN</span><br />{selected.pan_number || "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>LICENSE</span><br />{selected.license_number || "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>OPENING DATE</span><br />{selected.opening_date || "—"}</div>
+              </div>
+            </div>
+
+            {/* Financial */}
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 12, marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#a07040", textTransform: "uppercase", marginBottom: 8 }}>Financial & Agreement</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13, color: BROWN }}>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>SECURITY DEPOSIT</span><br />{selected.security_deposit ? `₹${Number(selected.security_deposit).toLocaleString("en-IN")}` : "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>MONTHLY TARGET</span><br />{selected.monthly_target ? `₹${Number(selected.monthly_target).toLocaleString("en-IN")}` : "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>AGREEMENT START</span><br />{selected.agreement_start_date || "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>AGREEMENT END</span><br />{selected.agreement_end_date || "—"}</div>
+              </div>
+            </div>
+
+            {/* Bank */}
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 12, marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#a07040", textTransform: "uppercase", marginBottom: 8 }}>Bank Details</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13, color: BROWN }}>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>BANK</span><br />{selected.bank_name || "—"}</div>
+                <div><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>IFSC</span><br />{selected.bank_ifsc || "—"}</div>
+                <div style={{ gridColumn: "span 2" }}><span style={{ fontSize: 10, color: "#a07040", fontWeight: 700 }}>ACCOUNT NUMBER</span><br />{selected.bank_account_number || "—"}</div>
+              </div>
+            </div>
+
+            {selected.notes && (
+              <div style={{ background: "rgba(201,168,76,0.06)", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: BROWN, marginBottom: 16 }}>
+                <strong>Notes:</strong> {selected.notes}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setShowView(false); resetForm(selected); setShowEdit(true) }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", background: BROWN, color: GOLD, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Edit Franchise</button>
+              <button onClick={() => { setShowView(false); setSelected(null) }} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `1px solid ${BORDER}`, background: "transparent", color: BROWN, cursor: "pointer" }}>Close</button>
+            </div>
           </div>
         </div>
       )}
