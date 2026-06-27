@@ -5,6 +5,9 @@ import { verifyPdfToken } from "@/lib/pdf-token"
 const PUBLIC_PATH_PREFIXES = [
   "/auth/login",
   "/auth/logout",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+  "/franchise-enquiry",
   "/_next",
   "/favicon",
   "/public",
@@ -42,10 +45,26 @@ export function middleware(request: NextRequest) {
   // Any of these cookies indicates an authenticated browser session
   const isAuthed = hasUserCookie || hasLegacySession || hasSb
 
-  // If user is already logged in, redirect them to the dashboard if they go to the login pages
+  // If user is already logged in, redirect them to their specific landing page if they go to the login pages
   const isLoginPage = pathname === "/" || pathname === "/auth/login"
   if (isLoginPage && isAuthed) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    let redirectUrl = "/dashboard"
+    if (hasUserCookie) {
+      try {
+        const rawUser = request.cookies.get("safawala_user")?.value
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser)
+          if (parsed?.role === "super_admin") {
+            redirectUrl = "/admin"
+          } else if (parsed?.department) {
+            redirectUrl = `/portal/${parsed.department}`
+          }
+        }
+      } catch (e) {
+        console.error("[Middleware] Cookie parse error:", e)
+      }
+    }
+    return NextResponse.redirect(new URL(redirectUrl, request.url))
   }
 
   // Allow API routes and public paths

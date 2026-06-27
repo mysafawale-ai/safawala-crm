@@ -2,10 +2,8 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
-export default function DeptLoginRedirect() {
+export default function AdminPortalRedirect() {
   const router = useRouter()
-  useEffect(() => {
-    router.replace("/auth/login")
-  }, [router])
+  useEffect(() => { router.replace("/admin") }, [router])
   return null
 }

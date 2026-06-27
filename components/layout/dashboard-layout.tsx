@@ -57,6 +57,11 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
         }
 
         const userData = await response.json()
+        if (userData?.role === "super_admin") {
+          console.log("[DashboardLayout] Super admin detected in operational dashboard layout, redirecting to /admin")
+          router.replace("/admin")
+          return
+        }
         console.log("[DashboardLayout] User authenticated:", userData.name, "Franchise:", userData.franchise_name)
         
         setUser(userData)

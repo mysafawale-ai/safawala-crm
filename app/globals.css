@@ -453,3 +453,24 @@
   .text-lg { font-size: 0.9rem !important; }
   p.text-muted-foreground, .text-muted-foreground { font-size: 0.8rem !important; }
 }
+
+/* Auth pages — responsive wallpaper backgrounds */
+.login-auth-bg {
+  background-image: url('/login-bg-mobile.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-color: #f5ebe0;
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .login-auth-bg {
+    background-image: url('/login-bg-tablet.png');
+    background-position: center center;
+  }
+}
+@media (min-width: 1024px) {
+  .login-auth-bg {
+    background-image: url('/login-bg-desktop.png');
+    background-position: center center;
+  }
+}

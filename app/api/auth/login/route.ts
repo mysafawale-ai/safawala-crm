@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     const { email, password } = body
     console.log("[v0] Login attempt for email:", email)
 
-    const validDepartments = ["accounts", "admin", "booking", "bookings", "delivery", "franchise", "hr", "manager", "qc", "styling", "warehouse"];
+    const validDepartments = ["accounts", "admin", "booking", "bookings", "delivery", "franchise", "hr", "manager", "qc", "styling", "travels", "warehouse"];
     const emailMatch = email.match(/^([a-z]+)@safawala\.com$/i);
     const deptPrefix = emailMatch ? emailMatch[1].toLowerCase() : null;
     const deptCap = deptPrefix ? deptPrefix.charAt(0).toUpperCase() + deptPrefix.slice(1) : '';
@@ -161,6 +161,7 @@ export async function POST(request: NextRequest) {
         manager:   "00000000-0000-4000-8001-000000000008",
         qc:        "00000000-0000-4000-8001-000000000009",
         styling:   "00000000-0000-4000-8001-000000000010",
+        travels:   "00000000-0000-4000-8001-000000000012",
         warehouse: "00000000-0000-4000-8001-000000000011",
       };
       const deptUserId = deptUUIDs[deptPrefix] || crypto.randomUUID();
@@ -202,6 +203,11 @@ export async function POST(request: NextRequest) {
         }
       } catch (_) {}
 
+      const deptDisplayNames: Record<string, string> = {
+        travels: "Travel & Hotels",
+      };
+      const displayName = deptDisplayNames[deptPrefix] ? `${deptDisplayNames[deptPrefix]} Manager` : `${deptCap} Manager`;
+
       // Upsert the dept user into users table so auth-middleware can find them
       try {
         await serviceForFranchise
@@ -209,7 +215,7 @@ export async function POST(request: NextRequest) {
           .upsert({
             id: deptUserId,
             email: `${deptPrefix}@safawala.com`,
-            name: `${deptCap} Manager`,
+            name: displayName,
             role: userRole,
             franchise_id: realFranchiseId,
             is_active: true,
@@ -221,7 +227,7 @@ export async function POST(request: NextRequest) {
 
       const user = {
         id: deptUserId,
-        name: `${deptCap} Manager`,
+        name: displayName,
         email: `${deptPrefix}@safawala.com`,
         role: userRole,
         department: portalSlug,
@@ -392,12 +398,27 @@ export async function POST(request: NextRequest) {
       ? userProfile.permissions
       : getDefaultPermissions(userProfile.role);
 
+    // Infer department from email if not set in DB (e.g. hr@safawala.com → "hr")
+    const KNOWN_DEPT_EMAILS: Record<string, string> = {
+      accounts: "accounts", admin: "admin", booking: "booking", bookings: "booking",
+      delivery: "delivery", franchise: "franchise", hr: "hr", manager: "manager",
+      qc: "qc", styling: "styling", travels: "travels", warehouse: "warehouse",
+    }
+    const emailDeptMatch = email.match(/^([a-z]+)@safawala\.com$/i)
+    const emailDeptPrefix = emailDeptMatch ? emailDeptMatch[1].toLowerCase() : null
+    const inferredDept = emailDeptPrefix ? (KNOWN_DEPT_EMAILS[emailDeptPrefix] ?? null) : null
+
+    // If user has no department in DB, save the inferred one so future logins are instant
+    if (!userProfile.department && inferredDept) {
+      serviceAdmin.from("users").update({ department: inferredDept }).eq("id", userProfile.id).then(() => {})
+    }
+
     const user = {
       id: userProfile.id,
       name: userProfile.name,
       email: userProfile.email,
       role: userProfile.role,
-      department: userProfile.department || null,
+      department: userProfile.department || inferredDept || null,
       franchise_id: userProfile.franchise_id,
       franchise_name: userProfile.franchises?.name || null,
       franchise_code: userProfile.franchises?.code || null,

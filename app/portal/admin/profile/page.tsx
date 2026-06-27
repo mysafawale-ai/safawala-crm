@@ -1,5 +1,11 @@
 "use client"
-import { PortalProfilePage } from "@/components/portal/portal-profile-page"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+
 export default function Page() {
-  return <PortalProfilePage dept="admin" color="#f97316" backHref="/portal/admin" />
+  const router = useRouter()
+  useEffect(() => {
+    router.replace("/admin/profile")
+  }, [router])
+  return null
 }
