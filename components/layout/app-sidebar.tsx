@@ -30,6 +30,9 @@ import {
   Archive,
   ClipboardList,
   UserPlus,
+  Lock,
+  Plane,
+  Stethoscope,
 } from "lucide-react"
 
 import {
@@ -138,6 +141,27 @@ const navigationItems = {
       icon: UserPlus,
       permission: "customers",
       description: "Enquiries from your public packages page — track, call and convert leads",
+    },
+    {
+      title: "HR",
+      url: "/hr",
+      icon: Stethoscope,
+      permission: "staff",
+      description: "Staff management, payroll, attendance, and HR letters",
+    },
+    {
+      title: "Travels & Hotels",
+      url: "/travels",
+      icon: Plane,
+      permission: "bookings",
+      description: "Manage travel bookings, hotel stays, and event logistics for out-of-town events",
+    },
+    {
+      title: "Lock Dates",
+      url: "/lock-dates",
+      icon: Lock,
+      permission: "bookings",
+      description: "Block dates from new bookings — manage locked dates with person name and city",
     },
   ],
   business: [
@@ -364,7 +388,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
 
   return (
     <TooltipProvider>
-      <Sidebar variant="inset" collapsible="icon" className="bg-white border-r border-slate-200" {...props}>
+      <Sidebar variant="inset" collapsible="icon" className="heritage-sidebar" {...props}>
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -372,7 +396,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                 size="lg"
                 asChild
                 isActive={isActiveItem("/dashboard")}
-                className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                className="heritage-sidebar-item"
               >
                 <Link href="/dashboard" className="w-full">
                   <div className="flex w-full items-center justify-start py-4 pl-4">
@@ -394,7 +418,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
 
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Main</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2">Main</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterItemsByRole(navigationItems.main).map((item) => (
@@ -403,7 +427,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       asChild
                       isActive={isActiveItem(item.url)}
                       tooltip={item.title}
-                      className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                      className="heritage-sidebar-item"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
@@ -427,7 +451,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
           </SidebarGroup>
 
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Business</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2">Business</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterItemsByRole(navigationItems.business).map((item) => (
@@ -436,7 +460,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       asChild
                       isActive={isActiveItem(item.url)}
                       tooltip={item.title}
-                      className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                      className="heritage-sidebar-item"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
@@ -460,7 +484,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
           </SidebarGroup>
 
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Analytics</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2">Analytics</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterItemsByRole(navigationItems.reports).map((item) => (
@@ -469,7 +493,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       asChild
                       isActive={isActiveItem(item.url)}
                       tooltip={item.title}
-                      className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                      className="heritage-sidebar-item"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
@@ -494,7 +518,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
 
           {(userRole === "super_admin" || userRole === "franchise_admin") && (
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Administration</SidebarGroupLabel>
+              <SidebarGroupLabel className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2">Administration</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {filterItemsByRole(navigationItems.admin).map((item) => (
@@ -503,7 +527,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                         asChild
                         isActive={isActiveItem(item.url)}
                         tooltip={item.title}
-                        className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                        className="heritage-sidebar-item"
                       >
                         <Link href={item.url} className="flex items-center justify-between w-full">
                           <div className="flex items-center gap-2">
@@ -535,7 +559,7 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
                     size="lg"
-                    className="text-slate-600 font-medium rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors data-[state=open]:bg-indigo-50 data-[state=open]:text-indigo-700"
+                    className="heritage-sidebar-item data-[state=open]:bg-purple-900/20 data-[state=open]:text-purple-300"
                   >
                     <Avatar className="h-8 w-8 rounded-lg">
                       {userAvatar && <AvatarImage src={userAvatar} alt={userName} />}
@@ -544,8 +568,8 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold font-semibold text-slate-900">{userName}</span>
-                      <span className="truncate text-xs capitalize text-slate-500">{userRole.replace("_", " ")}</span>
+                      <span className="truncate font-semibold text-white">{userName}</span>
+                      <span className="truncate text-xs capitalize text-zinc-400">{userRole.replace("_", " ")}</span>
                     </div>
                     <ChevronUp className="ml-auto size-4" />
                   </SidebarMenuButton>

@@ -5,7 +5,8 @@ import { format, parseISO } from "date-fns"
 import {
   Users, Phone, MapPin, Calendar, Search, RefreshCw, Filter,
   CheckCircle, Clock, X, MessageSquare, ExternalLink,
-  Copy, ChevronDown, Loader2, Plus, Edit2, Mail, Building2, Globe, Check
+  Copy, ChevronDown, Loader2, Plus, Edit2, Mail, Building2, Globe, Check,
+  Lock, Trash2, User, FileText, ArrowRight
 } from "lucide-react"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
@@ -147,6 +148,11 @@ export default function LeadsPage() {
   const [newNotes, setNewNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
+  // Locked dates state
+  const [lockedDates, setLockedDates] = useState<any[]>([])
+  const [loadingLocks, setLoadingLocks] = useState(false)
+  const [deletingLockId, setDeletingLockId] = useState<string | null>(null)
+
   // Details Edit States
   const [isEditingDetails, setIsEditingDetails] = useState(false)
   const [editName, setEditName] = useState("")
@@ -170,6 +176,13 @@ export default function LeadsPage() {
         console.error("Failed to parse user session:", err)
       }
     }
+    // Fetch locked dates
+    setLoadingLocks(true)
+    fetch("/api/locked-dates")
+      .then(r => r.json())
+      .then(d => setLockedDates((d.data ?? []).sort((a: any, b: any) => a.locked_date.localeCompare(b.locked_date))))
+      .catch(() => {})
+      .finally(() => setLoadingLocks(false))
   }, [])
 
   // Load master data (Staff and Franchises)
@@ -918,6 +931,122 @@ export default function LeadsPage() {
             </div>
           )}
         </div>
+
+        {/* ─── Locked Dates Section ─── */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-red-500" />
+              <h2 className="text-lg font-semibold text-gray-900">Locked Dates</h2>
+              {lockedDates.length > 0 && (
+                <Badge variant="destructive" className="text-xs">{lockedDates.filter(ld => ld.locked_date >= format(new Date(), "yyyy-MM-dd")).length} upcoming</Badge>
+              )}
+            </div>
+            <a
+              href="/lock-dates"
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
+            >
+              Manage All <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          </div>
+
+          {loadingLocks ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            </div>
+          ) : lockedDates.filter(ld => ld.locked_date >= format(new Date(), "yyyy-MM-dd")).length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-10 text-gray-400">
+                <Lock className="h-10 w-10 mb-2 opacity-20" />
+                <p className="text-sm">No upcoming locked dates</p>
+                <a href="/lock-dates" className="mt-2 text-xs text-indigo-500 hover:underline">Lock a date →</a>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {lockedDates
+                .filter(ld => ld.locked_date >= format(new Date(), "yyyy-MM-dd"))
+                .slice(0, 6)
+                .map(ld => {
+                  const rawNotes = ld.notes || ""
+                  const personMatch = rawNotes.match(/^PERSON:\s*([^|]+)\|/)
+                  const cityMatch = rawNotes.match(/\|CITY:\s*([^|]+)(\||$)/)
+                  const noteMatch = rawNotes.match(/\|NOTE:\s*([\s\S]*)$/)
+                  const personName = personMatch ? personMatch[1].trim() : ""
+                  const city = cityMatch ? cityMatch[1].trim() : ""
+                  const note = noteMatch ? noteMatch[1].trim() : (!personMatch ? rawNotes : "")
+                  const isToday = ld.locked_date === format(new Date(), "yyyy-MM-dd")
+                  return (
+                    <Card key={ld.id} className={`shadow-sm border ${isToday ? "border-red-300 bg-red-50" : "border-red-100 bg-white"}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isToday ? "bg-red-200" : "bg-red-100"}`}>
+                              <Lock className={`h-3.5 w-3.5 ${isToday ? "text-red-700" : "text-red-500"}`} />
+                            </div>
+                            <div>
+                              <div className={`text-sm font-bold ${isToday ? "text-red-700" : "text-gray-800"}`}>
+                                {format(new Date(ld.locked_date + "T00:00:00"), "EEE, dd MMM yyyy")}
+                              </div>
+                              {isToday && <span className="text-[10px] font-bold text-red-600 uppercase tracking-wide">TODAY</span>}
+                            </div>
+                          </div>
+                          {(currentUser?.role === "franchise_admin" || currentUser?.role === "franchise_owner" || currentUser?.role === "super_admin") && (
+                            <button
+                              onClick={async () => {
+                                setDeletingLockId(ld.id)
+                                try {
+                                  const res = await fetch(`/api/locked-dates?id=${ld.id}`, { method: "DELETE" })
+                                  if (res.ok) setLockedDates(prev => prev.filter(d => d.id !== ld.id))
+                                  else toast.error("Failed to unlock")
+                                } catch { toast.error("Error") }
+                                finally { setDeletingLockId(null) }
+                              }}
+                              disabled={deletingLockId === ld.id}
+                              className="text-red-300 hover:text-red-500 ml-1"
+                            >
+                              {deletingLockId === ld.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </div>
+
+                        {personName && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                              <User className="h-3 w-3 text-indigo-500" /> {personName}
+                            </span>
+                            {city && city !== "—" && (
+                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                                <MapPin className="h-3 w-3" /> {city}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {ld.whatsapp_number && (
+                          <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                            <Phone className="h-3 w-3" /> {ld.whatsapp_number}
+                          </p>
+                        )}
+                        {note && (
+                          <p className="text-xs text-gray-500 mt-1 truncate flex items-start gap-1">
+                            <FileText className="h-3 w-3 mt-0.5 shrink-0" /> {note}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+            </div>
+          )}
+          {lockedDates.filter(ld => ld.locked_date >= format(new Date(), "yyyy-MM-dd")).length > 6 && (
+            <div className="mt-3 text-center">
+              <a href="/lock-dates" className="text-sm text-indigo-600 hover:underline font-medium">
+                View all {lockedDates.filter(ld => ld.locked_date >= format(new Date(), "yyyy-MM-dd")).length} locked dates →
+              </a>
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* Manual Add Lead Dialog */}

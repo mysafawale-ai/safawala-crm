@@ -80,7 +80,7 @@ export function CompanyHeader({ className = "" }: CompanyHeaderProps) {
           />
         </div>
       )}
-      <span className="font-semibold text-lg">{companySettings.company_name}</span>
+      <span className="font-semibold text-lg text-white">{companySettings.company_name}</span>
     </div>
   )
 }

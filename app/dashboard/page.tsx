@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { DashboardLayout } from "@/components/layout/dashboard-layout"
 
 const ACCENT = "#a855f7"
 const BORDER = "#e4e4e7"
@@ -108,6 +109,7 @@ export default function FranchiseDashboard() {
   }
 
   return (
+    <DashboardLayout>
     <div style={{ padding: "32px 36px", maxWidth: 1200, margin: "0 auto", fontFamily: "system-ui,-apple-system,sans-serif" }}>
 
       {/* Header */}
@@ -128,15 +130,15 @@ export default function FranchiseDashboard() {
 
       {/* KPI row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
-        <StatCard label="Today's Bookings" value={loading ? "…" : stats.todayBookings} color="#22c55e" href="/dashboard/bookings" />
-        <StatCard label="Month Revenue" value={loading ? "…" : fmt(stats.monthRevenue)} color={ACCENT} href="/dashboard/revenue" />
-        <StatCard label="Active Staff" value={loading ? "…" : stats.activeStaff} color="#6366f1" href="/dashboard/hr" />
+        <StatCard label="Today's Bookings" value={loading ? "…" : stats.todayBookings} color="#22c55e" href="/bookings" />
+        <StatCard label="Month Revenue" value={loading ? "…" : fmt(stats.monthRevenue)} color={ACCENT} href="/financials" />
+        <StatCard label="Active Staff" value={loading ? "…" : stats.activeStaff} color="#6366f1" href="/hr" />
         <StatCard
           label="Pending Payments"
           value={loading ? "…" : stats.pendingPayments}
           sub={!loading ? (stats.pendingPayments > 0 ? "Needs attention" : "All cleared") : undefined}
           color={stats.pendingPayments > 0 ? "#ef4444" : "#22c55e"}
-          href="/dashboard/revenue"
+          href="/financials"
         />
       </div>
 
@@ -147,7 +149,7 @@ export default function FranchiseDashboard() {
         <div style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#18181b" }}>Recent Bookings</h3>
-            <Link href="/dashboard/bookings" style={{ fontSize: 12, color: ACCENT, fontWeight: 600, textDecoration: "none" }}>View all →</Link>
+            <Link href="/bookings" style={{ fontSize: 12, color: ACCENT, fontWeight: 600, textDecoration: "none" }}>View all →</Link>
           </div>
 
           {loading ? (
@@ -194,17 +196,18 @@ export default function FranchiseDashboard() {
         <div>
           <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 800, color: "#18181b" }}>Departments</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <DeptCard label="Booking & Sales"   sub="Orders & customers"     color="#22c55e" href="/portal/booking/bookings"   emoji="📋" />
-            <DeptCard label="HR & Staff"         sub="Payroll, letters, KYC"  color="#6366f1" href="/dashboard/hr"              emoji="👥" />
-            <DeptCard label="Travels"            sub="Events, stylists"       color="#0891b2" href="/dashboard/travels"         emoji="✈️" />
-            <DeptCard label="Warehouse"          sub="Inventory & laundry"    color="#a855f7" href="/portal/warehouse/inventory" emoji="📦" />
-            <DeptCard label="Accounts"           sub="Payments & expenses"    color="#ef4444" href="/portal/accounts/payments"  emoji="💳" />
-            <DeptCard label="Quality Control"    sub="Inspect & damage"       color="#eab308" href="/portal/qc/inspect"         emoji="🔍" />
-            <DeptCard label="Dispatch"           sub="Deliveries & returns"   color="#14b8a6" href="/portal/delivery/deliveries" emoji="🚚" />
+            <DeptCard label="Booking & Sales"   sub="Bookings & customers"   color="#22c55e" href="/bookings"    emoji="📋" />
+            <DeptCard label="HR & Staff"         sub="Payroll, attendance"    color="#6366f1" href="/staff"       emoji="👥" />
+            <DeptCard label="Leads"              sub="Enquiries & follow-ups" color="#0891b2" href="/leads"       emoji="🎯" />
+            <DeptCard label="Inventory"          sub="Products & stock"       color="#a855f7" href="/inventory"   emoji="📦" />
+            <DeptCard label="Expenses"           sub="Payments & costs"       color="#ef4444" href="/expenses"    emoji="💳" />
+            <DeptCard label="Laundry"            sub="Wash & care orders"     color="#eab308" href="/laundry"     emoji="🧺" />
+            <DeptCard label="Deliveries"         sub="Dispatch & returns"     color="#14b8a6" href="/deliveries"  emoji="🚚" />
           </div>
         </div>
 
       </div>
     </div>
+    </DashboardLayout>
   )
 }

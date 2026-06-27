@@ -255,13 +255,15 @@ export default function CreateInvoicePage() {
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [extraItems, setExtraItems] = useState<InvoiceItem[]>([])
   const [lostDamagedItems, setLostDamagedItems] = useState<LostDamagedItem[]>([])
-  
+  const [timeSlot, setTimeSlot] = useState<string>("")
+  const [timeSlotCharge, setTimeSlotCharge] = useState<number>(0)
+
   const [invoiceData, setInvoiceData] = useState({
     invoice_number: "",
     invoice_date: format(new Date(), "yyyy-MM-dd"),
     invoice_type: "rental" as "rental" | "sale",
     event_type: "wedding" as "wedding" | "engagement" | "reception" | "other",
-    event_participant: "both" as "both" | "groom" | "bride",
+    event_participant: "groom" as "both" | "groom" | "bride",
     event_date: "",
     event_time: "",
     delivery_date: "",
@@ -598,10 +600,15 @@ export default function CreateInvoicePage() {
         const allCategories = catJson?.data || []
         
         // Only keep categories that have packages/variants for this franchise
-        const filteredCategories = allCategories.filter((cat: any) => 
-          categoryIdsWithPackages.has(cat.id)
-        )
-        
+        const filteredCategories = allCategories
+          .filter((cat: any) => categoryIdsWithPackages.has(cat.id))
+          .sort((a: any, b: any) => {
+            // Sort by numeric prefix in name: "Package 1", "Package 2", etc.
+            const numA = parseInt((a.name || "").match(/\d+/)?.[0] || "999")
+            const numB = parseInt((b.name || "").match(/\d+/)?.[0] || "999")
+            return numA - numB || (a.name || "").localeCompare(b.name || "")
+          })
+
         setPackagesCategories(filteredCategories)
         console.log(
           "[CreateInvoice] Loaded package categories:", 
@@ -614,8 +621,13 @@ export default function CreateInvoicePage() {
         console.error("[CreateInvoice] Error loading package categories:", catResponse.status)
       }
       
-      // Set the packages/variants
-      setPackages(filteredVariants)
+      // Set the packages/variants sorted by name numerically
+      const sortedVariants = filteredVariants.sort((a: any, b: any) => {
+        const numA = parseInt((a.name || "").match(/\d+/)?.[0] || "999")
+        const numB = parseInt((b.name || "").match(/\d+/)?.[0] || "999")
+        return numA - numB || (a.name || "").localeCompare(b.name || "")
+      })
+      setPackages(sortedVariants)
     } catch (error) {
       console.error("[CreateInvoice] Error loading packages:", error)
     } finally {
@@ -1044,7 +1056,7 @@ export default function CreateInvoicePage() {
     : 0
   const depositRefundAmount = isDepositRefunded && invoiceData.invoice_type === "rental" ? securityDeposit : 0
   // GST inclusive: total stays same as afterDiscount (GST doesn't add to price)
-  const grandTotal = (afterDiscount + securityDeposit + lostDamagedTotal) - depositRefundAmount
+  const grandTotal = (afterDiscount + securityDeposit + lostDamagedTotal + timeSlotCharge) - depositRefundAmount
   const pendingAmount = grandTotal - invoiceData.amount_paid
 
   // Filter customers - show all if no search term, otherwise filter
@@ -1503,7 +1515,7 @@ export default function CreateInvoicePage() {
         sales_closed_by_id: invoiceData.sales_closed_by_id || null,
         status: 'quote',
         pending_amount: grandTotal || 0,
-        notes: invoiceData.notes || '',
+        notes: [invoiceData.notes || '', timeSlot && timeSlotCharge > 0 ? `[SLOT: ${timeSlot} @ ₹${timeSlotCharge}]` : "", timeSlot && timeSlotCharge === 0 && timeSlot === "morning" ? `[SLOT: morning]` : ""].filter(Boolean).join(" ").trim(),
         is_quote: true,
         // Package selection fields
         selection_mode: selectionMode || 'products',
@@ -2515,6 +2527,38 @@ export default function CreateInvoicePage() {
                       </div>
                     </div>
                     <div>
+                      <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Time Slot</Label>
+                      <Select value={timeSlot} onValueChange={(v) => {
+                        setTimeSlot(v)
+                        const charges: Record<string, number> = { morning: 0, afternoon: 200, evening: 500, night: 1000, early_morning: 1000, custom: timeSlotCharge }
+                        if (v !== "custom") setTimeSlotCharge(charges[v] ?? 0)
+                      }}>
+                        <SelectTrigger className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200 print:border-0 print:p-0">
+                          <SelectValue placeholder="Select slot" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="morning">Morning (6am-12pm) — No extra</SelectItem>
+                          <SelectItem value="afternoon">Afternoon (12pm-6pm) — +₹200</SelectItem>
+                          <SelectItem value="evening">Evening (6pm-10pm) — +₹500</SelectItem>
+                          <SelectItem value="night">Night (10pm-2am) — +₹1,000</SelectItem>
+                          <SelectItem value="early_morning">Early Morning (4-6am) — +₹1,000</SelectItem>
+                          <SelectItem value="custom">Custom Charge</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {timeSlot === "custom" && (
+                      <div>
+                        <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Custom Slot Charge (₹)</Label>
+                        <Input
+                          type="number"
+                          value={timeSlotCharge || ""}
+                          onChange={(e) => setTimeSlotCharge(Number(e.target.value) || 0)}
+                          placeholder="0"
+                          className="h-8 md:h-9 text-xs md:text-sm bg-gray-50 border-gray-200"
+                        />
+                      </div>
+                    )}
+                    <div>
                       <Label className="text-[10px] md:text-xs text-gray-500 mb-1 block">Delivery Date</Label>
                       <div className="relative">
                         <Input
@@ -3423,7 +3467,7 @@ export default function CreateInvoicePage() {
                         <th className="text-left p-3 font-medium">Select Product</th>
                         <th className="text-center p-3 font-medium w-28">Type</th>
                         <th className="text-center p-3 font-medium w-28">Qty</th>
-                        <th className="text-right p-3 font-medium w-28">Charge/Item</th>
+                        <th className="text-right p-3 font-medium w-28">Custom Price/Item ✎</th>
                         <th className="text-right p-3 font-medium w-28">Total</th>
                         <th className="w-12 print:hidden"></th>
                       </tr>
@@ -3764,7 +3808,15 @@ export default function CreateInvoicePage() {
 
             {/* Financial Summary */}
             <Card className="p-4 bg-gray-50">
-              <div className="font-semibold mb-3">Summary</div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-semibold">Summary</div>
+                {invoiceData.invoice_type === "rental" && countSafasInInvoice() > 0 && (
+                  <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1">
+                    <span className="text-xs font-bold text-indigo-700">🎩 Total Safas:</span>
+                    <span className="text-sm font-extrabold text-indigo-700">{countSafasInInvoice()}</span>
+                  </div>
+                )}
+              </div>
               <div className="space-y-2 text-sm">
                 {/* Show package if selected */}
                 {selectionMode === "package" && selectedPackage && (
@@ -3786,6 +3838,12 @@ export default function CreateInvoicePage() {
                   <div className="flex justify-between text-red-600">
                     <span>Additional Products</span>
                     <span>+{formatCurrency(lostDamagedTotal)}</span>
+                  </div>
+                )}
+                {timeSlotCharge > 0 && (
+                  <div className="flex justify-between text-orange-600">
+                    <span>Time Slot Charge {timeSlot ? `(${timeSlot.replace(/_/g, " ")})` : ""}</span>
+                    <span>+{formatCurrency(timeSlotCharge)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -3868,8 +3926,8 @@ export default function CreateInvoicePage() {
                   <li>The remaining payment, including the Security Deposit, must be completed before the event date.</li>
                   <li>Safas and rental items remain the customer&apos;s responsibility until collected by our team. Any lost, damaged, torn, burnt, or unreturned items will be charged as per the applicable lost/damage rates.</li>
                   <li>Our team will arrange collection of safas after the event. If items are unavailable on the agreed date, additional rental charges may be adjusted from the Security Deposit.</li>
-                  <li>Safa Wale service includes up to 5 hours of assistance. Additional hours will be charged at ₹1,500 per hour.</li>
-                  <li>Local city services include up to 1 hour; outstation services up to 4 hours and until 9:30 PM. Any additional time may be adjusted against the Security Deposit.</li>
+                  <li>Safa Wale service includes up to 3 hours of assistance. Out-of-town services include up to 3 hours. Additional hours will be charged at ₹1,500 per hour.</li>
+                  <li>Local city services include up to 1 hour; outstation services include up to 3 hours and must be completed by 9:30 PM. Any additional time will be charged from the Security Deposit.</li>
                   <li>Sold products are non-returnable and non-exchangeable. All bookings and services are subject to Vadodara jurisdiction.</li>
                 </ol>
               )}
@@ -4115,8 +4173,8 @@ export default function CreateInvoicePage() {
                   <li>The remaining payment, including the Security Deposit, must be completed before the event date.</li>
                   <li>Safas and rental items remain the customer&apos;s responsibility until collected by our team. Any lost, damaged, torn, burnt, or unreturned items will be charged as per the applicable lost/damage rates.</li>
                   <li>Our team will arrange collection of safas after the event. If items are unavailable on the agreed date, additional rental charges may be adjusted from the Security Deposit.</li>
-                  <li>Safa Wale service includes up to 5 hours of assistance. Additional hours will be charged at ₹1,500 per hour.</li>
-                  <li>Local city services include up to 1 hour; outstation services up to 4 hours and until 9:30 PM. Any additional time may be adjusted against the Security Deposit.</li>
+                  <li>Safa Wale service includes up to 3 hours of assistance. Out-of-town services include up to 3 hours. Additional hours will be charged at ₹1,500 per hour.</li>
+                  <li>Local city services include up to 1 hour; outstation services include up to 3 hours and must be completed by 9:30 PM. Any additional time will be charged from the Security Deposit.</li>
                   <li>Sold products are non-returnable and non-exchangeable. All bookings and services are subject to Vadodara jurisdiction.</li>
                 </ol>
               )}

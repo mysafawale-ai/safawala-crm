@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, isBefore, startOfDay } from "date-fns"
-import { Search, CalendarIcon, Package, Eye, Wrench } from "lucide-react"
+import { Search, CalendarIcon, Package, Eye, Wrench, Lock, Trash2, User, MapPin, Loader2 } from "lucide-react"
 import { ItemsDisplayDialog, ItemsSelectionDialog, CompactItemsDisplayDialog } from "@/components/shared"
 import type { SelectedItem } from "@/components/shared/types/items"
 import { PincodeService } from "@/lib/pincode-service"
@@ -58,8 +58,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const [bookings, setBookings] = React.useState<BookingData[]>([])
   const [dateBookings, setDateBookings] = React.useState<BookingData[]>([])
   const [lockedDates, setLockedDates] = React.useState<string[]>([])
+  const [lockedDateObjects, setLockedDateObjects] = React.useState<any[]>([])
+  const [deletingLockId, setDeletingLockId] = React.useState<string | null>(null)
+  const [userRole, setUserRole] = React.useState<string>("")
   const [modificationBookings, setModificationBookings] = React.useState<BookingData[]>([])
-  const [activeTab, setActiveTab] = React.useState<'events' | 'modifications'>('events')
+  const [activeTab, setActiveTab] = React.useState<'events' | 'modifications' | 'locked'>('events')
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
   
@@ -83,16 +86,39 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
   const [subcategories, setSubcategories] = React.useState<any[]>([])
 
   React.useEffect(() => {
+    const raw = localStorage.getItem("safawala_user")
+    if (raw) { try { const u = JSON.parse(raw); setUserRole(u.role || "") } catch {} }
     fetchBookings()
     fetchProductsAndCategories()
-    // Fetch locked dates for calendar display
+    fetchLockedDates()
+  }, [franchiseId])
+
+  const fetchLockedDates = () => {
     fetch("/api/locked-dates")
       .then(r => r.json())
       .then(d => {
-        if (d.data) setLockedDates(d.data.map((ld: any) => ld.locked_date as string))
+        if (d.data) {
+          setLockedDates(d.data.map((ld: any) => ld.locked_date as string))
+          setLockedDateObjects(d.data)
+        }
       })
       .catch(() => {})
-  }, [franchiseId])
+  }
+
+  const handleUnlockDate = async (id: string) => {
+    setDeletingLockId(id)
+    try {
+      const res = await fetch(`/api/locked-dates?id=${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed")
+      setLockedDateObjects(prev => prev.filter(ld => ld.id !== id))
+      setLockedDates(prev => {
+        const removed = lockedDateObjects.find(ld => ld.id === id)
+        return removed ? prev.filter(d => d !== removed.locked_date) : prev
+      })
+    } catch {} finally {
+      setDeletingLockId(null)
+    }
+  }
 
   // Fetch products and categories for items selection
   const fetchProductsAndCategories = async () => {
@@ -373,11 +399,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
       return "zero" // 0 bookings
     }
 
-    if (bookingCount >= 20) {
-      return "high" // 20+ bookings = red
+    if (bookingCount > 10) {
+      return "high" // 11+ bookings = red
     }
 
-    return "low" // 1-19 bookings
+    return "low" // 1-10 bookings
   }
 
   const handleDateClick = (date: Date) => {
@@ -386,9 +412,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     const dayModifications = getModificationsForDate(date)
     console.log("[v0] Bookings found for date:", dayBookings.length)
     console.log("[v0] Modifications found for date:", dayModifications.length)
+    const dateStr = format(date, "yyyy-MM-dd")
+    const isLocked = lockedDates.includes(dateStr)
     setDateBookings(dayBookings)
     setModificationBookings(dayModifications)
-    setActiveTab(dayBookings.length > 0 ? 'events' : (dayModifications.length > 0 ? 'modifications' : 'events'))
+    setActiveTab(dayBookings.length > 0 ? 'events' : isLocked ? 'locked' : (dayModifications.length > 0 ? 'modifications' : 'events'))
     setShowDateDetails(true)
     console.log("[v0] Popup should open, showDateDetails:", true)
     // Clear selection immediately to prevent black selected state
@@ -430,9 +458,9 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
     past: "!bg-gray-300 !text-gray-600 !opacity-60 !cursor-not-allowed hover:!bg-gray-300 dark:!bg-gray-700 dark:!text-gray-400",
   // 0 bookings → green
   zero: "!bg-green-500/90 !text-white hover:!bg-green-600 !cursor-pointer !border !border-green-600/30 shadow-sm font-semibold",
-  // 1-19 bookings → blue
+  // 1-10 bookings → blue
   low: "!bg-blue-500/90 !text-white hover:!bg-blue-600 !cursor-pointer !border !border-blue-600/30 shadow-sm font-semibold",
-    // 20+ bookings → red
+    // 11+ bookings → red
     high: "!bg-red-500/90 !text-white hover:!bg-red-600 !cursor-pointer !border !border-red-600/30 shadow-sm font-semibold",
     // Has modifications → amber
     modification: "!bg-orange-400 !text-white hover:!bg-orange-500 !cursor-pointer !border !border-orange-500/30 shadow-sm font-semibold",
@@ -454,11 +482,11 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-blue-500 border border-blue-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">1-20 Bookings</span>
+                <span className="text-muted-foreground font-medium">1-10 Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-red-500 border border-red-600/30 shadow-sm" />
-                <span className="text-muted-foreground font-medium">20+ Bookings</span>
+                <span className="text-muted-foreground font-medium">10+ Bookings</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-3 h-3 rounded-sm bg-orange-400 border border-orange-500/30 shadow-sm flex items-center justify-center text-[8px]">🔧</span>
@@ -527,15 +555,19 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'events' | 'modifications')} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'events' | 'modifications' | 'locked')} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="events" className="flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4" />
-                Event Bookings ({dateBookings.length})
+                Events ({dateBookings.length})
               </TabsTrigger>
               <TabsTrigger value="modifications" className="flex items-center gap-2">
                 <Wrench className="w-4 h-4" />
-                Modifications ({modificationBookings.length})
+                Mod. ({modificationBookings.length})
+              </TabsTrigger>
+              <TabsTrigger value="locked" className="flex items-center gap-2">
+                <Lock className="w-4 h-4" />
+                Locked ({lockedDateObjects.length})
               </TabsTrigger>
             </TabsList>
 
@@ -776,6 +808,85 @@ export function BookingCalendar({ franchiseId, compact = false, mini = false }: 
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* 3rd Tab: Locked Dates */}
+            <TabsContent value="locked" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-red-500" />
+                  <span className="font-semibold text-sm text-red-700">All Locked Dates</span>
+                  <Badge variant="destructive" className="text-xs">{lockedDateObjects.length}</Badge>
+                </div>
+                <Button size="sm" variant="outline" asChild className="text-xs h-7">
+                  <a href="/lock-dates">Manage All →</a>
+                </Button>
+              </div>
+
+              {lockedDateObjects.length === 0 ? (
+                <div className="text-center py-8">
+                  <Lock className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-30" />
+                  <div className="text-muted-foreground text-sm">No dates are locked</div>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {lockedDateObjects
+                    .sort((a, b) => a.locked_date.localeCompare(b.locked_date))
+                    .map((ld) => {
+                      const rawNotes = ld.notes || ""
+                      const personMatch = rawNotes.match(/^PERSON:\s*([^|]+)\|/)
+                      const cityMatch = rawNotes.match(/\|CITY:\s*([^|]+)(\||$)/)
+                      const noteMatch = rawNotes.match(/\|NOTE:\s*([\s\S]*)$/)
+                      const personName = personMatch ? personMatch[1].trim() : ""
+                      const city = cityMatch ? cityMatch[1].trim() : ""
+                      const note = noteMatch ? noteMatch[1].trim() : (!personMatch ? rawNotes : "")
+                      const isToday = ld.locked_date === format(new Date(), "yyyy-MM-dd")
+                      const isPast = ld.locked_date < format(new Date(), "yyyy-MM-dd")
+                      return (
+                        <div key={ld.id} className={`flex items-start justify-between rounded-lg px-3 py-2.5 border ${isToday ? "bg-red-100 border-red-300" : isPast ? "bg-gray-50 border-gray-200 opacity-60" : "bg-red-50 border-red-200"}`}>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Lock className={`h-3.5 w-3.5 shrink-0 ${isToday ? "text-red-600" : "text-red-400"}`} />
+                              <span className={`text-sm font-bold ${isToday ? "text-red-700" : "text-red-600"}`}>
+                                {format(new Date(ld.locked_date + "T00:00:00"), "EEE, dd MMM yyyy")}
+                              </span>
+                              {isToday && <Badge className="text-[9px] bg-red-600 text-white px-1 py-0">TODAY</Badge>}
+                              {isPast && <Badge variant="secondary" className="text-[9px] px-1 py-0">Past</Badge>}
+                            </div>
+                            {personName && (
+                              <div className="flex items-center gap-3 mt-1 pl-5">
+                                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                                  <User className="h-3 w-3" /> {personName}
+                                </span>
+                                {city && city !== "—" && (
+                                  <span className="text-xs text-slate-500 flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" /> {city}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {ld.whatsapp_number && (
+                              <p className="text-[11px] text-slate-500 mt-0.5 pl-5">📞 {ld.whatsapp_number}</p>
+                            )}
+                            {note && <p className="text-[11px] text-slate-600 mt-0.5 pl-5 truncate max-w-xs">{note}</p>}
+                          </div>
+                          {(userRole === "franchise_admin" || userRole === "franchise_owner" || userRole === "super_admin") && (
+                            <button
+                              onClick={() => handleUnlockDate(ld.id)}
+                              disabled={deletingLockId === ld.id}
+                              className="text-red-400 hover:text-red-600 ml-2 mt-0.5 shrink-0"
+                              title="Unlock this date"
+                            >
+                              {deletingLockId === ld.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <Trash2 className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
                 </div>
               )}
             </TabsContent>

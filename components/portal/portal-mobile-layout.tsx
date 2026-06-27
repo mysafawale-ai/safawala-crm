@@ -3,6 +3,7 @@
 import type { PortalConfig } from "@/lib/portal-config"
 import { PortalBottomNav } from "./portal-bottom-nav"
 import { PortalSidebar } from "./portal-sidebar"
+import { TeamChat } from "@/components/team-chat"
 
 interface PortalMobileLayoutProps {
   config: PortalConfig
@@ -40,6 +41,11 @@ export function PortalMobileLayout({ config, children }: PortalMobileLayoutProps
           {children}
         </div>
         <PortalBottomNav tabs={config.tabs} color={config.color} />
+      </div>
+
+      {/* Team Chat - desktop only (mobile has bottom nav so space is tight) */}
+      <div className="hidden md:block">
+        <TeamChat />
       </div>
     </>
   )

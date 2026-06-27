@@ -145,8 +145,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-indigo-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-[#18181b]">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-700 border-t-purple-500"></div>
       </div>
     )
   }
@@ -155,9 +155,9 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
     <SidebarProvider defaultOpen={true}>
       <AppSidebar userRole={user.role} />
       <SidebarInset>
-        <header className="bg-white border-b border-slate-200 flex h-12 shrink-0 items-center justify-between px-3 sm:px-4">
+        <header className="bg-[#18181b] border-b border-zinc-800 flex h-12 shrink-0 items-center justify-between px-3 sm:px-4">
           <div className="flex items-center gap-2">
-            <SidebarTrigger className="p-1 h-8 w-8 sm:h-9 sm:w-9" />
+            <SidebarTrigger className="p-1 h-8 w-8 sm:h-9 sm:w-9 text-zinc-300 hover:text-white hover:bg-zinc-700" />
             <CompanyHeader className="hidden sm:flex" />
             <div className="sm:hidden">
               <CompanyHeader className="text-sm" />
@@ -170,7 +170,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
               variant="outline"
               size="sm"
               onClick={() => setShowLockDate(true)}
-              className="gap-1 text-xs px-2 text-red-600 border-red-200 hover:bg-red-50"
+              className="gap-1 text-xs px-2 text-red-400 border-zinc-700 bg-zinc-800 hover:bg-red-900/30 hover:text-red-300 hover:border-red-700"
               title="Lock a date"
             >
               <Lock className="h-3.5 w-3.5" />
@@ -182,7 +182,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                  className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3 bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
                 >
                   <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">Create Order</span>
@@ -205,7 +205,7 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0">
+                <Button variant="ghost" className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0 hover:bg-zinc-700">
                   <Avatar className="h-6 w-6 sm:h-8 sm:w-8">
                     {profilePhoto && <AvatarImage src={profilePhoto} alt={user.name} />}
                     <AvatarFallback className="text-xs sm:text-sm bg-primary text-primary-foreground">
