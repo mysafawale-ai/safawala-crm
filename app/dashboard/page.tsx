@@ -1,723 +1,210 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { DashboardErrorBoundary } from "@/components/error-boundary"
-import { getCurrentUser } from "@/lib/auth"
-import { useData } from "@/hooks/use-data"
-import type { User, Booking } from "@/lib/types"
-import { BookingCalendar } from "@/components/bookings/booking-calendar"
-import { 
-  Calendar, Users, Package, DollarSign, Plus, Eye, Crown, RefreshCw, Search,
-  TrendingUp, TrendingDown, AlertCircle, Clock, CheckCircle2, XCircle,
-  ArrowUpRight, ArrowDownRight, Minus, ShoppingCart, Box, Truck, RotateCcw,
-  MapPin, ClipboardList
-} from "lucide-react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import { toast } from "sonner"
-import { Input } from "@/components/ui/input"
-import { DashboardSkeleton } from "@/components/ui/skeleton-loader"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-interface PaymentReminderItem {
-  id: string
-  bookingNumber: string
-  eventDate: string
-  daysUntilEvent: number
-  totalAmount: number
-  amountPaid: number
-  pendingAmount: number
-  status: string
-}
+const ACCENT = "#a855f7"
+const BORDER = "#e4e4e7"
 
-interface DeliveryReminderItem {
-  id: string
-  bookingNumber: string
-  deliveryDate: string
-  daysUntilDelivery: number
-  status: string
-}
-
-interface DashboardStats {
-  totalBookings: number
-  activeBookings: number
-  totalCustomers: number
-  totalRevenue: number
-  monthlyGrowth: number
-  lowStockItems: number
-  conversionRate: number
-  avgBookingValue: number
-  revenueByMonth: Array<{ month: string; revenue: number }>
-  bookingsByType: {
-    package: number
-    product: number
-  }
-  pendingActions: {
-    payments: number
-    deliveries: number
-    returns: number
-    overdue: number
-  }
-  paymentReminders?: {
-    urgent: number
-    soon: number
-    upcoming: number
-    later: number
-    total: number
-    totalPendingAmount: number
-    list: PaymentReminderItem[]
-  }
-  deliveryReminders?: {
-    today: number
-    tomorrow: number
-    thisWeek: number
-    total: number
-    list: DeliveryReminderItem[]
-  }
-}
-
-export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [searchQuery, setSearchQuery] = useState("")
-  const router = useRouter()
-
-  // Fetch all dashboard data in parallel for better performance
-  const { data: stats, loading: statsLoading, refresh: refreshStats, error: statsError } = useData<DashboardStats>("dashboard-stats")
-  
-  // Only fetch bookings data if user has bookings permission
-  const shouldFetchBookings = user?.permissions?.bookings ?? false
-  const {
-    data: recentBookings,
-    loading: bookingsLoading,
-    refresh: refreshBookings,
-  } = useData<Booking[]>(shouldFetchBookings ? "recent-bookings" : "skip")
-  const {
-    data: calendarBookings,
-    loading: calendarLoading,
-    refresh: refreshCalendar,
-  } = useData<any[]>(shouldFetchBookings ? "calendar-bookings" : "skip")
-
-  // Debug: Log stats when they change and force refresh on mount if no data
-  useEffect(() => {
-    if (stats) {
-      console.log("[Dashboard] Stats received:", stats)
-    }
-    if (statsError) {
-      console.error("[Dashboard] Stats error:", statsError)
-    }
-  }, [stats, statsError])
-
-  // Force refresh stats on mount to ensure real data
-  useEffect(() => {
-    if (user) {
-      console.log("[Dashboard] Component mounted, forcing stats refresh...")
-      refreshStats()
-    }
-  }, [user, refreshStats])
-
-  // Combined loading state for better UX
-  const isLoading = statsLoading || (shouldFetchBookings && (bookingsLoading || calendarLoading))
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const currentUser = await getCurrentUser()
-        if (!currentUser) {
-          // Redirect to login with current path as redirect target
-          const currentPath = window.location.pathname
-          router.push(`/?redirect=${currentPath}`)
-          return
-        }
-        
-        // Check if user has dashboard permission
-        if (!currentUser.permissions?.dashboard) {
-          // Find first available page based on permissions
-          const availablePages = [
-            { path: '/bookings', permission: currentUser.permissions?.bookings },
-            { path: '/customers', permission: currentUser.permissions?.customers },
-            { path: '/inventory', permission: currentUser.permissions?.inventory },
-            { path: '/quotes', permission: currentUser.permissions?.quotes },
-          ]
-          
-          const firstAvailable = availablePages.find(p => p.permission)
-          if (firstAvailable) {
-            router.push(firstAvailable.path)
-          } else {
-            // No permissions, log out
-            router.push('/')
-          }
-          return
-        }
-        
-        setUser(currentUser)
-      } catch (error) {
-        console.error('Dashboard auth check failed:', error)
-        router.push('/')
-      }
-    }
-
-    checkAuth()
-  }, [router])
-
-  const handleRefresh = useCallback(async () => {
-    try {
-      const refreshPromises = [refreshStats()]
-      
-      // Only refresh bookings data if user has bookings permission
-      if (user?.permissions?.bookings) {
-        refreshPromises.push(refreshBookings(), refreshCalendar())
-      }
-      
-      await Promise.all(refreshPromises)
-      toast.success("Dashboard refreshed successfully")
-    } catch (error) {
-      // Silent fail - don't show error toast
-    }
-  }, [refreshStats, refreshBookings, refreshCalendar, user?.permissions?.bookings])
-
-  const navigateMonth = useCallback((direction: "prev" | "next") => {
-    setCurrentDate((prevDate) => {
-      const newDate = new Date(prevDate)
-      if (direction === "prev") {
-        newDate.setMonth(newDate.getMonth() - 1)
-      } else {
-        newDate.setMonth(newDate.getMonth() + 1)
-      }
-      return newDate
-    })
-  }, [])
-
-  const handleSearch = useCallback(() => {
-    if (searchQuery.trim()) {
-      router.push(`/bookings?search=${encodeURIComponent(searchQuery)}`)
-    } else {
-      router.push("/bookings")
-    }
-  }, [searchQuery, router])
-
-  const getStatusColor = useCallback((status: string) => {
-    switch (status) {
-      case "confirmed":
-        return "bg-green-100 text-green-800"
-      case "pending_payment":
-        return "bg-yellow-100 text-yellow-800"
-      case "delivered":
-        return "bg-blue-100 text-blue-800"
-      case "order_complete":
-        return "bg-purple-100 text-purple-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }, [])
-
-  if (!user) return (
-    <DashboardErrorBoundary>
-      <DashboardLayout>
-        <DashboardSkeleton />
-      </DashboardLayout>
-    </DashboardErrorBoundary>
+function StatCard({ label, value, sub, color, href }: { label: string; value: string | number; sub?: string; color: string; href?: string }) {
+  const inner = (
+    <div
+      style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 16, padding: "18px 20px", cursor: href ? "pointer" : "default" }}
+      onMouseEnter={e => { if (href) (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,0,0,0.08)" }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "none" }}
+    >
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}15`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 900, color: "#18181b", lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#a1a1aa", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+      {sub && <div style={{ fontSize: 11, color: color, fontWeight: 600, marginTop: 4 }}>{sub}</div>}
+    </div>
   )
+  return href ? <Link href={href} style={{ textDecoration: "none" }}>{inner}</Link> : inner
+}
+
+function DeptCard({ label, sub, color, href, emoji }: { label: string; sub: string; color: string; href: string; emoji: string }) {
+  return (
+    <Link href={href} style={{ textDecoration: "none" }}>
+      <div
+        style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+        onMouseEnter={e => (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)"}
+        onMouseLeave={e => (e.currentTarget as HTMLElement).style.boxShadow = "none"}
+      >
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: `${color}12`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>
+          {emoji}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#18181b" }}>{label}</div>
+          <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 2 }}>{sub}</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4d4d8" strokeWidth="2.5" strokeLinecap="round"><polyline points="9,18 15,12 9,6"/></svg>
+      </div>
+    </Link>
+  )
+}
+
+export default function FranchiseDashboard() {
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ todayBookings: 0, monthRevenue: 0, activeStaff: 0, pendingPayments: 0 })
+  const [recentBookings, setRecentBookings] = useState<any[]>([])
+
+  useEffect(() => {
+    const raw = localStorage.getItem("safawala_user")
+    if (raw) { try { setUser(JSON.parse(raw)) } catch {} }
+    loadStats()
+  }, [])
+
+  async function loadStats() {
+    try {
+      const today = new Date().toISOString().split("T")[0]
+      const [bRes, pRes, uRes] = await Promise.allSettled([
+        fetch("/api/bookings?limit=100"),
+        fetch("/api/payments?limit=200"),
+        fetch("/api/users?limit=100"),
+      ])
+
+      let bookings: any[] = []
+      let payments: any[] = []
+      let users: any[] = []
+
+      if (bRes.status === "fulfilled" && bRes.value.ok) { const d = await bRes.value.json(); bookings = d.data ?? d ?? [] }
+      if (pRes.status === "fulfilled" && pRes.value.ok) { const d = await pRes.value.json(); payments = d.data ?? d ?? [] }
+      if (uRes.status === "fulfilled" && uRes.value.ok) { const d = await uRes.value.json(); users = d.data ?? d ?? [] }
+
+      const now = new Date()
+      const monthRevenue = payments
+        .filter((p: any) => { const d = new Date(p.payment_date || p.created_at || ""); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+        .reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+
+      setStats({
+        todayBookings: bookings.filter((b: any) => (b.event_date || b.created_at || "").slice(0, 10) === today).length,
+        monthRevenue,
+        activeStaff: users.filter((u: any) => u.is_active !== false).length,
+        pendingPayments: payments.filter((p: any) => ["pending", "unpaid", "partial"].includes(p.status)).length,
+      })
+      setRecentBookings(bookings.slice(0, 6))
+    } catch {
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const greeting = (() => {
+    const h = new Date().getHours()
+    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"
+  })()
+
+  const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`
+
+  const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+    confirmed: { bg: "#dcfce7", text: "#16a34a" },
+    pending: { bg: "#fef9c3", text: "#ca8a04" },
+    cancelled: { bg: "#fee2e2", text: "#dc2626" },
+    delivered: { bg: "#dbeafe", text: "#1d4ed8" },
+    returned: { bg: "#f3e8ff", text: "#7c3aed" },
+  }
 
   return (
-    <DashboardErrorBoundary>
-      <DashboardLayout userRole={user?.role}>
-        <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome back, {user?.name || "User"}! Here's what's happening with your business.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
+    <div style={{ padding: "32px 36px", maxWidth: 1200, margin: "0 auto", fontFamily: "system-ui,-apple-system,sans-serif" }}>
 
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Search bookings..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                className="w-48"
-              />
-              <Button variant="outline" size="sm" onClick={handleSearch}>
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Loading State */}
-        {isLoading ? (
-          <DashboardSkeleton />
-        ) : (
-          <>
-        {/* Primary Stats Cards */}
-        {user?.role === 'super_admin' ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Link href="/quotes">
-              <Card className="hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer bg-white">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">New Leads</CardTitle>
-                  <Users className="h-4 w-4 text-indigo-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats?.ownerKPIs?.newLeads ?? 0}</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Active leads pending selection</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/bookings">
-              <Card className="hover:shadow-md hover:border-blue-200 transition-all cursor-pointer bg-white">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Confirmed Bookings</CardTitle>
-                  <Calendar className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats?.ownerKPIs?.confirmedOrders ?? 0}</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Orders scheduled for execution</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/work-orders">
-              <Card className="hover:shadow-md hover:border-orange-200 transition-all cursor-pointer bg-white">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Orders in Packing</CardTitle>
-                  <Package className="h-4 w-4 text-orange-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{stats?.ownerKPIs?.ordersInPacking ?? 0}</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Orders in packing department</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/work-orders">
-              <Card className="hover:shadow-md hover:border-cyan-200 transition-all cursor-pointer bg-white">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Orders in Dispatch</CardTitle>
-                  <Truck className="h-4 w-4 text-cyan-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-cyan-600">{stats?.ownerKPIs?.ordersInDispatch ?? 0}</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Active dispatches in transit</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/bookings">
-              <Card className="hover:shadow-md hover:border-rose-200 transition-all cursor-pointer bg-white">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Events</CardTitle>
-                  <MapPin className="h-4 w-4 text-rose-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-rose-600">{stats?.ownerKPIs?.eventsToday ?? 0}</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Rentals/Events happening today</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/bookings?status=pending_payment">
-              <Card className="hover:shadow-md hover:border-green-200 transition-all cursor-pointer bg-white">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-                  <DollarSign className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">₹{(stats?.ownerKPIs?.pendingPayments ?? 0).toLocaleString()}</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Total outstanding collections due</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/work-orders">
-              <Card className="hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-white">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Material Not Returned</CardTitle>
-                  <RotateCcw className="h-4 w-4 text-slate-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-slate-800">{stats?.ownerKPIs?.materialNotReturned ?? 0}</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Pending collection from venues</p>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href="/work-orders">
-              <Card className="hover:shadow-md hover:border-violet-300 transition-all cursor-pointer bg-slate-50/50">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Operations Board</CardTitle>
-                  <ClipboardList className="h-4 w-4 text-violet-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-violet-600 font-bold">Launch Board</div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Open Work Orders board →</p>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">₹{stats?.totalRevenue?.toLocaleString() || 0}</div>
-                <div className="flex items-center mt-1">
-                  {(stats?.monthlyGrowth || 0) >= 0 ? (
-                    <TrendingUp className="h-3 w-3 text-green-600 mr-1" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3 text-red-600 mr-1" />
-                  )}
-                  <p className={`text-xs ${(stats?.monthlyGrowth || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(stats?.monthlyGrowth || 0) >= 0 ? '+' : ''}{stats?.monthlyGrowth || 0}% from last month
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {user?.permissions?.bookings && (
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-                  <Calendar className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stats?.activeBookings || 0} active • {stats?.conversionRate || 0}% conversion
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Booking Value</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-purple-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">₹{stats?.avgBookingValue?.toLocaleString() || 0}</div>
-                <p className="text-xs text-muted-foreground">{stats?.totalCustomers || 0} total customers</p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Low Stock Alert</CardTitle>
-                <Package className="h-4 w-4 text-orange-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{stats?.lowStockItems || 0}</div>
-                <p className="text-xs text-muted-foreground">Items need restocking</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Pending Actions Alert - Enhanced with payment and delivery reminders */}
-        {(stats?.paymentReminders?.total || 0) > 0 || (stats?.deliveryReminders?.total || 0) > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Pending Payments Card */}
-            {(stats?.paymentReminders?.total || 0) > 0 && (
-              <Card className="border-orange-200 bg-orange-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-orange-900 flex items-center gap-2 text-lg">
-                    <DollarSign className="h-5 w-5" />
-                    Pending Payments
-                  </CardTitle>
-                  <CardDescription className="text-orange-800">
-                    {stats?.paymentReminders?.total} bookings with ₹{(stats?.paymentReminders?.totalPendingAmount || 0).toLocaleString()} pending
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(stats?.paymentReminders?.urgent || 0) > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        🔴 {stats?.paymentReminders?.urgent} due in 1 day
-                      </Badge>
-                    )}
-                    {(stats?.paymentReminders?.soon || 0) > 0 && (
-                      <Badge className="bg-orange-500 text-xs">
-                        🟠 {stats?.paymentReminders?.soon} due in 2-3 days
-                      </Badge>
-                    )}
-                    {(stats?.paymentReminders?.upcoming || 0) > 0 && (
-                      <Badge className="bg-yellow-500 text-white text-xs">
-                        🟡 {stats?.paymentReminders?.upcoming} due in 4-7 days
-                      </Badge>
-                    )}
-                    {(stats?.paymentReminders?.later || 0) > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        ⚪ {stats?.paymentReminders?.later} due in 8-10 days
-                      </Badge>
-                    )}
-                  </div>
-                  {stats?.paymentReminders?.list && stats.paymentReminders.list.length > 0 && (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {stats.paymentReminders.list.slice(0, 5).map((item) => (
-                        <Link 
-                          key={item.id} 
-                          href={`/bookings?search=${item.bookingNumber}`}
-                          className="flex items-center justify-between text-sm p-2 rounded bg-white hover:bg-orange-100 transition-colors"
-                        >
-                          <span className="font-medium">{item.bookingNumber}</span>
-                          <span className="text-orange-700">
-                            ₹{item.pendingAmount.toLocaleString()} • {item.daysUntilEvent === 0 ? 'Today' : item.daysUntilEvent === 1 ? 'Tomorrow' : `${item.daysUntilEvent} days`}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                  <Link href="/bookings?status=pending_payment" className="text-orange-700 hover:underline text-sm mt-2 block">
-                    View all pending payments →
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pending Deliveries Card */}
-            {(stats?.deliveryReminders?.total || 0) > 0 && (
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-blue-900 flex items-center gap-2 text-lg">
-                    <Truck className="h-5 w-5" />
-                    Upcoming Deliveries
-                  </CardTitle>
-                  <CardDescription className="text-blue-800">
-                    {stats?.deliveryReminders?.total} deliveries scheduled
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(stats?.deliveryReminders?.today || 0) > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        🚚 {stats?.deliveryReminders?.today} Today
-                      </Badge>
-                    )}
-                    {(stats?.deliveryReminders?.tomorrow || 0) > 0 && (
-                      <Badge className="bg-orange-500 text-xs">
-                        📦 {stats?.deliveryReminders?.tomorrow} Tomorrow
-                      </Badge>
-                    )}
-                    {(stats?.deliveryReminders?.thisWeek || 0) > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        📅 {stats?.deliveryReminders?.thisWeek} This Week
-                      </Badge>
-                    )}
-                  </div>
-                  {stats?.deliveryReminders?.list && stats.deliveryReminders.list.length > 0 && (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {stats.deliveryReminders.list.slice(0, 5).map((item) => (
-                        <Link 
-                          key={item.id} 
-                          href={`/bookings?search=${item.bookingNumber}`}
-                          className="flex items-center justify-between text-sm p-2 rounded bg-white hover:bg-blue-100 transition-colors"
-                        >
-                          <span className="font-medium">{item.bookingNumber}</span>
-                          <span className="text-blue-700">
-                            {item.daysUntilDelivery === 0 ? 'Today' : item.daysUntilDelivery === 1 ? 'Tomorrow' : `${item.daysUntilDelivery} days`}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                  <Link href="/deliveries" className="text-blue-700 hover:underline text-sm mt-2 block">
-                    View all deliveries →
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        ) : stats?.pendingActions && (stats.pendingActions.payments > 0 || stats.pendingActions.deliveries > 0 || stats.pendingActions.returns > 0) ? (
-          <Alert className="border-orange-200 bg-orange-50">
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-            <AlertTitle className="text-orange-900">Pending Actions Require Attention</AlertTitle>
-            <AlertDescription className="text-orange-800">
-              <div className="flex flex-wrap gap-4 mt-2">
-                {stats.pendingActions.payments > 0 && (
-                  <Link href="/bookings?status=pending_payment" className="flex items-center gap-1 hover:underline">
-                    <DollarSign className="h-4 w-4" />
-                    <span>{stats.pendingActions.payments} pending payments</span>
-                  </Link>
-                )}
-                {stats.pendingActions.deliveries > 0 && (
-                  <Link href="/deliveries?status=pending" className="flex items-center gap-1 hover:underline">
-                    <Truck className="h-4 w-4" />
-                    <span>{stats.pendingActions.deliveries} deliveries scheduled</span>
-                  </Link>
-                )}
-                {stats.pendingActions.returns > 0 && (
-                  <Link href="/returns?status=pending" className="flex items-center gap-1 hover:underline">
-                    <RotateCcw className="h-4 w-4" />
-                    <span>{stats.pendingActions.returns} returns due</span>
-                  </Link>
-                )}
-              </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {/* Booking Calendar - Only show if user has bookings permission */}
-        {user?.permissions?.bookings && (
-          <BookingCalendar 
-            franchiseId={user?.role !== 'super_admin' ? user?.franchise_id : undefined} 
-          />
-        )}
-
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Staff Performance Card for Owner */}
-          {user?.role === 'super_admin' && (
-            <Card className="bg-white">
-              <CardHeader>
-                <CardTitle className="text-base font-extrabold">Staff Performance</CardTitle>
-                <CardDescription className="text-xs">Workflow tasks completed by staff members</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {stats?.ownerKPIs?.staffPerformance && stats.ownerKPIs.staffPerformance.length > 0 ? (
-                  stats.ownerKPIs.staffPerformance.map((staff: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 text-xs font-semibold">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 bg-indigo-50 border border-indigo-100 rounded-full flex items-center justify-center font-bold text-xs text-indigo-700">
-                          {staff.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="text-slate-700">{staff.name}</span>
-                      </div>
-                      <Badge className="bg-green-50 text-green-700 border border-green-150 text-[10px] px-1.5 py-0.5 rounded font-bold">
-                        {staff.completedCount} Tasks Done
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-4">
-                    No task completion records found.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 12, color: "#a1a1aa", fontWeight: 600, marginBottom: 4 }}>{greeting}</div>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: "#18181b" }}>
+          {user?.franchise_name || user?.name || "Franchise Dashboard"}
+        </h1>
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+          {user?.franchise_code && (
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}25` }}>
+              {user.franchise_code}
+            </span>
           )}
-
-          {/* Quick Actions */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks and shortcuts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {user?.permissions?.bookings && (
-                <Link href="/create-invoice">
-                  <Button className="w-full justify-start">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Booking
-                  </Button>
-                </Link>
-              )}
-              {user?.permissions?.customers && (
-                <Link href="/customers?add=true">
-                  <Button variant="outline" className="w-full justify-start bg-transparent">
-                    <Users className="h-4 w-4 mr-2" />
-                    Add New Customer
-                  </Button>
-                </Link>
-              )}
-              {user?.permissions?.inventory && (
-                <Link href="/inventory">
-                  <Button variant="outline" className="w-full justify-start bg-transparent">
-                    <Package className="h-4 w-4 mr-2" />
-                    Manage Inventory
-                  </Button>
-                </Link>
-              )}
-              {!user?.permissions?.bookings && !user?.permissions?.customers && !user?.permissions?.inventory && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No quick actions available
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity Timeline - Only show if user has bookings permission */}
-          {user?.permissions?.bookings && (
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest booking updates and events</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentBookings && recentBookings.length > 0 ? (
-                    recentBookings.slice(0, 5).map((booking) => (
-                    <div key={booking.id} className="flex items-start gap-4 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex-shrink-0 mt-1">
-                        {booking.status === 'confirmed' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
-                        {(booking as any).status === 'pending_payment' && <Clock className="h-5 w-5 text-yellow-600" />}
-                        {booking.status === 'delivered' && <Truck className="h-5 w-5 text-blue-600" />}
-                        {(booking as any).status === 'quote' && <Calendar className="h-5 w-5 text-purple-600" />}
-                        {!['confirmed', 'pending_payment', 'delivered', 'quote'].includes((booking as any).status) && <Crown className="h-5 w-5 text-gray-600" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium text-sm">{booking.booking_number}</p>
-                            <p className="text-sm text-gray-600">{booking.customer?.name}</p>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              <span className="text-xs text-gray-500">
-                                Event: {new Date(booking.event_date).toLocaleDateString()}
-                              </span>
-                              {(booking as any).type && (
-                                <Badge variant="outline" className="text-xs">
-                                  {(booking as any).type === 'package' ? 'Package' : 'Product'}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-semibold text-sm">₹{booking.total_amount?.toLocaleString()}</p>
-                            <Badge className={`${getStatusColor(booking.status)} text-xs mt-1`}>
-                              {booking.status.replace(/_/g, ' ')}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No recent bookings found</p>
-                    <p className="text-xs mt-1">Create your first booking to get started</p>
-                  </div>
-                )}
-              </div>
-              <div className="mt-4">
-                <Link href="/bookings">
-                  <Button variant="outline" className="w-full bg-transparent">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View All Bookings
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-          )}
+          <span style={{ fontSize: 11, color: "#a1a1aa" }}>{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
         </div>
-        </>
-        )}
       </div>
-    </DashboardLayout>
-    </DashboardErrorBoundary>
+
+      {/* KPI row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
+        <StatCard label="Today's Bookings" value={loading ? "…" : stats.todayBookings} color="#22c55e" href="/dashboard/bookings" />
+        <StatCard label="Month Revenue" value={loading ? "…" : fmt(stats.monthRevenue)} color={ACCENT} href="/dashboard/revenue" />
+        <StatCard label="Active Staff" value={loading ? "…" : stats.activeStaff} color="#6366f1" href="/dashboard/hr" />
+        <StatCard
+          label="Pending Payments"
+          value={loading ? "…" : stats.pendingPayments}
+          sub={!loading ? (stats.pendingPayments > 0 ? "Needs attention" : "All cleared") : undefined}
+          color={stats.pendingPayments > 0 ? "#ef4444" : "#22c55e"}
+          href="/dashboard/revenue"
+        />
+      </div>
+
+      {/* Main 2-col grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}>
+
+        {/* Recent bookings table */}
+        <div style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#18181b" }}>Recent Bookings</h3>
+            <Link href="/dashboard/bookings" style={{ fontSize: 12, color: ACCENT, fontWeight: 600, textDecoration: "none" }}>View all →</Link>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: "16px 20px" }}>
+              {[1,2,3,4,5].map(i => (
+                <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f4f4f5", flexShrink: 0, animation: "pulse 1.5s infinite" }} />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, justifyContent: "center" }}>
+                    <div style={{ height: 12, background: "#f4f4f5", borderRadius: 6, width: "55%" }} />
+                    <div style={{ height: 10, background: "#f4f4f5", borderRadius: 6, width: "35%" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : recentBookings.length === 0 ? (
+            <div style={{ padding: 48, textAlign: "center", color: "#a1a1aa", fontSize: 13 }}>No bookings yet</div>
+          ) : (
+            recentBookings.map((b, i) => {
+              const s = STATUS_COLORS[b.status?.toLowerCase()] ?? { bg: "#f4f4f5", text: "#71717a" }
+              return (
+                <div key={b.id || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: i < recentBookings.length - 1 ? `1px solid ${BORDER}` : "none" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: `${ACCENT}12`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13, fontWeight: 800, color: ACCENT }}>
+                    {(b.booking_number || b.id || "?").toString().slice(-2)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#18181b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {b.booking_number || `Booking #${i + 1}`}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#a1a1aa", marginTop: 1 }}>
+                      {b.event_date ? new Date(b.event_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"} · {(b.customer as any)?.name || b.customer_name || "—"}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: s.bg, color: s.text, textTransform: "uppercase", letterSpacing: "0.03em" }}>{b.status || "—"}</span>
+                    {b.total_amount && <span style={{ fontSize: 11, fontWeight: 700, color: "#18181b" }}>₹{Number(b.total_amount).toLocaleString("en-IN")}</span>}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Department quick links */}
+        <div>
+          <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 800, color: "#18181b" }}>Departments</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <DeptCard label="Booking & Sales"   sub="Orders & customers"     color="#22c55e" href="/portal/booking/bookings"   emoji="📋" />
+            <DeptCard label="HR & Staff"         sub="Payroll, letters, KYC"  color="#6366f1" href="/dashboard/hr"              emoji="👥" />
+            <DeptCard label="Travels"            sub="Events, stylists"       color="#0891b2" href="/dashboard/travels"         emoji="✈️" />
+            <DeptCard label="Warehouse"          sub="Inventory & laundry"    color="#a855f7" href="/portal/warehouse/inventory" emoji="📦" />
+            <DeptCard label="Accounts"           sub="Payments & expenses"    color="#ef4444" href="/portal/accounts/payments"  emoji="💳" />
+            <DeptCard label="Quality Control"    sub="Inspect & damage"       color="#eab308" href="/portal/qc/inspect"         emoji="🔍" />
+            <DeptCard label="Dispatch"           sub="Deliveries & returns"   color="#14b8a6" href="/portal/delivery/deliveries" emoji="🚚" />
+          </div>
+        </div>
+
+      </div>
+    </div>
   )
 }

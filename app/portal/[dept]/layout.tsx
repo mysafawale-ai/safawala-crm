@@ -6,10 +6,11 @@ import { getPortalConfig, getDefaultPortalForRole } from "@/lib/portal-config"
 import { PortalMobileLayout } from "@/components/portal/portal-mobile-layout"
 import type { User } from "@/lib/types"
 
-// Map known dept aliases to canonical portal slugs
 const DEPT_ALIASES: Record<string, string> = {
   bookings: "booking",
 }
+
+const DASHBOARD_ROLES = ["franchise_admin", "franchise_owner", "manager"]
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -20,7 +21,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [config, setConfig] = useState(getPortalConfig(dept))
 
   useEffect(() => {
-    // If URL has an alias dept slug, redirect to canonical immediately
     if (rawDept !== dept) {
       router.replace(`/portal/${dept}`)
       return
@@ -40,18 +40,31 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       return
     }
 
+    // franchise_admin / franchise_owner / manager → always go to /dashboard
+    if (DASHBOARD_ROLES.includes(user.role)) {
+      window.location.href = "/dashboard"
+      return
+    }
+
     const resolvedConfig = getPortalConfig(dept)
     if (!resolvedConfig) {
-      // Unknown dept — send to their correct portal (normalize aliases)
       const rawCorrect = user.department || getDefaultPortalForRole(user.role)
+      if (rawCorrect === "__dashboard__") {
+        window.location.href = "/dashboard"
+        return
+      }
       const correctDept = DEPT_ALIASES[rawCorrect] || rawCorrect
       router.replace(`/portal/${correctDept}`)
       return
     }
 
-    // Role guard: super_admin and franchise_admin can visit any portal
-    if (user.role !== "super_admin" && user.role !== "franchise_admin") {
+    // Role guard: super_admin can visit any portal
+    if (user.role !== "super_admin") {
       const rawUserDept = user.department || getDefaultPortalForRole(user.role)
+      if (rawUserDept === "__dashboard__") {
+        window.location.href = "/dashboard"
+        return
+      }
       const userDept = DEPT_ALIASES[rawUserDept] || rawUserDept
       if (userDept !== dept) {
         router.replace(`/portal/${userDept}`)

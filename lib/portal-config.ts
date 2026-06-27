@@ -1,13 +1,11 @@
 export type DepartmentSlug =
   | "admin"
-  | "manager"
   | "booking"
   | "warehouse"
   | "qc"
   | "delivery"
   | "styling"
   | "accounts"
-  | "franchise"
   | "hr"
   | "travels"
 
@@ -43,23 +41,6 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
       { icon: "users", label: "Staff", href: "/portal/admin/staff" },
       { icon: "bar-chart", label: "Reports", href: "/portal/admin/reports" },
       { icon: "settings", label: "Settings", href: "/portal/admin/settings" },
-    ],
-  },
-
-  manager: {
-    slug: "manager",
-    label: "Branch Management",
-    portalName: "Manager Portal",
-    icon: "building",
-    color: "#3b82f6",
-    gradient: "from-blue-500 to-blue-600",
-    allowedRoles: ["franchise_admin", "manager", "super_admin"],
-    tabs: [
-      { icon: "home", label: "Hub", href: "/portal/manager" },
-      { icon: "calendar", label: "Bookings", href: "/portal/manager/bookings" },
-      { icon: "team", label: "Team", href: "/portal/manager/staff" },
-      { icon: "bar-chart", label: "Reports", href: "/portal/manager/reports" },
-      { icon: "user", label: "Me", href: "/portal/manager/profile" },
     ],
   },
 
@@ -164,23 +145,6 @@ export const PORTAL_CONFIG: Record<DepartmentSlug, PortalConfig> = {
     ],
   },
 
-  franchise: {
-    slug: "franchise",
-    label: "Franchise Operations",
-    portalName: "Franchise Portal",
-    icon: "globe",
-    color: "#a855f7",
-    gradient: "from-purple-500 to-purple-600",
-    allowedRoles: ["franchise_owner", "franchise_admin"],
-    tabs: [
-      { icon: "home", label: "Home", href: "/portal/franchise" },
-      { icon: "rupee", label: "Revenue", href: "/portal/franchise/revenue" },
-      { icon: "package", label: "Inventory", href: "/portal/franchise/inventory" },
-      { icon: "users", label: "Staff", href: "/portal/franchise/staff" },
-      { icon: "user", label: "Me", href: "/portal/franchise/profile" },
-    ],
-  },
-
   hr: {
     slug: "hr",
     label: "Human Resources",
@@ -224,14 +188,15 @@ export function getPortalConfig(dept: string): PortalConfig | null {
   return PORTAL_CONFIG[dept as DepartmentSlug] ?? null
 }
 
-/** Map a user role to their default portal when no department is assigned */
-export function getDefaultPortalForRole(role: string): DepartmentSlug {
+/** Map a user role to their default portal slug */
+export function getDefaultPortalForRole(role: string): string {
   switch (role) {
     case "super_admin":
       return "admin"
     case "franchise_admin":
     case "franchise_owner":
-      return "manager"
+    case "manager":
+      return "__dashboard__"
     default:
       return "booking"
   }

@@ -38,6 +38,8 @@ export default function AuthLoginPage() {
         router.push(explicitRedirect)
       } else if (data?.user?.role === "super_admin") {
         window.location.href = "/admin"
+      } else if (["franchise_admin", "franchise_owner", "manager"].includes(data?.user?.role || "")) {
+        window.location.href = "/dashboard"
       } else if (data?.user?.department) {
         router.push(`/portal/${data.user.department}`)
       } else {
