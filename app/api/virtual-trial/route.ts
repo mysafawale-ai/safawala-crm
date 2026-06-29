@@ -78,7 +78,7 @@ Illustrated style, no real person, fashion catalog artwork.`
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
         body: JSON.stringify({
-          model: "dall-e-2",
+          model: "gpt-image-1",
           prompt: `${basePrompt} View: ${angle}. High quality, sharp details.`,
           n: 1,
           size: "1024x1024",
@@ -89,7 +89,10 @@ Illustrated style, no real person, fashion catalog artwork.`
           return { label, error: e.error?.message || "Generation failed" }
         }
         const d = await r.json()
-        return { label, url: d.data[0].url }
+        const item = d.data[0]
+        // gpt-image-1 returns b64_json, convert to data URL
+        const url = item.url || (item.b64_json ? `data:image/png;base64,${item.b64_json}` : null)
+        return { label, url }
       })
     )
 
