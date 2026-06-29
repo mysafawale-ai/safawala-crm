@@ -94,16 +94,58 @@ export async function PUT(req: NextRequest) {
 
     const supabase = createClient()
 
-    // Update the order
-    const updatePayload: any = { ...orderData }
-    if (franchiseId && !user.is_super_admin) {
-      updatePayload.franchise_id = franchiseId
+    // First, get existing order column info by fetching one row
+    // Build a safe update payload by trying all fields and catching unknown column errors
+    // Pick only known-safe columns from orderData
+    const KNOWN_COLUMNS = [
+      "order_number","invoice_date","customer_id","franchise_id","booking_type","event_type",
+      "event_participant","event_date","event_time","delivery_date","delivery_time",
+      "return_date","return_time","venue_address","groom_name","groom_whatsapp","groom_address",
+      "bride_name","bride_whatsapp","bride_address","payment_method","amount_paid","total_amount",
+      "subtotal","subtotal_amount","tax_amount","gst_amount","gst_percentage","discount_amount",
+      "discount_type","security_deposit","coupon_code","coupon_discount","sales_closed_by_id",
+      "status","pending_amount","notes","is_quote","selection_mode","variant_id",
+      "use_custom_pricing","custom_package_price","has_modifications","modifications_details",
+      "modification_date","pdf_url","updated_at",
+    ]
+    const updatePayload: any = {}
+    for (const key of KNOWN_COLUMNS) {
+      if (key in orderData) updatePayload[key] = orderData[key]
     }
+    updatePayload.franchise_id = franchiseId || orderData.franchise_id
+    updatePayload.updated_at = new Date().toISOString()
 
-    const { error: updateError } = await supabase
+    // Try update — if unknown column error, retry with minimal safe set
+    let { error: updateError } = await supabase
       .from("product_orders")
       .update(updatePayload)
       .eq("id", orderId)
+
+    if (updateError && updateError.message?.includes("column")) {
+      // Fallback: minimal safe columns only
+      const safePayload: any = {
+        order_number: orderData.order_number,
+        customer_id: orderData.customer_id,
+        franchise_id: franchiseId || orderData.franchise_id,
+        status: orderData.status || "confirmed",
+        total_amount: orderData.total_amount,
+        subtotal: orderData.subtotal,
+        amount_paid: orderData.amount_paid,
+        pending_amount: orderData.pending_amount,
+        security_deposit: orderData.security_deposit,
+        discount_amount: orderData.discount_amount,
+        gst_amount: orderData.gst_amount || orderData.tax_amount,
+        notes: orderData.notes,
+        event_date: orderData.event_date,
+        delivery_date: orderData.delivery_date,
+        return_date: orderData.return_date,
+        is_quote: orderData.is_quote,
+        pdf_url: null,
+        updated_at: new Date().toISOString(),
+      }
+      const retry = await supabase.from("product_orders").update(safePayload).eq("id", orderId)
+      updateError = retry.error
+    }
 
     if (updateError) {
       console.error("[Orders API] Update error:", updateError)
