@@ -73,6 +73,12 @@ export function TeamChat() {
   const [userStatus, setUserStatus] = useState<"online" | "offline">("online")
   const [onlineUsers, setOnlineUsers] = useState<any[]>([])
 
+  // Emojis, file upload, mentions & private chat states
+  const [showEmojis, setShowEmojis] = useState(false)
+  const [privateChatUser, setPrivateChatUser] = useState<{ id: string; name: string; role: string } | null>(null)
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionIndex, setMentionIndex] = useState<number>(-1)
+
   // Draggable offsets and flags
   const [btnOffset, setBtnOffset] = useState({ x: 0, y: 0 })
   const [winOffset, setWinOffset] = useState({ x: 0, y: 0 })
@@ -84,6 +90,7 @@ export function TeamChat() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastSeenRef = useRef<string>("")
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -411,6 +418,65 @@ export function TeamChat() {
     }
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("File size exceeds 2MB limit. Please upload a smaller file.")
+      return
+    }
+
+    setSending(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const uploadRes = await fetch("/api/upload-simple", { method: "POST", body: fd })
+      const uploadJson = await uploadRes.json()
+      
+      if (!uploadJson.success || !uploadJson.url) {
+        throw new Error(uploadJson.error || "Upload failed")
+      }
+
+      const isImg = file.type.startsWith("image/")
+      
+      const res = await fetch("/api/team-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: file.name,
+          message_type: isImg ? "image" : "file",
+          file_url: uploadJson.url
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setMessages(prev => [...prev, json.data])
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
+      }
+    } catch (err: any) {
+      alert("Failed to upload attachment: " + err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const insertMention = (name: string) => {
+    if (mentionQuery === null || mentionIndex === -1) return
+    const before = input.slice(0, mentionIndex)
+    const after = input.slice(mentionIndex + mentionQuery.length + 1)
+    const newValue = before + `@${name} ` + after
+    setInput(newValue)
+    setMentionQuery(null)
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus()
+        const newPos = mentionIndex + name.length + 2
+        inputRef.current.setSelectionRange(newPos, newPos)
+      }
+    }, 50)
+  }
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -526,7 +592,7 @@ export function TeamChat() {
                     setUserStatus(newStatus)
                     localStorage.setItem("safawala_chat_status", newStatus)
                   }}
-                  title={`You are ${userStatus}. Click to toggle.`}
+                  title={`You are ${userStatus}. Click to toggle status.`}
                   style={{
                     position: "relative",
                     width: 28,
@@ -603,14 +669,8 @@ export function TeamChat() {
                     onlineUsers.map(u => (
                       <div 
                         key={u.id}
-                        title={`${u.name} (${u.role.replace("_", " ")}) - ${u.is_typing ? "Typing..." : "Online"}. Click to mention.`}
-                        onClick={() => {
-                          setInput(prev => {
-                            const prefix = prev.trim() ? prev + " " : ""
-                            return prefix + `@${u.name} `
-                          })
-                          inputRef.current?.focus()
-                        }}
+                        title={`${u.name} (${u.role.replace("_", " ")}) - ${u.is_typing ? "Typing..." : "Online"}. Click to open private chat.`}
+                        onClick={() => setPrivateChatUser(u)}
                         style={{
                           position: "relative",
                           width: 28,
@@ -689,7 +749,11 @@ export function TeamChat() {
                       return (
                         <div key={msg.id} style={{ display: "flex", gap: 8, marginBottom: 4, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
                           {!isMe && (
-                            <div style={{ position: "relative", flexShrink: 0 }}>
+                            <div 
+                              onClick={() => setPrivateChatUser({ id: msg.user_id || "", name: msg.user_name, role: msg.user_role || "staff" })}
+                              title={`Chat with ${msg.user_name}`}
+                              style={{ position: "relative", flexShrink: 0, cursor: "pointer" }}
+                            >
                               <div style={{ width: 28, height: 28, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "white" }}>
                                 {getInitials(msg.user_name)}
                               </div>
@@ -713,9 +777,7 @@ export function TeamChat() {
                               border: isMe ? "none" : "1px solid #e4e4e7",
                               boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                             }}>
-                              {msg.message_type === "voice" && msg.voice_url ? (
-                                <audio src={msg.voice_url} controls style={{ height: 32, maxWidth: 180 }} />
-                              ) : msg.message}
+                              {renderMessageContent(msg)}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, paddingLeft: 4 }}>
                               <span style={{ fontSize: 9, color: "#a1a1aa" }}>{formatTime(msg.created_at)}</span>
@@ -753,7 +815,75 @@ export function TeamChat() {
               </div>
 
               {/* Input area */}
-              <div style={{ padding: "10px 12px", borderTop: "1px solid #f4f4f5", background: "#ffffff", flexShrink: 0 }}>
+              <div style={{ padding: "10px 12px", borderTop: "1px solid #f4f4f5", background: "#ffffff", flexShrink: 0, position: "relative" }}>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  style={{ display: "none" }} 
+                />
+
+                {/* Mentions Autocomplete Popup */}
+                {mentionQuery !== null && onlineUsers.filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase())).length > 0 && (
+                  <div style={{
+                    position: "absolute", bottom: 56, left: 12, right: 12,
+                    background: "white", border: "1px solid #e4e4e7",
+                    borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                    maxHeight: 140, overflowY: "auto", zIndex: 10000,
+                    display: "flex", flexDirection: "column", padding: "4px 0",
+                  }}>
+                    {onlineUsers
+                      .filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase()))
+                      .map(u => (
+                        <div
+                          key={u.id}
+                          onClick={() => insertMention(u.name)}
+                          style={{
+                            padding: "8px 12px", fontSize: 12, cursor: "pointer",
+                            display: "flex", alignItems: "center", gap: 8,
+                            background: "none", color: "#18181b", transition: "background 0.2s"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                          onMouseLeave={e => e.currentTarget.style.background = "none"}
+                        >
+                          <div style={{
+                            width: 20, height: 20, borderRadius: "50%",
+                            background: getColor(u.role), color: "white",
+                            display: "flex", alignItems: "center",
+                            fontSize: 8, fontWeight: "bold", justifyContent: "center"
+                          }}>
+                            {getInitials(u.name)}
+                          </div>
+                          <span style={{ fontWeight: 600 }}>{u.name}</span>
+                          <span style={{ fontSize: 9, color: "#a1a1aa", marginLeft: "auto" }}>{u.role.replace("_", " ")}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {showEmojis && (
+                  <div style={{
+                    position: "absolute", bottom: 50, right: 10,
+                    background: "white", border: "1px solid #e4e4e7",
+                    borderRadius: 12, padding: 8, display: "flex", gap: 6,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10000,
+                  }}>
+                    {["😊", "😂", "❤️", "👍", "🎉", "🔥", "😮", "😢", "👏", "🚀"].map(emoji => (
+                      <button
+                        key={emoji}
+                        onClick={() => {
+                          setInput(prev => prev + emoji)
+                          setShowEmojis(false)
+                          inputRef.current?.focus()
+                        }}
+                        style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", padding: 4 }}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {isRecording && (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 12px", background: "#fee2e2", borderRadius: 10 }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", animation: "pulse 1s infinite" }} />
@@ -762,10 +892,51 @@ export function TeamChat() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                  {/* Emoji Button */}
+                  <button
+                    onClick={() => setShowEmojis(!showEmojis)}
+                    style={{
+                      width: 34, height: 34, borderRadius: 10, border: "none",
+                      background: "#f4f4f5", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 16, flexShrink: 0,
+                    }}
+                    title="Insert emoji"
+                  >
+                    😊
+                  </button>
+
+                  {/* Attachment Button */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      width: 34, height: 34, borderRadius: 10, border: "none",
+                      background: "#f4f4f5", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 16, flexShrink: 0,
+                    }}
+                    title="Upload attachment"
+                  >
+                    📎
+                  </button>
+
                   <textarea
                     ref={inputRef}
                     value={input}
-                    onChange={e => setInput(e.target.value)}
+                    onChange={e => {
+                      const val = e.target.value
+                      const cursor = e.target.selectionStart
+                      setInput(val)
+                      
+                      const textBeforeCursor = val.slice(0, cursor)
+                      const match = textBeforeCursor.match(/@(\w*)$/)
+                      if (match) {
+                        setMentionQuery(match[1])
+                        setMentionIndex(cursor - match[1].length - 1)
+                      } else {
+                        setMentionQuery(null)
+                      }
+                    }}
                     onKeyDown={onKeyDown}
                     placeholder="Type a message... (Enter to send)"
                     rows={1}
@@ -825,6 +996,460 @@ export function TeamChat() {
           )}
         </div>
       )}
+
+      {/* Private Chat Window Popup */}
+      {privateChatUser && (
+        <PrivateChatWindow 
+          user={{
+            ...privateChatUser,
+            is_typing: onlineUsers.find(u => u.id === privateChatUser.id)?.is_typing
+          }}
+          currentUser={currentUser}
+          onClose={() => setPrivateChatUser(null)}
+          rightOffset={getRightPosition() + 360}
+          winDragging={winDragging}
+          winOffset={winOffset}
+        />
+      )}
     </>
   )
+}
+
+/* --- Read Receipts, Link highlighting, and Private Chat Sub-components --- */
+
+function renderMessageText(text: string) {
+  if (!text) return ""
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(?:com|net|org|co|in|info|io|xyz)[^\s]*)/gi
+  const parts = text.split(urlRegex)
+  
+  if (parts.length <= 1) return text
+
+  return parts.map((part, i) => {
+    if (urlRegex.test(part)) {
+      let href = part
+      if (!/^https?:\/\//i.test(part)) {
+        href = "https://" + part
+      }
+      return (
+        <a 
+          key={i} 
+          href={href} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style={{ color: "#3b82f6", textDecoration: "underline", wordBreak: "break-all" }}
+        >
+          {part}
+        </a>
+      )
+    }
+    return part
+  })
+}
+
+function renderMessageContent(msg: ChatMessage) {
+  if (msg.message_type === "voice" && msg.voice_url) {
+    return <audio src={msg.voice_url} controls style={{ height: 32, maxWidth: 180 }} />
+  }
+  if (msg.message_type === "image" && msg.file_url) {
+    return (
+      <div style={{ marginTop: 4 }}>
+        <img 
+          src={msg.file_url} 
+          alt="Attachment" 
+          style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, cursor: "pointer" }} 
+          onClick={() => window.open(msg.file_url, "_blank")}
+        />
+        {msg.message && <p style={{ margin: "4px 0 0", fontSize: 12 }}>{msg.message}</p>}
+      </div>
+    )
+  }
+  if (msg.message_type === "file" && msg.file_url) {
+    return (
+      <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 16 }}>📎</span>
+        <a 
+          href={msg.file_url} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style={{ textDecoration: "underline", color: "inherit", fontWeight: 600, wordBreak: "break-all" }}
+        >
+          {msg.message || "Download Attachment"}
+        </a>
+      </div>
+    )
+  }
+  return renderMessageText(msg.message)
+}
+
+function PrivateChatWindow({ 
+  user, 
+  currentUser, 
+  onClose, 
+  rightOffset, 
+  winDragging, 
+  winOffset 
+}: { 
+  user: any
+  currentUser: any
+  onClose: () => void
+  rightOffset: number
+  winDragging: boolean
+  winOffset: { x: number; y: number }
+}) {
+  const [messages, setMessages] = useState<any[]>([])
+  const [input, setInput] = useState("")
+  const [sending, setSending] = useState(false)
+  const [showEmojis, setShowEmojis] = useState(false)
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const lastSeenRef = useRef<string>("")
+  const seenMessageIdsRef = useRef<Set<string>>(new Set())
+  const lastTypingSentRef = useRef<number>(0)
+
+  const fetchMessages = useCallback(async (since?: string) => {
+    try {
+      let url = `/api/team-chat?recipient_id=${user.id}`
+      if (since) url += `&since=${encodeURIComponent(since)}`
+      const res = await fetch(url)
+      const json = await res.json()
+      if (json.data) {
+        if (since) {
+          setMessages(prev => {
+            const existingIds = new Set(prev.map(m => m.id))
+            const newMsgs = json.data.filter((m: any) => !existingIds.has(m.id))
+            return [...prev, ...newMsgs]
+          })
+        } else {
+          setMessages(json.data)
+        }
+        if (json.data.length > 0) {
+          lastSeenRef.current = json.data[json.data.length - 1].created_at
+        }
+
+        // Auto mark private messages as seen
+        const unseenIds = json.data
+          .filter((m: any) => m.user_id !== currentUser.id && m.user_name !== currentUser.name && !seenMessageIdsRef.current.has(m.id))
+          .map((m: any) => m.id)
+
+        if (unseenIds.length > 0) {
+          unseenIds.forEach((id: string) => seenMessageIdsRef.current.add(id))
+          await fetch("/api/team-chat/seen", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messageIds: unseenIds })
+          })
+        }
+      }
+    } catch {}
+  }, [user.id, currentUser.id])
+
+  useEffect(() => {
+    fetchMessages()
+    const interval = setInterval(() => {
+      fetchMessages(lastSeenRef.current || undefined)
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [fetchMessages])
+
+  useEffect(() => {
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100)
+  }, [messages])
+
+  // Trigger typing in private chat
+  useEffect(() => {
+    if (!input.trim() || !currentUser?.id) return
+    const now = Date.now()
+    if (now - lastTypingSentRef.current < 2000) return
+    lastTypingSentRef.current = now
+    fetch("/api/team-chat/presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "online", typing: true })
+    }).catch(() => {})
+  }, [input, currentUser])
+
+  useEffect(() => {
+    if (input.trim() === "" && lastTypingSentRef.current > 0 && currentUser?.id) {
+      lastTypingSentRef.current = 0
+      fetch("/api/team-chat/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "online", typing: false })
+      }).catch(() => {})
+    }
+  }, [input, currentUser])
+
+  const sendMessage = async () => {
+    const msg = input.trim()
+    if (!msg) return
+    setSending(true)
+    setInput("")
+    try {
+      const res = await fetch("/api/team-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: msg,
+          message_type: "text",
+          recipient_id: user.id
+        })
+      })
+      const json = await res.json()
+      if (json.data) {
+        setMessages(prev => [...prev, json.data])
+      }
+    } catch {} finally {
+      setSending(false)
+    }
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("File size exceeds 2MB limit.")
+      return
+    }
+
+    setSending(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const uploadRes = await fetch("/api/upload-simple", { method: "POST", body: fd })
+      const uploadJson = await uploadRes.json()
+      if (!uploadJson.success || !uploadJson.url) throw new Error(uploadJson.error || "Upload failed")
+
+      const isImg = file.type.startsWith("image/")
+      const res = await fetch("/api/team-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: file.name,
+          message_type: isImg ? "image" : "file",
+          file_url: uploadJson.url,
+          recipient_id: user.id
+        })
+      })
+      const json = await res.json()
+      if (json.data) {
+        setMessages(prev => [...prev, json.data])
+      }
+    } catch (err: any) {
+      alert("Failed to upload: " + err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  // Group messages by date
+  const grouped: { day: string; msgs: any[] }[] = []
+  messages.forEach(msg => {
+    const day = formatDay(msg.created_at)
+    const last = grouped[grouped.length - 1]
+    if (last && last.day === day) last.msgs.push(msg)
+    else grouped.push({ day, msgs: [msg] })
+  })
+
+  // Format initials
+  const initials = user.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 24, right: rightOffset, zIndex: 9999,
+      width: 300, borderRadius: 20, height: 400,
+      background: "#ffffff", boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+      border: "1px solid #e4e4e7",
+      display: "flex", flexDirection: "column",
+      fontFamily: "system-ui,-apple-system,sans-serif",
+      overflow: "hidden",
+      transition: winDragging ? "none" : "right 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      transform: `translate(${winOffset.x}px, ${winOffset.y}px)`,
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: "10px 14px", borderBottom: "1px solid #f4f4f5",
+        background: "linear-gradient(135deg, #18181b, #27272a)",
+        display: "flex", alignItems: "center", gap: 8,
+        flexShrink: 0,
+      }}>
+        <div style={{
+          position: "relative",
+          width: 26, height: 26, borderRadius: "50%",
+          background: getColor(user.role),
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 9, fontWeight: 800, color: "white", flexShrink: 0
+        }}>
+          {initials}
+          <span style={{
+            position: "absolute", bottom: -1, right: -1, width: 8, height: 8,
+            borderRadius: "50%", background: "#22c55e", border: "1.5px solid white"
+          }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {user.name}
+          </p>
+          <p style={{ margin: 0, fontSize: 9, color: "rgba(255,255,255,0.4)" }}>
+            {user.is_typing ? "Typing..." : user.role.replace("_", " ")}
+          </p>
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", padding: 4 }}>
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", background: "#fafafa", display: "flex", flexDirection: "column", gap: 2 }}>
+        {messages.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "32px 16px", color: "#a1a1aa", fontSize: 11 }}>
+            No messages yet. Start your private chat!
+          </div>
+        ) : grouped.map(({ day, msgs }) => (
+          <div key={day}>
+            <div style={{ textAlign: "center", margin: "4px 0", fontSize: 9, color: "#a1a1aa", fontWeight: 600 }}>{day}</div>
+            {msgs.map(msg => {
+              const isMe = msg.user_id === currentUser?.id || msg.user_name === currentUser?.name
+              return (
+                <div key={msg.id} style={{ display: "flex", gap: 6, marginBottom: 4, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
+                  <div style={{ maxWidth: "80%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                    <div style={{
+                      background: isMe ? "#18181b" : "#ffffff",
+                      color: isMe ? "#ffffff" : "#18181b",
+                      borderRadius: isMe ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                      padding: "6px 10px", fontSize: 12, lineHeight: 1.4,
+                      border: isMe ? "none" : "1px solid #e4e4e7",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                    }}>
+                      {renderMessageContent(msg)}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                      <span style={{ fontSize: 8, color: "#a1a1aa" }}>{formatTime(msg.created_at)}</span>
+                      {isMe && (
+                        <span 
+                          title={msg.seen_by && msg.seen_by.length > 0 ? `Seen` : "Sent"}
+                          style={{ display: "flex", alignItems: "center" }}
+                        >
+                          {msg.seen_by && msg.seen_by.length > 0 ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 6L8.5 14.5L5 11M22 6L13.5 14.5M10 16L9 17L4 12" /></svg>
+                          ) : (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+        {user.is_typing && (
+          <div style={{ padding: "2px 4px", color: "#22c55e", fontSize: 10, fontStyle: "italic", fontWeight: 600 }}>
+            typing...
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: "8px", borderTop: "1px solid #f4f4f5", background: "#ffffff", flexShrink: 0, position: "relative" }}>
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          style={{ display: "none" }} 
+        />
+        
+        {showEmojis && (
+          <div style={{
+            position: "absolute", bottom: 44, right: 6,
+            background: "white", border: "1px solid #e4e4e7",
+            borderRadius: 12, padding: 6, display: "flex", gap: 4,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10000,
+          }}>
+            {["😊", "😂", "❤️", "👍", "🎉", "🔥", "😮", "😢", "👏", "🚀"].map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => {
+                  setInput(prev => prev + emoji)
+                  setShowEmojis(false)
+                  inputRef.current?.focus()
+                }}
+                style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", padding: 2 }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 4, alignItems: "flex-end" }}>
+          {/* Emojis */}
+          <button
+            onClick={() => setShowEmojis(!showEmojis)}
+            style={{ width: 28, height: 28, borderRadius: 8, border: "none", background: "#f4f4f5", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}
+            title="Emojis"
+          >
+            😊
+          </button>
+          
+          {/* Attachments */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            style={{ width: 28, height: 28, borderRadius: 8, border: "none", background: "#f4f4f5", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}
+            title="Upload File"
+          >
+            📎
+          </button>
+
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                sendMessage()
+              }
+            }}
+            placeholder="Message..."
+            rows={1}
+            style={{
+              flex: 1, borderRadius: 8, border: "1px solid #e4e4e7",
+              padding: "6px 10px", fontSize: 12, resize: "none",
+              fontFamily: "inherit", outline: "none", background: "#f4f4f5",
+              maxHeight: 60, lineHeight: 1.4, color: "#18181b",
+            }}
+          />
+          
+          <button
+            onClick={sendMessage}
+            disabled={sending || !input.trim()}
+            style={{
+              width: 28, height: 28, borderRadius: 8, border: "none",
+              background: input.trim() ? "#18181b" : "#f4f4f5",
+              cursor: input.trim() ? "pointer" : "default",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: input.trim() ? "white" : "#a1a1aa", flexShrink: 0,
+            }}
+          >
+            <Send size={12} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatDay(iso: string) {
+  const d = new Date(iso)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  if (d.toDateString() === today.toDateString()) return "Today"
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday"
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })
 }

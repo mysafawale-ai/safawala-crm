@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
   const user = auth.authContext?.user
   const franchiseId = user?.franchise_id
   const since = req.nextUrl.searchParams.get("since")
+  const recipientId = req.nextUrl.searchParams.get("recipient_id")
 
   let query = supabase
     .from("team_messages")
@@ -38,6 +39,12 @@ export async function GET(req: NextRequest) {
 
   if (franchiseId) query = query.eq("franchise_id", franchiseId)
   if (since) query = query.gt("created_at", since)
+
+  if (recipientId && user?.id) {
+    query = query.or(`and(user_id.eq.${user.id},recipient_id.eq.${recipientId}),and(user_id.eq.${recipientId},recipient_id.eq.${user.id})`)
+  } else {
+    query = query.is("recipient_id", null)
+  }
 
   const { data, error } = await query
 
@@ -73,11 +80,11 @@ export async function POST(req: NextRequest) {
   if (!auth.success) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { message, message_type = "text", voice_url } = body
+  const { message, message_type = "text", voice_url, recipient_id, file_url } = body
   const user = auth.authContext?.user
   const franchiseId = user?.franchise_id
 
-  if (!message?.trim() && message_type !== "voice") {
+  if (!message?.trim() && message_type !== "voice" && message_type !== "image" && message_type !== "file") {
     return NextResponse.json({ error: "Message is required" }, { status: 400 })
   }
 
@@ -91,6 +98,8 @@ export async function POST(req: NextRequest) {
       message: message?.trim() || "",
       message_type,
       voice_url: voice_url || null,
+      recipient_id: recipient_id || null,
+      file_url: file_url || null,
     })
     .select()
     .single()
