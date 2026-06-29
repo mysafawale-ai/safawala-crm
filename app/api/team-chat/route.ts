@@ -48,6 +48,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Fetch seen receipts for these messages
+  const messageIds = data?.map(m => m.id) || []
+  if (messageIds.length > 0) {
+    const { data: seenReceipts, error: seenError } = await supabase
+      .from("team_message_seen")
+      .select("message_id, user_name, user_id")
+      .in("message_id", messageIds)
+
+    if (!seenError && seenReceipts) {
+      data.forEach(msg => {
+        // Find other users who have seen this message (exclude the message sender themselves)
+        const seens = seenReceipts.filter(r => r.message_id === msg.id && r.user_id !== msg.user_id)
+        msg.seen_by = seens.map(r => r.user_name)
+      })
+    }
+  }
+
   return NextResponse.json({ data: data ?? [] })
 }
 

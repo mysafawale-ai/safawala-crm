@@ -46,11 +46,13 @@ export async function GET(req: NextRequest) {
     // Map users to online presence list
     const onlineUsers = users.map(u => {
       const presence = presences.find(p => p.user_id === u.id)
+      const isTyping = presence?.typing_until && new Date(presence.typing_until) > new Date()
       return {
         id: u.id,
         name: u.name,
         role: u.role,
-        last_seen: presence?.last_seen
+        last_seen: presence?.last_seen,
+        is_typing: !!isTyping
       }
     })
 
@@ -68,18 +70,26 @@ export async function POST(req: NextRequest) {
     const user = auth.authContext?.user
     if (!user?.id) return NextResponse.json({ error: "Invalid user" }, { status: 400 })
 
-    const { status } = await req.json()
+    const { status, typing } = await req.json()
     if (status !== "online" && status !== "offline") {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
+    const upsertData: any = {
+      user_id: user.id,
+      status: status,
+      last_seen: new Date().toISOString()
+    }
+
+    if (status === "offline") {
+      upsertData.typing_until = null
+    } else if (typing !== undefined) {
+      upsertData.typing_until = typing ? new Date(Date.now() + 4000).toISOString() : null
+    }
+
     const { data, error } = await supabase
       .from("user_presence")
-      .upsert({
-        user_id: user.id,
-        status: status,
-        last_seen: new Date().toISOString()
-      })
+      .upsert(upsertData)
       .select()
 
     if (error) {

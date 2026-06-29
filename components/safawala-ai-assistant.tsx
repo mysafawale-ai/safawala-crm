@@ -390,6 +390,71 @@ export function SafawalaAIAssistant() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Draggable states
+  const [btnOffset, setBtnOffset] = useState({ x: 0, y: 0 })
+  const [winOffset, setWinOffset] = useState({ x: 0, y: 0 })
+  const [btnDragging, setBtnDragging] = useState(false)
+  const [winDragging, setWinDragging] = useState(false)
+
+  const btnDragStart = useRef({ x: 0, y: 0 })
+  const winDragStart = useRef({ x: 0, y: 0 })
+
+  const onBtnMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    btnDragStart.current = { x: e.clientX - btnOffset.x, y: e.clientY - btnOffset.y }
+    setBtnDragging(false)
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - btnDragStart.current.x
+      const dy = moveEvent.clientY - btnDragStart.current.y
+      if (Math.abs(dx - btnOffset.x) > 3 || Math.abs(dy - btnOffset.y) > 3) {
+        setBtnDragging(true)
+      }
+      setBtnOffset({ x: dx, y: dy })
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
+  }
+
+  const handleBtnClick = (e: React.MouseEvent) => {
+    if (btnDragging) {
+      e.preventDefault()
+      e.stopPropagation()
+      setTimeout(() => setBtnDragging(false), 50)
+      return
+    }
+    setOpen(true)
+  }
+
+  const onWinMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    if ((e.target as HTMLElement).closest("button")) return
+
+    winDragStart.current = { x: e.clientX - winOffset.x, y: e.clientY - winOffset.y }
+    setWinDragging(true)
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - winDragStart.current.x
+      const dy = moveEvent.clientY - winDragStart.current.y
+      setWinOffset({ x: dx, y: dy })
+    }
+
+    const onMouseUp = () => {
+      setWinDragging(false)
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
+  }
+
   useEffect(() => {
     if (open && !minimized) {
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100)
@@ -527,9 +592,16 @@ export function SafawalaAIAssistant() {
       {/* Floating Button */}
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          onMouseDown={onBtnMouseDown}
+          onClick={handleBtnClick}
           className="fixed bottom-6 right-6 z-50 group flex items-center gap-2.5 bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black font-bold rounded-2xl px-4 py-3 shadow-2xl shadow-yellow-500/30 transition-all hover:scale-105 active:scale-95"
-          title="Safawala AI Assistant"
+          style={{
+            transform: `translate(${btnOffset.x}px, ${btnOffset.y}px)`,
+            cursor: btnDragging ? "grabbing" : "grab",
+            userSelect: "none",
+            transition: btnDragging ? "none" : undefined,
+          }}
+          title="Safawala AI Assistant (Drag to move)"
         >
           <Crown className="w-5 h-5 fill-black/20" />
           <span className="text-sm">Safawala AI</span>
@@ -546,9 +618,20 @@ export function SafawalaAIAssistant() {
           className={`fixed z-50 right-6 bottom-6 bg-[#0f0d1a] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 flex flex-col transition-all overflow-hidden ${
             minimized ? "w-72 h-14" : "w-[400px] h-[580px]"
           }`}
+          style={{
+            transform: `translate(${winOffset.x}px, ${winOffset.y}px)`,
+            transition: winDragging ? "none" : "width 0.3s ease, height 0.3s ease",
+          }}
         >
           {/* Header */}
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-yellow-500/10 to-purple-500/10 border-b border-white/8 flex-shrink-0">
+          <div 
+            onMouseDown={onWinMouseDown}
+            className="flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-yellow-500/10 to-purple-500/10 border-b border-white/8 flex-shrink-0"
+            style={{
+              cursor: winDragging ? "grabbing" : "grab",
+              userSelect: "none",
+            }}
+          >
             <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
               <Crown className="w-4 h-4 text-black fill-black/20" />
             </div>

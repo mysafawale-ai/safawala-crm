@@ -15,6 +15,7 @@ interface ChatMessage {
   voice_url?: string
   created_at: string
   user_id?: string
+  seen_by?: string[]
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -88,6 +89,9 @@ export function TeamChat() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+
+  const seenMessageIdsRef = useRef<Set<string>>(new Set())
+  const lastTypingSentRef = useRef<number>(0)
 
   // Load user data and presence status preferences
   useEffect(() => {
@@ -164,6 +168,34 @@ export function TeamChat() {
     const interval = setInterval(fetchOnline, 15000)
     return () => clearInterval(interval)
   }, [open, currentUser])
+
+  // Trigger typing = true when input changes (throttled)
+  useEffect(() => {
+    if (!input.trim() || userStatus === "offline" || !currentUser?.id) return
+
+    const now = Date.now()
+    if (now - lastTypingSentRef.current < 2000) return
+
+    lastTypingSentRef.current = now
+
+    fetch("/api/team-chat/presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "online", typing: true })
+    }).catch(() => {})
+  }, [input, userStatus, currentUser])
+
+  // Trigger typing = false when input is cleared/empty
+  useEffect(() => {
+    if (input.trim() === "" && lastTypingSentRef.current > 0 && currentUser?.id && userStatus !== "offline") {
+      lastTypingSentRef.current = 0
+      fetch("/api/team-chat/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "online", typing: false })
+      }).catch(() => {})
+    }
+  }, [input, currentUser, userStatus])
 
   const getRightPosition = () => {
     if (!aiState.open) return 220
@@ -249,9 +281,25 @@ export function TeamChat() {
         if (json.data.length > 0) {
           lastSeenRef.current = json.data[json.data.length - 1].created_at
         }
+
+        // Automatic Seen receipts: if chat is open, mark other users' messages as read/seen
+        if (open && currentUser && json.data.length > 0) {
+          const unseenIds = json.data
+            .filter((m: ChatMessage) => m.user_id !== currentUser.id && m.user_name !== currentUser.name && !seenMessageIdsRef.current.has(m.id))
+            .map((m: ChatMessage) => m.id)
+
+          if (unseenIds.length > 0) {
+            unseenIds.forEach((id: string) => seenMessageIdsRef.current.add(id))
+            fetch("/api/team-chat/seen", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messageIds: unseenIds })
+            }).catch(() => {})
+          }
+        }
       }
     } catch {}
-  }, [open])
+  }, [open, currentUser])
 
   useEffect(() => {
     fetchMessages()
@@ -510,6 +558,38 @@ export function TeamChat() {
                   }} />
                 </div>
 
+                {/* Status Toggle Button Label */}
+                <button 
+                  onClick={() => {
+                    const newStatus = userStatus === "online" ? "offline" : "online"
+                    setUserStatus(newStatus)
+                    localStorage.setItem("safawala_chat_status", newStatus)
+                  }}
+                  style={{
+                    background: userStatus === "online" ? "#dcfce7" : "#fee2e2",
+                    color: userStatus === "online" ? "#15803d" : "#b91c1c",
+                    border: `1px solid ${userStatus === "online" ? "#bbf7d0" : "#fecaca"}`,
+                    borderRadius: 12,
+                    padding: "3px 8px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    transition: "all 0.2s ease",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background: userStatus === "online" ? "#22c55e" : "#ef4444",
+                  }} />
+                  {userStatus === "online" ? "Active" : "Offline"}
+                </button>
+
                 {/* Divider */}
                 <div style={{ width: 1, height: 18, background: "#e4e4e7", flexShrink: 0, margin: "0 2px" }} />
 
@@ -523,7 +603,7 @@ export function TeamChat() {
                     onlineUsers.map(u => (
                       <div 
                         key={u.id}
-                        title={`${u.name} (${u.role.replace("_", " ")}) - Online. Click to mention.`}
+                        title={`${u.name} (${u.role.replace("_", " ")}) - ${u.is_typing ? "Typing..." : "Online"}. Click to mention.`}
                         onClick={() => {
                           setInput(prev => {
                             const prefix = prev.trim() ? prev + " " : ""
@@ -560,6 +640,25 @@ export function TeamChat() {
                           background: "#22c55e",
                           border: "1.5px solid white",
                         }} />
+                        {u.is_typing && (
+                          <span style={{
+                            position: "absolute",
+                            top: -2,
+                            left: -2,
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: "#a855f7",
+                            border: "1.5px solid white",
+                            fontSize: 7,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "white",
+                            fontWeight: "bold",
+                            animation: "pulse 1s infinite"
+                          }}>✍️</span>
+                        )}
                       </div>
                     ))
                   )}
@@ -618,13 +717,38 @@ export function TeamChat() {
                                 <audio src={msg.voice_url} controls style={{ height: 32, maxWidth: 180 }} />
                               ) : msg.message}
                             </div>
-                            <span style={{ fontSize: 9, color: "#a1a1aa", marginTop: 2, paddingLeft: 4 }}>{formatTime(msg.created_at)}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, paddingLeft: 4 }}>
+                              <span style={{ fontSize: 9, color: "#a1a1aa" }}>{formatTime(msg.created_at)}</span>
+                              {isMe && (
+                                <span 
+                                  title={msg.seen_by && msg.seen_by.length > 0 ? `Seen by: ${msg.seen_by.join(", ")}` : "Sent"}
+                                  style={{ display: "flex", alignItems: "center" }}
+                                >
+                                  {msg.seen_by && msg.seen_by.length > 0 ? (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 6L8.5 14.5L5 11M22 6L13.5 14.5M10 16L9 17L4 12" /></svg>
+                                  ) : (
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )
                     })}
                   </div>
                 ))}
+                
+                {/* Typing Indicator */}
+                {onlineUsers.filter(u => u.is_typing).length > 0 && (
+                  <div style={{ padding: "4px 12px", display: "flex", alignItems: "center", gap: 6, color: "#22c55e", fontSize: 11, fontWeight: 600 }}>
+                    <span style={{ fontStyle: "italic" }}>
+                      {onlineUsers.filter(u => u.is_typing).map(u => u.name).join(", ")}{" "}
+                      {onlineUsers.filter(u => u.is_typing).length === 1 ? "is" : "are"} typing...
+                    </span>
+                  </div>
+                )}
+                
                 <div ref={messagesEndRef} />
               </div>
 
