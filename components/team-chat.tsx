@@ -43,6 +43,10 @@ function getColor(role: string) {
 }
 
 const EMOJI_CATEGORIES: Record<string, { tab: string; list: string[] }> = {
+  turban: {
+    tab: "👳‍♂️",
+    list: [":turban-smile:", ":turban-laugh:", ":turban-love:", ":turban-cool:"]
+  },
   smileys: {
     tab: "😊",
     list: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈", "👿", "👹", "👺", "🤡", "💩", "👻", "💀", "☠️", "👽", "👾", "🤖", "🎃", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾"]
@@ -149,13 +153,18 @@ export function TeamChat() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState<number>(-1)
   const [notifyPermission, setNotifyPermission] = useState<string>("default")
-  const [activeEmojiTab, setActiveEmojiTab] = useState<string>("smileys")
+  const [activeEmojiTab, setActiveEmojiTab] = useState<string>("turban")
 
   // WhatsApp style attachment options
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false)
   const [showContactPicker, setShowContactPicker] = useState(false)
   const [fileAccept, setFileAccept] = useState("*")
   const [fileCapture, setFileCapture] = useState<string | undefined>(undefined)
+
+  // Live and current location sharing states
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [showLiveDurationSelector, setShowLiveDurationSelector] = useState(false)
+  const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null)
 
   // Walkie-Talkie states
   const [activeWalkieSession, setActiveWalkieSession] = useState<any>(null)
@@ -193,12 +202,15 @@ export function TeamChat() {
   // Check notification permission on mount and dispatch setter
   useEffect(() => {
     if (typeof window !== "undefined") {
-      (window as any).__setPrivateChatUser = setPrivateChatUser
+      const w = window as any
+      w.__setPrivateChatUser = setPrivateChatUser
+      w.__currentUserId = currentUser?.id
+      w.__stopLiveLocation = stopLiveLocation
       if ("Notification" in window) {
         setNotifyPermission(Notification.permission)
       }
     }
-  }, [setPrivateChatUser])
+  }, [setPrivateChatUser, currentUser])
 
   // Load user data and presence status preferences
   useEffect(() => {
@@ -768,35 +780,75 @@ export function TeamChat() {
       return
     }
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords
-        setSending(true)
-        try {
-          const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`
-          const res = await fetch("/api/team-chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: mapsUrl,
-              message_type: "location",
-              file_url: mapsUrl
-            }),
-          })
-          const json = await res.json()
-          if (json.data) {
-            setMessages(prev => [...prev, json.data])
-            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
-          }
-        } catch {
-          alert("Failed to share location")
-        } finally {
-          setSending(false)
-        }
+      (pos) => {
+        setLocationCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
+        setShowLocationModal(true)
       },
       (err) => {
         alert("Failed to retrieve location: " + err.message)
       }
     )
+  }
+
+  const sendLocationMessage = async (type: "current" | "live", durationLabel?: string, durationMs?: number) => {
+    if (!locationCoords) return
+    setShowLocationModal(false)
+    setShowLiveDurationSelector(false)
+    setSending(true)
+    try {
+      const { latitude, longitude } = locationCoords
+      const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`
+      
+      let messagePayload = mapsUrl
+      if (type === "live" && durationMs && durationLabel) {
+        messagePayload = JSON.stringify({
+          type: "live",
+          latitude,
+          longitude,
+          duration: durationLabel,
+          expires_at: new Date(Date.now() + durationMs).toISOString(),
+          sender_id: currentUser?.id
+        })
+      }
+
+      const res = await fetch("/api/team-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: messagePayload,
+          message_type: "location",
+          file_url: mapsUrl
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setMessages(prev => [...prev, json.data])
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
+      }
+    } catch {
+      alert("Failed to share location")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const stopLiveLocation = async (messageId: string) => {
+    try {
+      const res = await fetch("/api/team-chat", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: messageId,
+          message: JSON.stringify({ type: "ended" })
+        })
+      })
+      const json = await res.json()
+      if (json.data) {
+        setMessages(prev => prev.map(m => m.id === messageId ? json.data : m))
+      }
+    } catch {
+      alert("Failed to stop sharing location")
+    }
   }
 
   const shareContact = async (contactUser: any) => {
@@ -1595,6 +1647,81 @@ export function TeamChat() {
                         </div>
                       )}
 
+                      {/* Location Share Mode Picker Modal Popup overlay */}
+                      {showLocationModal && (
+                        <div style={{
+                          position: "absolute", bottom: 54, left: 12, right: 12,
+                          background: "#ffffff", border: "1px solid #e4e4e7",
+                          borderRadius: 16, boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
+                          padding: "12px", zIndex: 10002,
+                          display: "flex", flexDirection: "column", gap: 10
+                        }}>
+                          {!showLiveDurationSelector ? (
+                            <>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: "#18181b" }}>Share Location</span>
+                                <button onClick={() => setShowLocationModal(false)} style={{ background: "none", border: "none", fontSize: 11, cursor: "pointer", fontWeight: 700, color: "#ef4444" }}>Cancel</button>
+                              </div>
+                              <button
+                                onClick={() => sendLocationMessage("current")}
+                                style={{
+                                  background: "#f4f4f5", border: "1px solid #e4e4e7", borderRadius: 10,
+                                  padding: "10px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                                  display: "flex", alignItems: "center", gap: 8, color: "#18181b", textAlign: "left"
+                                }}
+                              >
+                                <span>📍</span>
+                                <div>
+                                  <div style={{ fontWeight: 800 }}>Send Current Location</div>
+                                  <div style={{ fontSize: 10, color: "#71717a", fontWeight: 400 }}>Share a static spot on map</div>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => setShowLiveDurationSelector(true)}
+                                style={{
+                                  background: "#f4f4f5", border: "1px solid #e4e4e7", borderRadius: 10,
+                                  padding: "10px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                                  display: "flex", alignItems: "center", gap: 8, color: "#18181b", textAlign: "left"
+                                }}
+                              >
+                                <span>📡</span>
+                                <div>
+                                  <div style={{ fontWeight: 800 }}>Share Live Location</div>
+                                  <div style={{ fontSize: 10, color: "#71717a", fontWeight: 400 }}>Updates real-time as you move</div>
+                                </div>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: "#18181b" }}>Select Live Duration</span>
+                                <button onClick={() => setShowLiveDurationSelector(false)} style={{ background: "none", border: "none", fontSize: 11, cursor: "pointer", fontWeight: 700, color: "#71717a" }}>Back</button>
+                              </div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button
+                                  onClick={() => sendLocationMessage("live", "15 Mins", 15 * 60 * 1000)}
+                                  style={{ flex: 1, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                                >
+                                  15 Mins
+                                </button>
+                                <button
+                                  onClick={() => sendLocationMessage("live", "1 Hour", 1 * 60 * 60 * 1000)}
+                                  style={{ flex: 1, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                                >
+                                  1 Hour
+                                </button>
+                                <button
+                                  onClick={() => sendLocationMessage("live", "24 Hours", 24 * 60 * 60 * 1000)}
+                                  style={{ flex: 1, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                                >
+                                  24 Hours
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
                       <textarea
                         ref={inputRef}
                         value={input}
@@ -1697,10 +1824,16 @@ export function TeamChat() {
 function renderMessageText(text: string) {
   if (!text) return ""
   const censoredText = censorMessage(text)
+  
+  const turbanEmojis: Record<string, string> = {
+    ":turban-smile:": "/emojis/turban_smile.png",
+    ":turban-laugh:": "/emojis/turban_laugh.png",
+    ":turban-love:": "/emojis/turban_love.png",
+    ":turban-cool:": "/emojis/turban_cool.png",
+  }
+
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(?:com|net|org|co|in|info|io|xyz)[^\s]*)/gi
   const parts = censoredText.split(urlRegex)
-  
-  if (parts.length <= 1) return censoredText
 
   return parts.map((part, i) => {
     if (urlRegex.test(part)) {
@@ -1719,6 +1852,25 @@ function renderMessageText(text: string) {
           {part}
         </a>
       )
+    }
+    
+    // Split by turban emoji markups to render inline images
+    const emojiRegex = /(:turban-[a-z]+:)/g
+    const subParts = part.split(emojiRegex)
+    if (subParts.length > 1) {
+      return subParts.map((sub, idx) => {
+        if (turbanEmojis[sub]) {
+          return (
+            <img 
+              key={`${i}-${idx}`}
+              src={turbanEmojis[sub]} 
+              alt={sub} 
+              style={{ width: 22, height: 22, display: "inline-block", verticalAlign: "middle", margin: "0 2px" }} 
+            />
+          )
+        }
+        return sub
+      })
     }
     return part
   })
@@ -1772,6 +1924,81 @@ function renderMessageContent(msg: ChatMessage) {
     )
   }
   if (msg.message_type === "location" && msg.file_url) {
+    let liveData: any = null
+    try {
+      if (msg.message.startsWith("{")) {
+        liveData = JSON.parse(msg.message)
+      }
+    } catch {}
+
+    if (liveData) {
+      if (liveData.type === "ended") {
+        return (
+          <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16 }}>📍</span>
+              <span style={{ fontWeight: 700, fontSize: 12, color: "#6b7280" }}>Live Location (Ended)</span>
+            </div>
+          </div>
+        )
+      }
+      
+      const isExpired = new Date() > new Date(liveData.expires_at)
+      if (isExpired) {
+        return (
+          <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16 }}>📍</span>
+              <span style={{ fontWeight: 700, fontSize: 12, color: "#6b7280" }}>Live Location (Expired)</span>
+            </div>
+          </div>
+        )
+      }
+
+      const diffMins = Math.round((new Date(liveData.expires_at).getTime() - Date.now()) / 60000)
+
+      return (
+        <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16, animation: "pulse 1.5s infinite" }}>📡</span>
+            <span style={{ fontWeight: 700, fontSize: 12, color: "#16a34a" }}>Live Location (Active)</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 9, opacity: 0.8 }}>
+            Expires in {diffMins > 0 ? diffMins : 0} mins
+          </p>
+          <a 
+            href={msg.file_url} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{
+              display: "inline-block", background: "#22c55e", color: "white",
+              textDecoration: "none", borderRadius: 8, padding: "6px 12px",
+              fontSize: 10, fontWeight: 700, textAlign: "center", textTransform: "uppercase"
+            }}
+          >
+            Track Location
+          </a>
+          {liveData.sender_id === (window as any).__currentUserId && (
+            <button
+              onClick={() => {
+                if ((window as any).__stopLiveLocation) {
+                  (window as any).__stopLiveLocation(msg.id)
+                }
+              }}
+              style={{
+                background: "#ef4444", color: "white", border: "none",
+                borderRadius: 8, padding: "4px 8px", fontSize: 9,
+                fontWeight: 800, cursor: "pointer", textAlign: "center", textTransform: "uppercase",
+                marginTop: 2
+              }}
+            >
+              Stop Sharing
+            </button>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

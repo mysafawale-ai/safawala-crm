@@ -126,3 +126,24 @@ export async function DELETE(req: NextRequest) {
 
   return NextResponse.json({ success: true })
 }
+
+export async function PUT(req: NextRequest) {
+  const auth = await requireAuth(req)
+  if (!auth.success) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const body = await req.json()
+  const { id, message } = body
+  if (!id || !message) {
+    return NextResponse.json({ error: "id and message are required" }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from("team_messages")
+    .update({ message })
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data })
+}
