@@ -4011,11 +4011,14 @@ export default function CreateInvoicePage() {
                           <span className="font-bold text-[9px] text-gray-900 leading-tight block">{item.product_name}</span>
                           {item.category && <span className="text-[7px] text-gray-500 leading-tight block">{item.category}</span>}
                           {item.barcode && <span className="text-[7px] text-gray-400 font-mono leading-tight">#{item.barcode}</span>}
-                          {invoiceData.invoice_type === "rental" && lostDamageRate > 0 && !isPackageInclusion && (
-                            <span className="text-[7px] font-bold text-red-600 leading-tight block">
-                              Lost/Damage: ₹{lostDamageRate.toLocaleString()}
-                            </span>
-                          )}
+                          {invoiceData.invoice_type === "rental" && !isPackageInclusion && (() => {
+                            const ldEntry = lostDamagedItems.find(ld => ld.product_id === item.product_id)
+                            return ldEntry ? (
+                              <span className="text-[7px] font-bold text-red-600 leading-tight block">
+                                Lost/Damage ({ldEntry.type}): ₹{ldEntry.charge_per_item.toLocaleString()} × {ldEntry.quantity}
+                              </span>
+                            ) : null
+                          })()}
                         </td>
                         <td className="px-1.5 py-0.5 text-center font-medium">{item.quantity}</td>
                         <td className="px-1.5 py-0.5 text-right font-medium text-gray-900">
