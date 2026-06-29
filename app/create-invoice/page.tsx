@@ -3059,25 +3059,7 @@ export default function CreateInvoicePage() {
                                   checked={showLostDamaged}
                                   onCheckedChange={(v) => {
                                     setShowLostDamaged(!!v)
-                                    if (!v) {
-                                      setLostDamagedItems([])
-                                    } else if (lostDamagedItems.length === 0 && invoiceItems.length > 0) {
-                                      // Pre-populate from order items so user can tick which ones are lost/damaged
-                                      setLostDamagedItems(
-                                        invoiceItems
-                                          .filter(item => item.product_id && item.product_id !== "modification-service")
-                                          .map(item => ({
-                                            id: `ld-${item.product_id}-${Date.now()}-${Math.random()}`,
-                                            product_id: item.product_id,
-                                            product_name: item.product_name,
-                                            barcode: item.barcode || "",
-                                            type: "damaged" as const,
-                                            quantity: item.quantity,
-                                            charge_per_item: item.unit_price,
-                                            total_charge: item.unit_price * item.quantity,
-                                          }))
-                                      )
-                                    }
+                                    if (!v) setLostDamagedItems([])
                                   }}
                                 />
                                 <label htmlFor="toggleLostDamaged" className="flex items-center gap-1.5 cursor-pointer select-none">
