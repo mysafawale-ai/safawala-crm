@@ -32,11 +32,14 @@ export async function POST(req: NextRequest) {
             content: [
               {
                 type: "text",
-                text: `Look at these two images. Image 1 is a person. Image 2 is a ${productName || "safa/turban"} product.
-Describe in detail:
-1. The person: skin tone, face shape, approximate age, clothing style, body build
-2. The product: exact color, fabric texture, style, pattern, how it is tied/worn
-Be precise and concise. This description will be used to generate realistic AI images.`,
+                text: `You are helping generate a fashion try-on illustration for a wedding accessories business.
+Image 1 shows a model wearing ethnic Indian attire. Image 2 shows a ${productName || "safa/turban"} product.
+
+Describe the following for use in an AI image generation prompt:
+1. Model appearance: approximate skin tone (light/medium/dark), clothing (kurta color, style), facial hair if any, build
+2. The ${productName || "safa/turban"}: exact color(s), fabric texture, pattern (bandhani/plain/embroidered etc.), how it is wrapped and any decorative elements
+
+Keep it factual and concise — 3-4 sentences total. This is for a professional fashion catalog.`,
               },
               { type: "image_url", image_url: { url: personImageBase64, detail: "high" } },
               { type: "image_url", image_url: { url: productImageBase64, detail: "high" } },
