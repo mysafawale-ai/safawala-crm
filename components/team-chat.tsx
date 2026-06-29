@@ -1570,13 +1570,3 @@ function PrivateChatWindow({
     </div>
   )
 }
-
-function formatDay(iso: string) {
-  const d = new Date(iso)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(today.getDate() - 1)
-  if (d.toDateString() === today.toDateString()) return "Today"
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday"
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })
-}
