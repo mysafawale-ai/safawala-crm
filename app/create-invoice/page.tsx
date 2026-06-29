@@ -3371,14 +3371,6 @@ export default function CreateInvoicePage() {
         </div>
       </div>
 
-      {mode === "edit" && !editingQuote && (
-        <div className="max-w-[64%] mx-auto mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2.5 text-sm font-medium print:hidden">
-          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 animate-pulse" />
-          <div>
-            <span className="font-bold">Order Locked:</span> This confirmed sales/rental order is finalized and cannot be modified.
-          </div>
-        </div>
-      )}
 
       {/* Invoice Document */}
       <div className="max-w-[64%] mx-auto bg-white rounded-lg shadow-lg print:shadow-none print:rounded-none print:max-w-full">
