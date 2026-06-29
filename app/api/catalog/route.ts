@@ -97,13 +97,12 @@ export async function GET(request: NextRequest) {
   const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
   const year = new Date().getFullYear()
 
-  // Determine primary type (rental vs sales)
-  const hasRental = items.some(p => (p.rental_price || 0) > 0)
-  const hasSales = items.some(p => (p.sale_price || 0) > 0)
-  const activeTerms = hasRental
+  // BARATI SAFA category → rental terms; all other categories → sales terms
+  const isBaratiSafa = categoryName.toLowerCase().includes("barati") || categoryName.toLowerCase().includes("safa")
+  const activeTerms = isBaratiSafa
     ? (rentalTerms || defaultRentalTerms(companyName))
     : (salesTerms || defaultSalesTerms(companyName))
-  const termsType = hasRental ? "Rental" : "Sales"
+  const termsType = isBaratiSafa ? "Rental" : "Sales"
 
   // Collect bg images (up to 6 with actual image_url)
   const bgImages = items.filter(p => p.image_url).slice(0, 6).map(p => p.image_url)
@@ -285,30 +284,19 @@ export async function GET(request: NextRequest) {
     letter-spacing: 2px;
     margin-bottom: 40px;
   }
-  .cover-stats {
-    display: flex;
-    gap: 30px;
-    margin-top: 10px;
-  }
-  .stat-box {
-    text-align: center;
-    background: rgba(168,85,247,0.1);
-    border: 1px solid rgba(168,85,247,0.25);
-    border-radius: 10px;
-    padding: 12px 20px;
-    min-width: 70px;
-  }
-  .stat-num {
-    font-size: 28px;
-    font-weight: 900;
-    color: #a855f7;
-  }
-  .stat-label {
-    font-size: 9px;
-    color: rgba(255,255,255,0.35);
+  .cover-count-pill {
+    margin-top: 20px;
+    background: rgba(168,85,247,0.15);
+    border: 1px solid rgba(168,85,247,0.3);
+    border-radius: 20px;
+    padding: 8px 24px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
     letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-top: 2px;
+  }
+  .cover-count-pill strong {
+    color: #c084fc;
+    font-size: 15px;
   }
   .cover-footer {
     position: absolute;
@@ -447,24 +435,24 @@ export async function GET(request: NextRequest) {
     min-width: 28px;
   }
   .price-main {
-    font-size: 12px;
-    font-weight: 800;
-    color: #7c3aed;
+    font-size: 13px;
+    font-weight: 900;
+    color: #5b21b6;
   }
   .price-offer {
-    font-size: 12px;
-    font-weight: 800;
-    color: #16a34a;
+    font-size: 13px;
+    font-weight: 900;
+    color: #15803d;
   }
   .price-old {
     font-size: 9px;
-    color: #d1d5db;
+    color: #9ca3af;
     text-decoration: line-through;
   }
   .deposit-row .price-deposit {
-    font-size: 9px;
-    font-weight: 600;
-    color: #f59e0b;
+    font-size: 10px;
+    font-weight: 700;
+    color: #b45309;
   }
 
   /* ─── BACK PAGE ─── */
@@ -670,14 +658,7 @@ export async function GET(request: NextRequest) {
     <div class="cover-category-label">Product Catalog</div>
     <div class="cover-category">${categoryName}</div>
     <div class="cover-subtitle">Wedding Accessories Collection ${year}</div>
-    <div class="cover-stats">
-      <div class="stat-box">
-        <div class="stat-num">${items.length}</div>
-        <div class="stat-label">Products</div>
-      </div>
-      ${hasRental ? `<div class="stat-box"><div class="stat-num">R</div><div class="stat-label">Rental</div></div>` : ""}
-      ${hasSales ? `<div class="stat-box"><div class="stat-num">S</div><div class="stat-label">Sale</div></div>` : ""}
-    </div>
+    <div class="cover-count-pill"><strong>${items.length}</strong> &nbsp;Products</div>
   </div>
 
   <div class="cover-footer">${today} &nbsp;•&nbsp; ${companyEmail} &nbsp;•&nbsp; ${companyPhone}</div>
@@ -695,6 +676,25 @@ export async function GET(request: NextRequest) {
   </div>
   <div class="product-grid">
     ${productCards}
+  </div>
+</div>
+
+<!-- ══════ TERMS & CONDITIONS ══════ -->
+<div class="terms-page">
+  <div class="terms-header">
+    <div>
+      <div class="terms-title">${termsType} Terms &amp; Conditions</div>
+      <div class="terms-subtitle">${categoryName} — ${companyName}</div>
+    </div>
+    <div class="terms-brand">${companyName}<br />${today}</div>
+  </div>
+
+  <div class="terms-body">${activeTerms.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+
+  <div class="terms-footer">
+    <span>${companyName} &nbsp;|&nbsp; ${companyEmail}</span>
+    <span>${companyPhone}</span>
+    <span>${today}</span>
   </div>
 </div>
 
@@ -728,24 +728,6 @@ export async function GET(request: NextRequest) {
   </div>
 </div>
 
-<!-- ══════ TERMS & CONDITIONS ══════ -->
-<div class="terms-page">
-  <div class="terms-header">
-    <div>
-      <div class="terms-title">${termsType} Terms &amp; Conditions</div>
-      <div class="terms-subtitle">${categoryName} — ${companyName}</div>
-    </div>
-    <div class="terms-brand">${companyName}<br />${today}</div>
-  </div>
-
-  <div class="terms-body">${activeTerms.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-
-  <div class="terms-footer">
-    <span>${companyName} &nbsp;|&nbsp; ${companyEmail}</span>
-    <span>${companyPhone}</span>
-    <span>${today}</span>
-  </div>
-</div>
 
 </body>
 </html>`
