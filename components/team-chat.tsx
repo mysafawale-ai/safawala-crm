@@ -69,6 +69,17 @@ export function TeamChat() {
   const [refining, setRefining] = useState(false)
 
   const [aiState, setAiState] = useState({ open: false, minimized: false })
+  const [userStatus, setUserStatus] = useState<"online" | "offline">("online")
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([])
+
+  // Draggable offsets and flags
+  const [btnOffset, setBtnOffset] = useState({ x: 0, y: 0 })
+  const [winOffset, setWinOffset] = useState({ x: 0, y: 0 })
+  const [btnDragging, setBtnDragging] = useState(false)
+  const [winDragging, setWinDragging] = useState(false)
+
+  const btnDragStart = useRef({ x: 0, y: 0 })
+  const winDragStart = useRef({ x: 0, y: 0 })
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -78,9 +89,15 @@ export function TeamChat() {
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
+  // Load user data and presence status preferences
   useEffect(() => {
     const raw = localStorage.getItem("safawala_user")
     if (raw) { try { setCurrentUser(JSON.parse(raw)) } catch {} }
+
+    const saved = localStorage.getItem("safawala_chat_status") as "online" | "offline"
+    if (saved && (saved === "online" || saved === "offline")) {
+      setUserStatus(saved)
+    }
   }, [])
 
   useEffect(() => {
@@ -99,10 +116,117 @@ export function TeamChat() {
     }
   }, [])
 
+  // Heartbeat to update database presence record
+  useEffect(() => {
+    if (!currentUser?.id) return
+
+    const sendPresence = async (status: "online" | "offline") => {
+      try {
+        await fetch("/api/team-chat/presence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status })
+        })
+      } catch (err) {
+        console.error("Failed to update presence:", err)
+      }
+    }
+
+    sendPresence(userStatus)
+
+    if (userStatus === "offline") return
+
+    const interval = setInterval(() => {
+      sendPresence("online")
+    }, 15000)
+
+    return () => clearInterval(interval)
+  }, [userStatus, currentUser])
+
+  // Poll online users in real-time
+  useEffect(() => {
+    if (!open || !currentUser) return
+
+    const fetchOnline = async () => {
+      try {
+        const res = await fetch("/api/team-chat/presence")
+        const json = await res.json()
+        if (json.data) {
+          // Exclude self from other online list
+          setOnlineUsers(json.data.filter((u: any) => u.id !== currentUser.id))
+        }
+      } catch (err) {
+        console.error("Failed to fetch online users:", err)
+      }
+    }
+
+    fetchOnline()
+    const interval = setInterval(fetchOnline, 15000)
+    return () => clearInterval(interval)
+  }, [open, currentUser])
+
   const getRightPosition = () => {
     if (!aiState.open) return 220
     if (aiState.minimized) return 328
     return 440
+  }
+
+  // Draggable logic for floating button
+  const onBtnMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    btnDragStart.current = { x: e.clientX - btnOffset.x, y: e.clientY - btnOffset.y }
+    setBtnDragging(false)
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - btnDragStart.current.x
+      const dy = moveEvent.clientY - btnDragStart.current.y
+      if (Math.abs(dx - btnOffset.x) > 3 || Math.abs(dy - btnOffset.y) > 3) {
+        setBtnDragging(true)
+      }
+      setBtnOffset({ x: dx, y: dy })
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
+  }
+
+  const handleBtnClick = (e: React.MouseEvent) => {
+    if (btnDragging) {
+      e.preventDefault()
+      e.stopPropagation()
+      setTimeout(() => setBtnDragging(false), 50)
+      return
+    }
+    setOpen(true)
+  }
+
+  // Draggable logic for window header
+  const onWinMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    if ((e.target as HTMLElement).closest("button")) return
+
+    winDragStart.current = { x: e.clientX - winOffset.x, y: e.clientY - winOffset.y }
+    setWinDragging(true)
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - winDragStart.current.x
+      const dy = moveEvent.clientY - winDragStart.current.y
+      setWinOffset({ x: dx, y: dy })
+    }
+
+    const onMouseUp = () => {
+      setWinDragging(false)
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
   }
 
   const fetchMessages = useCallback(async (since?: string) => {
@@ -262,18 +386,21 @@ export function TeamChat() {
       {/* Floating button */}
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          onMouseDown={onBtnMouseDown}
+          onClick={handleBtnClick}
           style={{
             position: "fixed", bottom: 24, right: getRightPosition(), zIndex: 9998,
             width: 52, height: 52, borderRadius: "50%",
             background: "linear-gradient(135deg, #22c55e, #16a34a)",
-            border: "none", cursor: "pointer",
+            border: "none", cursor: btnDragging ? "grabbing" : "grab",
             boxShadow: "0 4px 20px rgba(34,197,94,0.4)",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "white",
-            transition: "right 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: btnDragging ? "none" : "right 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            transform: `translate(${btnOffset.x}px, ${btnOffset.y}px)`,
+            userSelect: "none",
           }}
-          title="Team Chat"
+          title="Team Chat (Drag to move)"
         >
           <Users size={22} />
           {unread > 0 && (
@@ -298,21 +425,29 @@ export function TeamChat() {
           height: minimized ? "auto" : 500,
           fontFamily: "system-ui,-apple-system,sans-serif",
           overflow: "hidden",
-          transition: "right 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: winDragging ? "none" : "right 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transform: `translate(${winOffset.x}px, ${winOffset.y}px)`,
         }}>
-          {/* Header */}
-          <div style={{
-            padding: "12px 16px", borderBottom: "1px solid #f4f4f5",
-            background: "linear-gradient(135deg, #18181b, #27272a)",
-            display: "flex", alignItems: "center", gap: 10, borderRadius: "20px 20px 0 0",
-            flexShrink: 0,
-          }}>
+          {/* Header (Drag Handle) */}
+          <div 
+            onMouseDown={onWinMouseDown}
+            style={{
+              padding: "12px 16px", borderBottom: "1px solid #f4f4f5",
+              background: "linear-gradient(135deg, #18181b, #27272a)",
+              display: "flex", alignItems: "center", gap: 10, borderRadius: "20px 20px 0 0",
+              flexShrink: 0,
+              cursor: winDragging ? "grabbing" : "grab",
+              userSelect: "none",
+            }}
+          >
             <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg, #22c55e, #16a34a)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Users size={16} color="white" />
             </div>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#fff" }}>Team Chat</p>
-              <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.4)" }}>{messages.length} messages</p>
+              <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.4)" }}>
+                {userStatus === "online" ? "🟢 Online" : "🔴 Offline"}
+              </p>
             </div>
             <button onClick={() => setMinimized(m => !m)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", padding: 4 }}>
               {minimized ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
@@ -324,6 +459,113 @@ export function TeamChat() {
 
           {!minimized && (
             <>
+              {/* Online Users List & Presence Toggle Row */}
+              <div style={{
+                padding: "8px 12px",
+                borderBottom: "1px solid #e4e4e7",
+                background: "#fafafa",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                flexShrink: 0,
+              }}>
+                {/* Current User Toggle Avatar */}
+                <div 
+                  onClick={() => {
+                    const newStatus = userStatus === "online" ? "offline" : "online"
+                    setUserStatus(newStatus)
+                    localStorage.setItem("safawala_chat_status", newStatus)
+                  }}
+                  title={`You are ${userStatus}. Click to toggle.`}
+                  style={{
+                    position: "relative",
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: getColor(currentUser?.role || "staff"),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: "white",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    border: "2px solid #ffffff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  {getInitials(currentUser?.name || "Me")}
+                  <span style={{
+                    position: "absolute",
+                    bottom: -2,
+                    right: -2,
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: userStatus === "online" ? "#22c55e" : "#ef4444",
+                    border: "1.5px solid white",
+                  }} />
+                </div>
+
+                {/* Divider */}
+                <div style={{ width: 1, height: 18, background: "#e4e4e7", flexShrink: 0, margin: "0 2px" }} />
+
+                {/* Online avatars list */}
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+                  {onlineUsers.length === 0 ? (
+                    <span style={{ fontSize: 10, color: "#a1a1aa", alignSelf: "center", fontStyle: "italic", whiteSpace: "nowrap" }}>
+                      No other members online
+                    </span>
+                  ) : (
+                    onlineUsers.map(u => (
+                      <div 
+                        key={u.id}
+                        title={`${u.name} (${u.role.replace("_", " ")}) - Online. Click to mention.`}
+                        onClick={() => {
+                          setInput(prev => {
+                            const prefix = prev.trim() ? prev + " " : ""
+                            return prefix + `@${u.name} `
+                          })
+                          inputRef.current?.focus()
+                        }}
+                        style={{
+                          position: "relative",
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          background: getColor(u.role),
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: "white",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                          border: "2px solid #ffffff",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        {getInitials(u.name)}
+                        <span style={{
+                          position: "absolute",
+                          bottom: -2,
+                          right: -2,
+                          width: 9,
+                          height: 9,
+                          borderRadius: "50%",
+                          background: "#22c55e",
+                          border: "1.5px solid white",
+                        }} />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               {/* Messages */}
               <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", background: "#fafafa", display: "flex", flexDirection: "column", gap: 2 }}>
                 {needsSetup ? (
@@ -344,11 +586,20 @@ export function TeamChat() {
                       const isMe = msg.user_id === currentUser?.id || msg.user_name === currentUser?.name
                       const color = getColor(msg.user_role)
                       const showName = !isMe && (i === 0 || msgs[i - 1]?.user_name !== msg.user_name)
+                      const isOnline = onlineUsers.some(u => u.id === msg.user_id || u.name === msg.user_name)
                       return (
                         <div key={msg.id} style={{ display: "flex", gap: 8, marginBottom: 4, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
                           {!isMe && (
-                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "white", flexShrink: 0 }}>
-                              {getInitials(msg.user_name)}
+                            <div style={{ position: "relative", flexShrink: 0 }}>
+                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "white" }}>
+                                {getInitials(msg.user_name)}
+                              </div>
+                              {isOnline && (
+                                <span style={{
+                                  position: "absolute", bottom: -1, right: -1, width: 8, height: 8, borderRadius: "50%",
+                                  background: "#22c55e", border: "1px solid white"
+                                }} />
+                              )}
                             </div>
                           )}
                           <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>

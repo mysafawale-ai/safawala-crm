@@ -25,11 +25,18 @@ export async function POST(request: NextRequest) {
       "image/jpg", 
       "image/png",
       "image/gif",
-      "image/webp"
+      "image/webp",
+      "audio/webm",
+      "audio/ogg",
+      "audio/wav",
+      "audio/mp3",
+      "audio/mpeg",
+      "audio/m4a",
+      "audio/x-m4a"
     ]
 
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: "File type not allowed" }, { status: 400 })
+      return NextResponse.json({ error: `File type ${file.type} not allowed` }, { status: 400 })
     }
 
     // Generate unique filename for reference
