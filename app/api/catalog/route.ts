@@ -201,13 +201,13 @@ export async function GET(request: NextRequest) {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
     gap: 0;
-    opacity: 0.12;
+    opacity: 0.35;
   }
-  .bg-img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(40%); }
+  .bg-img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(20%); }
   .cover-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(12,8,30,0.92) 0%, rgba(30,15,70,0.85) 50%, rgba(12,8,30,0.92) 100%);
+    background: linear-gradient(135deg, rgba(12,8,30,0.78) 0%, rgba(30,15,70,0.70) 50%, rgba(12,8,30,0.78) 100%);
   }
   .cover-content {
     position: relative;
@@ -477,12 +477,12 @@ export async function GET(request: NextRequest) {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
     gap: 0;
-    opacity: 0.08;
+    opacity: 0.30;
   }
   .back-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(12,8,30,0.95) 0%, rgba(40,15,90,0.90) 50%, rgba(12,8,30,0.95) 100%);
+    background: linear-gradient(135deg, rgba(12,8,30,0.78) 0%, rgba(40,15,90,0.72) 50%, rgba(12,8,30,0.78) 100%);
   }
   .back-content {
     position: relative;
