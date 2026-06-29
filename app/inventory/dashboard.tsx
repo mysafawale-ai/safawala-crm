@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle,
-  BarChart3, IndianRupee, ArrowUpDown, TrendingUp, Boxes
+  BarChart3, IndianRupee, ArrowUpDown, TrendingUp, Boxes, Download, Upload
 } from "lucide-react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { ProductCard } from "@/components/inventory/product-card"
@@ -356,6 +356,51 @@ export default function InventoryDashboard() {
     toast.success("Inventory refreshed")
   }
 
+  const handleExportCSV = () => {
+    window.open("/api/inventory/export-csv", "_blank")
+  }
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+
+    const text = await file.text()
+    const lines = text.split("\n").filter(Boolean)
+    if (lines.length < 2) { toast.error("CSV is empty"); return }
+
+    const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim())
+    const rows = lines.slice(1).map(line => {
+      // Handle quoted fields with commas
+      const values: string[] = []
+      let cur = "", inQ = false
+      for (const ch of line) {
+        if (ch === '"') { inQ = !inQ }
+        else if (ch === "," && !inQ) { values.push(cur.trim()); cur = "" }
+        else { cur += ch }
+      }
+      values.push(cur.trim())
+      const obj: Record<string, string> = {}
+      headers.forEach((h, i) => { obj[h] = (values[i] || "").replace(/^"|"$/g, "") })
+      return obj
+    })
+
+    toast.loading(`Importing ${rows.length} products...`, { id: "import" })
+    try {
+      const res = await fetch("/api/inventory/import-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error)
+      toast.success(`Done! Created: ${result.created}, Updated: ${result.updated}${result.errors ? `, Errors: ${result.errors}` : ""}`, { id: "import", duration: 6000 })
+      fetchProducts()
+    } catch (err: any) {
+      toast.error(err.message || "Import failed", { id: "import" })
+    }
+  }
+
   const handleEditProduct = (product: Product) => {
     setSelectedProduct(product)
     setEditorOpen(true)
@@ -604,6 +649,22 @@ export default function InventoryDashboard() {
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="gap-2 border-[#102516]/15 text-[#102516] hover:bg-[#f9f2e8] hover:border-[#102516]/30 transition-all duration-300"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
+            <label className="cursor-pointer">
+              <input type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border border-[#102516]/15 text-[#102516] hover:bg-[#f9f2e8] hover:border-[#102516]/30 transition-all duration-300 bg-white">
+                <Upload className="w-4 h-4" />
+                Import CSV
+              </span>
+            </label>
             <Button
               onClick={() => {
                 setSelectedProduct(null)
