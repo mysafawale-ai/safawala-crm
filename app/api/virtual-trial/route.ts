@@ -78,7 +78,6 @@ Sharp focus, photorealistic, no cartoon, no illustration.`
           n: 1,
           size: "1024x1024",
           quality: "standard",
-          response_format: "url",
         }),
       }).then(async (r) => {
         if (!r.ok) {
