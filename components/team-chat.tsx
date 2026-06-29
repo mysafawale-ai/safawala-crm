@@ -41,9 +41,50 @@ function getColor(role: string) {
   return ROLE_COLORS[role] || "#64748b"
 }
 
+const playNotificationSound = () => {
+  try {
+    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav")
+    audio.volume = 0.5
+    audio.play().catch(() => {})
+  } catch (err) {
+    console.warn("Failed to play sound:", err)
+  }
+}
+
+function censorMessage(text: string): string {
+  if (!text) return ""
+  const abusiveWords = [
+    "fuck", "shit", "bitch", "asshole", "cunt", "bastard",
+    "madharchode", "madarchod", "bhaosdike", "bhosdike", "bhosadi", 
+    "chutyew", "chutiya", "chutya", "bhenchod", "behenchod", "harami", "randi",
+    "saala", "kamine"
+  ]
+  
+  let censored = text
+  abusiveWords.forEach(word => {
+    const regex = new RegExp(`(${word})`, "gi")
+    censored = censored.replace(regex, (match) => {
+      if (match.length <= 2) return "**"
+      return match[0] + "*".repeat(match.length - 2) + match[match.length - 1]
+    })
+  })
+  return censored
+}
+
 function formatTime(iso: string) {
   const d = new Date(iso)
   return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })
+}
+
+const showDesktopNotification = (senderName: string, messageBody: string) => {
+  if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+    const censoredBody = censorMessage(messageBody)
+    const notif = new Notification(senderName, {
+      body: censoredBody,
+      icon: "/favicon.ico",
+    })
+    setTimeout(() => notif.close(), 4000)
+  }
 }
 
 function formatDay(iso: string) {
@@ -72,12 +113,14 @@ export function TeamChat() {
   const [aiState, setAiState] = useState({ open: false, minimized: false })
   const [userStatus, setUserStatus] = useState<"online" | "offline">("online")
   const [onlineUsers, setOnlineUsers] = useState<any[]>([])
+  const [allUsers, setAllUsers] = useState<any[]>([])
 
   // Emojis, file upload, mentions & private chat states
   const [showEmojis, setShowEmojis] = useState(false)
   const [privateChatUser, setPrivateChatUser] = useState<{ id: string; name: string; role: string } | null>(null)
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState<number>(-1)
+  const [notifyPermission, setNotifyPermission] = useState<string>("default")
 
   // Draggable offsets and flags
   const [btnOffset, setBtnOffset] = useState({ x: 0, y: 0 })
@@ -99,6 +142,13 @@ export function TeamChat() {
 
   const seenMessageIdsRef = useRef<Set<string>>(new Set())
   const lastTypingSentRef = useRef<number>(0)
+
+  // Check notification permission on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifyPermission(Notification.permission)
+    }
+  }, [])
 
   // Load user data and presence status preferences
   useEffect(() => {
@@ -174,6 +224,26 @@ export function TeamChat() {
     fetchOnline()
     const interval = setInterval(fetchOnline, 15000)
     return () => clearInterval(interval)
+  }, [open, currentUser])
+
+  // Fetch all users once when chat opens
+  useEffect(() => {
+    if (!open || !currentUser) return
+
+    const fetchAllUsers = async () => {
+      try {
+        const res = await fetch("/api/users?limit=200")
+        const json = await res.json()
+        if (json.data) {
+          // Exclude self
+          setAllUsers(json.data.filter((u: any) => u.id !== currentUser.id))
+        }
+      } catch (err) {
+        console.error("Failed to fetch all franchise users:", err)
+      }
+    }
+
+    fetchAllUsers()
   }, [open, currentUser])
 
   // Trigger typing = true when input changes (throttled)
@@ -279,7 +349,16 @@ export function TeamChat() {
           setMessages(prev => {
             const existingIds = new Set(prev.map(m => m.id))
             const newMsgs = json.data.filter((m: ChatMessage) => !existingIds.has(m.id))
-            if (newMsgs.length > 0 && !open) setUnread(u => u + newMsgs.length)
+            if (newMsgs.length > 0) {
+              const fromOthers = newMsgs.filter((m: ChatMessage) => m.user_id !== currentUser?.id && m.user_name !== currentUser?.name)
+              if (fromOthers.length > 0) {
+                playNotificationSound()
+                fromOthers.forEach((m: ChatMessage) => {
+                  showDesktopNotification(m.user_name, m.message_type === "text" ? m.message : `Sent a ${m.message_type}`)
+                })
+              }
+              if (!open) setUnread(u => u + newMsgs.length)
+            }
             return [...prev, ...newMsgs]
           })
         } else {
@@ -573,6 +652,34 @@ export function TeamChat() {
 
           {!minimized && (
             <>
+              {/* Desktop Notification Request Prompt */}
+              {notifyPermission === "default" && (
+                <div style={{
+                  background: "#eff6ff", borderBottom: "1px solid #bfdbfe",
+                  padding: "6px 12px", display: "flex", alignItems: "center", gap: 8,
+                  justifyContent: "space-between", flexShrink: 0
+                }}>
+                  <span style={{ fontSize: 10, color: "#1e40af", fontWeight: 600 }}>
+                    Enable desktop notifications?
+                  </span>
+                  <button 
+                    onClick={async () => {
+                      if (typeof window !== "undefined" && "Notification" in window) {
+                        const res = await Notification.requestPermission()
+                        setNotifyPermission(res)
+                      }
+                    }}
+                    style={{
+                      background: "#2563eb", color: "white", border: "none",
+                      borderRadius: 8, padding: "2px 8px", fontSize: 9,
+                      fontWeight: 700, cursor: "pointer"
+                    }}
+                  >
+                    Enable
+                  </button>
+                </div>
+              )}
+
               {/* Online Users List & Presence Toggle Row */}
               <div style={{
                 padding: "8px 12px",
@@ -824,7 +931,7 @@ export function TeamChat() {
                 />
 
                 {/* Mentions Autocomplete Popup */}
-                {mentionQuery !== null && onlineUsers.filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase())).length > 0 && (
+                {mentionQuery !== null && allUsers.filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase())).length > 0 && (
                   <div style={{
                     position: "absolute", bottom: 56, left: 12, right: 12,
                     background: "white", border: "1px solid #e4e4e7",
@@ -832,32 +939,42 @@ export function TeamChat() {
                     maxHeight: 140, overflowY: "auto", zIndex: 10000,
                     display: "flex", flexDirection: "column", padding: "4px 0",
                   }}>
-                    {onlineUsers
+                    {allUsers
                       .filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase()))
-                      .map(u => (
-                        <div
-                          key={u.id}
-                          onClick={() => insertMention(u.name)}
-                          style={{
-                            padding: "8px 12px", fontSize: 12, cursor: "pointer",
-                            display: "flex", alignItems: "center", gap: 8,
-                            background: "none", color: "#18181b", transition: "background 0.2s"
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
-                          onMouseLeave={e => e.currentTarget.style.background = "none"}
-                        >
-                          <div style={{
-                            width: 20, height: 20, borderRadius: "50%",
-                            background: getColor(u.role), color: "white",
-                            display: "flex", alignItems: "center",
-                            fontSize: 8, fontWeight: "bold", justifyContent: "center"
-                          }}>
-                            {getInitials(u.name)}
+                      .map(u => {
+                        const isOnline = onlineUsers.some(ou => ou.id === u.id)
+                        return (
+                          <div
+                            key={u.id}
+                            onClick={() => insertMention(u.name)}
+                            style={{
+                              padding: "8px 12px", fontSize: 12, cursor: "pointer",
+                              display: "flex", alignItems: "center", gap: 8,
+                              background: "none", color: "#18181b", transition: "background 0.2s"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <div style={{
+                              position: "relative",
+                              width: 20, height: 20, borderRadius: "50%",
+                              background: getColor(u.role), color: "white",
+                              display: "flex", alignItems: "center",
+                              fontSize: 8, fontWeight: "bold", justifyContent: "center"
+                            }}>
+                              {getInitials(u.name)}
+                              {isOnline && (
+                                <span style={{
+                                  position: "absolute", bottom: -1, right: -1, width: 6, height: 6,
+                                  borderRadius: "50%", background: "#22c55e", border: "1px solid white"
+                                }} />
+                              )}
+                            </div>
+                            <span style={{ fontWeight: 600 }}>{u.name}</span>
+                            <span style={{ fontSize: 9, color: "#a1a1aa", marginLeft: "auto" }}>{u.role.replace("_", " ")}</span>
                           </div>
-                          <span style={{ fontWeight: 600 }}>{u.name}</span>
-                          <span style={{ fontSize: 9, color: "#a1a1aa", marginLeft: "auto" }}>{u.role.replace("_", " ")}</span>
-                        </div>
-                      ))}
+                        )
+                      })}
                   </div>
                 )}
 
@@ -1019,10 +1136,11 @@ export function TeamChat() {
 
 function renderMessageText(text: string) {
   if (!text) return ""
+  const censoredText = censorMessage(text)
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(?:com|net|org|co|in|info|io|xyz)[^\s]*)/gi
-  const parts = text.split(urlRegex)
+  const parts = censoredText.split(urlRegex)
   
-  if (parts.length <= 1) return text
+  if (parts.length <= 1) return censoredText
 
   return parts.map((part, i) => {
     if (urlRegex.test(part)) {
@@ -1119,6 +1237,15 @@ function PrivateChatWindow({
           setMessages(prev => {
             const existingIds = new Set(prev.map(m => m.id))
             const newMsgs = json.data.filter((m: any) => !existingIds.has(m.id))
+            if (newMsgs.length > 0) {
+              const fromOthers = newMsgs.filter((m: any) => m.user_id !== currentUser?.id && m.user_name !== currentUser?.name)
+              if (fromOthers.length > 0) {
+                playNotificationSound()
+                fromOthers.forEach((m: any) => {
+                  showDesktopNotification(`Private: ${m.user_name}`, m.message_type === "text" ? m.message : `Sent a ${m.message_type}`)
+                })
+              }
+            }
             return [...prev, ...newMsgs]
           })
         } else {
