@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, Package, AlertCircle, Eye, Plus, Scan, Minus } from "lucide-react"
+import { Search, Package, AlertCircle, Eye, Plus, Scan, Minus, Check, Trash2 } from "lucide-react"
 import { InventoryAvailabilityPopup } from "@/components/bookings/inventory-availability-popup"
 import { toast } from "sonner"
 
@@ -56,6 +56,7 @@ export interface Subcategory {
 export interface SelectedItem {
   product_id: string
   quantity: number
+  unit_price?: number
 }
 
 interface ProductSelectorProps {
@@ -66,6 +67,8 @@ interface ProductSelectorProps {
   bookingType: "rental" | "sale"
   eventDate?: string
   onProductSelect: (product: Product, quantity?: number) => void
+  onItemUpdate?: (product_id: string, quantity: number, unit_price: number) => void
+  onItemRemove?: (product_id: string) => void
   onCheckAvailability?: (productId: string, productName: string) => void
   onOpenCustomProductDialog?: () => void
   className?: string
@@ -79,6 +82,8 @@ export function ProductSelector({
   bookingType,
   eventDate,
   onProductSelect,
+  onItemUpdate,
+  onItemRemove,
   onCheckAvailability,
   onOpenCustomProductDialog,
   className = "",
@@ -91,6 +96,8 @@ export function ProductSelector({
   const [isScanning, setIsScanning] = useState(false)
   // Per-card quantity state: productId -> qty (string to allow empty while typing)
   const [cardQty, setCardQty] = useState<Record<string, string>>({})
+  // Inline price edit for selected items: productId -> price string
+  const [inlinePrice, setInlinePrice] = useState<Record<string, string>>({})
   const gridRef = useRef<HTMLDivElement>(null)
   const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
   const barcodeInputRef = useRef<HTMLInputElement>(null)
@@ -245,8 +252,16 @@ export function ProductSelector({
       )
     }
 
+    // Sort: selected items first, then rest
+    const selectedIds = new Set(selectedItems.map(i => i.product_id))
+    result = [...result].sort((a, b) => {
+      const aSelected = selectedIds.has(a.id) ? 0 : 1
+      const bSelected = selectedIds.has(b.id) ? 0 : 1
+      return aSelected - bSelected
+    })
+
     return result
-  }, [products, productSearch, selectedCategory, selectedSubcategory])
+  }, [products, productSearch, selectedCategory, selectedSubcategory, selectedItems])
 
   // Calculate reserved quantities
   const getReservedQuantity = (productId: string): number => {
@@ -509,36 +524,48 @@ export function ProductSelector({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {filteredProducts.map((product, index) => {
-                const unitPrice = bookingType === "rental" 
-                  ? product.rental_price 
-                  : (product.sale_price || product.rental_price || 0) // Fallback to rental if sale is missing
-                const reservedQty = getReservedQuantity(product.id)
-                const availableStock = getAvailableStock(product)
-                const outOfStock = isOutOfStock(product)
+                const defaultPrice = bookingType === "rental"
+                  ? product.rental_price
+                  : (product.sale_price || product.rental_price || 0)
+                const selectedItem = selectedItems.find(i => i.product_id === product.id)
+                const isSelected = !!selectedItem
+                const reservedQty = selectedItem?.quantity || 0
+                const availableStock = product.stock_available
+                const outOfStock = !isSelected && availableStock <= 0
                 const isFocused = focusedIndex === index
+
+                // Inline price for selected items
+                const currentPrice = isSelected
+                  ? (inlinePrice[product.id] !== undefined
+                      ? inlinePrice[product.id]
+                      : String(selectedItem?.unit_price ?? defaultPrice))
+                  : String(defaultPrice)
 
                 return (
                   <div
                     key={product.id}
-                    ref={(el) => {
-                      productRefs.current[product.id] = el
-                    }}
-                    className={`border rounded-lg p-4 flex flex-col text-sm transition-all ${
-                      isFocused
-                        ? "ring-2 ring-primary ring-offset-2 shadow-lg"
-                        : "hover:shadow-md"
-                    } ${outOfStock ? "opacity-60" : ""}`}
+                    ref={(el) => { productRefs.current[product.id] = el }}
+                    className={`border-2 rounded-lg p-3 flex flex-col text-sm transition-all relative ${
+                      isSelected
+                        ? "border-green-500 bg-green-50/40 shadow-md"
+                        : isFocused
+                          ? "border-primary shadow-lg"
+                          : "border-gray-200 hover:shadow-md hover:border-gray-300"
+                    } ${outOfStock ? "opacity-50" : ""}`}
                   >
+                    {/* Selected badge */}
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow z-10">
+                        <Check className="h-3.5 w-3.5" />
+                      </div>
+                    )}
+
                     {/* Product Image */}
-                    <div className="aspect-square bg-gray-100 rounded mb-3 flex items-center justify-center text-xs text-muted-foreground overflow-hidden">
+                    <div className="aspect-square bg-gray-100 rounded mb-2 flex items-center justify-center text-xs text-muted-foreground overflow-hidden">
                       {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-cover rounded"
-                        />
+                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded" />
                       ) : (
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-1">
                           <Package className="h-8 w-8 text-gray-300" />
                           <span>No Image</span>
                         </div>
@@ -546,113 +573,117 @@ export function ProductSelector({
                     </div>
 
                     {/* Product Info */}
-                    <div className="font-medium line-clamp-2 mb-1 min-h-[2.5rem]" title={product.name}>
+                    <div className="font-semibold line-clamp-2 mb-0.5 min-h-[2.5rem] text-xs leading-snug" title={product.name}>
                       {product.name}
                     </div>
-                    <div className="text-[11px] text-gray-600 mb-2">{product.category}</div>
+                    <div className="text-[10px] text-gray-500 mb-2">{product.category}</div>
 
-                    {/* Pricing & Stock Info */}
-                    <div className="text-xs mb-3 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">
-                          {bookingType === "rental" ? "Rental" : "Sale"}:
-                        </span>
-                        <span className="font-semibold text-base">₹{unitPrice}</span>
+                    {/* Price — editable when selected */}
+                    <div className="mb-2">
+                      <div className="text-[10px] text-gray-500 mb-0.5">
+                        {bookingType === "rental" ? "Rental Price" : "Sale Price"}
                       </div>
-                      {bookingType === "rental" && product.security_deposit > 0 && (
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-muted-foreground">Security:</span>
-                          <span>₹{product.security_deposit}</span>
+                      {isSelected && onItemUpdate ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-500 text-xs">₹</span>
+                          <Input
+                            type="number"
+                            value={currentPrice}
+                            onChange={(e) => {
+                              setInlinePrice(prev => ({ ...prev, [product.id]: e.target.value }))
+                            }}
+                            onBlur={(e) => {
+                              const price = parseFloat(e.target.value) || 0
+                              setInlinePrice(prev => ({ ...prev, [product.id]: String(price) }))
+                              onItemUpdate(product.id, reservedQty, price)
+                            }}
+                            onClick={(e) => { e.stopPropagation(); (e.target as HTMLInputElement).select() }}
+                            className="h-7 text-sm font-bold text-green-700 px-1 border-green-300 bg-white"
+                          />
                         </div>
+                      ) : (
+                        <div className="font-bold text-base text-gray-800">₹{defaultPrice}</div>
                       )}
-                      <div
-                        className={`flex items-center justify-between ${
-                          outOfStock
-                            ? "text-red-600 font-semibold"
-                            : availableStock <= 5
-                            ? "text-orange-600"
-                            : "text-gray-600"
-                        }`}
-                      >
-                        <span>Stock:</span>
-                        <span>
-                          {availableStock}
-                          {reservedQty > 0 && (
-                            <span className="text-blue-600 ml-1">
-                              ({reservedQty} in cart)
-                            </span>
-                          )}
-                        </span>
-                      </div>
                     </div>
 
-                    {/* Stock Warning */}
-                    {!outOfStock && availableStock <= 5 && (
-                      <div className="flex items-center gap-1 text-[10px] text-orange-600 mb-2 p-1.5 bg-orange-50 rounded">
-                        <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                        <span>Low stock!</span>
+                    {/* Stock info */}
+                    <div className={`text-[10px] mb-2 ${outOfStock ? "text-red-600" : availableStock <= 5 ? "text-orange-600" : "text-gray-500"}`}>
+                      Stock: {availableStock}
+                      {isSelected && <span className="ml-1 text-green-600 font-semibold">• {reservedQty} selected</span>}
+                    </div>
+
+                    {availableStock <= 5 && !outOfStock && !isSelected && (
+                      <div className="flex items-center gap-1 text-[10px] text-orange-600 mb-2 p-1 bg-orange-50 rounded">
+                        <AlertCircle className="h-3 w-3" /><span>Low stock</span>
                       </div>
                     )}
 
                     {/* Actions */}
-                    <div className="mt-auto space-y-2">
-                      {eventDate && (
-                        <InventoryAvailabilityPopup
-                          productId={product.id}
-                          eventDate={new Date(eventDate)}
-                        >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full h-7 text-[10px]"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            Check Availability
+                    <div className="mt-auto space-y-1.5">
+                      {isSelected ? (
+                        <>
+                          {/* Qty controls for selected */}
+                          {onItemUpdate && (
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline"
+                                className="h-7 w-7 p-0 shrink-0 border-green-300"
+                                onClick={(e) => { e.stopPropagation(); const newQty = Math.max(1, reservedQty - 1); onItemUpdate(product.id, newQty, parseFloat(currentPrice) || defaultPrice) }}
+                                disabled={reservedQty <= 1}
+                              ><Minus className="h-3 w-3" /></Button>
+                              <Input
+                                type="text" inputMode="numeric"
+                                value={String(reservedQty)}
+                                onChange={(e) => {
+                                  const qty = parseInt(e.target.value) || 1
+                                  onItemUpdate(product.id, qty, parseFloat(currentPrice) || defaultPrice)
+                                }}
+                                onClick={(e) => { e.stopPropagation(); (e.target as HTMLInputElement).select() }}
+                                className="h-7 text-center px-1 font-bold text-sm border-green-300"
+                              />
+                              <Button size="sm" variant="outline"
+                                className="h-7 w-7 p-0 shrink-0 border-green-300"
+                                onClick={(e) => { e.stopPropagation(); onItemUpdate(product.id, reservedQty + 1, parseFloat(currentPrice) || defaultPrice) }}
+                              ><Plus className="h-3 w-3" /></Button>
+                            </div>
+                          )}
+                          {onItemRemove && (
+                            <Button size="sm" variant="outline"
+                              className="w-full h-7 text-red-600 border-red-200 hover:bg-red-50 text-xs"
+                              onClick={() => {
+                                onItemRemove(product.id)
+                                setInlinePrice(prev => { const n = {...prev}; delete n[product.id]; return n })
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />Remove
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {!outOfStock && (
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0"
+                                onClick={(e) => { e.stopPropagation(); stepQty(product.id, -1, availableStock) }}
+                                disabled={getCardQtyNum(product.id) <= 1}
+                              ><Minus className="h-3 w-3" /></Button>
+                              <Input type="text" inputMode="numeric"
+                                value={getCardQtyStr(product.id)}
+                                onChange={(e) => handleQtyInput(product.id, e.target.value)}
+                                onBlur={() => handleQtyBlur(product.id, availableStock)}
+                                onClick={(e) => { e.stopPropagation(); (e.target as HTMLInputElement).select() }}
+                                className="h-7 text-center px-1 font-semibold text-sm"
+                              />
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0 shrink-0"
+                                onClick={(e) => { e.stopPropagation(); stepQty(product.id, +1, availableStock) }}
+                                disabled={getCardQtyNum(product.id) >= availableStock}
+                              ><Plus className="h-3 w-3" /></Button>
+                            </div>
+                          )}
+                          <Button size="sm" onClick={() => handleAddToCart(product)} disabled={outOfStock} className="w-full h-8">
+                            {outOfStock ? "Out of Stock" : "Add to Order"}
                           </Button>
-                        </InventoryAvailabilityPopup>
+                        </>
                       )}
-
-                      {/* Quantity Stepper */}
-                      {!outOfStock && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0 shrink-0"
-                            onClick={(e) => { e.stopPropagation(); stepQty(product.id, -1, availableStock) }}
-                            disabled={getCardQtyNum(product.id) <= 1}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={getCardQtyStr(product.id)}
-                            onChange={(e) => handleQtyInput(product.id, e.target.value)}
-                            onBlur={() => handleQtyBlur(product.id, availableStock)}
-                            onClick={(e) => { e.stopPropagation(); (e.target as HTMLInputElement).select() }}
-                            className="h-8 text-center px-1 font-semibold text-sm"
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0 shrink-0"
-                            onClick={(e) => { e.stopPropagation(); stepQty(product.id, +1, availableStock) }}
-                            disabled={getCardQtyNum(product.id) >= availableStock}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-
-                      <Button
-                        size="sm"
-                        onClick={() => handleAddToCart(product)}
-                        disabled={outOfStock}
-                        className="w-full"
-                      >
-                        {outOfStock ? "Out of Stock" : `Add to Cart`}
-                      </Button>
                     </div>
                   </div>
                 )

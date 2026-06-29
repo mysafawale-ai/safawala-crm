@@ -2752,11 +2752,22 @@ export default function CreateInvoicePage() {
                                 subcategories={subcategories}
                                 selectedItems={invoiceItems.map(item => ({
                                   product_id: item.product_id,
-                                  quantity: item.quantity
+                                  quantity: item.quantity,
+                                  unit_price: item.unit_price,
                                 }))}
                                 bookingType={invoiceData.invoice_type}
                                 eventDate={invoiceData.event_date}
                                 onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
+                                onItemUpdate={(product_id, quantity, unit_price) => {
+                                  setInvoiceItems(prev => prev.map(it =>
+                                    it.product_id === product_id
+                                      ? { ...it, quantity, unit_price, total_price: quantity * unit_price }
+                                      : it
+                                  ))
+                                }}
+                                onItemRemove={(product_id) => {
+                                  setInvoiceItems(prev => prev.filter(it => it.product_id !== product_id))
+                                }}
                                 onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
                               />
                             </div>
@@ -2802,11 +2813,22 @@ export default function CreateInvoicePage() {
                               subcategories={subcategories}
                               selectedItems={invoiceItems.map(item => ({
                                 product_id: item.product_id,
-                                quantity: item.quantity
+                                quantity: item.quantity,
+                                unit_price: item.unit_price,
                               }))}
                               bookingType={invoiceData.invoice_type}
                               eventDate={invoiceData.event_date}
                               onProductSelect={(product, quantity) => addProduct(product as Product, quantity)}
+                              onItemUpdate={(product_id, quantity, unit_price) => {
+                                setInvoiceItems(prev => prev.map(it =>
+                                  it.product_id === product_id
+                                    ? { ...it, quantity, unit_price, total_price: quantity * unit_price }
+                                    : it
+                                ))
+                              }}
+                              onItemRemove={(product_id) => {
+                                setInvoiceItems(prev => prev.filter(it => it.product_id !== product_id))
+                              }}
                               onOpenCustomProductDialog={() => setShowCustomProductDialog(true)}
                             />
                           </div>
@@ -3037,7 +3059,25 @@ export default function CreateInvoicePage() {
                                   checked={showLostDamaged}
                                   onCheckedChange={(v) => {
                                     setShowLostDamaged(!!v)
-                                    if (!v) setLostDamagedItems([])
+                                    if (!v) {
+                                      setLostDamagedItems([])
+                                    } else if (lostDamagedItems.length === 0 && invoiceItems.length > 0) {
+                                      // Pre-populate from order items so user can tick which ones are lost/damaged
+                                      setLostDamagedItems(
+                                        invoiceItems
+                                          .filter(item => item.product_id && item.product_id !== "modification-service")
+                                          .map(item => ({
+                                            id: `ld-${item.product_id}-${Date.now()}-${Math.random()}`,
+                                            product_id: item.product_id,
+                                            product_name: item.product_name,
+                                            barcode: item.barcode || "",
+                                            type: "damaged" as const,
+                                            quantity: item.quantity,
+                                            charge_per_item: item.unit_price,
+                                            total_charge: item.unit_price * item.quantity,
+                                          }))
+                                      )
+                                    }
                                   }}
                                 />
                                 <label htmlFor="toggleLostDamaged" className="flex items-center gap-1.5 cursor-pointer select-none">
