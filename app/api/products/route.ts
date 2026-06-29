@@ -126,6 +126,8 @@ export async function GET(req: NextRequest) {
     const searchParam = searchParams.get("search")
     const limitParam = parseInt(searchParams.get("limit") || "500", 10)
     const idParam = searchParams.get("id")
+    const categoryIdParam = searchParams.get("category_id")
+    const activeOnlyParam = searchParams.get("active_only")
 
     const supabase = createClient()
     let query = supabase.from("products").select("*").order("name").limit(limitParam)
@@ -133,6 +135,16 @@ export async function GET(req: NextRequest) {
     // Franchise isolation
     if (!isSuperAdmin && franchiseId) {
       query = query.eq("franchise_id", franchiseId)
+    }
+
+    // Category filter (server-side, bypasses client-side matching issues)
+    if (categoryIdParam && categoryIdParam !== "all") {
+      query = query.eq("category_id", categoryIdParam)
+    }
+
+    // Active only filter
+    if (activeOnlyParam === "true") {
+      query = query.eq("is_active", true)
     }
 
     // Barcode lookup

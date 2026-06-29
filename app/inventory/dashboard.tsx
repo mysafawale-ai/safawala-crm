@@ -240,6 +240,57 @@ export default function InventoryDashboard() {
     fetchProducts()
   }, [])
 
+  // When category filter changes, re-fetch products with server-side category filter
+  // This ensures correct results even if RLS strips category_id from returned rows
+  useEffect(() => {
+    if (categoryFilter === "all") {
+      fetchProducts()
+    } else {
+      fetchProductsByCategory(categoryFilter)
+    }
+  }, [categoryFilter])
+
+  const fetchProductsByCategory = async (catId: string) => {
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/products?category_id=${catId}&active_only=true&limit=3000`, { cache: "no-store" })
+      const json = res.ok ? await res.json() : { data: [] }
+      const data = (json.data || []).filter((p: any) => p.is_active !== false)
+      const normalized: Product[] = data.map((p: any) => ({
+        id: p.id,
+        name: p.name || "Unnamed Product",
+        description: p.description || "",
+        brand: p.brand || "",
+        size: p.size || "",
+        color: p.color || "",
+        material: p.material || "",
+        price: typeof p.price === "number" ? p.price : typeof p.sale_price === "number" ? p.sale_price : 0,
+        regular_price: typeof p.regular_price === "number" ? p.regular_price : typeof p.price === "number" ? p.price : 0,
+        rental_price: typeof p.rental_price === "number" ? p.rental_price : 0,
+        cost_price: typeof p.cost_price === "number" ? p.cost_price : 0,
+        security_deposit: typeof p.security_deposit === "number" ? p.security_deposit : 0,
+        stock_total: typeof p.stock_total === "number" ? p.stock_total : typeof p.stock_available === "number" ? p.stock_available : 0,
+        stock_available: typeof p.stock_available === "number" ? p.stock_available : 0,
+        stock_booked: typeof p.stock_booked === "number" ? p.stock_booked : 0,
+        stock_damaged: typeof p.stock_damaged === "number" ? p.stock_damaged : 0,
+        stock_in_laundry: typeof p.stock_in_laundry === "number" ? p.stock_in_laundry : 0,
+        reorder_level: typeof p.reorder_level === "number" ? p.reorder_level : 0,
+        barcode: p.barcode || p.barcode_number || undefined,
+        image_url: p.image_url || undefined,
+        category_id: catId, // we know it matches since we filtered server-side
+        category_name: p.category_name || undefined,
+        is_active: p.is_active !== false,
+        product_code: p.product_code || p.id?.slice(0, 8) || "CUST",
+        created_at: p.created_at || "",
+      }))
+      setProducts(normalized)
+    } catch (err) {
+      console.error("Category fetch error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchProducts = async () => {
     try {
       setLoading(true)
@@ -271,8 +322,8 @@ export default function InventoryDashboard() {
         setCategories([])
       }
 
-      // Load products via API (server-side auth) so RLS doesn't strip category_id
-      const prodRes = await fetch("/api/products?limit=3000", { cache: "no-store" })
+      // Load products via API (server-side auth + category filter) so RLS can't strip category_id
+      const prodRes = await fetch("/api/products?limit=3000&active_only=true", { cache: "no-store" })
       const prodJson = prodRes.ok ? await prodRes.json() : { data: [] }
       const data = prodJson.data || []
       const error = null
@@ -543,7 +594,7 @@ export default function InventoryDashboard() {
 
       if (!matchesSearch) return false
 
-      if (categoryFilter !== "all" && product.category_id !== categoryFilter) return false
+      // category_id filter is handled server-side via fetchProductsByCategory; skip client-side check
 
       if (stockFilter !== "all") {
         if (stockFilter === "in_stock" && product.stock_available <= product.reorder_level) return false
