@@ -33,6 +33,7 @@ import {
   Lock,
   Plane,
   Stethoscope,
+  Sparkles,
 } from "lucide-react"
 
 import {
@@ -162,6 +163,13 @@ const navigationItems = {
       icon: Lock,
       permission: "bookings",
       description: "Block dates from new bookings — manage locked dates with person name and city",
+    },
+    {
+      title: "Virtual Trial",
+      url: "/virtual-trial",
+      icon: Sparkles,
+      permission: "inventory",
+      description: "AI-powered virtual try-on — upload person & product photos to see 4-angle previews",
     },
   ],
   business: [
