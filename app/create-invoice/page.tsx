@@ -1870,14 +1870,7 @@ export default function CreateInvoicePage() {
 
   // Create or Update Order
   const handleCreateOrder = async () => {
-    if (mode === "edit" && !editingQuote) {
-      toast({
-        title: "Order Locked",
-        description: "Confirmed orders/bookings cannot be modified once created.",
-        variant: "destructive"
-      })
-      return
-    }
+    // Allow editing confirmed orders too
 
     if (!selectedCustomer) {
       toast({ title: "Error", description: "Please select a customer", variant: "destructive" })

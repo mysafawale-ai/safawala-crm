@@ -220,14 +220,14 @@ export async function GET(request: NextRequest) {
     width: 90px;
     height: 90px;
     border-radius: 50%;
-    background: rgba(168,85,247,0.15);
-    border: 2px solid rgba(168,85,247,0.4);
+    background: #ffffff;
+    border: 3px solid rgba(168,85,247,0.5);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
+    font-size: 22px;
     margin-bottom: 20px;
-    color: #c084fc;
+    color: #7c3aed;
     font-weight: 900;
     letter-spacing: 1px;
   }
@@ -640,7 +640,7 @@ export async function GET(request: NextRequest) {
 
   <div class="cover-content">
     ${logoUrl
-      ? `<img src="${logoUrl}" class="cover-logo-img" alt="${companyName}" onerror="this.style.display='none'" />`
+      ? `<img src="${logoUrl}" class="cover-logo-img" alt="${companyName}" onerror="this.outerHTML='<div class=\\'cover-logo-placeholder\\'>SW</div>'" />`
       : `<div class="cover-logo-placeholder">SW</div>`}
     <div class="cover-brand">${companyName}</div>
     <div class="cover-website">${website || "www.safawala.com"}</div>
@@ -696,9 +696,7 @@ export async function GET(request: NextRequest) {
   <div class="back-corner-br"></div>
 
   <div class="back-content">
-    ${logoUrl
-      ? `<img src="${logoUrl}" class="back-logo-img" alt="${companyName}" onerror="this.style.display='none'" />`
-      : ""}
+    <img src="${logoUrl || ''}" class="back-logo-img" alt="${companyName}" onerror="this.outerHTML='<div style=\\'width:70px;height:70px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#7c3aed;margin:0 auto 16px;border:2px solid rgba(168,85,247,0.4)\\'>SW</div>'" />
     <div class="back-brand">${companyName}</div>
     <div class="back-website">www.safawala.com</div>
     <div class="back-divider"></div>
