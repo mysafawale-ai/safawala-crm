@@ -866,7 +866,7 @@ export function TeamChat() {
           {unread > 0 && (
             <span style={{
               position: "absolute", top: 2, right: 2, width: 18, height: 18, borderRadius: "50%",
-              background: "#22c55e", color: "white", fontSize: 10, fontWeight: 800,
+              background: "#ffffff", color: "#000000", fontSize: 10, fontWeight: 800,
               display: "flex", alignItems: "center", justifyContent: "center",
               border: "2px solid white",
             }}>{unread > 9 ? "9+" : unread}</span>
