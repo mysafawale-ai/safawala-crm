@@ -402,6 +402,13 @@ export function SafawalaAIAssistant() {
     }
   }, [open, minimized])
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      ;(window as any).__safawalaAIState = { open, minimized }
+      window.dispatchEvent(new CustomEvent("safawala-ai-state", { detail: { open, minimized } }))
+    }
+  }, [open, minimized])
+
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return

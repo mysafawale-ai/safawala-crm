@@ -68,6 +68,8 @@ export function TeamChat() {
   const [recordingTime, setRecordingTime] = useState(0)
   const [refining, setRefining] = useState(false)
 
+  const [aiState, setAiState] = useState({ open: false, minimized: false })
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -80,6 +82,28 @@ export function TeamChat() {
     const raw = localStorage.getItem("safawala_user")
     if (raw) { try { setCurrentUser(JSON.parse(raw)) } catch {} }
   }, [])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if ((window as any).__safawalaAIState) {
+        setAiState((window as any).__safawalaAIState)
+      }
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent).detail
+        if (detail) {
+          setAiState(detail)
+        }
+      }
+      window.addEventListener("safawala-ai-state", handler)
+      return () => window.removeEventListener("safawala-ai-state", handler)
+    }
+  }, [])
+
+  const getRightPosition = () => {
+    if (!aiState.open) return 220
+    if (aiState.minimized) return 328
+    return 440
+  }
 
   const fetchMessages = useCallback(async (since?: string) => {
     try {
@@ -240,13 +264,14 @@ export function TeamChat() {
         <button
           onClick={() => setOpen(true)}
           style={{
-            position: "fixed", bottom: 24, right: 96, zIndex: 9998,
+            position: "fixed", bottom: 24, right: getRightPosition(), zIndex: 9998,
             width: 52, height: 52, borderRadius: "50%",
             background: "linear-gradient(135deg, #22c55e, #16a34a)",
             border: "none", cursor: "pointer",
             boxShadow: "0 4px 20px rgba(34,197,94,0.4)",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "white",
+            transition: "right 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
           title="Team Chat"
         >
@@ -265,7 +290,7 @@ export function TeamChat() {
       {/* Chat window */}
       {open && (
         <div style={{
-          position: "fixed", bottom: 24, right: 96, zIndex: 9999,
+          position: "fixed", bottom: 24, right: getRightPosition(), zIndex: 9999,
           width: 340, borderRadius: 20,
           background: "#ffffff", boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
           border: "1px solid #e4e4e7",
@@ -273,6 +298,7 @@ export function TeamChat() {
           height: minimized ? "auto" : 500,
           fontFamily: "system-ui,-apple-system,sans-serif",
           overflow: "hidden",
+          transition: "right 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         }}>
           {/* Header */}
           <div style={{
