@@ -210,7 +210,7 @@ export default function VirtualTrialPage() {
     try {
       const [personB64, productB64] = await Promise.all([toBase64(personFile), toBase64(productFile)])
 
-      setProgress("Generating 4-angle views with DALL-E 3... (this takes ~30–60 sec)")
+      setProgress("Generating 4-angle views with GPT Image... (this takes ~30–60 sec)")
 
       const res = await fetch("/api/virtual-trial", {
         method: "POST",
