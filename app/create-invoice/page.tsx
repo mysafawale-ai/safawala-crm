@@ -3363,7 +3363,7 @@ export default function CreateInvoicePage() {
           <Button 
             size="sm" 
             onClick={handleCreateOrder} 
-            disabled={saving || (mode === "edit" && !editingQuote)}
+            disabled={saving}
           >
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
             {mode === "edit" && editingQuote ? "Convert to Booking" : mode === "edit" ? "Update Order" : "Create Order"}
@@ -3881,7 +3881,7 @@ export default function CreateInvoicePage() {
                         <Button 
                           size="default" 
                           onClick={handleCreateOrder} 
-                          disabled={saving || !selectedCustomer || (mode === "edit" && !editingQuote)}
+                          disabled={saving || !selectedCustomer}
                           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-10 font-semibold text-sm disabled:opacity-50"
                         >
                           {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
