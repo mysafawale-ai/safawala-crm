@@ -271,14 +271,11 @@ export default function InventoryDashboard() {
         setCategories([])
       }
 
-      let query = supabase.from("products").select("*").order("created_at", { ascending: false }).limit(3000)
-
-      if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
-        query = query.eq("franchise_id", currentUser.franchise_id)
-      }
-
-      const { data, error } = await query
-      if (error) throw error
+      // Load products via API (server-side auth) so RLS doesn't strip category_id
+      const prodRes = await fetch("/api/products?limit=3000", { cache: "no-store" })
+      const prodJson = prodRes.ok ? await prodRes.json() : { data: [] }
+      const data = prodJson.data || []
+      const error = null
 
       const activeData = (data || []).filter((p: any) => p.is_active !== false)
 
