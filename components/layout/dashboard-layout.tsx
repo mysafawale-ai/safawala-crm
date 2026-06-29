@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase"
 import { CompanyHeader } from "./company-header"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { SafawalaAIAssistant } from "@/components/safawala-ai-assistant"
+import { TeamChat } from "@/components/team-chat"
 import { useSessionGuard } from "@/hooks/use-session-guard"
 
 interface DashboardLayoutProps {
@@ -254,6 +255,8 @@ export function DashboardLayout({ children, userRole }: DashboardLayoutProps) {
       />
       {/* Safawala AI Floating Assistant */}
       <SafawalaAIAssistant />
+      {/* Team Chat Floating Assistant */}
+      <TeamChat />
     </SidebarProvider>
   )
 }
