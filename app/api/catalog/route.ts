@@ -224,9 +224,9 @@ export async function GET(request: NextRequest) {
     object-fit: contain;
     margin-bottom: 20px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.08);
+    background: #ffffff;
     padding: 10px;
-    border: 2px solid rgba(168,85,247,0.4);
+    border: 3px solid rgba(168,85,247,0.5);
   }
   .cover-logo-placeholder {
     width: 90px;
@@ -506,9 +506,9 @@ export async function GET(request: NextRequest) {
     height: 70px;
     object-fit: contain;
     border-radius: 50%;
-    background: rgba(255,255,255,0.07);
+    background: #ffffff;
     padding: 8px;
-    border: 2px solid rgba(168,85,247,0.3);
+    border: 2px solid rgba(168,85,247,0.4);
     margin: 0 auto 16px;
     display: block;
   }
@@ -775,8 +775,9 @@ export async function GET(request: NextRequest) {
   } catch (err: any) {
     if (browser) await (browser as any).close().catch(() => {})
     console.error("PDF generation error:", err)
-    // Fallback: return HTML for printing
-    return new NextResponse(html + `<script>window.onload=()=>window.print()</script>`, {
+    // Fallback: return HTML with auto print dialog
+    const htmlWithPrint = html.replace("</body>", `<script>window.onload=function(){setTimeout(()=>window.print(),800)}</script></body>`)
+    return new NextResponse(htmlWithPrint, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     })
   }
