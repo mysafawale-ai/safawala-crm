@@ -969,3 +969,57 @@ export async function sendReviewRequest(params: {
   }
   return res
 }
+
+/**
+ * Get all contacts from WATI
+ */
+export async function getContacts(params: {
+  pageSize?: number
+  pageNumber?: number
+  name?: string
+} = {}): Promise<{ success: boolean; contacts?: any[]; total?: number; error?: string }> {
+  const config = await getWATIConfig()
+  if (!config) return { success: false, error: "WATI not configured" }
+
+  const { pageSize = 50, pageNumber = 0, name } = params
+  let url = `${config.base_url}/api/v1/getContacts?pageSize=${pageSize}&pageNumber=${pageNumber}`
+  if (name) url += `&name=${encodeURIComponent(name)}`
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${config.api_key}`, "Content-Type": "application/json" },
+    })
+    const data = await res.json()
+    if (!res.ok) return { success: false, error: data.message || "Failed to fetch contacts" }
+    return { success: true, contacts: data.contact ?? [], total: data.total ?? 0 }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+/**
+ * Get messages for a specific WhatsApp contact
+ */
+export async function getMessages(params: {
+  phone: string
+  pageSize?: number
+  pageNumber?: number
+}): Promise<{ success: boolean; messages?: any[]; error?: string }> {
+  const config = await getWATIConfig()
+  if (!config) return { success: false, error: "WATI not configured" }
+
+  const { phone, pageSize = 50, pageNumber = 0 } = params
+  const formatted = formatPhone(phone)
+  const url = `${config.base_url}/api/v1/getMessages/${formatted}?pageSize=${pageSize}&pageNumber=${pageNumber}`
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${config.api_key}`, "Content-Type": "application/json" },
+    })
+    const data = await res.json()
+    if (!res.ok) return { success: false, error: data.message || "Failed to fetch messages" }
+    return { success: true, messages: data.messages?.items ?? [] }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}

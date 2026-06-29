@@ -280,6 +280,7 @@ export default function CreateInvoicePage() {
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([])
   const [extraItems, setExtraItems] = useState<InvoiceItem[]>([])
   const [lostDamagedItems, setLostDamagedItems] = useState<LostDamagedItem[]>([])
+  const [showLostDamaged, setShowLostDamaged] = useState(false)
   
   const [invoiceData, setInvoiceData] = useState({
     invoice_number: "",
@@ -1206,6 +1207,7 @@ export default function CreateInvoicePage() {
             notes: ld.notes,
           }))
           setLostDamagedItems(loadedLostDamaged)
+          setShowLostDamaged(true)
           console.log("[EditOrder] Loaded lost/damaged items:", loadedLostDamaged.length)
         }
       } catch (ldError) {
@@ -1793,79 +1795,51 @@ export default function CreateInvoicePage() {
         pdf_url: null, // Reset PDF url on update to force regeneration on next send
       }
 
+      const allItems = [
+        ...invoiceItems.map(item => ({
+          product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_name: item.product_name || "",
+          barcode: item.barcode || "",
+          category: item.category || "",
+          image_url: item.image_url || "",
+        })),
+        ...extraItems.map(item => ({
+          product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_name: item.product_name || "",
+          barcode: item.barcode || "",
+          category: item.category || "",
+          image_url: item.image_url || "",
+        }))
+      ]
+
       let order: any
       let isUpdate = false
 
-      // Check if editing existing quote
       if (orderId && mode === "edit") {
-        // Update existing quote
-        const { error: updateError } = await supabase
-          .from("product_orders")
-          .update(orderData)
-          .eq("id", orderId)
-
-        if (updateError) throw updateError
-
-        // Delete existing items before re-inserting
-        await supabase
-          .from("product_order_items")
-          .delete()
-          .eq("order_id", orderId)
-
+        const res = await fetch("/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, orderData, items: allItems, lostDamagedItems: [] }),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error || "Failed to update quote")
         order = { id: orderId, order_number: invoiceData.invoice_number }
         isUpdate = true
       } else {
-        // Create new quote
-        const { data: newOrder, error } = await supabase
-          .from("product_orders")
-          .insert([orderData])
-          .select()
-          .single()
-
-        if (error) throw error
-        order = newOrder
-      }
-
-      // Insert items (only if there are items)
-      console.log("[SaveQuote] Saving items - invoiceItems:", invoiceItems.length, "extraItems:", extraItems.length)
-      if (invoiceItems.length > 0 || extraItems.length > 0) {
-        const itemsData = [
-          ...invoiceItems.map(item => ({
-            order_id: order.id,
-            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            // DENORMALIZE product details
-            product_name: item.product_name || "",
-            barcode: item.barcode || "",
-            category: item.category || "",
-            image_url: item.image_url || "",
-          })),
-          ...extraItems.map(item => ({
-            order_id: order.id,
-            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            // DENORMALIZE product details
-            product_name: item.product_name || "",
-            barcode: item.barcode || "",
-            category: item.category || "",
-            image_url: item.image_url || "",
-          }))
-        ]
-
-        console.log("[SaveQuote] Inserting items:", itemsData)
-        const { error: itemsError } = await supabase.from("product_order_items").insert(itemsData)
-        if (itemsError) {
-          console.error("[SaveQuote] Error inserting items:", itemsError)
-          throw itemsError
-        } else {
-          console.log("[SaveQuote] Items inserted successfully:", itemsData.length, "items")
-        }
-      } else {
-        console.log("[SaveQuote] No items to save")
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderData, items: allItems, lostDamagedItems: [] }),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error || "Failed to create quote")
+        order = result.order
       }
 
       const message = isUpdate ? `Quote ${order.order_number} updated` : `Quote ${order.order_number} created`
@@ -2025,175 +1999,67 @@ export default function CreateInvoicePage() {
         pdf_url: null, // Reset PDF url on update to force regeneration on next send
       }
 
+      const allItems = [
+        ...invoiceItems.map(item => ({
+          product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_name: item.product_name || "",
+          barcode: item.barcode || "",
+          category: item.category || "",
+          image_url: item.image_url || "",
+        })),
+        ...extraItems.map(item => ({
+          product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_name: item.product_name || "",
+          barcode: item.barcode || "",
+          category: item.category || "",
+          image_url: item.image_url || "",
+        }))
+      ]
+
+      const ldPayload = lostDamagedItems.map(ldItem => ({
+        product_id: ldItem.product_id || null,
+        product_name: ldItem.product_name,
+        barcode: ldItem.barcode || null,
+        type: ldItem.type,
+        quantity: ldItem.quantity,
+        charge_per_item: ldItem.charge_per_item,
+        total_charge: ldItem.total_charge,
+        notes: ldItem.notes || null,
+      }))
+
       let order: any
       let isUpdate = false
 
       if (orderId && mode === "edit") {
-        // Update existing order
-        const { error: updateError } = await supabase
-          .from("product_orders")
-          .update(orderData)
-          .eq("id", orderId)
-
-        if (updateError) throw updateError
-
-        // Delete existing items
-        await supabase
-          .from("product_order_items")
-          .delete()
-          .eq("order_id", orderId)
-
+        const res = await fetch("/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, orderData, items: allItems, lostDamagedItems: ldPayload }),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error || "Failed to update order")
         order = { id: orderId, order_number: invoiceData.invoice_number }
         isUpdate = true
       } else {
-        // Create new order
-        const { data: newOrder, error } = await supabase
-          .from("product_orders")
-          .insert([orderData])
-          .select()
-          .single()
-
-        if (error) throw error
-        order = newOrder
-      }
-
-      // Insert/re-insert items (only if there are items)
-      console.log("[CreateOrder] Saving items - invoiceItems:", invoiceItems.length, "extraItems:", extraItems.length)
-      if (invoiceItems.length > 0 || extraItems.length > 0) {
-        const itemsData = [
-          ...invoiceItems.map(item => ({
-            order_id: order.id,
-            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            // DENORMALIZE product details so items don't disappear if product is deleted
-            product_name: item.product_name || "",
-            barcode: item.barcode || "",
-            category: item.category || "",
-            image_url: item.image_url || "",
-          })),
-          ...extraItems.map(item => ({
-            order_id: order.id,
-            product_id: item.product_id === 'modification-service' ? '00000000-0000-0000-0000-000000000000' : item.product_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
-            // DENORMALIZE product details
-            product_name: item.product_name || "",
-            barcode: item.barcode || "",
-            category: item.category || "",
-            image_url: item.image_url || "",
-          }))
-        ]
-
-        console.log("[CreateOrder] Inserting items with denormalized details:", itemsData)
-        const { error: itemsError } = await supabase.from("product_order_items").insert(itemsData)
-        if (itemsError) {
-          console.error("[CreateOrder] Error inserting items:", itemsError)
-          throw itemsError
-        } else {
-          console.log("[CreateOrder] Items inserted successfully:", itemsData.length, "items")
-        }
-      } else {
-        console.log("[CreateOrder] No items to save")
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderData, items: allItems, lostDamagedItems: ldPayload }),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error || "Failed to create order")
+        order = result.order
       }
 
       // Trigger PDF generation in the background
       if (order?.id) {
         triggerPDFGeneration(order.id, "product_order")
-      }
-
-      // Handle lost/damaged items - Save to dedicated table AND archive from inventory
-      if (lostDamagedItems.length > 0) {
-        // First, delete existing lost/damaged items for this order (in case of edit)
-        if (isUpdate) {
-          await supabase
-            .from("order_lost_damaged_items")
-            .delete()
-            .eq("order_id", order.id)
-        }
-
-        // Insert lost/damaged items to dedicated table
-        const lostDamagedData = lostDamagedItems.map(ldItem => ({
-          order_id: order.id,
-          product_id: ldItem.product_id || null,
-          product_name: ldItem.product_name,
-          barcode: ldItem.barcode || null,
-          type: ldItem.type,
-          quantity: ldItem.quantity,
-          charge_per_item: ldItem.charge_per_item,
-          total_charge: ldItem.total_charge,
-          notes: ldItem.notes || null,
-        }))
-
-        try {
-          await supabase.from("order_lost_damaged_items").insert(lostDamagedData)
-          console.log("[CreateOrder] Saved lost/damaged items:", lostDamagedData.length)
-        } catch (ldError) {
-          console.warn("[CreateOrder] Could not save lost/damaged items (table may not exist):", ldError)
-        }
-
-        // Also update inventory and log to archive
-        for (const ldItem of lostDamagedItems) {
-          if (ldItem.product_id) {
-            // Get current product stock
-            const { data: product } = await supabase
-              .from("products")
-              .select("stock_available, stock_total, name, category, barcode, product_code, rental_price, sale_price, image_url")
-              .eq("id", ldItem.product_id)
-              .single()
-
-            if (product) {
-              const newStockAvailable = Math.max(0, (product.stock_available || 0) - ldItem.quantity)
-              const newStockTotal = Math.max(0, (product.stock_total || 0) - ldItem.quantity)
-              
-              // Update product stock
-              await supabase
-                .from("products")
-                .update({
-                  stock_available: newStockAvailable,
-                  stock_total: newStockTotal,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", ldItem.product_id)
-
-              // Auto-archive: Insert into product_archive table
-              // Only use columns that exist in the original table
-              try {
-                const { data: { user } } = await supabase.auth.getUser()
-                await supabase.from("product_archive").insert({
-                  product_id: ldItem.product_id,
-                  product_name: product.name,
-                  category: product.category,
-                  barcode: product.barcode,
-                  product_code: product.product_code,
-                  reason: ldItem.type === "lost" ? "lost" : "damaged",
-                  notes: `${ldItem.type === "lost" ? "Lost" : "Damaged"} from Invoice ${order.order_number || "Unknown"}`,
-                  original_rental_price: product.rental_price,
-                  original_sale_price: product.sale_price,
-                  image_url: product.image_url,
-                  archived_by: user?.id,
-                })
-              } catch (archiveErr) {
-                console.warn("[CreateOrder] Could not insert into product_archive:", archiveErr)
-              }
-
-              // Log to archive/activity (if table exists) - ignore errors
-              try {
-                await supabase.from("product_archive_log").insert({
-                  product_id: ldItem.product_id,
-                  order_id: order.id,
-                  type: ldItem.type, // lost or damaged
-                  quantity: ldItem.quantity,
-                  charge_amount: ldItem.total_charge,
-                  notes: `${ldItem.type === "lost" ? "Lost" : "Damaged"} - ${ldItem.product_name}`,
-                  created_at: new Date().toISOString(),
-                })
-              } catch {} // Ignore if table doesn't exist
-            }
-          }
-        }
       }
 
       // Determine the message based on update vs create vs convert from quote
@@ -3170,13 +3036,27 @@ export default function CreateInvoicePage() {
     
                           {/* Lost/Damaged Items Section */}
                           {invoiceData.invoice_type === "rental" && (
-                            <Card className="p-4 shadow-sm border-l-4 border-l-red-500 bg-white overflow-visible">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
+                            <Card className={`p-4 shadow-sm bg-white overflow-visible ${showLostDamaged ? "border-l-4 border-l-red-500" : "border"}`}>
+                              {/* Checkbox toggle */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <Checkbox
+                                  id="toggleLostDamaged"
+                                  checked={showLostDamaged}
+                                  onCheckedChange={(v) => {
+                                    setShowLostDamaged(!!v)
+                                    if (!v) setLostDamagedItems([])
+                                  }}
+                                />
+                                <label htmlFor="toggleLostDamaged" className="flex items-center gap-1.5 cursor-pointer select-none">
                                   <AlertTriangle className="h-4 w-4 text-red-500" />
                                   <span className="font-semibold text-gray-800 text-sm">Lost / Damaged Items</span>
-                                  <Badge variant="destructive" className="text-[9px]">Stock will be reduced</Badge>
-                                </div>
+                                  <span className="text-[10px] text-gray-400">(tick if any item was lost or damaged)</span>
+                                </label>
+                              </div>
+
+                              {showLostDamaged && (<>
+                              <div className="flex items-center justify-between mb-3 mt-1">
+                                <Badge variant="destructive" className="text-[9px]">Stock will be reduced permanently</Badge>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -3319,9 +3199,10 @@ export default function CreateInvoicePage() {
                                   </div>
                                 </div>
                               )}
+                              </>)}
                             </Card>
                           )}
-    
+
                           {/* Notes Card */}
                           <Card className="p-4 shadow-sm border-l-4 border-l-indigo-500 bg-white">
                             <Label className="text-xs font-semibold text-gray-800 mb-2 block">Order Notes</Label>
