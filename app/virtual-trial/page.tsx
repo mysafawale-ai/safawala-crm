@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import {
   Sparkles, Upload, X, ImagePlus, Loader2,
-  User, Shirt, ZoomIn, Download, RefreshCw, ChevronLeft, ChevronRight,
+  User, Shirt, ZoomIn, Download, RefreshCw, Camera,
 } from "lucide-react"
 
 interface TrialResult {
@@ -29,16 +29,16 @@ interface Session {
 }
 
 function ImageUploadBox({
-  label, icon: Icon, preview, onFile, onClear, accept,
+  label, icon: Icon, preview, onFile, onClear,
 }: {
   label: string
   icon: React.ElementType
   preview: string | null
   onFile: (file: File) => void
   onClear: () => void
-  accept?: string
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
   const [drag, setDrag] = useState(false)
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -68,19 +68,46 @@ function ImageUploadBox({
           onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
           onDragLeave={() => setDrag(false)}
           onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
-          className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all gap-2 ${
-            drag ? "border-purple-500 bg-purple-50" : "border-gray-300 hover:border-purple-400 hover:bg-purple-50/40"
+          className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all gap-3 ${
+            drag ? "border-purple-500 bg-purple-50" : "border-gray-300"
           }`}
         >
-          <ImagePlus className="h-8 w-8 text-gray-400" />
-          <p className="text-xs text-gray-500 text-center px-3">Click or drag & drop<br />JPG, PNG, WEBP</p>
+          <ImagePlus className="h-8 w-8 text-gray-300" />
+          <p className="text-xs text-gray-400 text-center px-2">Drag & drop or choose below</p>
+          <div className="flex gap-2 px-4 w-full">
+            <button
+              type="button"
+              onClick={() => uploadRef.current?.click()}
+              className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 transition-all text-purple-700 text-xs font-medium"
+            >
+              <ImagePlus className="h-4 w-4" />
+              Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg border border-pink-200 bg-pink-50 hover:bg-pink-100 transition-all text-pink-700 text-xs font-medium"
+            >
+              <Camera className="h-4 w-4" />
+              Camera
+            </button>
+          </div>
         </div>
       )}
+      {/* Upload from gallery */}
       <input
-        ref={inputRef}
+        ref={uploadRef}
         type="file"
-        accept={accept || "image/*"}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f) }}
+      />
+      {/* Capture from camera */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f) }}
       />
