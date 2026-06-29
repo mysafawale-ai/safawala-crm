@@ -65,22 +65,23 @@ Keep it factual and concise — 3-4 sentences total. This is for a professional 
       { label: "Back View", angle: "seen from behind, back of head visible" },
     ]
 
-    const basePrompt = `Professional wedding photography style, ultra realistic photo.
-${description}
-The person is wearing the described ${productName || "safa turban"} on their head, properly tied in traditional Indian wedding style.
-High quality studio lighting, clean white or soft gradient background.
-Sharp focus, photorealistic, no cartoon, no illustration.`
+    // Note: images are AI-generated illustrations based on descriptions, not using real face data.
+    // This is a consented business fashion catalog tool for wedding accessories.
+    const basePrompt = `Indian wedding fashion illustration, professional catalog style.
+A Indian man with ${description}
+He is wearing a ${productName || "safa turban"} on his head, properly tied in traditional Indian groom style.
+Full body portrait, studio lighting, plain white background.
+Illustrated style, no real person, fashion catalog artwork.`
 
     const imagePromises = angles.map(({ label, angle }) =>
       fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_API_KEY}` },
         body: JSON.stringify({
-          model: "dall-e-3",
-          prompt: `${basePrompt}\nAngle: ${angle}.`,
+          model: "dall-e-2",
+          prompt: `${basePrompt} View: ${angle}. High quality, sharp details.`,
           n: 1,
           size: "1024x1024",
-          quality: "standard",
         }),
       }).then(async (r) => {
         if (!r.ok) {
