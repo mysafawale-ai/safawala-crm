@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Package, Plus, Search, RefreshCw, AlertTriangle, CheckCircle,
-  BarChart3, IndianRupee, ArrowUpDown, TrendingUp, Boxes, Download, Upload
+  BarChart3, IndianRupee, ArrowUpDown, TrendingUp, Boxes, Download, Upload, BookOpen
 } from "lucide-react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { ProductCard } from "@/components/inventory/product-card"
@@ -360,6 +360,13 @@ export default function InventoryDashboard() {
     window.open("/api/inventory/export-csv", "_blank")
   }
 
+  const handleCreateCatalog = () => {
+    const selectedCat = categories.find((c: any) => c.id === categoryFilter)
+    const catName = selectedCat?.name || "All Products"
+    const url = `/api/catalog?category_id=${categoryFilter}&category_name=${encodeURIComponent(catName)}`
+    window.open(url, "_blank")
+  }
+
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -649,6 +656,17 @@ export default function InventoryDashboard() {
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
             </Button>
+            {categoryFilter !== "all" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCreateCatalog}
+                className="gap-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:border-purple-400 transition-all duration-300"
+              >
+                <BookOpen className="w-4 h-4" />
+                Create Catalog
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
