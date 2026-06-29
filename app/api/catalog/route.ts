@@ -41,18 +41,19 @@ export async function GET(request: NextRequest) {
 
   const supabase = createClient()
 
-  // Fetch company settings
-  let companyName = "SAFAWALA"
-  let companyPhone = ""
-  let companyEmail = "info@safawala.com"
-  let companyAddress = ""
-  let companyCity = ""
-  let companyState = ""
-  let gstNumber = ""
+  // Hardcoded company details (from invoice)
+  const companyName = "SAFAWALA"
+  const companyPhone = "+91 97252 95691"
+  const companyPhone2 = "+91 97252 95692"
+  const officePhone = "+91 95103 66393"
+  const companyEmail = "care@safawala.com"
+  const companyAddress = "Delhi · Vadodara · Ahmedabad · Mumbai · Bangalore"
+  const gstNumber = ""
+  const website = "www.safawala.com"
+  const instagram = "@safawala.com"
+
+  // Fetch logo + terms from settings
   let logoUrl = ""
-  let website = "www.safawala.com"
-  let instagram = ""
-  let whatsapp = ""
   let rentalTerms = ""
   let salesTerms = ""
 
@@ -64,18 +65,7 @@ export async function GET(request: NextRequest) {
     )
     if (settingsRes.ok) {
       const s = await settingsRes.json()
-      const c = s.company || {}
-      companyName = c.company_name || "SAFAWALA"
-      companyPhone = c.phone || ""
-      companyEmail = c.email || "info@safawala.com"
-      companyAddress = c.address || ""
-      companyCity = c.city || ""
-      companyState = c.state || ""
-      gstNumber = c.gst_number || ""
-      logoUrl = s.merged?.logo_url || c.logo_url || ""
-      website = c.website || "www.safawala.com"
-      instagram = c.instagram || ""
-      whatsapp = c.whatsapp || c.phone || ""
+      logoUrl = s.merged?.logo_url || s.company?.logo_url || ""
       rentalTerms = s.document?.rental_terms_conditions || s.document?.default_terms_conditions || ""
       salesTerms = s.document?.sales_terms_conditions || s.document?.default_terms_conditions || ""
     }
@@ -170,7 +160,6 @@ export async function GET(request: NextRequest) {
     ? bgImages.map((url, i) => `<img src="${url}" class="bg-img bg-img-${i}" alt="" />`).join("")
     : ""
 
-  const contactFullAddress = [companyAddress, companyCity, companyState].filter(Boolean).join(", ")
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -368,7 +357,7 @@ export async function GET(request: NextRequest) {
   }
   .product-img-wrap {
     width: 100%;
-    height: 42mm;
+    aspect-ratio: 1 / 1;
     background: #f8f5ff;
     display: flex;
     align-items: center;
@@ -380,6 +369,7 @@ export async function GET(request: NextRequest) {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
   }
   .no-img {
     font-size: 36px;
@@ -661,7 +651,7 @@ export async function GET(request: NextRequest) {
     <div class="cover-count-pill"><strong>${items.length}</strong> &nbsp;Products</div>
   </div>
 
-  <div class="cover-footer">${today} &nbsp;•&nbsp; ${companyEmail} &nbsp;•&nbsp; ${companyPhone}</div>
+  <div class="cover-footer">${today} &nbsp;•&nbsp; ${companyEmail} &nbsp;•&nbsp; ${companyPhone} / ${companyPhone2}</div>
 </div>
 
 <!-- ══════ PRODUCT PAGES ══════ -->
@@ -710,21 +700,20 @@ export async function GET(request: NextRequest) {
       ? `<img src="${logoUrl}" class="back-logo-img" alt="${companyName}" onerror="this.style.display='none'" />`
       : ""}
     <div class="back-brand">${companyName}</div>
-    <div class="back-website">${website || "www.safawala.com"}</div>
+    <div class="back-website">www.safawala.com</div>
     <div class="back-divider"></div>
     <div class="back-tagline">Elegance for Every Celebration</div>
 
     <div class="contact-grid">
-      ${companyPhone ? `<div class="contact-item"><div class="contact-label">Phone</div><div class="contact-value">${companyPhone}</div></div>` : ""}
-      ${whatsapp && whatsapp !== companyPhone ? `<div class="contact-item"><div class="contact-label">WhatsApp</div><div class="contact-value">${whatsapp}</div></div>` : ""}
-      ${companyEmail ? `<div class="contact-item"><div class="contact-label">Email</div><div class="contact-value">${companyEmail}</div></div>` : ""}
-      ${contactFullAddress ? `<div class="contact-item"><div class="contact-label">Address</div><div class="contact-value">${contactFullAddress}</div></div>` : ""}
-      ${instagram ? `<div class="contact-item"><div class="contact-label">Instagram</div><div class="contact-value">@${instagram.replace(/^@/, "")}</div></div>` : ""}
-      ${website ? `<div class="contact-item"><div class="contact-label">Website</div><div class="contact-value">${website}</div></div>` : ""}
+      <div class="contact-item"><div class="contact-label">WhatsApp / Call</div><div class="contact-value">${companyPhone}<br/>${companyPhone2}</div></div>
+      <div class="contact-item"><div class="contact-label">Office</div><div class="contact-value">${officePhone}</div></div>
+      <div class="contact-item"><div class="contact-label">Email</div><div class="contact-value">${companyEmail}</div></div>
+      <div class="contact-item"><div class="contact-label">Website</div><div class="contact-value">${website}</div></div>
+      <div class="contact-item"><div class="contact-label">Instagram</div><div class="contact-value">${instagram}</div></div>
+      <div class="contact-item"><div class="contact-label">Locations</div><div class="contact-value">${companyAddress}</div></div>
     </div>
 
     <div class="back-cta">Book your wedding accessories today</div>
-    ${gstNumber ? `<div class="gst-line">GST: ${gstNumber}</div>` : ""}
   </div>
 </div>
 
