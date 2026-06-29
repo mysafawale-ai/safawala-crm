@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import {
   X, Send, Loader2, Users, Minimize2, Maximize2, Mic, MicOff,
-  Sparkles, RotateCcw, Trash2, ChevronDown,
+  Sparkles, RotateCcw, Trash2, ChevronDown, Radio, Volume2, PhoneOff
 } from "lucide-react"
 
 interface ChatMessage {
@@ -11,7 +11,7 @@ interface ChatMessage {
   user_name: string
   user_role: string
   message: string
-  message_type: "text" | "voice"
+  message_type: "text" | "voice" | "image" | "file" | "walkie_talkie_log"
   voice_url?: string
   created_at: string
   user_id?: string
@@ -121,6 +121,18 @@ export function TeamChat() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState<number>(-1)
   const [notifyPermission, setNotifyPermission] = useState<string>("default")
+
+  // Walkie-Talkie states
+  const [activeWalkieSession, setActiveWalkieSession] = useState<any>(null)
+  const [isInWalkie, setIsInWalkie] = useState(false)
+  const [walkieTransmissions, setWalkieTransmissions] = useState<any[]>([])
+  const [isWalkieRecording, setIsWalkieRecording] = useState(false)
+  const [currentlyPlayingUser, setCurrentlyPlayingUser] = useState<string | null>(null)
+  
+  const walkieRecorderRef = useRef<MediaRecorder | null>(null)
+  const walkieChunksRef = useRef<Blob[]>([])
+  const playedTransmissionsRef = useRef<Set<string>>(new Set())
+  const lastWalkiePollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Draggable offsets and flags
   const [btnOffset, setBtnOffset] = useState({ x: 0, y: 0 })
@@ -245,6 +257,79 @@ export function TeamChat() {
 
     fetchAllUsers()
   }, [open, currentUser])
+
+  // Poll active Walkie-Talkie session state
+  useEffect(() => {
+    if (!open || !currentUser) return
+
+    const pollActiveWalkie = async () => {
+      try {
+        const res = await fetch("/api/team-chat/walkie-talkie")
+        const json = await res.json()
+        if (json.activeSession) {
+          setActiveWalkieSession(json.activeSession)
+        } else {
+          setActiveWalkieSession(null)
+          setIsInWalkie(false)
+        }
+      } catch {}
+    }
+
+    pollActiveWalkie()
+    const interval = setInterval(pollActiveWalkie, 6000)
+    return () => clearInterval(interval)
+  }, [open, currentUser])
+
+  // Poll walkie talkie transmissions when inside room
+  useEffect(() => {
+    if (!isInWalkie || !activeWalkieSession?.id) {
+      if (lastWalkiePollRef.current) clearInterval(lastWalkiePollRef.current)
+      return
+    }
+
+    const pollTransmissions = async () => {
+      try {
+        const res = await fetch(`/api/team-chat/walkie-talkie?transmissions=true&session_id=${activeWalkieSession.id}`)
+        const json = await res.json()
+        if (json.data) {
+          setWalkieTransmissions(json.data)
+          
+          const newClips = json.data.filter((t: any) => 
+            t.sender_id !== currentUser?.id && !playedTransmissionsRef.current.has(t.id)
+          )
+
+          if (newClips.length > 0) {
+            for (const clip of newClips) {
+              playedTransmissionsRef.current.add(clip.id)
+              setCurrentlyPlayingUser(clip.sender_name)
+              
+              const audio = new Audio(clip.audio_url)
+              await new Promise<void>((resolve) => {
+                audio.onended = () => {
+                  setCurrentlyPlayingUser(null)
+                  resolve()
+                }
+                audio.onerror = () => {
+                  setCurrentlyPlayingUser(null)
+                  resolve()
+                }
+                audio.play().catch(() => {
+                  setCurrentlyPlayingUser(null)
+                  resolve()
+                })
+              })
+            }
+          }
+        }
+      } catch {}
+    }
+
+    pollTransmissions()
+    lastWalkiePollRef.current = setInterval(pollTransmissions, 2000)
+    return () => {
+      if (lastWalkiePollRef.current) clearInterval(lastWalkiePollRef.current)
+    }
+  }, [isInWalkie, activeWalkieSession?.id, currentUser?.id])
 
   // Trigger typing = true when input changes (throttled)
   useEffect(() => {
@@ -556,6 +641,88 @@ export function TeamChat() {
     }, 50)
   }
 
+  const startWalkieSession = async () => {
+    try {
+      const res = await fetch("/api/team-chat/walkie-talkie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start" })
+      })
+      const json = await res.json()
+      if (json.session) {
+        setActiveWalkieSession(json.session)
+        setIsInWalkie(true)
+        playedTransmissionsRef.current = new Set()
+      }
+    } catch {
+      alert("Failed to start walkie-talkie session")
+    }
+  }
+
+  const endWalkieSession = async () => {
+    if (!activeWalkieSession?.id) return
+    try {
+      await fetch("/api/team-chat/walkie-talkie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "end", sessionId: activeWalkieSession.id })
+      })
+      setActiveWalkieSession(null)
+      setIsInWalkie(false)
+      fetchMessages()
+    } catch {
+      alert("Failed to end session")
+    }
+  }
+
+  const startWalkieRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      walkieChunksRef.current = []
+      const mr = new MediaRecorder(stream)
+      walkieRecorderRef.current = mr
+      mr.ondataavailable = (e) => { if (e.data.size > 0) walkieChunksRef.current.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(walkieChunksRef.current, { type: "audio/webm" })
+        
+        try {
+          const fd = new FormData()
+          fd.append("file", blob, `walkie_${Date.now()}.webm`)
+          fd.append("bucket", "team-chat-voices")
+          const uploadRes = await fetch("/api/upload-simple", { method: "POST", body: fd })
+          const uploadJson = await uploadRes.json()
+          const audioUrl = uploadJson.url || uploadJson.publicUrl
+          if (audioUrl && activeWalkieSession?.id) {
+            await fetch("/api/team-chat/walkie-talkie", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "transmit",
+                sessionId: activeWalkieSession.id,
+                audioUrl
+              })
+            })
+            const res = await fetch(`/api/team-chat/walkie-talkie?transmissions=true&session_id=${activeWalkieSession.id}`)
+            const json = await res.json()
+            if (json.data) setWalkieTransmissions(json.data)
+          }
+        } catch {}
+      }
+      mr.start()
+      setIsWalkieRecording(true)
+    } catch {
+      alert("Microphone permission denied")
+    }
+  }
+
+  const stopWalkieRecording = () => {
+    if (walkieRecorderRef.current && walkieRecorderRef.current.state !== "inactive") {
+      walkieRecorderRef.current.stop()
+    }
+    setIsWalkieRecording(false)
+  }
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -642,6 +809,15 @@ export function TeamChat() {
                 {userStatus === "online" ? "🟢 Online" : "🔴 Offline"}
               </p>
             </div>
+            {!activeWalkieSession && (
+              <button 
+                onClick={startWalkieSession} 
+                title="Start Walkie-Talkie session" 
+                style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", padding: 4 }}
+              >
+                <Radio size={14} />
+              </button>
+            )}
             <button onClick={() => setMinimized(m => !m)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", padding: 4 }}>
               {minimized ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
             </button>
@@ -679,436 +855,573 @@ export function TeamChat() {
                   </button>
                 </div>
               )}
-
-              {/* Online Users List & Presence Toggle Row */}
-              <div style={{
-                padding: "8px 12px",
-                borderBottom: "1px solid #e4e4e7",
-                background: "#fafafa",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                overflowX: "auto",
-                scrollbarWidth: "none",
-                flexShrink: 0,
-              }}>
-                {/* Current User Toggle Avatar */}
-                <div 
-                  onClick={() => {
-                    const newStatus = userStatus === "online" ? "offline" : "online"
-                    setUserStatus(newStatus)
-                    localStorage.setItem("safawala_chat_status", newStatus)
-                  }}
-                  title={`You are ${userStatus}. Click to toggle status.`}
-                  style={{
-                    position: "relative",
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: getColor(currentUser?.role || "staff"),
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: "white",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    border: "2px solid #ffffff",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  {getInitials(currentUser?.name || "Me")}
-                  <span style={{
-                    position: "absolute",
-                    bottom: -2,
-                    right: -2,
-                    width: 9,
-                    height: 9,
-                    borderRadius: "50%",
-                    background: userStatus === "online" ? "#22c55e" : "#ef4444",
-                    border: "1.5px solid white",
-                  }} />
-                </div>
-
-                {/* Status Toggle Button Label */}
-                <button 
-                  onClick={() => {
-                    const newStatus = userStatus === "online" ? "offline" : "online"
-                    setUserStatus(newStatus)
-                    localStorage.setItem("safawala_chat_status", newStatus)
-                  }}
-                  style={{
-                    background: userStatus === "online" ? "#dcfce7" : "#fee2e2",
-                    color: userStatus === "online" ? "#15803d" : "#b91c1c",
-                    border: `1px solid ${userStatus === "online" ? "#bbf7d0" : "#fecaca"}`,
-                    borderRadius: 12,
-                    padding: "3px 8px",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    transition: "all 0.2s ease",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    background: userStatus === "online" ? "#22c55e" : "#ef4444",
-                  }} />
-                  {userStatus === "online" ? "Active" : "Offline"}
-                </button>
-
-                {/* Divider */}
-                <div style={{ width: 1, height: 18, background: "#e4e4e7", flexShrink: 0, margin: "0 2px" }} />
-
-                {/* Online avatars list */}
-                <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
-                  {onlineUsers.length === 0 ? (
-                    <span style={{ fontSize: 10, color: "#a1a1aa", alignSelf: "center", fontStyle: "italic", whiteSpace: "nowrap" }}>
-                      No other members online
-                    </span>
-                  ) : (
-                    onlineUsers.map(u => (
-                      <div 
-                        key={u.id}
-                        title={`${u.name} (${u.role.replace("_", " ")}) - ${u.is_typing ? "Typing..." : "Online"}. Click to open private chat.`}
-                        onClick={() => setPrivateChatUser(u)}
-                        style={{
-                          position: "relative",
-                          width: 28,
-                          height: 28,
-                          borderRadius: "50%",
-                          background: getColor(u.role),
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 10,
-                          fontWeight: 800,
-                          color: "white",
-                          cursor: "pointer",
-                          flexShrink: 0,
-                          border: "2px solid #ffffff",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                        }}
-                      >
-                        {getInitials(u.name)}
-                        <span style={{
-                          position: "absolute",
-                          bottom: -2,
-                          right: -2,
-                          width: 9,
-                          height: 9,
-                          borderRadius: "50%",
-                          background: "#22c55e",
-                          border: "1.5px solid white",
-                        }} />
-                        {u.is_typing && (
-                          <span style={{
-                            position: "absolute",
-                            top: -2,
-                            left: -2,
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: "#a855f7",
-                            border: "1.5px solid white",
-                            fontSize: 7,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "white",
-                            fontWeight: "bold",
-                            animation: "pulse 1s infinite"
-                          }}>✍️</span>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", background: "#fafafa", display: "flex", flexDirection: "column", gap: 2 }}>
-                {needsSetup ? (
-                  <div style={{ textAlign: "center", padding: "32px 16px", color: "#a1a1aa" }}>
-                    <Users size={32} style={{ margin: "0 auto 8px", display: "block", opacity: 0.3 }} />
-                    <p style={{ fontSize: 12, margin: 0 }}>Team chat needs one-time setup.</p>
-                    <p style={{ fontSize: 11, margin: "4px 0 0", color: "#d4d4d8" }}>Ask your admin to run the SQL migration.</p>
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "32px 16px", color: "#a1a1aa" }}>
-                    <Users size={32} style={{ margin: "0 auto 8px", display: "block", opacity: 0.3 }} />
-                    <p style={{ fontSize: 12, margin: 0 }}>No messages yet. Say hello!</p>
-                  </div>
-                ) : grouped.map(({ day, msgs }) => (
-                  <div key={day}>
-                    <div style={{ textAlign: "center", margin: "8px 0", fontSize: 10, color: "#a1a1aa", fontWeight: 600 }}>{day}</div>
-                    {msgs.map((msg, i) => {
-                      const isMe = msg.user_id === currentUser?.id || msg.user_name === currentUser?.name
-                      const color = getColor(msg.user_role)
-                      const showName = !isMe && (i === 0 || msgs[i - 1]?.user_name !== msg.user_name)
-                      const isOnline = onlineUsers.some(u => u.id === msg.user_id || u.name === msg.user_name)
-                      return (
-                        <div key={msg.id} style={{ display: "flex", gap: 8, marginBottom: 4, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
-                          {!isMe && (
-                            <div 
-                              onClick={() => setPrivateChatUser({ id: msg.user_id || "", name: msg.user_name, role: msg.user_role || "staff" })}
-                              title={`Chat with ${msg.user_name}`}
-                              style={{ position: "relative", flexShrink: 0, cursor: "pointer" }}
-                            >
-                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "white" }}>
-                                {getInitials(msg.user_name)}
-                              </div>
-                              {isOnline && (
-                                <span style={{
-                                  position: "absolute", bottom: -1, right: -1, width: 8, height: 8, borderRadius: "50%",
-                                  background: "#22c55e", border: "1px solid white"
-                                }} />
-                              )}
-                            </div>
-                          )}
-                          <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
-                            {showName && !isMe && (
-                              <span style={{ fontSize: 10, color, fontWeight: 700, marginBottom: 2, paddingLeft: 4 }}>{msg.user_name}</span>
-                            )}
-                            <div style={{
-                              background: isMe ? "#18181b" : "#ffffff",
-                              color: isMe ? "#ffffff" : "#18181b",
-                              borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                              padding: "8px 12px", fontSize: 13, lineHeight: 1.4,
-                              border: isMe ? "none" : "1px solid #e4e4e7",
-                              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-                            }}>
-                              {renderMessageContent(msg)}
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, paddingLeft: 4 }}>
-                              <span style={{ fontSize: 9, color: "#a1a1aa" }}>{formatTime(msg.created_at)}</span>
-                              {isMe && (
-                                <span 
-                                  title={msg.seen_by && msg.seen_by.length > 0 ? `Seen by: ${msg.seen_by.join(", ")}` : "Sent"}
-                                  style={{ display: "flex", alignItems: "center" }}
-                                >
-                                  {msg.seen_by && msg.seen_by.length > 0 ? (
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 6L8.5 14.5L5 11M22 6L13.5 14.5M10 16L9 17L4 12" /></svg>
-                                  ) : (
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
-                
-                {/* Typing Indicator */}
-                {onlineUsers.filter(u => u.is_typing).length > 0 && (
-                  <div style={{ padding: "4px 12px", display: "flex", alignItems: "center", gap: 6, color: "#22c55e", fontSize: 11, fontWeight: 600 }}>
-                    <span style={{ fontStyle: "italic" }}>
-                      {onlineUsers.filter(u => u.is_typing).map(u => u.name).join(", ")}{" "}
-                      {onlineUsers.filter(u => u.is_typing).length === 1 ? "is" : "are"} typing...
+              {activeWalkieSession && !isInWalkie && (
+                <div style={{
+                  background: "#dcfce7", borderBottom: "1px solid #bbf7d0",
+                  padding: "8px 12px", display: "flex", alignItems: "center", gap: 8,
+                  justifyContent: "space-between", flexShrink: 0
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: "#22c55e", animation: "pulse 1s infinite"
+                    }} />
+                    <span style={{ fontSize: 10, color: "#14532d", fontWeight: 700 }}>
+                      Walkie-Talkie live by {activeWalkieSession.host_name}
                     </span>
                   </div>
-                )}
-                
-                <div ref={messagesEndRef} />
-              </div>
+                  <button 
+                    onClick={() => {
+                      setIsInWalkie(true)
+                      playedTransmissionsRef.current = new Set()
+                    }}
+                    style={{
+                      background: "#16a34a", color: "white", border: "none",
+                      borderRadius: 8, padding: "3px 10px", fontSize: 10,
+                      fontWeight: 700, cursor: "pointer"
+                    }}
+                  >
+                    Join Room
+                  </button>
+                </div>
+              )}
 
-              {/* Input area */}
-              <div style={{ padding: "10px 12px", borderTop: "1px solid #f4f4f5", background: "#ffffff", flexShrink: 0, position: "relative" }}>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  style={{ display: "none" }} 
-                />
-
-                {/* Mentions Autocomplete Popup */}
-                {mentionQuery !== null && allUsers.filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase())).length > 0 && (
-                  <div style={{
-                    position: "absolute", bottom: 56, left: 12, right: 12,
-                    background: "white", border: "1px solid #e4e4e7",
-                    borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-                    maxHeight: 140, overflowY: "auto", zIndex: 10000,
-                    display: "flex", flexDirection: "column", padding: "4px 0",
-                  }}>
-                    {allUsers
-                      .filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase()))
-                      .map(u => {
-                        const isOnline = onlineUsers.some(ou => ou.id === u.id)
-                        return (
-                          <div
-                            key={u.id}
-                            onClick={() => insertMention(u.name)}
-                            style={{
-                              padding: "8px 12px", fontSize: 12, cursor: "pointer",
-                              display: "flex", alignItems: "center", gap: 8,
-                              background: "none", color: "#18181b", transition: "background 0.2s"
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
-                            onMouseLeave={e => e.currentTarget.style.background = "none"}
-                          >
-                            <div style={{
-                              position: "relative",
-                              width: 20, height: 20, borderRadius: "50%",
-                              background: getColor(u.role), color: "white",
-                              display: "flex", alignItems: "center",
-                              fontSize: 8, fontWeight: "bold", justifyContent: "center"
-                            }}>
-                              {getInitials(u.name)}
-                              {isOnline && (
-                                <span style={{
-                                  position: "absolute", bottom: -1, right: -1, width: 6, height: 6,
-                                  borderRadius: "50%", background: "#22c55e", border: "1px solid white"
-                                }} />
-                              )}
-                            </div>
-                            <span style={{ fontWeight: 600 }}>{u.name}</span>
-                            <span style={{ fontSize: 9, color: "#a1a1aa", marginLeft: "auto" }}>{u.role.replace("_", " ")}</span>
-                          </div>
-                        )
-                      })}
+              {isInWalkie ? (
+                /* Walkie Room live View */
+                <div style={{
+                  flex: 1, display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  background: "#0f172a", color: "white", padding: 20, gap: 16,
+                  minHeight: 300,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: "#22c55e", animation: "pulse 1s infinite"
+                    }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Walkie-Talkie Room Live
+                    </span>
                   </div>
-                )}
-
-                {showEmojis && (
+                  
+                  {/* Speaker indicator */}
                   <div style={{
-                    position: "absolute", bottom: 50, right: 10,
-                    background: "white", border: "1px solid #e4e4e7",
-                    borderRadius: 12, padding: 8, display: "flex", gap: 6,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10000,
+                    height: 60, display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center", gap: 6
                   }}>
-                    {["😊", "😂", "❤️", "👍", "🎉", "🔥", "😮", "😢", "👏", "🚀"].map(emoji => (
+                    {currentlyPlayingUser ? (
+                      <>
+                        <Volume2 size={24} style={{ color: "#22c55e", animation: "bounce 1s infinite" }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#22c55e" }}>
+                          🔊 Listening to {currentlyPlayingUser}...
+                        </span>
+                      </>
+                    ) : isWalkieRecording ? (
+                      <>
+                        <Mic size={24} style={{ color: "#ef4444", animation: "pulse 1s infinite" }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#ef4444" }}>
+                          🎙️ You are Speaking...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Radio size={24} style={{ color: "#64748b" }} />
+                        <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                          Ready. Press & hold to speak.
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Push to talk button */}
+                  <button
+                    onMouseDown={startWalkieRecording}
+                    onMouseUp={stopWalkieRecording}
+                    onTouchStart={startWalkieRecording}
+                    onTouchEnd={stopWalkieRecording}
+                    style={{
+                      width: 84, height: 84, borderRadius: "50%",
+                      background: isWalkieRecording ? "#ef4444" : "linear-gradient(135deg, #22c55e, #16a34a)",
+                      color: "white", border: "none", cursor: "pointer",
+                      boxShadow: isWalkieRecording 
+                        ? "0 0 25px rgba(239,68,68,0.5)" 
+                        : "0 6px 20px rgba(34,197,94,0.35)",
+                      display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 3,
+                      transition: "all 0.1s ease",
+                      userSelect: "none", outline: "none",
+                    }}
+                  >
+                    <Mic size={20} />
+                    <span style={{ fontSize: 8, fontWeight: 800, textTransform: "uppercase" }}>
+                      {isWalkieRecording ? "Speaking" : "Push To Talk"}
+                    </span>
+                  </button>
+
+                  {/* Action buttons (End Session / Leave Room) */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                    {activeWalkieSession?.host_id === currentUser?.id ? (
                       <button
-                        key={emoji}
-                        onClick={() => {
-                          setInput(prev => prev + emoji)
-                          setShowEmojis(false)
-                          inputRef.current?.focus()
+                        onClick={endWalkieSession}
+                        style={{
+                          background: "#b91c1c", color: "white", border: "none",
+                          borderRadius: 10, padding: "6px 12px", fontSize: 10,
+                          fontWeight: 700, cursor: "pointer", display: "flex",
+                          alignItems: "center", gap: 4
                         }}
-                        style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", padding: 4 }}
                       >
-                        {emoji}
+                        <PhoneOff size={10} /> End Session
                       </button>
-                    ))}
+                    ) : (
+                      <button
+                        onClick={() => setIsInWalkie(false)}
+                        style={{
+                          background: "#334155", color: "white", border: "none",
+                          borderRadius: 10, padding: "6px 12px", fontSize: 10,
+                          fontWeight: 700, cursor: "pointer"
+                        }}
+                      >
+                        Leave Room
+                      </button>
+                    )}
                   </div>
-                )}
 
-                {isRecording && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 12px", background: "#fee2e2", borderRadius: 10 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", animation: "pulse 1s infinite" }} />
-                    <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>Recording... {recordingTime}s</span>
-                    <button onClick={stopRecording} style={{ marginLeft: "auto", background: "#ef4444", color: "white", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>Stop & Send</button>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
-                  {/* Emoji Button */}
-                  <button
-                    onClick={() => setShowEmojis(!showEmojis)}
-                    style={{
-                      width: 34, height: 34, borderRadius: 10, border: "none",
-                      background: "#f4f4f5", cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 16, flexShrink: 0,
-                    }}
-                    title="Insert emoji"
-                  >
-                    😊
-                  </button>
-
-                  {/* Attachment Button */}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      width: 34, height: 34, borderRadius: 10, border: "none",
-                      background: "#f4f4f5", cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 16, flexShrink: 0,
-                    }}
-                    title="Upload attachment"
-                  >
-                    📎
-                  </button>
-
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={e => {
-                      const val = e.target.value
-                      const cursor = e.target.selectionStart
-                      setInput(val)
-                      
-                      const textBeforeCursor = val.slice(0, cursor)
-                      const match = textBeforeCursor.match(/@(\w*)$/)
-                      if (match) {
-                        setMentionQuery(match[1])
-                        setMentionIndex(cursor - match[1].length - 1)
-                      } else {
-                        setMentionQuery(null)
-                      }
-                    }}
-                    onKeyDown={onKeyDown}
-                    placeholder="Type a message... (Enter to send)"
-                    rows={1}
-                    style={{
-                      flex: 1, borderRadius: 12, border: "1px solid #e4e4e7",
-                      padding: "8px 12px", fontSize: 13, resize: "none",
-                      fontFamily: "inherit", outline: "none", background: "#f4f4f5",
-                      maxHeight: 80, lineHeight: 1.4, color: "#18181b",
-                    }}
-                  />
-                  {/* AI Refine */}
-                  {input.trim() && (
-                    <button
-                      onClick={refineWithAI}
-                      disabled={refining}
-                      title="Refine with AI"
+                  <span style={{ fontSize: 9, color: "#64748b" }}>
+                    Transmissions in session: {walkieTransmissions.length}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div style={{
+                    padding: "8px 12px",
+                    borderBottom: "1px solid #e4e4e7",
+                    background: "#fafafa",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    overflowX: "auto",
+                    scrollbarWidth: "none",
+                    flexShrink: 0,
+                  }}>
+                    {/* Current User Toggle Avatar */}
+                    <div 
+                      onClick={() => {
+                        const newStatus = userStatus === "online" ? "offline" : "online"
+                        setUserStatus(newStatus)
+                        localStorage.setItem("safawala_chat_status", newStatus)
+                      }}
+                      title={`You are ${userStatus}. Click to toggle status.`}
                       style={{
-                        width: 34, height: 34, borderRadius: 10, border: "1px solid #e4e4e7",
-                        background: refining ? "#f4f4f5" : "#faf5ff", cursor: "pointer",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#a855f7", flexShrink: 0,
+                        position: "relative",
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: getColor(currentUser?.role || "staff"),
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: "white",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        border: "2px solid #ffffff",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                       }}
                     >
-                      {refining ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                      {getInitials(currentUser?.name || "Me")}
+                      <span style={{
+                        position: "absolute",
+                        bottom: -2,
+                        right: -2,
+                        width: 9,
+                        height: 9,
+                        borderRadius: "50%",
+                        background: userStatus === "online" ? "#22c55e" : "#ef4444",
+                        border: "1.5px solid white",
+                      }} />
+                    </div>
+
+                    {/* Status Toggle Button Label */}
+                    <button 
+                      onClick={() => {
+                        const newStatus = userStatus === "online" ? "offline" : "online"
+                        setUserStatus(newStatus)
+                        localStorage.setItem("safawala_chat_status", newStatus)
+                      }}
+                      style={{
+                        background: userStatus === "online" ? "#dcfce7" : "#fee2e2",
+                        color: userStatus === "online" ? "#15803d" : "#b91c1c",
+                        border: `1px solid ${userStatus === "online" ? "#bbf7d0" : "#fecaca"}`,
+                        borderRadius: 12,
+                        padding: "3px 8px",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        transition: "all 0.2s ease",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        background: userStatus === "online" ? "#22c55e" : "#ef4444",
+                      }} />
+                      {userStatus === "online" ? "Active" : "Offline"}
                     </button>
-                  )}
-                  {/* Voice */}
-                  <button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    title={isRecording ? "Stop recording" : "Voice message"}
-                    style={{
-                      width: 34, height: 34, borderRadius: 10, border: "none",
-                      background: isRecording ? "#ef4444" : "#f4f4f5",
-                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                      color: isRecording ? "white" : "#71717a", flexShrink: 0,
-                    }}
-                  >
-                    {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
-                  </button>
-                  {/* Send */}
-                  <button
-                    onClick={() => sendMessage()}
-                    disabled={sending || !input.trim()}
-                    style={{
-                      width: 34, height: 34, borderRadius: 10, border: "none",
-                      background: input.trim() ? "#18181b" : "#f4f4f5",
-                      cursor: input.trim() ? "pointer" : "default",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      color: input.trim() ? "white" : "#a1a1aa", flexShrink: 0,
-                    }}
-                  >
-                    {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  </button>
-                </div>
-              </div>
+
+                    {/* Divider */}
+                    <div style={{ width: 1, height: 18, background: "#e4e4e7", flexShrink: 0, margin: "0 2px" }} />
+
+                    {/* Online avatars list */}
+                    <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+                      {onlineUsers.length === 0 ? (
+                        <span style={{ fontSize: 10, color: "#a1a1aa", alignSelf: "center", fontStyle: "italic", whiteSpace: "nowrap" }}>
+                          No other members online
+                        </span>
+                      ) : (
+                        onlineUsers.map(u => (
+                          <div 
+                            key={u.id}
+                            title={`${u.name} (${u.role.replace("_", " ")}) - ${u.is_typing ? "Typing..." : "Online"}. Click to open private chat.`}
+                            onClick={() => setPrivateChatUser(u)}
+                            style={{
+                              position: "relative",
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: getColor(u.role),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 10,
+                              fontWeight: 800,
+                              color: "white",
+                              cursor: "pointer",
+                              flexShrink: 0,
+                              border: "2px solid #ffffff",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                            }}
+                          >
+                            {getInitials(u.name)}
+                            <span style={{
+                              position: "absolute",
+                              bottom: -2,
+                              right: -2,
+                              width: 9,
+                              height: 9,
+                              borderRadius: "50%",
+                              background: "#22c55e",
+                              border: "1.5px solid white",
+                            }} />
+                            {u.is_typing && (
+                              <span style={{
+                                position: "absolute",
+                                top: -2,
+                                left: -2,
+                                width: 10,
+                                height: 10,
+                                borderRadius: "50%",
+                                background: "#a855f7",
+                                border: "1.5px solid white",
+                                fontSize: 7,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyItems: "center",
+                                color: "white",
+                                fontWeight: "bold",
+                                animation: "pulse 1s infinite"
+                              }}>✍️</span>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", background: "#fafafa", display: "flex", flexDirection: "column", gap: 2 }}>
+                    {needsSetup ? (
+                      <div style={{ textAlign: "center", padding: "32px 16px", color: "#a1a1aa" }}>
+                        <Users size={32} style={{ margin: "0 auto 8px", display: "block", opacity: 0.3 }} />
+                        <p style={{ fontSize: 12, margin: 0 }}>Team chat needs one-time setup.</p>
+                        <p style={{ fontSize: 11, margin: "4px 0 0", color: "#d4d4d8" }}>Ask your admin to run the SQL migration.</p>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "32px 16px", color: "#a1a1aa" }}>
+                        <Users size={32} style={{ margin: "0 auto 8px", display: "block", opacity: 0.3 }} />
+                        <p style={{ fontSize: 12, margin: 0 }}>No messages yet. Say hello!</p>
+                      </div>
+                    ) : grouped.map(({ day, msgs }) => (
+                      <div key={day}>
+                        <div style={{ textAlign: "center", margin: "8px 0", fontSize: 10, color: "#a1a1aa", fontWeight: 600 }}>{day}</div>
+                        {msgs.map((msg, i) => {
+                          const isMe = msg.user_id === currentUser?.id || msg.user_name === currentUser?.name
+                          const color = getColor(msg.user_role)
+                          const showName = !isMe && (i === 0 || msgs[i - 1]?.user_name !== msg.user_name)
+                          const isOnline = onlineUsers.some(u => u.id === msg.user_id || u.name === msg.user_name)
+                          return (
+                            <div key={msg.id} style={{ display: "flex", gap: 8, marginBottom: 4, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
+                              {!isMe && (
+                                <div 
+                                  onClick={() => setPrivateChatUser({ id: msg.user_id || "", name: msg.user_name, role: msg.user_role || "staff" })}
+                                  title={`Chat with ${msg.user_name}`}
+                                  style={{ position: "relative", flexShrink: 0, cursor: "pointer" }}
+                                >
+                                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "white" }}>
+                                    {getInitials(msg.user_name)}
+                                  </div>
+                                  {isOnline && (
+                                    <span style={{
+                                      position: "absolute", bottom: -1, right: -1, width: 8, height: 8, borderRadius: "50%",
+                                      background: "#22c55e", border: "1px solid white"
+                                    }} />
+                                  )}
+                                </div>
+                              )}
+                              <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                                {showName && !isMe && (
+                                  <span style={{ fontSize: 10, color, fontWeight: 700, marginBottom: 2, paddingLeft: 4 }}>{msg.user_name}</span>
+                                )}
+                                <div style={{
+                                  background: isMe ? "#18181b" : "#ffffff",
+                                  color: isMe ? "#ffffff" : "#18181b",
+                                  borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                                  padding: "8px 12px", fontSize: 13, lineHeight: 1.4,
+                                  border: isMe ? "none" : "1px solid #e4e4e7",
+                                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                                }}>
+                                  {renderMessageContent(msg)}
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, paddingLeft: 4 }}>
+                                  <span style={{ fontSize: 9, color: "#a1a1aa" }}>{formatTime(msg.created_at)}</span>
+                                  {isMe && (
+                                    <span 
+                                      title={msg.seen_by && msg.seen_by.length > 0 ? `Seen by: ${msg.seen_by.join(", ")}` : "Sent"}
+                                      style={{ display: "flex", alignItems: "center" }}
+                                    >
+                                      {msg.seen_by && msg.seen_by.length > 0 ? (
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 6L8.5 14.5L5 11M22 6L13.5 14.5M10 16L9 17L4 12" /></svg>
+                                      ) : (
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
+                    
+                    {/* Typing Indicator */}
+                    {onlineUsers.filter(u => u.is_typing).length > 0 && (
+                      <div style={{ padding: "4px 12px", display: "flex", alignItems: "center", gap: 6, color: "#22c55e", fontSize: 11, fontWeight: 600 }}>
+                        <span style={{ fontStyle: "italic" }}>
+                          {onlineUsers.filter(u => u.is_typing).map(u => u.name).join(", ")}{" "}
+                          {onlineUsers.filter(u => u.is_typing).length === 1 ? "is" : "are"} typing...
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Input area */}
+                  <div style={{ padding: "10px 12px", borderTop: "1px solid #f4f4f5", background: "#ffffff", flexShrink: 0, position: "relative" }}>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileChange} 
+                      style={{ display: "none" }} 
+                    />
+
+                    {/* Mentions Autocomplete Popup */}
+                    {mentionQuery !== null && allUsers.filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase())).length > 0 && (
+                      <div style={{
+                        position: "absolute", bottom: 56, left: 12, right: 12,
+                        background: "white", border: "1px solid #e4e4e7",
+                        borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                        maxHeight: 140, overflowY: "auto", zIndex: 10000,
+                        display: "flex", flexDirection: "column", padding: "4px 0",
+                      }}>
+                        {allUsers
+                          .filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase()))
+                          .map(u => {
+                            const isOnline = onlineUsers.some(ou => ou.id === u.id)
+                            return (
+                              <div
+                                key={u.id}
+                                onClick={() => insertMention(u.name)}
+                                style={{
+                                  padding: "8px 12px", fontSize: 12, cursor: "pointer",
+                                  display: "flex", alignItems: "center", gap: 8,
+                                  background: "none", color: "#18181b", transition: "background 0.2s"
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                                onMouseLeave={e => e.currentTarget.style.background = "none"}
+                              >
+                                <div style={{
+                                  position: "relative",
+                                  width: 20, height: 20, borderRadius: "50%",
+                                  background: getColor(u.role), color: "white",
+                                  display: "flex", alignItems: "center",
+                                  fontSize: 8, fontWeight: "bold", justifyContent: "center"
+                                }}>
+                                  {getInitials(u.name)}
+                                  {isOnline && (
+                                    <span style={{
+                                      position: "absolute", bottom: -1, right: -1, width: 6, height: 6,
+                                      borderRadius: "50%", background: "#22c55e", border: "1px solid white"
+                                    }} />
+                                  )}
+                                </div>
+                                <span style={{ fontWeight: 600 }}>{u.name}</span>
+                                <span style={{ fontSize: 9, color: "#a1a1aa", marginLeft: "auto" }}>{u.role.replace("_", " ")}</span>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    )}
+
+                    {showEmojis && (
+                      <div style={{
+                        position: "absolute", bottom: 50, right: 10,
+                        background: "white", border: "1px solid #e4e4e7",
+                        borderRadius: 12, padding: 8, display: "flex", gap: 6,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10000,
+                      }}>
+                        {["😊", "😂", "❤️", "👍", "🎉", "🔥", "😮", "😢", "👏", "🚀"].map(emoji => (
+                          <button
+                            key={emoji}
+                            onClick={() => {
+                              setInput(prev => prev + emoji)
+                              setShowEmojis(false)
+                              inputRef.current?.focus()
+                            }}
+                            style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", padding: 4 }}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {isRecording && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 12px", background: "#fee2e2", borderRadius: 10 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", animation: "pulse 1s infinite" }} />
+                        <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>Recording... {recordingTime}s</span>
+                        <button onClick={stopRecording} style={{ marginLeft: "auto", background: "#ef4444", color: "white", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>Stop & Send</button>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                      {/* Emoji Button */}
+                      <button
+                        onClick={() => setShowEmojis(!showEmojis)}
+                        style={{
+                          width: 34, height: 34, borderRadius: 10, border: "none",
+                          background: "#f4f4f5", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 16, flexShrink: 0,
+                        }}
+                        title="Insert emoji"
+                      >
+                        😊
+                      </button>
+
+                      {/* Attachment Button */}
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                          width: 34, height: 34, borderRadius: 10, border: "none",
+                          background: "#f4f4f5", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 16, flexShrink: 0,
+                        }}
+                        title="Upload attachment"
+                      >
+                        📎
+                      </button>
+
+                      <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={e => {
+                          const val = e.target.value
+                          const cursor = e.target.selectionStart
+                          setInput(val)
+                          
+                          const textBeforeCursor = val.slice(0, cursor)
+                          const match = textBeforeCursor.match(/@(\w*)$/)
+                          if (match) {
+                            setMentionQuery(match[1])
+                            setMentionIndex(cursor - match[1].length - 1)
+                          } else {
+                            setMentionQuery(null)
+                          }
+                        }}
+                        onKeyDown={onKeyDown}
+                        placeholder="Type a message... (Enter to send)"
+                        rows={1}
+                        style={{
+                          flex: 1, borderRadius: 12, border: "1px solid #e4e4e7",
+                          padding: "8px 12px", fontSize: 13, resize: "none",
+                          fontFamily: "inherit", outline: "none", background: "#f4f4f5",
+                          maxHeight: 80, lineHeight: 1.4, color: "#18181b",
+                        }}
+                      />
+                      {/* AI Refine */}
+                      {input.trim() && (
+                        <button
+                          onClick={refineWithAI}
+                          disabled={refining}
+                          title="Refine with AI"
+                          style={{
+                            width: 34, height: 34, borderRadius: 10, border: "1px solid #e4e4e7",
+                            background: refining ? "#f4f4f5" : "#faf5ff", cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            color: "#a855f7", flexShrink: 0,
+                          }}
+                        >
+                          {refining ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                        </button>
+                      )}
+                      {/* Voice */}
+                      <button
+                        onClick={isRecording ? stopRecording : startRecording}
+                        title={isRecording ? "Stop recording" : "Voice message"}
+                        style={{
+                          width: 34, height: 34, borderRadius: 10, border: "none",
+                          background: isRecording ? "#ef4444" : "#f4f4f5",
+                          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                          color: isRecording ? "white" : "#71717a", flexShrink: 0,
+                        }}
+                      >
+                        {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
+                      </button>
+                      {/* Send */}
+                      <button
+                        onClick={() => sendMessage()}
+                        disabled={sending || !input.trim()}
+                        style={{
+                          width: 34, height: 34, borderRadius: 10, border: "none",
+                          background: input.trim() ? "#18181b" : "#f4f4f5",
+                          cursor: input.trim() ? "pointer" : "default",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: input.trim() ? "white" : "#a1a1aa", flexShrink: 0,
+                        }}
+                      >
+                        {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -1193,6 +1506,52 @@ function renderMessageContent(msg: ChatMessage) {
         >
           {msg.message || "Download Attachment"}
         </a>
+      </div>
+    )
+  }
+  if (msg.message_type === "walkie_talkie_log") {
+    let transmissions: any[] = []
+    try {
+      if (msg.voice_url) {
+        transmissions = JSON.parse(msg.voice_url)
+      }
+    } catch {}
+
+    return (
+      <div style={{
+        background: "#f0fdf4", border: "1px solid #bbf7d0",
+        borderRadius: 12, padding: "10px", color: "#166534",
+        maxWidth: 240, display: "flex", flexDirection: "column", gap: 6
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 16 }}>📻</span>
+          <span style={{ fontWeight: 700, fontSize: 12 }}>Walkie-Talkie Session Log</span>
+        </div>
+        <p style={{ margin: 0, fontSize: 10, color: "#14532d" }}>
+          {msg.message}
+        </p>
+        {transmissions.length > 0 && (
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 4,
+            maxHeight: 120, overflowY: "auto", background: "white",
+            padding: 6, borderRadius: 8, border: "1px solid #dcfce7"
+          }}>
+            {transmissions.map((t, idx) => (
+              <div 
+                key={t.id || idx} 
+                style={{ 
+                  display: "flex", alignItems: "center", gap: 4, 
+                  justifyContent: "space-between", fontSize: 9 
+                }}
+              >
+                <span style={{ fontWeight: 600, color: "#166534", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 100 }}>
+                  {t.sender_name}:
+                </span>
+                <audio src={t.audio_url} controls style={{ height: 16, width: 80 }} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
