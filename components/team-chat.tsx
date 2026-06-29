@@ -11,11 +11,12 @@ interface ChatMessage {
   user_name: string
   user_role: string
   message: string
-  message_type: "text" | "voice" | "image" | "file" | "walkie_talkie_log"
+  message_type: "text" | "voice" | "image" | "file" | "walkie_talkie_log" | "location" | "contact"
   voice_url?: string
   created_at: string
   user_id?: string
   seen_by?: string[]
+  file_url?: string
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -41,6 +42,29 @@ function getColor(role: string) {
   return ROLE_COLORS[role] || "#64748b"
 }
 
+const EMOJI_CATEGORIES: Record<string, { tab: string; list: string[] }> = {
+  smileys: {
+    tab: "😊",
+    list: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈", "👿", "👹", "👺", "🤡", "💩", "👻", "💀", "☠️", "👽", "👾", "🤖", "🎃", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾"]
+  },
+  gestures: {
+    tab: "✌️",
+    list: ["👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "👂", "👃", "🧠", "👀", "👅", "👄", "💋", "🩸"]
+  },
+  animals: {
+    tab: "🐶",
+    list: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒", "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦢", "🦉", "🦩", "🦚", "🦜", "🐊", "🐢", "🦎", "🐍", "🐳", "🐋", "🐬", "🐟", "🐠", "🐡", "🦈", "🐙", "🐚", "🐌", "🦋", "🐛", "🐜", "🐝", "🐞", "🦗", "🕷️", "🕸️", "🦂", "💐", "🌸", "💮", "🌹", "🥀", "🌺", "🌻", "🌼", "🌷", "🌱", "🌲", "🌳", "🌴", "🌵", "🍀", "🍁", "🍂", "🍃"]
+  },
+  food: {
+    tab: "🍏",
+    list: ["🍏", "🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🥦", "🌽", "🥕", "🍞", "🥐", "🥖", "🥨", "🥯", "🥞", "🧇", "🧀", "🍖", "🍗", "🥩", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", "🌯", "🍳", "🍲", "🍿", "🧂", "🥫", "🍱", "🍣", "🍤", "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🍫", "🍬", "🍭", "🍯", "🥛", "☕", "🍷", "🍸", "🍹", "🍺", "🍻", "🥤"]
+  },
+  hearts: {
+    tab: "❤️",
+    list: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🎱", "🏓", "🏸", "🥅", "⛳", "🏹", "🎣", "🥊", "🥋", "🏂", "🏆", "🥇", "🥈", "🥉", "🏅", "🎖️", "🎫", "🎟️", "🎭", "🖼️", "🎨", "🎬", "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸", "🎻", "🎲", "🧩", "🎳", "🎮", "🎯"]
+  }
+}
+
 const playNotificationSound = () => {
   try {
     const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav")
@@ -54,15 +78,19 @@ const playNotificationSound = () => {
 function censorMessage(text: string): string {
   if (!text) return ""
   const abusiveWords = [
-    "fuck", "shit", "bitch", "asshole", "cunt", "bastard",
-    "madharchode", "madarchod", "bhaosdike", "bhosdike", "bhosadi", 
-    "chutyew", "chutiya", "chutya", "bhenchod", "behenchod", "harami", "randi",
-    "saala", "kamine"
+    "fuck", "motherfucker", "bitch", "asshole", "cunt", "bastard", "shit",
+    "chutiya", "chutyew", "chutya", "bhosdike", "bhosdika", "bhosadi", "bhaosdike",
+    "behenchod", "bhenchod", "madarchod", "madharchode", "gandu", "haramzada", "saala",
+    "kamine", "kutta", "kamina", "haramkhor", "randi", "chhinal", "bhadwa",
+    "bhen ke lode", "maa ke lode", "lavde", "lund", "tatti", "suar", "gadha",
+    "nalayak", "bewakoof", "pagal", "bakwas", "haraami",
+    "idiot", "fool", "stupid", "moron", "nonsense"
   ]
   
   let censored = text
   abusiveWords.forEach(word => {
-    const regex = new RegExp(`(${word})`, "gi")
+    const escapedWord = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+    const regex = new RegExp(`\\b${escapedWord}\\b|${escapedWord}`, "gi")
     censored = censored.replace(regex, (match) => {
       if (match.length <= 2) return "**"
       return match[0] + "*".repeat(match.length - 2) + match[match.length - 1]
@@ -121,6 +149,13 @@ export function TeamChat() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState<number>(-1)
   const [notifyPermission, setNotifyPermission] = useState<string>("default")
+  const [activeEmojiTab, setActiveEmojiTab] = useState<string>("smileys")
+
+  // WhatsApp style attachment options
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false)
+  const [showContactPicker, setShowContactPicker] = useState(false)
+  const [fileAccept, setFileAccept] = useState("*")
+  const [fileCapture, setFileCapture] = useState<string | undefined>(undefined)
 
   // Walkie-Talkie states
   const [activeWalkieSession, setActiveWalkieSession] = useState<any>(null)
@@ -155,12 +190,15 @@ export function TeamChat() {
   const seenMessageIdsRef = useRef<Set<string>>(new Set())
   const lastTypingSentRef = useRef<number>(0)
 
-  // Check notification permission on mount
+  // Check notification permission on mount and dispatch setter
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotifyPermission(Notification.permission)
+    if (typeof window !== "undefined") {
+      (window as any).__setPrivateChatUser = setPrivateChatUser
+      if ("Notification" in window) {
+        setNotifyPermission(Notification.permission)
+      }
     }
-  }, [])
+  }, [setPrivateChatUser])
 
   // Load user data and presence status preferences
   useEffect(() => {
@@ -723,6 +761,68 @@ export function TeamChat() {
     setIsWalkieRecording(false)
   }
 
+  const shareLocation = () => {
+    setShowAttachmentMenu(false)
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.")
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords
+        setSending(true)
+        try {
+          const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`
+          const res = await fetch("/api/team-chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: mapsUrl,
+              message_type: "location",
+              file_url: mapsUrl
+            }),
+          })
+          const json = await res.json()
+          if (json.data) {
+            setMessages(prev => [...prev, json.data])
+            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
+          }
+        } catch {
+          alert("Failed to share location")
+        } finally {
+          setSending(false)
+        }
+      },
+      (err) => {
+        alert("Failed to retrieve location: " + err.message)
+      }
+    )
+  }
+
+  const shareContact = async (contactUser: any) => {
+    setShowContactPicker(false)
+    setSending(true)
+    try {
+      const res = await fetch("/api/team-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: JSON.stringify({ name: contactUser.name, role: contactUser.role, id: contactUser.id }),
+          message_type: "contact"
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setMessages(prev => [...prev, json.data])
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
+      }
+    } catch {
+      alert("Failed to share contact")
+    } finally {
+      setSending(false)
+    }
+  }
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -766,7 +866,7 @@ export function TeamChat() {
           {unread > 0 && (
             <span style={{
               position: "absolute", top: 2, right: 2, width: 18, height: 18, borderRadius: "50%",
-              background: "#ef4444", color: "white", fontSize: 10, fontWeight: 800,
+              background: "#22c55e", color: "white", fontSize: 10, fontWeight: 800,
               display: "flex", alignItems: "center", justifyContent: "center",
               border: "2px solid white",
             }}>{unread > 9 ? "9+" : unread}</span>
@@ -1238,6 +1338,8 @@ export function TeamChat() {
                       type="file" 
                       ref={fileInputRef} 
                       onChange={handleFileChange} 
+                      accept={fileAccept}
+                      capture={fileCapture}
                       style={{ display: "none" }} 
                     />
 
@@ -1291,24 +1393,55 @@ export function TeamChat() {
 
                     {showEmojis && (
                       <div style={{
-                        position: "absolute", bottom: 50, right: 10,
+                        position: "absolute", bottom: 54, right: 10,
                         background: "white", border: "1px solid #e4e4e7",
-                        borderRadius: 12, padding: 8, display: "flex", gap: 6,
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10000,
+                        borderRadius: 16, padding: "8px 10px", width: 260,
+                        boxShadow: "0 8px 30px rgba(0,0,0,0.15)", zIndex: 10002,
+                        display: "flex", flexDirection: "column", gap: 8
                       }}>
-                        {["😊", "😂", "❤️", "👍", "🎉", "🔥", "😮", "😢", "👏", "🚀"].map(emoji => (
-                          <button
-                            key={emoji}
-                            onClick={() => {
-                              setInput(prev => prev + emoji)
-                              setShowEmojis(false)
-                              inputRef.current?.focus()
-                            }}
-                            style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", padding: 4 }}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
+                        {/* Categories Tab Selector */}
+                        <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f4f4f5", paddingBottom: 6 }}>
+                          {Object.keys(EMOJI_CATEGORIES).map(catKey => (
+                            <button
+                              key={catKey}
+                              type="button"
+                              onClick={() => setActiveEmojiTab(catKey)}
+                              style={{
+                                background: activeEmojiTab === catKey ? "#f4f4f5" : "none",
+                                border: "none", borderRadius: 8, fontSize: 16, cursor: "pointer",
+                                padding: "4px 8px", transition: "background 0.2s"
+                              }}
+                            >
+                              {EMOJI_CATEGORIES[catKey].tab}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Scrollable Emojis Grid */}
+                        <div style={{
+                          display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+                          gap: 4, maxHeight: 150, overflowY: "auto", paddingRight: 2
+                        }}>
+                          {EMOJI_CATEGORIES[activeEmojiTab].list.map(emoji => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => {
+                                setInput(prev => prev + emoji)
+                                inputRef.current?.focus()
+                              }}
+                              style={{
+                                background: "none", border: "none", fontSize: 18,
+                                cursor: "pointer", padding: 4, borderRadius: 6,
+                                display: "flex", alignItems: "center", justifyContent: "center"
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                              onMouseLeave={e => e.currentTarget.style.background = "none"}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -1336,10 +1469,10 @@ export function TeamChat() {
 
                       {/* Attachment Button */}
                       <button
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
                         style={{
                           width: 34, height: 34, borderRadius: 10, border: "none",
-                          background: "#f4f4f5", cursor: "pointer",
+                          background: showAttachmentMenu ? "#e4e4e7" : "#f4f4f5", cursor: "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center",
                           fontSize: 16, flexShrink: 0,
                         }}
@@ -1347,6 +1480,120 @@ export function TeamChat() {
                       >
                         📎
                       </button>
+
+                      {/* WhatsApp Style Attachment Menu Options */}
+                      {showAttachmentMenu && (
+                        <div style={{
+                          position: "absolute", bottom: 54, left: 12,
+                          background: "#ffffff", border: "1px solid #e4e4e7",
+                          borderRadius: 16, boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
+                          padding: "6px 0", width: 180, zIndex: 10000,
+                          display: "flex", flexDirection: "column",
+                        }}>
+                          <div 
+                            onClick={() => {
+                              setFileAccept(".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip")
+                              setFileCapture(undefined)
+                              setShowAttachmentMenu(false)
+                              setTimeout(() => fileInputRef.current?.click(), 50)
+                            }}
+                            style={{ padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, color: "#18181b" }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <span>📄</span> <span style={{ fontWeight: 600 }}>Document</span>
+                          </div>
+                          <div 
+                            onClick={() => {
+                              setFileAccept("image/*")
+                              setFileCapture("environment")
+                              setShowAttachmentMenu(false)
+                              setTimeout(() => fileInputRef.current?.click(), 50)
+                            }}
+                            style={{ padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, color: "#18181b" }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <span>📷</span> <span style={{ fontWeight: 600 }}>Camera</span>
+                          </div>
+                          <div 
+                            onClick={() => {
+                              setFileAccept("image/*,video/*")
+                              setFileCapture(undefined)
+                              setShowAttachmentMenu(false)
+                              setTimeout(() => fileInputRef.current?.click(), 50)
+                            }}
+                            style={{ padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, color: "#18181b" }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <span>🖼️</span> <span style={{ fontWeight: 600 }}>Gallery (Photos & Videos)</span>
+                          </div>
+                          <div 
+                            onClick={() => {
+                              setFileAccept("audio/*")
+                              setFileCapture(undefined)
+                              setShowAttachmentMenu(false)
+                              setTimeout(() => fileInputRef.current?.click(), 50)
+                            }}
+                            style={{ padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, color: "#18181b" }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <span>🎵</span> <span style={{ fontWeight: 600 }}>Audio / Music</span>
+                          </div>
+                          <div 
+                            onClick={shareLocation}
+                            style={{ padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, color: "#18181b" }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <span>📍</span> <span style={{ fontWeight: 600 }}>Location Live & current</span>
+                          </div>
+                          <div 
+                            onClick={() => {
+                              setShowAttachmentMenu(false)
+                              setShowContactPicker(true)
+                            }}
+                            style={{ padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, color: "#18181b" }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                            onMouseLeave={e => e.currentTarget.style.background = "none"}
+                          >
+                            <span>👤</span> <span style={{ fontWeight: 600 }}>Share Contact</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Contact Picker Modal Popup overlay */}
+                      {showContactPicker && (
+                        <div style={{
+                          position: "absolute", bottom: 54, left: 12, right: 12,
+                          background: "#ffffff", border: "1px solid #e4e4e7",
+                          borderRadius: 16, boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
+                          maxHeight: 180, overflowY: "auto", zIndex: 10001,
+                          display: "flex", flexDirection: "column", padding: "6px 0"
+                        }}>
+                          <div style={{ padding: "8px 12px", borderBottom: "1px solid #f4f4f5", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: "#71717a" }}>Select Contact to Share</span>
+                            <button onClick={() => setShowContactPicker(false)} style={{ background: "none", border: "none", fontSize: 11, cursor: "pointer", fontWeight: 700, color: "#ef4444" }}>Close</button>
+                          </div>
+                          {allUsers.map(u => (
+                            <div
+                              key={u.id}
+                              onClick={() => shareContact(u)}
+                              style={{ padding: "8px 12px", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                              onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                              onMouseLeave={e => e.currentTarget.style.background = "none"}
+                            >
+                              <div style={{ width: 20, height: 20, borderRadius: "50%", background: getColor(u.role), color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: "bold" }}>
+                                {getInitials(u.name)}
+                              </div>
+                              <span style={{ fontWeight: 600 }}>{u.name}</span>
+                              <span style={{ fontSize: 8, color: "#a1a1aa", marginLeft: "auto" }}>{u.role.replace("_", " ")}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       <textarea
                         ref={inputRef}
@@ -1479,11 +1726,18 @@ function renderMessageText(text: string) {
 
 function renderMessageContent(msg: ChatMessage) {
   if (msg.message_type === "voice" && msg.voice_url) {
-    return <audio src={msg.voice_url} controls style={{ height: 32, maxWidth: 180 }} />
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <audio src={msg.voice_url} controls style={{ height: 32, maxWidth: 180 }} />
+        <a href={msg.voice_url} download target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "inherit", opacity: 0.7, textDecoration: "underline", alignSelf: "flex-end" }}>
+          ⬇️ Download Voice
+        </a>
+      </div>
+    )
   }
   if (msg.message_type === "image" && msg.file_url) {
     return (
-      <div style={{ marginTop: 4 }}>
+      <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
         <img 
           src={msg.file_url} 
           alt="Attachment" 
@@ -1491,21 +1745,89 @@ function renderMessageContent(msg: ChatMessage) {
           onClick={() => window.open(msg.file_url, "_blank")}
         />
         {msg.message && <p style={{ margin: "4px 0 0", fontSize: 12 }}>{msg.message}</p>}
+        <a href={msg.file_url} download target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "inherit", opacity: 0.7, textDecoration: "underline", alignSelf: "flex-end" }}>
+          ⬇️ Download Image
+        </a>
       </div>
     )
   }
   if (msg.message_type === "file" && msg.file_url) {
     return (
-      <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 16 }}>📎</span>
+      <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 16 }}>📎</span>
+          <a 
+            href={msg.file_url} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ textDecoration: "underline", color: "inherit", fontWeight: 600, wordBreak: "break-all" }}
+          >
+            {msg.message || "Download Attachment"}
+          </a>
+        </div>
+        <a href={msg.file_url} download target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "inherit", opacity: 0.7, textDecoration: "underline", alignSelf: "flex-end" }}>
+          ⬇️ Download File
+        </a>
+      </div>
+    )
+  }
+  if (msg.message_type === "location" && msg.file_url) {
+    return (
+      <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 16 }}>📍</span>
+          <span style={{ fontWeight: 700, fontSize: 12 }}>Shared Location</span>
+        </div>
         <a 
           href={msg.file_url} 
           target="_blank" 
           rel="noopener noreferrer" 
-          style={{ textDecoration: "underline", color: "inherit", fontWeight: 600, wordBreak: "break-all" }}
+          style={{
+            display: "inline-block", background: "#22c55e", color: "white",
+            textDecoration: "none", borderRadius: 8, padding: "6px 12px",
+            fontSize: 10, fontWeight: 700, textAlign: "center", textTransform: "uppercase"
+          }}
         >
-          {msg.message || "Download Attachment"}
+          Open Google Maps
         </a>
+      </div>
+    )
+  }
+  if (msg.message_type === "contact" && msg.message) {
+    let contactData = { name: "Unknown", role: "staff", id: "" }
+    try {
+      contactData = JSON.parse(msg.message)
+    } catch {
+      contactData.name = msg.message
+    }
+    return (
+      <div style={{
+        background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.08)",
+        borderRadius: 12, padding: "8px 10px", minWidth: 160,
+        display: "flex", flexDirection: "column", gap: 6, color: "inherit"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 14 }}>👤</span>
+          <span style={{ fontWeight: 700, fontSize: 11 }}>Shared Contact</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <span style={{ fontSize: 12, fontWeight: 800 }}>{contactData.name}</span>
+          <span style={{ fontSize: 9, opacity: 0.7 }}>{contactData.role.replace("_", " ")}</span>
+        </div>
+        <button
+          onClick={() => {
+            if (typeof window !== "undefined" && (window as any).__setPrivateChatUser) {
+              (window as any).__setPrivateChatUser({ id: contactData.id, name: contactData.name, role: contactData.role })
+            }
+          }}
+          style={{
+            background: "#22c55e", color: "white", border: "none",
+            borderRadius: 8, padding: "4px 8px", fontSize: 9,
+            fontWeight: 800, cursor: "pointer", textAlign: "center", textTransform: "uppercase"
+          }}
+        >
+          Message User
+        </button>
       </div>
     )
   }
@@ -1577,6 +1899,7 @@ function PrivateChatWindow({
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
   const [showEmojis, setShowEmojis] = useState(false)
+  const [activeEmojiTab, setActiveEmojiTab] = useState<string>("smileys")
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -1853,22 +2176,53 @@ function PrivateChatWindow({
           <div style={{
             position: "absolute", bottom: 44, right: 6,
             background: "white", border: "1px solid #e4e4e7",
-            borderRadius: 12, padding: 6, display: "flex", gap: 4,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)", zIndex: 10000,
+            borderRadius: 16, padding: "8px 10px", width: 250,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.15)", zIndex: 10002,
+            display: "flex", flexDirection: "column", gap: 8
           }}>
-            {["😊", "😂", "❤️", "👍", "🎉", "🔥", "😮", "😢", "👏", "🚀"].map(emoji => (
-              <button
-                key={emoji}
-                onClick={() => {
-                  setInput(prev => prev + emoji)
-                  setShowEmojis(false)
-                  inputRef.current?.focus()
-                }}
-                style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", padding: 2 }}
-              >
-                {emoji}
-              </button>
-            ))}
+            {/* Categories Tab Selector */}
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f4f4f5", paddingBottom: 6 }}>
+              {Object.keys(EMOJI_CATEGORIES).map(catKey => (
+                <button
+                  key={catKey}
+                  type="button"
+                  onClick={() => setActiveEmojiTab(catKey)}
+                  style={{
+                    background: activeEmojiTab === catKey ? "#f4f4f5" : "none",
+                    border: "none", borderRadius: 8, fontSize: 14, cursor: "pointer",
+                    padding: "3px 6px", transition: "background 0.2s"
+                  }}
+                >
+                  {EMOJI_CATEGORIES[catKey].tab}
+                </button>
+              ))}
+            </div>
+
+            {/* Scrollable Emojis Grid */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+              gap: 4, maxHeight: 120, overflowY: "auto", paddingRight: 2
+            }}>
+              {EMOJI_CATEGORIES[activeEmojiTab].list.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    setInput(prev => prev + emoji)
+                    inputRef.current?.focus()
+                  }}
+                  style={{
+                    background: "none", border: "none", fontSize: 16,
+                    cursor: "pointer", padding: 3, borderRadius: 6,
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f4f4f5"}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
