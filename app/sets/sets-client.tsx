@@ -548,10 +548,7 @@ export function PackagesClient({ user, initialCategories, franchises }: Packages
         .from("packages_categories")
         .select("*")
       
-      if (user?.role !== "super_admin" && user?.franchise_id) {
-        categoriesQuery = categoriesQuery.eq("franchise_id", user.franchise_id)
-      }
-      
+      // Categories are global — no franchise filter
       const { data: categoriesData, error: categoriesError } = await categoriesQuery.order("display_order")
       if (categoriesError) throw categoriesError
 

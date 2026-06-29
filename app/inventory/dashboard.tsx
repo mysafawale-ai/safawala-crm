@@ -257,11 +257,7 @@ export default function InventoryDashboard() {
           .is("parent_id", null) // Only main categories, not subcategories
           .order("name", { ascending: true })
 
-        // Apply franchise isolation for non-super-admins
-        if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
-          catQuery = catQuery.or(`franchise_id.eq.${currentUser.franchise_id},franchise_id.is.null`)
-        }
-
+        // Categories are global — no franchise filter needed (products are already franchise-isolated)
         const { data: catData, error: catError } = await catQuery
 
         if (!catError && catData && catData.length > 0) {

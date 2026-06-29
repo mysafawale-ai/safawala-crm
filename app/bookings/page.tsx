@@ -187,11 +187,7 @@ export default function BookingsPage() {
           .select('*')
           .eq('is_active', true)
         
-        // Apply franchise filter if user is not super_admin
-        if (currentUser?.role !== 'super_admin' && currentUser?.franchise_id) {
-          categoriesQuery = categoriesQuery.eq('franchise_id', currentUser.franchise_id)
-        }
-        
+        // Categories are global — no franchise filter
         const { data: categoriesData } = await categoriesQuery.order('name')
         
         // Separate main categories and subcategories

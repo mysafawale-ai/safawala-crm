@@ -34,11 +34,7 @@ export default function PackagesPage() {
             .select("*")
             .eq("is_active", true)
           
-          // 🔒 FRANCHISE ISOLATION: Filter by franchise for non-super-admins
-          if (currentUser.role !== "super_admin" && currentUser.franchise_id) {
-            categoriesQuery = categoriesQuery.eq("franchise_id", currentUser.franchise_id)
-          }
-          
+          // Categories are global — no franchise filter
           const { data: categoriesData, error: categoriesError } = await categoriesQuery
             .order("display_order", { ascending: true })
 
