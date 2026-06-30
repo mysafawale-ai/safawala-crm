@@ -647,7 +647,16 @@ export default function DashboardPage() {
                             <p className="text-sm text-gray-600">{booking.customer?.name}</p>
                             <div className="flex flex-wrap gap-2 mt-1">
                               <span className="text-xs text-gray-500">
-                                Event: {new Date(booking.event_date).toLocaleDateString()}
+                                Event: {(() => {
+                                  if (!booking.event_date) return "N/A"
+                                  try {
+                                    const d = new Date(booking.event_date)
+                                    if (isNaN(d.getTime())) return "N/A"
+                                    return d.toLocaleDateString()
+                                  } catch {
+                                    return "N/A"
+                                  }
+                                })()}
                               </span>
                               {(booking as any).type && (
                                 <Badge variant="outline" className="text-xs">
@@ -658,8 +667,8 @@ export default function DashboardPage() {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="font-semibold text-sm">₹{booking.total_amount?.toLocaleString()}</p>
-                            <Badge className={`${getStatusColor(booking.status)} text-xs mt-1`}>
-                              {booking.status.replace(/_/g, ' ')}
+                            <Badge className={`${getStatusColor(booking.status || '')} text-xs mt-1`}>
+                              {(booking.status || '').replace(/_/g, ' ')}
                             </Badge>
                           </div>
                         </div>
