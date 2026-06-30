@@ -505,7 +505,7 @@ export default function BookingsPage() {
       label = "Waiting"
       variant = "warning" // Yellow
     } else if (isUnpaid && totalAmount > 0) {
-      label = "Non paid"
+      label = "Full Payment Pending"
       variant = "destructive" // Red
     } else if (hasPartialPayment || status === 'pending_payment') {
       label = "Payment Pending / Advance paid"

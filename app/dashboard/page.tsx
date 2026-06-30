@@ -86,6 +86,24 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
 
+  const [workOrders, setWorkOrders] = useState<any[]>([])
+  const [loadingWorkOrders, setLoadingWorkOrders] = useState(false)
+
+  const fetchDashboardWorkOrders = async () => {
+    try {
+      setLoadingWorkOrders(true)
+      const res = await fetch("/api/work-orders")
+      if (res.ok) {
+        const json = await res.json()
+        setWorkOrders(json.data || [])
+      }
+    } catch (e) {
+      console.error("Failed to fetch work orders for dashboard", e)
+    } finally {
+      setLoadingWorkOrders(false)
+    }
+  }
+
   // Fetch all dashboard data in parallel for better performance
   const { data: stats, loading: statsLoading, refresh: refreshStats, error: statsError } = useData<DashboardStats>("dashboard-stats")
   
@@ -117,6 +135,7 @@ export default function DashboardPage() {
     if (user) {
       console.log("[Dashboard] Component mounted, forcing stats refresh...")
       refreshStats()
+      fetchDashboardWorkOrders()
     }
   }, [user, refreshStats])
 
@@ -166,7 +185,7 @@ export default function DashboardPage() {
 
   const handleRefresh = useCallback(async () => {
     try {
-      const refreshPromises = [refreshStats()]
+      const refreshPromises = [refreshStats(), fetchDashboardWorkOrders()]
       
       // Only refresh bookings data if user has bookings permission
       if (user?.permissions?.bookings) {
@@ -428,148 +447,80 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Pending Actions Alert - Enhanced with payment and delivery reminders */}
-        {(stats?.paymentReminders?.total || 0) > 0 || (stats?.deliveryReminders?.total || 0) > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Pending Payments Card */}
-            {(stats?.paymentReminders?.total || 0) > 0 && (
-              <Card className="border-orange-200 bg-orange-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-orange-900 flex items-center gap-2 text-lg">
-                    <DollarSign className="h-5 w-5" />
-                    Pending Payments
-                  </CardTitle>
-                  <CardDescription className="text-orange-800">
-                    {stats?.paymentReminders?.total} bookings with ₹{(stats?.paymentReminders?.totalPendingAmount || 0).toLocaleString()} pending
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(stats?.paymentReminders?.urgent || 0) > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        🔴 {stats?.paymentReminders?.urgent} due in 1 day
-                      </Badge>
-                    )}
-                    {(stats?.paymentReminders?.soon || 0) > 0 && (
-                      <Badge className="bg-orange-500 text-xs">
-                        🟠 {stats?.paymentReminders?.soon} due in 2-3 days
-                      </Badge>
-                    )}
-                    {(stats?.paymentReminders?.upcoming || 0) > 0 && (
-                      <Badge className="bg-yellow-500 text-white text-xs">
-                        🟡 {stats?.paymentReminders?.upcoming} due in 4-7 days
-                      </Badge>
-                    )}
-                    {(stats?.paymentReminders?.later || 0) > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        ⚪ {stats?.paymentReminders?.later} due in 8-10 days
-                      </Badge>
-                    )}
-                  </div>
-                  {stats?.paymentReminders?.list && stats.paymentReminders.list.length > 0 && (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {stats.paymentReminders.list.slice(0, 5).map((item) => (
-                        <Link 
-                          key={item.id} 
-                          href={`/bookings?search=${item.bookingNumber}`}
-                          className="flex items-center justify-between text-sm p-2 rounded bg-white hover:bg-orange-100 transition-colors"
-                        >
-                          <span className="font-medium">{item.bookingNumber}</span>
-                          <span className="text-orange-700">
-                            ₹{item.pendingAmount.toLocaleString()} • {item.daysUntilEvent === 0 ? 'Today' : item.daysUntilEvent === 1 ? 'Tomorrow' : `${item.daysUntilEvent} days`}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                  <Link href="/bookings?status=pending_payment" className="text-orange-700 hover:underline text-sm mt-2 block">
-                    View all pending payments →
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pending Deliveries Card */}
-            {(stats?.deliveryReminders?.total || 0) > 0 && (
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-blue-900 flex items-center gap-2 text-lg">
-                    <Truck className="h-5 w-5" />
-                    Upcoming Deliveries
-                  </CardTitle>
-                  <CardDescription className="text-blue-800">
-                    {stats?.deliveryReminders?.total} deliveries scheduled
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(stats?.deliveryReminders?.today || 0) > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        🚚 {stats?.deliveryReminders?.today} Today
-                      </Badge>
-                    )}
-                    {(stats?.deliveryReminders?.tomorrow || 0) > 0 && (
-                      <Badge className="bg-orange-500 text-xs">
-                        📦 {stats?.deliveryReminders?.tomorrow} Tomorrow
-                      </Badge>
-                    )}
-                    {(stats?.deliveryReminders?.thisWeek || 0) > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        📅 {stats?.deliveryReminders?.thisWeek} This Week
-                      </Badge>
-                    )}
-                  </div>
-                  {stats?.deliveryReminders?.list && stats.deliveryReminders.list.length > 0 && (
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {stats.deliveryReminders.list.slice(0, 5).map((item) => (
-                        <Link 
-                          key={item.id} 
-                          href={`/bookings?search=${item.bookingNumber}`}
-                          className="flex items-center justify-between text-sm p-2 rounded bg-white hover:bg-blue-100 transition-colors"
-                        >
-                          <span className="font-medium">{item.bookingNumber}</span>
-                          <span className="text-blue-700">
-                            {item.daysUntilDelivery === 0 ? 'Today' : item.daysUntilDelivery === 1 ? 'Tomorrow' : `${item.daysUntilDelivery} days`}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                  <Link href="/deliveries" className="text-blue-700 hover:underline text-sm mt-2 block">
-                    View all deliveries →
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        ) : stats?.pendingActions && (stats.pendingActions.payments > 0 || stats.pendingActions.deliveries > 0 || stats.pendingActions.returns > 0) ? (
-          <Alert className="border-orange-200 bg-orange-50">
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-            <AlertTitle className="text-orange-900">Pending Actions Require Attention</AlertTitle>
-            <AlertDescription className="text-orange-800">
-              <div className="flex flex-wrap gap-4 mt-2">
-                {stats.pendingActions.payments > 0 && (
-                  <Link href="/bookings?status=pending_payment" className="flex items-center gap-1 hover:underline">
-                    <DollarSign className="h-4 w-4" />
-                    <span>{stats.pendingActions.payments} pending payments</span>
-                  </Link>
-                )}
-                {stats.pendingActions.deliveries > 0 && (
-                  <Link href="/deliveries?status=pending" className="flex items-center gap-1 hover:underline">
-                    <Truck className="h-4 w-4" />
-                    <span>{stats.pendingActions.deliveries} deliveries scheduled</span>
-                  </Link>
-                )}
-                {stats.pendingActions.returns > 0 && (
-                  <Link href="/returns?status=pending" className="flex items-center gap-1 hover:underline">
-                    <RotateCcw className="h-4 w-4" />
-                    <span>{stats.pendingActions.returns} returns due</span>
-                  </Link>
-                )}
+        {/* Work Orders Board - Displayed above Calendar */}
+        {user?.permissions?.bookings && (
+          <Card className="bg-white border-slate-100 shadow-sm">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-extrabold flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-indigo-600 animate-pulse" />
+                  Active Operations & Work Orders
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Packings, Dispatches, and Deliveries currently in progress
+                </CardDescription>
               </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
+              <Link href="/work-orders">
+                <Button size="sm" variant="ghost" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 p-0 h-auto">
+                  View Board →
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {loadingWorkOrders ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent" />
+                </div>
+              ) : workOrders && workOrders.filter(wo => wo.status !== 'completed' && wo.status !== 'cancelled').length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[300px] overflow-y-auto pr-1">
+                  {workOrders
+                    .filter(wo => wo.status !== 'completed' && wo.status !== 'cancelled')
+                    .slice(0, 6)
+                    .map((wo) => {
+                      const activeTasks = wo.work_order_tasks?.filter((t: any) => t.status === 'active' || t.status === 'pending') || []
+                      return (
+                        <div key={wo.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50/50 transition-colors flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="font-mono text-xs font-bold text-slate-800">{wo.work_order_number}</span>
+                              <Badge className={
+                                wo.status === 'new' 
+                                  ? 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50' 
+                                  : 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-50'
+                              } variant="outline">
+                                {wo.status === 'new' ? 'New' : 'In Progress'}
+                              </Badge>
+                            </div>
+                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{wo.customer_name}</h4>
+                            <p className="text-[11px] text-slate-500 font-medium">Booking: {wo.booking_number}</p>
+                            
+                            {wo.event_date && (
+                              <p className="text-[11px] text-indigo-600 font-semibold mt-1 flex items-center gap-1">
+                                <Calendar className="h-3 w-3" /> Event: {new Date(wo.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                            <span>Tasks Pending: <strong>{activeTasks.length}</strong></span>
+                            <span className="font-semibold text-indigo-600 hover:underline cursor-pointer" onClick={() => router.push(`/work-orders?search=${wo.work_order_number}`)}>
+                              Update →
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400">
+                  <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm font-medium">No active work orders</p>
+                  <p className="text-xs mt-0.5">Everything is packed and delivered!</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Booking Calendar - Only show if user has bookings permission */}
         {user?.permissions?.bookings && (
