@@ -495,26 +495,38 @@ export default function BookingsPage() {
     const isFullyPaid = paidAmount >= totalAmount
     const isUnpaid = paidAmount === 0
     
-    // Override status to "Payment Pending" if payment is incomplete
-    let displayStatus = status
-    if (status === 'confirmed' && hasPartialPayment) {
-      displayStatus = 'pending_payment'
+    let label = "Confirmed"
+    let variant: "warning" | "success" | "pending" | "destructive" | "secondary" | "info" = "success"
+
+    if (status === 'cancelled') {
+      label = "Cancelled"
+      variant = "destructive"
+    } else if (status === 'pending_selection' || status === 'pending' || status === 'waiting') {
+      label = "Waiting"
+      variant = "warning" // Yellow
+    } else if (isUnpaid && totalAmount > 0) {
+      label = "Non paid"
+      variant = "destructive" // Red
+    } else if (hasPartialPayment || status === 'pending_payment') {
+      label = "Payment Pending / Advance paid"
+      variant = "pending" // Orange
+    } else {
+      // Confirmed, Delivered, Returned, etc. (fully paid)
+      if (status === 'delivered') {
+        label = "Delivered"
+      } else if (status === 'returned') {
+        label = "Rental Completed"
+      } else if (status === 'order_complete') {
+        label = "Order Complete"
+      } else {
+        label = "Confirmed"
+      }
+      variant = "success" // Green
     }
-    
-    const statusConfig = {
-      pending_payment: { label: "Payment Pending", variant: "warning" as const },
-      pending_selection: { label: "Pending Selection", variant: "info" as const },
-      confirmed: { label: "Confirmed", variant: "default" as const },
-      delivered: { label: "Delivered", variant: "success" as const },
-      returned: { label: "Rental Completed", variant: "secondary" as const },
-      order_complete: { label: "Order Complete", variant: "success" as const },
-      cancelled: { label: "Cancelled", variant: "destructive" as const },
-    }
-    const config = statusConfig[displayStatus as keyof typeof statusConfig] || statusConfig.confirmed
     
     return (
       <div className="flex flex-col gap-1.5 items-start">
-        <Badge variant={config.variant} className="whitespace-nowrap shadow-sm font-semibold">{config.label}</Badge>
+        <Badge variant={variant} className="whitespace-nowrap shadow-sm font-semibold">{label}</Badge>
         
         {/* Simplified Payment Status Info */}
         <div className="text-[10px] text-muted-foreground font-medium flex items-center gap-1.5">
