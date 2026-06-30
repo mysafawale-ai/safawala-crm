@@ -54,7 +54,7 @@ const emptyForm = (): ProductVariant => ({
 async function printVariantBarcode(barcode: string, label: string) {
   const JsBarcode = (await import("jsbarcode")).default
   const labelsPerRow = 2
-  const quantity = 1
+  const quantity = 2
   const rows = Math.ceil(quantity / labelsPerRow)
   let labelsHTML = ""
 

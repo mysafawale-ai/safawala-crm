@@ -894,7 +894,7 @@ export function ProductEditorModal({
                   await doPrint(
                     variant.barcode,
                     variantName,
-                    1,
+                    2,
                     regularPrice,
                     salePrice,
                     variant.color || formData.color,

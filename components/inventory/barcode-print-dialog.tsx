@@ -346,8 +346,8 @@ export async function drawBarcodeCanvas(
   const canvas = document.createElement("canvas")
 
   if (style === 1) {
-    // Style 1: 50mm x 25mm label size
-    canvas.width = 400 * scale
+    // Style 1: 100mm x 25mm layout (2 columns of 50mm x 25mm)
+    canvas.width = 800 * scale
     canvas.height = 200 * scale
     const ctx = canvas.getContext("2d")
     if (!ctx) return canvas
@@ -357,82 +357,9 @@ export async function drawBarcodeCanvas(
 
     // Fill background
     ctx.fillStyle = "#FFFFFF"
-    ctx.fillRect(0, 0, 400, 200)
+    ctx.fillRect(0, 0, 800, 200)
 
-    // Border (thin light outline matching Style 1 preview)
-    ctx.strokeStyle = "#DDDDDD"
-    ctx.lineWidth = 3
-    ctx.strokeRect(1.5, 1.5, 397, 197)
-
-    ctx.fillStyle = "#000000"
-    ctx.textAlign = "center"
-
-    // Product Title
-    ctx.font = "bold 15px Arial"
-    const words = label.split(" ")
-    let line1 = ""
-    let line2 = ""
-    for (const word of words) {
-      if (ctx.measureText(line1 + " " + word).width < 360 && line2 === "") {
-        line1 += (line1 ? " " : "") + word
-      } else {
-        line2 += (line2 ? " " : "") + word
-      }
-    }
-    ctx.fillText(line1.substring(0, 24), 200, 28)
-    if (line2) {
-      ctx.fillText(line2.substring(0, 24), 200, 45)
-    }
-
-    // Meta Attributes
-    const meta1 = [color, size].filter(Boolean).join(" | ")
-    ctx.font = "12px Arial"
-    ctx.fillStyle = "#000000"
-    let metaY = line2 ? 62 : 45
-    if (meta1) {
-      ctx.fillText(meta1, 200, metaY)
-      metaY += 17
-    }
-    if (material) {
-      ctx.fillText(material, 200, metaY)
-      metaY += 17
-    }
-
-    // Pricing Layout
-    const pricingY = metaY + 7
-    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
-    ctx.textAlign = "left"
-    let textX = 30
-
-    if (regularPrice || salePrice) {
-      if (regularPrice) {
-        ctx.font = "15px Arial"
-        ctx.fillStyle = "#000000"
-        ctx.fillText(`MRP: ₹${regularPrice}`, textX, pricingY)
-        const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
-        ctx.strokeStyle = "#000000"
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(textX - 2, pricingY - 4)
-        ctx.lineTo(textX + textWidth + 2, pricingY - 4)
-        ctx.stroke()
-        textX += textWidth + 10
-      }
-      if (salePrice) {
-        ctx.font = "bold 18px Arial"
-        ctx.fillStyle = "#000000"
-        ctx.fillText(`₹${salePrice}`, textX, pricingY)
-        const textWidth = ctx.measureText(`₹${salePrice}`).width
-        textX += textWidth + 10
-      }
-      if (savings > 0) {
-        ctx.font = "bold 14px Arial"
-        ctx.fillStyle = "#000000"
-        ctx.fillText(`Save ₹${savings}`, textX, pricingY - 1)
-      }
-    }
-
-    // Draw Barcode image (shifted down to prevent overlapping)
+    // Generate barcode canvas once to avoid duplicate creation
     const barcodeCanvas = document.createElement("canvas")
     JsBarcode(barcodeCanvas, barcode, {
       format: "CODE128",
@@ -443,19 +370,99 @@ export async function drawBarcodeCanvas(
       background: "#FFFFFF",
       lineColor: "#000000"
     })
-    ctx.imageSmoothingEnabled = false
-    ctx.drawImage(barcodeCanvas, 25, 110, 350, 40)
-    ctx.imageSmoothingEnabled = true
 
-    // Code String
-    ctx.textAlign = "center"
-    ctx.font = "bold 13px Courier New"
-    ctx.fillStyle = "#000000"
-    ctx.fillText(barcode, 200, 160)
+    const words = label.split(" ")
+    const meta1 = [color, size].filter(Boolean).join(" | ")
+    const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
 
-    // Website Link
-    ctx.font = "17px Arial"
-    ctx.fillText("www.safawala.com", 200, 178)
+    for (let col = 0; col < 2; col++) {
+      const dx = col * 400
+
+      // Border (thin light outline matching Style 1 preview)
+      ctx.strokeStyle = "#DDDDDD"
+      ctx.lineWidth = 3
+      ctx.strokeRect(dx + 1.5, 1.5, 397, 197)
+
+      ctx.fillStyle = "#000000"
+      ctx.textAlign = "center"
+
+      // Product Title
+      ctx.font = "bold 15px Arial"
+      let line1 = ""
+      let line2 = ""
+      for (const word of words) {
+        if (ctx.measureText(line1 + " " + word).width < 360 && line2 === "") {
+          line1 += (line1 ? " " : "") + word
+        } else {
+          line2 += (line2 ? " " : "") + word
+        }
+      }
+      ctx.fillText(line1.substring(0, 24), dx + 200, 28)
+      if (line2) {
+        ctx.fillText(line2.substring(0, 24), dx + 200, 45)
+      }
+
+      // Meta Attributes
+      ctx.font = "12px Arial"
+      ctx.fillStyle = "#000000"
+      let metaY = line2 ? 62 : 45
+      if (meta1) {
+        ctx.fillText(meta1, dx + 200, metaY)
+        metaY += 17
+      }
+      if (material) {
+        ctx.fillText(material, dx + 200, metaY)
+        metaY += 17
+      }
+
+      // Pricing Layout
+      const pricingY = metaY + 7
+      ctx.textAlign = "left"
+      let textX = dx + 30
+
+      if (regularPrice || salePrice) {
+        if (regularPrice) {
+          ctx.font = "15px Arial"
+          ctx.fillStyle = "#000000"
+          ctx.fillText(`MRP: ₹${regularPrice}`, textX, pricingY)
+          const textWidth = ctx.measureText(`MRP: ₹${regularPrice}`).width
+          ctx.strokeStyle = "#000000"
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.moveTo(textX - 2, pricingY - 4)
+          ctx.lineTo(textX + textWidth + 2, pricingY - 4)
+          ctx.stroke()
+          textX += textWidth + 10
+        }
+        if (salePrice) {
+          ctx.font = "bold 18px Arial"
+          ctx.fillStyle = "#000000"
+          ctx.fillText(`₹${salePrice}`, textX, pricingY)
+          const textWidth = ctx.measureText(`₹${salePrice}`).width
+          textX += textWidth + 10
+        }
+        if (savings > 0) {
+          ctx.font = "bold 14px Arial"
+          ctx.fillStyle = "#000000"
+          ctx.fillText(`Save ₹${savings}`, textX, pricingY - 1)
+        }
+      }
+
+      // Draw Barcode image
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(barcodeCanvas, dx + 25, 110, 350, 40)
+      ctx.imageSmoothingEnabled = true
+
+      // Code String
+      ctx.textAlign = "center"
+      ctx.font = "bold 13px Courier New"
+      ctx.fillStyle = "#000000"
+      ctx.fillText(barcode, dx + 200, 160)
+
+      // Website Link
+      ctx.font = "17px Arial"
+      ctx.fillText("www.safawala.com", dx + 200, 178)
+    }
 
   } else if (style === 2) {
     // Style 2: new layout — MRP+Save row | big sale price | barcode | code || name | attrs | divider | SAFAWALA.com
@@ -810,7 +817,7 @@ export async function doDownloadStyleSVG(
   let svgContent = ""
   
   if (style === 1) {
-    // Style 1: 50mm x 25mm
+    // Style 1: 100mm x 25mm (2 columns of 50mm x 25mm)
     const bcW = 42
     const bcH = 6.5
     const bcX = 4
@@ -835,9 +842,10 @@ export async function doDownloadStyleSVG(
     
     const meta1 = [color, size].filter(Boolean).join(" | ")
     const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
+    const pricingY = line2 ? 10.2 : 8.5
+    
     let pricingHTML = ""
     let currentX = 5
-    const pricingY = line2 ? 10.2 : 8.5
     
     if (regularPrice) {
       pricingHTML += `
@@ -858,7 +866,7 @@ export async function doDownloadStyleSVG(
       `
     }
     
-    svgContent = `
+    const singleLabelSVG = `
       <rect x="0.25" y="0.25" width="49.5" height="24.5" fill="#FFFFFF" stroke="#DDDDDD" stroke-width="0.5" rx="0.5" ry="0.5" />
       <text x="25" y="3.5" font-family="Arial" font-size="2.0" font-weight="bold" fill="#000000" text-anchor="middle">${line1}</text>
       ${line2 ? `<text x="25" y="5.7" font-family="Arial" font-size="2.0" font-weight="bold" fill="#000000" text-anchor="middle">${line2}</text>` : ""}
@@ -874,6 +882,15 @@ export async function doDownloadStyleSVG(
       
       <text x="25" y="20.2" font-family="Courier New" font-size="1.8" font-weight="bold" fill="#000000" text-anchor="middle">${barcode}</text>
       <text x="25" y="22.5" font-family="Arial" font-size="1.5" fill="#000000" text-anchor="middle">www.safawala.com</text>
+    `
+
+    svgContent = `
+      <g transform="translate(0, 0)">
+        ${singleLabelSVG}
+      </g>
+      <g transform="translate(50, 0)">
+        ${singleLabelSVG}
+      </g>
     `
   } else {
     // Style 2: 100mm x 15mm
@@ -943,7 +960,7 @@ export async function doDownloadStyleSVG(
     `
   }  
   const fullSVG = `<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${style === 1 ? "50mm" : "100mm"}" height="${style === 1 ? "25mm" : "15mm"}" viewBox="0 0 ${style === 1 ? "50 25" : "100 15"}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100mm" height="${style === 1 ? "25mm" : "15mm"}" viewBox="0 0 100 ${style === 1 ? "25" : "15"}">
   ${svgContent}
 </svg>`
 
@@ -976,7 +993,7 @@ export async function doDownloadStylePDF(
   const { jsPDF } = await import("jspdf")
   const JsBarcode = (await import("jsbarcode")).default
   
-  const width = style === 1 ? 50 : 100
+  const width = 100
   const height = style === 1 ? 25 : 15
   
   const pdf = new jsPDF({
@@ -988,14 +1005,7 @@ export async function doDownloadStylePDF(
   
   if (style === 1) {
     pdf.setFillColor(255, 255, 255)
-    pdf.rect(0, 0, 50, 25, "F")
-    
-    pdf.setDrawColor(220, 220, 220)
-    pdf.setLineWidth(0.3)
-    pdf.rect(0.5, 0.5, 49, 24, "S")
-    
-    pdf.setTextColor(0, 0, 0)
-    pdf.setFont("helvetica", "bold")
+    pdf.rect(0, 0, 100, 25, "F")
     
     const titleWords = label.split(" ")
     let line1 = ""
@@ -1010,47 +1020,9 @@ export async function doDownloadStylePDF(
     line1 = line1.substring(0, 24)
     line2 = line2.substring(0, 24)
     
-    pdf.setFontSize(6.5)
-    pdf.text(line1, 25, 3.8, { align: "center" })
-    if (line2) {
-      pdf.text(line2, 25, 6.2, { align: "center" })
-    }
-    
     const meta1 = [color, size].filter(Boolean).join(" | ")
-    pdf.setFont("helvetica", "normal")
-    pdf.setFontSize(5.0)
-    pdf.text(meta1, 25, line2 ? 8.2 : 6.2, { align: "center" })
-    
-    if (material) {
-      pdf.text(material, 25, line2 ? 10.0 : 8.0, { align: "center" })
-    }
-    
     const savings = regularPrice && salePrice && regularPrice > salePrice ? regularPrice - salePrice : 0
-    let currentX = 5
     const pricingY = line2 ? 11.2 : 9.5
-    
-    if (regularPrice) {
-      pdf.setFont("helvetica", "normal")
-      pdf.setFontSize(6.5)
-      pdf.text(`MRP: ₹${regularPrice}`, currentX, pricingY)
-      const textWidth = pdf.getTextWidth(`MRP: ₹${regularPrice}`)
-      pdf.setDrawColor(0, 0, 0)
-      pdf.setLineWidth(0.15)
-      pdf.line(currentX, pricingY - 0.5, currentX + textWidth, pricingY - 0.5)
-      currentX += textWidth + 2
-    }
-    if (salePrice) {
-      pdf.setFont("helvetica", "bold")
-      pdf.setFontSize(8.0)
-      pdf.text(`₹${salePrice}`, currentX, pricingY)
-      const textWidth = pdf.getTextWidth(`₹${salePrice}`)
-      currentX += textWidth + 2
-    }
-    if (savings > 0) {
-      pdf.setFont("helvetica", "bold")
-      pdf.setFontSize(6.0)
-      pdf.text(`Save ₹${savings}`, currentX, pricingY - 0.2)
-    }
     
     const barcodeCanvas = document.createElement("canvas")
     JsBarcode(barcodeCanvas, barcode, {
@@ -1062,15 +1034,66 @@ export async function doDownloadStylePDF(
       background: "#FFFFFF",
       lineColor: "#000000"
     })
-    pdf.addImage(barcodeCanvas.toDataURL("image/png"), "PNG", 4, 12, 42, 6.5)
-    
-    pdf.setFont("courier", "bold")
-    pdf.setFontSize(5.5)
-    pdf.text(barcode, 25, 20.2, { align: "center" })
-    
-    pdf.setFont("helvetica", "normal")
-    pdf.setFontSize(4.5)
-    pdf.text("www.safawala.com", 25, 22.5, { align: "center" })
+    const barcodeImgData = barcodeCanvas.toDataURL("image/png")
+
+    for (let col = 0; col < 2; col++) {
+      const dx = col * 50
+
+      pdf.setDrawColor(220, 220, 220)
+      pdf.setLineWidth(0.3)
+      pdf.rect(dx + 0.5, 0.5, 49, 24, "S")
+      
+      pdf.setTextColor(0, 0, 0)
+      pdf.setFont("helvetica", "bold")
+      pdf.setFontSize(6.5)
+      pdf.text(line1, dx + 25, 3.8, { align: "center" })
+      if (line2) {
+        pdf.text(line2, dx + 25, 6.2, { align: "center" })
+      }
+      
+      pdf.setFont("helvetica", "normal")
+      pdf.setFontSize(5.0)
+      pdf.text(meta1, dx + 25, line2 ? 8.2 : 6.2, { align: "center" })
+      
+      if (material) {
+        pdf.text(material, dx + 25, line2 ? 10.0 : 8.0, { align: "center" })
+      }
+      
+      let currentX = dx + 5
+      
+      if (regularPrice) {
+        pdf.setFont("helvetica", "normal")
+        pdf.setFontSize(6.5)
+        pdf.text(`MRP: ₹${regularPrice}`, currentX, pricingY)
+        const textWidth = pdf.getTextWidth(`MRP: ₹${regularPrice}`)
+        pdf.setDrawColor(0, 0, 0)
+        pdf.setLineWidth(0.15)
+        pdf.line(currentX, pricingY - 0.5, currentX + textWidth, pricingY - 0.5)
+        currentX += textWidth + 2
+      }
+      if (salePrice) {
+        pdf.setFont("helvetica", "bold")
+        pdf.setFontSize(8.0)
+        pdf.text(`₹${salePrice}`, currentX, pricingY)
+        const textWidth = pdf.getTextWidth(`₹${salePrice}`)
+        currentX += textWidth + 2
+      }
+      if (savings > 0) {
+        pdf.setFont("helvetica", "bold")
+        pdf.setFontSize(6.0)
+        pdf.text(`Save ₹${savings}`, currentX, pricingY - 0.2)
+      }
+      
+      pdf.addImage(barcodeImgData, "PNG", dx + 4, 12, 42, 6.5)
+      
+      pdf.setFont("courier", "bold")
+      pdf.setFontSize(5.5)
+      pdf.text(barcode, dx + 25, 20.2, { align: "center" })
+      
+      pdf.setFont("helvetica", "normal")
+      pdf.setFontSize(4.5)
+      pdf.text("www.safawala.com", dx + 25, 22.5, { align: "center" })
+    }
     
   } else {
     pdf.setFillColor(255, 255, 255)
