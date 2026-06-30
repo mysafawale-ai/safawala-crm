@@ -24,12 +24,17 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   // Trigger Google Translate dynamically on language change
   useEffect(() => {
+    // Disable translation on login/auth pages to prevent input values being translated, which blocks logging in
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "/"
+    const isAuthPage = pathname === "/" || pathname.startsWith("/auth")
+    const targetLanguage = isAuthPage ? "en" : language
+
     try {
-      document.cookie = `googtrans=/en/${language}; path=/;`
-      document.cookie = `googtrans=/en/${language}; path=/; domain=localhost;`
-      document.cookie = `googtrans=/en/${language}; path=/; domain=mysafawale-ai;`
-      document.cookie = `googtrans=/en/${language}; path=/; domain=mysafawala.com;`
-      document.cookie = `googtrans=/en/${language}; path=/; domain=.mysafawala.com;`
+      document.cookie = `googtrans=/en/${targetLanguage}; path=/;`
+      document.cookie = `googtrans=/en/${targetLanguage}; path=/; domain=localhost;`
+      document.cookie = `googtrans=/en/${targetLanguage}; path=/; domain=mysafawale-ai;`
+      document.cookie = `googtrans=/en/${targetLanguage}; path=/; domain=mysafawala.com;`
+      document.cookie = `googtrans=/en/${targetLanguage}; path=/; domain=.mysafawala.com;`
     } catch (e) {
       console.warn("Google Translate cookies failed:", e)
     }
@@ -39,8 +44,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       try {
         const select = document.querySelector('.goog-te-combo') as HTMLSelectElement
         if (select) {
-          if (select.value !== language) {
-            select.value = language
+          if (select.value !== targetLanguage) {
+            select.value = targetLanguage
             select.dispatchEvent(new Event('change'))
           }
           return true
