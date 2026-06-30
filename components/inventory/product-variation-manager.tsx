@@ -18,7 +18,7 @@ import {
 import { Palette, Plus, Edit, Trash2, Barcode, Download, Printer, Layers, Upload, X, ImageIcon, Camera, Search, AlertTriangle, ArrowRightLeft } from "lucide-react"
 import { toast } from "sonner"
 import { generateBarcode, generateBarcodeLabel, generateQRCode } from "@/lib/barcode-generator"
-import { doPrint, getCleanVariantName } from "./barcode-print-dialog"
+import { doPrint, doDownloadStylePNG, getCleanVariantName } from "./barcode-print-dialog"
 
 export interface VariationData {
   id?: string
@@ -322,7 +322,7 @@ export function ProductVariationManager({
       await doPrint(
         barcode,
         variantName,
-        1,
+        2,
         regPrice,
         salePrice,
         variation?.color,
@@ -336,16 +336,34 @@ export function ProductVariationManager({
     }
   }
 
-  const handleDownloadBarcode = (barcode: string, name: string, variation?: VariationData) => {
-    const labelName = productName ? `${productName} | ${name}` : name
-    const mrp = variation ? getVariationMRP(variation) : productPrice
-    const labelImage = generateBarcodeLabel({ barcodeText: barcode, variationName: labelName, mrp })
-    const link = document.createElement("a")
-    link.href = labelImage
-    link.download = `barcode-${name.replace(/[^a-zA-Z0-9]/g, "_")}-${barcode}.png`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleDownloadBarcode = async (barcode: string, name: string, variation?: VariationData) => {
+    try {
+      const regPrice = productRegularPrice !== undefined
+        ? productRegularPrice + (Number(variation?.regular_price_adjustment) || 0)
+        : undefined
+      const salePrice = productPrice !== undefined
+        ? productPrice + (Number(variation?.price_adjustment) || 0)
+        : undefined
+
+      const variantName = productName && name
+        ? getCleanVariantName(productName, name)
+        : name
+
+      await doDownloadStylePNG(
+        barcode,
+        variantName,
+        1,
+        regPrice,
+        salePrice,
+        variation?.color,
+        variation?.size,
+        variation?.material
+      )
+      toast.success("Downloaded barcode PNG successfully")
+    } catch (error) {
+      console.error("Download error:", error)
+      toast.error("Download failed")
+    }
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
