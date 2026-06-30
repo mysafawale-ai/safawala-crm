@@ -34,6 +34,7 @@ import {
   Plane,
   Stethoscope,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react"
 
 import {
@@ -602,6 +603,14 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                       {t("settings")}
                     </Link>
                   </DropdownMenuItem>
+                  {currentUser && ['super_admin', 'franchise_admin'].includes(currentUser.role) && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings/2fa">
+                        <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
+                        Two-Factor Auth (2FA)
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     {t("logout")}

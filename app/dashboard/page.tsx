@@ -484,51 +484,114 @@ export default function DashboardPage() {
                   <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent" />
                 </div>
               ) : workOrders && workOrders.filter(wo => wo && wo.status !== 'completed' && wo.status !== 'cancelled').length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[300px] overflow-y-auto pr-1">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-h-[600px] overflow-y-auto pr-1">
                   {workOrders
                     .filter(wo => wo && wo.status !== 'completed' && wo.status !== 'cancelled')
-                    .slice(0, 6)
                     .map((wo) => {
-                      const activeTasks = wo.work_order_tasks?.filter((t: any) => t && (t.status === 'active' || t.status === 'pending')) || []
+                      const totalTasks = wo.work_order_tasks?.length || 0
+                      const completedTasks = wo.work_order_tasks?.filter((t: any) => t && (t.status === 'completed' || t.status === 'picked')).length || 0
+                      const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+                      const isRental = wo.booking_source === 'product_orders' || wo.booking_source === 'package_bookings'
+
+                      const getPriorityColor = (dateStr: string | null) => {
+                        if (!dateStr) return "bg-slate-100 text-slate-700 border-slate-200"
+                        const diffDays = Math.ceil((new Date(dateStr).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                        if (diffDays <= 1) return "bg-red-100 text-red-800 border-red-200"
+                        if (diffDays <= 3) return "bg-orange-100 text-orange-800 border-orange-200"
+                        if (diffDays <= 7) return "bg-yellow-100 text-yellow-800 border-yellow-200"
+                        return "bg-green-100 text-green-800 border-green-200"
+                      }
+
+                      const getPriorityLabel = (dateStr: string | null) => {
+                        if (!dateStr) return "Low"
+                        const diffDays = Math.ceil((new Date(dateStr).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                        if (diffDays <= 1) return "Critical (Immediate)"
+                        if (diffDays <= 3) return "High"
+                        if (diffDays <= 7) return "Medium"
+                        return "Low"
+                      }
+
                       let formattedDate = ""
                       if (wo.event_date) {
                         try {
                           const d = new Date(wo.event_date)
                           if (!isNaN(d.getTime())) {
-                            formattedDate = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                            formattedDate = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                           }
-                        } catch (e) {
-                          console.warn("Invalid date on dashboard:", wo.event_date)
-                        }
+                        } catch (e) {}
                       }
+
+                      const isUrgent = getPriorityLabel(wo.event_date).includes("Critical")
+
                       return (
-                        <div key={wo.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50/50 transition-colors flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="font-mono text-xs font-bold text-slate-800">{wo.work_order_number || ''}</span>
-                              <Badge className={
-                                wo.status === 'new' 
-                                  ? 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50' 
-                                  : 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-50'
-                              } variant="outline">
-                                {wo.status === 'new' ? 'New' : 'In Progress'}
+                        <div
+                          key={wo.id}
+                          onClick={() => router.push(`/work-orders/${wo.id}`)}
+                          className={`bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer border-t-4 ${
+                            isUrgent ? 'border-t-red-500' : isRental ? 'border-t-indigo-500' : 'border-t-emerald-500'
+                          }`}
+                        >
+                          <div className="pb-2 pt-3 px-4 flex flex-row items-start justify-between space-y-0">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-black text-indigo-600 tracking-wider">
+                                  {wo.work_order_number || ''}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-bold">•</span>
+                                <span className="text-xs font-semibold text-slate-500">
+                                  {wo.booking_number || ''}
+                                </span>
+                                {isRental ? (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full">
+                                    Rental
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                    Sale
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm font-bold text-slate-800 line-clamp-1">{wo.customer_name || 'N/A'}</p>
+                            </div>
+                            <Badge className={
+                              wo.status === 'new'
+                                ? 'bg-blue-50 text-blue-700 border-blue-100 shrink-0'
+                                : 'bg-amber-50 text-amber-700 border-amber-100 shrink-0'
+                            } variant="outline">
+                              {wo.status === 'new' ? 'New' : 'In Progress'}
+                            </Badge>
+                          </div>
+
+                          <div className="pb-3 px-4 space-y-2">
+                            <div className="flex items-center justify-between gap-2 border-y py-2 text-[11px] text-slate-500">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3 text-slate-400" />
+                                Event: {formattedDate || 'N/A'}
+                              </span>
+                              <Badge variant="outline" className={`text-[9px] border font-bold ${getPriorityColor(wo.event_date)}`}>
+                                {getPriorityLabel(wo.event_date)}
                               </Badge>
                             </div>
-                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{wo.customer_name || 'N/A'}</h4>
-                            <p className="text-[11px] text-slate-500 font-medium">Booking: {wo.booking_number || ''}</p>
-                            
-                            {formattedDate && (
-                              <p className="text-[11px] text-indigo-600 font-semibold mt-1 flex items-center gap-1">
-                                <Calendar className="h-3 w-3" /> Event: {formattedDate}
-                              </p>
+
+                            {totalTasks > 0 && (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                                  <span>Operations Progress</span>
+                                  <span>{completedTasks}/{totalTasks} ({progressPct}%)</span>
+                                </div>
+                                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full transition-all duration-300 ${isRental ? 'bg-indigo-600' : 'bg-emerald-600'}`}
+                                    style={{ width: `${progressPct}%` }}
+                                  />
+                                </div>
+                              </div>
                             )}
-                          </div>
-                          
-                          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                            <span>Tasks Pending: <strong>{activeTasks.length}</strong></span>
-                            <span className="font-semibold text-indigo-600 hover:underline cursor-pointer" onClick={() => router.push(`/work-orders?search=${wo.work_order_number}`)}>
-                              Update →
-                            </span>
+
+                            <div className="flex items-center justify-end text-[11px] text-indigo-600 font-bold pt-1 gap-0.5">
+                              View Work Order Details
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </div>
                           </div>
                         </div>
                       )

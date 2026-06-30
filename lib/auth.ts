@@ -38,6 +38,12 @@ export async function signIn(email: string, password: string) {
     }
 
   const data = await response.json()
+
+  // 2FA required — return signal to caller without storing session yet
+  if (data.requires_2fa) {
+    return { requires_2fa: true, temp_token: data.temp_token }
+  }
+
   const { user, session } = data
 
     // Store user data securely and wait for it to complete

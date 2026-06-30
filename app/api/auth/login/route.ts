@@ -430,6 +430,36 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Login successful for:", email)
 
+    // ── 2FA CHECK: If admin has 2FA enabled, don't complete login yet ──
+    if (['super_admin', 'franchise_admin'].includes(userProfile.role)) {
+      try {
+        const totpEnabled = (userProfile as any).totp_enabled
+        if (totpEnabled) {
+          const tempToken = crypto.randomUUID()
+          const pendingPayload = JSON.stringify({
+            userId: userProfile.id,
+            token: tempToken,
+            expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+          })
+          const pendingRes = NextResponse.json({
+            requires_2fa: true,
+            temp_token: tempToken,
+            message: "Enter your authenticator code",
+          })
+          pendingRes.cookies.set("safawala_2fa_pending", pendingPayload, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
+            maxAge: 60 * 5,
+          })
+          return pendingRes
+        }
+      } catch (totpCheckErr) {
+        console.warn("[v0] Could not check 2FA status (columns may not exist):", totpCheckErr)
+      }
+    }
+
     // ── SINGLE-DEVICE LOGIN: Generate a unique session token ──
     // Storing this in DB means any new login from another device
     // invalidates the previous session token automatically.
