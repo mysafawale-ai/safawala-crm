@@ -56,7 +56,7 @@ export default function WorkOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all") // all, new, in_progress, completed
   const [typeFilter, setTypeFilter] = useState<"all" | "rental" | "sales">("all")
-  const [activeTab, setActiveTab] = useState<'warehouse' | 'packing' | 'dispatch' | 'event_team' | 'returns' | 'accounts'>('warehouse')
+  const [activeTab, setActiveTab] = useState<'bookings' | 'warehouse' | 'packing' | 'dispatch' | 'event_team' | 'returns' | 'accounts'>('bookings')
 
   useEffect(() => {
     async function loadUser() {
@@ -133,6 +133,7 @@ export default function WorkOrdersPage() {
   // Compute counts for each department for badges
   const departmentCounts = useMemo(() => {
     const counts = {
+      bookings: 0,
       warehouse: 0,
       packing: 0,
       dispatch: 0,
@@ -141,6 +142,9 @@ export default function WorkOrdersPage() {
       accounts: 0
     }
     
+    // Count active work orders
+    counts.bookings = workOrders.filter(wo => wo.status !== 'completed' && wo.status !== 'cancelled').length
+
     workOrders.forEach((wo) => {
       wo.work_order_tasks?.forEach((t) => {
         if (t.status === 'active' || t.status === 'pending') {
@@ -277,9 +281,10 @@ export default function WorkOrdersPage() {
           </div>
 
           {/* Department Tabs */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2 bg-slate-100 p-1 rounded-xl border">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-2 bg-slate-100 p-1 rounded-xl border">
             {(
               [
+                { id: 'bookings', label: 'Bookings', icon: Calendar },
                 { id: 'warehouse', label: 'Warehouse', icon: Warehouse },
                 { id: 'packing', label: 'Packing', icon: Package },
                 { id: 'dispatch', label: 'Dispatch', icon: Truck },
@@ -320,6 +325,103 @@ export default function WorkOrdersPage() {
               <div className="animate-spin rounded-full h-9 w-9 border-b-2 border-indigo-600 mb-4"></div>
               <p className="text-sm font-semibold text-slate-600">Syncing board tasks...</p>
             </div>
+          ) : activeTab === 'bookings' ? (
+            filteredWorkOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-slate-100 shadow-sm text-center">
+                <ClipboardList className="h-16 w-16 text-slate-300 stroke-1 mb-3 animate-bounce" />
+                <h3 className="text-lg font-bold text-slate-700">No Bookings Found</h3>
+                <p className="text-sm text-slate-500 max-w-sm mt-1 px-4">
+                  No active work order bookings match your filters.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredWorkOrders.map((workOrder) => {
+                  const isUrgent = getPriorityLabel(workOrder.event_date).includes("Critical")
+                  const isRental = isRentalSource(workOrder.booking_source)
+                  const totalTasks = workOrder.work_order_tasks?.length || 0
+                  const completedTasks = workOrder.work_order_tasks?.filter(t => t.status === 'completed' || t.status === 'picked').length || 0
+                  const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+                  return (
+                    <Card 
+                      key={workOrder.id}
+                      onClick={() => router.push(`/work-orders/${workOrder.id}`)}
+                      className={`bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer border-t-4 ${
+                        isUrgent ? 'border-t-red-500' : isRental ? 'border-t-indigo-500' : 'border-t-emerald-500'
+                      }`}
+                    >
+                      <CardHeader className="pb-3 pt-4 px-4 flex flex-row items-start justify-between space-y-0">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-black text-indigo-600 tracking-wider">
+                              {workOrder.work_order_number}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-bold">•</span>
+                            <span className="text-xs font-semibold text-slate-500">
+                              {workOrder.booking_number}
+                            </span>
+                            {isRental ? (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full">
+                                <ArrowRightLeft className="h-2.5 w-2.5" /> Rental
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                <TrendingDown className="h-2.5 w-2.5" /> Sale
+                              </span>
+                            )}
+                          </div>
+                          <CardTitle className="text-sm font-bold text-slate-800 line-clamp-1">
+                            {workOrder.customer_name}
+                          </CardTitle>
+                        </div>
+                        <Badge className={
+                          workOrder.status === 'new'
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : workOrder.status === 'in_progress'
+                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                            : 'bg-green-50 text-green-700 border-green-100'
+                        } variant="outline">
+                          {workOrder.status === 'new' ? 'New' : workOrder.status === 'in_progress' ? 'In Progress' : 'Completed'}
+                        </Badge>
+                      </CardHeader>
+
+                      <CardContent className="pb-4 px-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2 border-y py-2 text-[11px] text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-slate-400" />
+                            Event: {workOrder.event_date ? format(new Date(workOrder.event_date), "dd MMM yyyy") : "N/A"}
+                          </span>
+                          <Badge variant="outline" className={`text-[9px] border font-bold ${getPriorityColor(workOrder.event_date)}`}>
+                            {getPriorityLabel(workOrder.event_date)}
+                          </Badge>
+                        </div>
+
+                        {totalTasks > 0 && (
+                          <div className="space-y-1 pt-1">
+                            <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                              <span>Operations Progress</span>
+                              <span>{completedTasks}/{totalTasks} ({progressPct}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 ${isRental ? 'bg-indigo-600' : 'bg-emerald-600'}`}
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-end text-[11px] text-indigo-600 font-bold pt-1 gap-0.5 hover:translate-x-0.5 transition-transform">
+                          View Work Order Details
+                          <ChevronRight className="h-3 w-3" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )
           ) : departmentTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 bg-white rounded-xl border border-slate-100 shadow-sm text-center">
               <ClipboardList className="h-16 w-16 text-slate-300 stroke-1 mb-3 animate-bounce" />
