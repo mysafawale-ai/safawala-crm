@@ -46,11 +46,22 @@ export default function RootLayout({
         <meta name="theme-color" content="#f5ebe0" />
         <meta name="mobile-web-app-capable" content="yes" />
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'))}` }} />
+        <script dangerouslySetInnerHTML={{ __html: `
+          function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+              pageLanguage: 'en',
+              includedLanguages: 'en,hi,gu',
+              autoDisplay: false
+            }, 'google_translate_element');
+          }
+        ` }} />
+        <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async defer></script>
       </head>
       <body className={`${inter.className} antialiased`}>
         <I18nProvider>
           <TooltipProvider>{children}</TooltipProvider>
         </I18nProvider>
+        <div id="google_translate_element" style={{ display: 'none' }} />
         <div className="print:hidden">
           <Toaster />
           <SonnerToaster />

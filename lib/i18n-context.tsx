@@ -22,10 +22,37 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  // Trigger Google Translate dynamically on language change
+  useEffect(() => {
+    try {
+      document.cookie = `googtrans=/en/${language}; path=/;`
+      document.cookie = `googtrans=/en/${language}; path=/; domain=localhost;`
+      document.cookie = `googtrans=/en/${language}; path=/; domain=mysafawala.com;`
+      document.cookie = `googtrans=/en/${language}; path=/; domain=.mysafawala.com;`
+    } catch (e) {
+      console.warn("Google Translate cookies failed:", e)
+    }
+
+    const triggerTranslation = () => {
+      try {
+        const select = document.querySelector('.goog-te-combo') as HTMLSelectElement
+        if (select) {
+          select.value = language
+          select.dispatchEvent(new Event('change'))
+        }
+      } catch (err) {
+        console.error("Error triggering Google Translate:", err)
+      }
+    }
+
+    triggerTranslation()
+    const timer = setInterval(triggerTranslation, 1000)
+    return () => clearInterval(timer)
+  }, [language])
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang)
     localStorage.setItem("crm_language", lang)
-    // Dispatch custom event to notify other components/layouts if needed
     window.dispatchEvent(new Event("languagechange"))
   }
 

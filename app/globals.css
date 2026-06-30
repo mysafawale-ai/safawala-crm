@@ -480,3 +480,45 @@
     background-position: center center;
   }
 }
+
+/* Google Translate styling overrides to keep it hidden and clean */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+.goog-te-gadget-icon,
+.goog-te-gadget {
+  display: none !important;
+}
+body {
+  top: 0px !important;
+}
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+  box-shadow: none !important;
+}
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+}
+#google_translate_element {
+  display: none !important;
+}
+iframe.goog-te-banner-frame {
+  display: none !important;
+}
+.goog-te-menu-value {
+  display: none !important;
+}
+.skiptranslate {
+  display: none !important;
+}
+iframe {
+  visibility: hidden !important;
+  display: none !important;
+}
+/* Ensure the body remains at top */
+body {
+  top: 0px !important;
+  position: static !important;
+}
