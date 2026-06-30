@@ -560,19 +560,21 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {stats?.ownerKPIs?.staffPerformance && stats.ownerKPIs.staffPerformance.length > 0 ? (
-                  stats.ownerKPIs.staffPerformance.map((staff: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 text-xs font-semibold">
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 bg-indigo-50 border border-indigo-100 rounded-full flex items-center justify-center font-bold text-xs text-indigo-700">
-                          {staff.name.slice(0, 2).toUpperCase()}
+                  stats.ownerKPIs.staffPerformance
+                    .filter((staff: any) => staff && staff.name)
+                    .map((staff: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 text-xs font-semibold">
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 bg-indigo-50 border border-indigo-100 rounded-full flex items-center justify-center font-bold text-xs text-indigo-700">
+                            {(staff.name || 'Staff').slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-slate-700">{staff.name || 'Staff'}</span>
                         </div>
-                        <span className="text-slate-700">{staff.name}</span>
+                        <Badge className="bg-green-50 text-green-700 border border-green-150 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                          {staff.completedCount || 0} Tasks Done
+                        </Badge>
                       </div>
-                      <Badge className="bg-green-50 text-green-700 border border-green-150 text-[10px] px-1.5 py-0.5 rounded font-bold">
-                        {staff.completedCount} Tasks Done
-                      </Badge>
-                    </div>
-                  ))
+                    ))
                 ) : (
                   <p className="text-xs text-muted-foreground text-center py-4">
                     No task completion records found.
@@ -631,7 +633,7 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="space-y-4">
                   {recentBookings && recentBookings.length > 0 ? (
-                    recentBookings.slice(0, 5).map((booking) => (
+                    recentBookings.filter(Boolean).slice(0, 5).map((booking) => (
                     <div key={booking.id} className="flex items-start gap-4 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex-shrink-0 mt-1">
                         {booking.status === 'confirmed' && <CheckCircle2 className="h-5 w-5 text-green-600" />}

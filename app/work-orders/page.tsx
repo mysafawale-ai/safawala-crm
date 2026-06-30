@@ -19,6 +19,17 @@ import {
 import { format } from "date-fns"
 import { toast } from "sonner"
 
+const formatDateSafe = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "N/A"
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return "N/A"
+    return format(d, "dd MMM yyyy")
+  } catch {
+    return "N/A"
+  }
+}
+
 interface Task {
   id: string
   department: 'warehouse' | 'packing' | 'dispatch' | 'event_team' | 'returns' | 'accounts'
@@ -390,7 +401,7 @@ export default function WorkOrdersPage() {
                         <div className="flex items-center justify-between gap-2 border-y py-2 text-[11px] text-slate-500">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3 text-slate-400" />
-                            Event: {workOrder.event_date ? format(new Date(workOrder.event_date), "dd MMM yyyy") : "N/A"}
+                            Event: {formatDateSafe(workOrder.event_date)}
                           </span>
                           <Badge variant="outline" className={`text-[9px] border font-bold ${getPriorityColor(workOrder.event_date)}`}>
                             {getPriorityLabel(workOrder.event_date)}
@@ -480,7 +491,7 @@ export default function WorkOrdersPage() {
                       <div className="flex items-center justify-between gap-2 border-y py-2 text-[11px] text-slate-500">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-slate-400" />
-                          Event: {workOrder.event_date ? format(new Date(workOrder.event_date), "dd MMM yyyy") : "N/A"}
+                          Event: {formatDateSafe(workOrder.event_date)}
                         </span>
                         <Badge variant="outline" className={`text-[9px] border font-bold ${getPriorityColor(workOrder.event_date)}`}>
                           {getPriorityLabel(workOrder.event_date)}
