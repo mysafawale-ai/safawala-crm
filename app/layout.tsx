@@ -33,6 +33,8 @@ export const metadata: Metadata = {
   },
 }
 
+import { I18nProvider } from "@/lib/i18n-context"
+
 export default function RootLayout({
   children,
 }: {
@@ -46,7 +48,9 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'))}` }} />
       </head>
       <body className={`${inter.className} antialiased`}>
-        <TooltipProvider>{children}</TooltipProvider>
+        <I18nProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </I18nProvider>
         <div className="print:hidden">
           <Toaster />
           <SonnerToaster />

@@ -63,7 +63,7 @@ export function BookingDialog({ open, onOpenChange, onBookingCreated }: BookingD
   const [formData, setFormData] = useState({
     customer_id: "",
     new_customer_name: "",
-    new_customer_phone: "",
+    new_customer_phone: "+91",
     new_customer_email: "",
     event_date: "",
     event_time: "",
@@ -246,7 +246,7 @@ export function BookingDialog({ open, onOpenChange, onBookingCreated }: BookingD
     setFormData({
       customer_id: "",
       new_customer_name: "",
-      new_customer_phone: "",
+      new_customer_phone: "+91",
       new_customer_email: "",
       event_date: "",
       event_time: "",

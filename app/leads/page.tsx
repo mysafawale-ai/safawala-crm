@@ -9,6 +9,7 @@ import {
   Lock, Trash2, User, FileText, ArrowRight
 } from "lucide-react"
 import { toast } from "sonner"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -135,7 +136,7 @@ export default function LeadsPage() {
   // Form States (Add Lead)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newName, setNewName] = useState("")
-  const [newPhone, setNewPhone] = useState("")
+  const [newPhone, setNewPhone] = useState("+91")
   const [newEmail, setNewEmail] = useState("")
   const [newEventDate, setNewEventDate] = useState("")
   const [newLocation, setNewLocation] = useState("")
@@ -263,7 +264,7 @@ export default function LeadsPage() {
   // Reset Add Lead form
   const resetAddForm = () => {
     setNewName("")
-    setNewPhone("")
+    setNewPhone("+91")
     setNewEmail("")
     setNewEventDate("")
     setNewLocation("")
@@ -279,8 +280,14 @@ export default function LeadsPage() {
   // Create lead manually
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newName.trim() || !newPhone.trim() || !newEventDate) {
-      toast.error("Name, WhatsApp number, and Event Date are required")
+    if (!newName.trim() || !newEventDate) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+
+    const phoneValidation = validatePhoneWithCountry(newPhone)
+    if (!phoneValidation.isValid) {
+      toast.error(phoneValidation.error || "Please enter a valid phone number")
       return
     }
 

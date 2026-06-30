@@ -20,6 +20,7 @@ interface DocumentSettingsData {
   default_tax_rate: number
   show_gst_breakdown: boolean
   default_terms_conditions: string
+  allow_invoice_number_edit: boolean
 }
 
 interface Template {
@@ -51,7 +52,8 @@ export function DocumentSettingsSection({ franchiseId }: DocumentSettingsSection
     default_payment_terms: 'Net 15',
     default_tax_rate: 18.00,
     show_gst_breakdown: true,
-    default_terms_conditions: ''
+    default_terms_conditions: '',
+    allow_invoice_number_edit: false
   })
   const [invoiceTemplates, setInvoiceTemplates] = useState<Template[]>([])
   const [quoteTemplates, setQuoteTemplates] = useState<Template[]>([])
@@ -81,7 +83,8 @@ export function DocumentSettingsSection({ franchiseId }: DocumentSettingsSection
           default_payment_terms: result.data.default_payment_terms || 'Net 15',
           default_tax_rate: result.data.default_tax_rate || 18.00,
           show_gst_breakdown: result.data.show_gst_breakdown ?? true,
-          default_terms_conditions: result.data.default_terms_conditions || ''
+          default_terms_conditions: result.data.default_terms_conditions || '',
+          allow_invoice_number_edit: result.data.allow_invoice_number_edit ?? false
         })
       }
     } catch (error) {
@@ -271,6 +274,22 @@ export function DocumentSettingsSection({ franchiseId }: DocumentSettingsSection
               <p className="text-xs text-gray-500">
                 Use: {'{YYYY}'} for year, {'{MM}'} for month, {'{0001}'} for sequential number
               </p>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-4 mt-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="allow_invoice_number_edit" className="text-sm font-semibold text-slate-800">Allow Manual Invoice Number Editing</Label>
+                <p className="text-xs text-gray-500 max-w-xl">
+                  Allow franchise staff to edit invoice/order numbers manually when creating bookings/invoices. If disabled, numbers are locked to the auto-generated sequence.
+                </p>
+              </div>
+              <Switch
+                id="allow_invoice_number_edit"
+                checked={data.allow_invoice_number_edit}
+                onCheckedChange={(checked) => handleInputChange('allow_invoice_number_edit', checked)}
+              />
             </div>
           </div>
         </div>

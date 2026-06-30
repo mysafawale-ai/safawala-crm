@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import type { Customer, Product, BookingType, PaymentType } from "@/lib/types"
 import { toast } from "@/hooks/use-toast"
 import { debounce } from "lodash"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 
 interface BookingFormProps {
   customers: Customer[]
@@ -32,8 +33,8 @@ export function BookingForm({ customers, products, onSubmit, initialBooking }: B
   const [selectedCustomer, setSelectedCustomer] = useState<string>("")
   const [newCustomer, setNewCustomer] = useState({
     name: "",
-    phone: "",
-    whatsapp: "",
+    phone: "+91",
+    whatsapp: "+91",
     address: "",
     city: "",
     state: "",
@@ -164,8 +165,11 @@ export function BookingForm({ customers, products, onSubmit, initialBooking }: B
 
       if (!newCustomer.phone.trim()) {
         errors.customerPhone = "Customer phone is required"
-      } else if (!validatePhone(newCustomer.phone)) {
-        errors.customerPhone = "Please enter a valid phone number (10-15 digits)"
+      } else {
+        const phoneValidation = validatePhoneWithCountry(newCustomer.phone)
+        if (!phoneValidation.isValid) {
+          errors.customerPhone = phoneValidation.error || "Please enter a valid phone number"
+        }
       }
 
       if (newCustomer.pincode && !validatePincode(newCustomer.pincode)) {
@@ -532,8 +536,8 @@ export function BookingForm({ customers, products, onSubmit, initialBooking }: B
     setSelectedCustomer("")
     setNewCustomer({
       name: "",
-      phone: "",
-      whatsapp: "",
+      phone: "+91",
+      whatsapp: "+91",
       email: "",
       address: "",
       city: "", // Reset city

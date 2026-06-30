@@ -54,7 +54,8 @@ export async function GET(request: Request) {
       default_payment_terms: 'Net 30',
       default_tax_rate: 18.00,
       show_gst_breakdown: true,
-      default_terms_conditions: 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.'
+      default_terms_conditions: 'This is a digital invoice. Please keep this for your records. For any queries, contact our support team.',
+      allow_invoice_number_edit: false
     }
 
     // Merge results with defaults

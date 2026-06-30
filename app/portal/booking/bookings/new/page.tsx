@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 
 const COLOR = "#22c55e"
 const COLOR_DARK = "#15803d"
@@ -47,7 +48,7 @@ function NewBookingInner() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer|null>(null)
   const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [showNewCust, setShowNewCust] = useState(false)
-  const [newCust, setNewCust] = useState({ name:"", phone:"", email:"", city:"" })
+  const [newCust, setNewCust] = useState({ name:"", phone:"+91", email:"", city:"" })
   const [savingCust, setSavingCust] = useState(false)
 
   // Booking details
@@ -146,7 +147,12 @@ function NewBookingInner() {
 
   // Create new customer
   async function createCustomer() {
-    if (!newCust.name.trim()||!newCust.phone.trim()) return
+    if (!newCust.name.trim()) return
+    const phoneValidation = validatePhoneWithCountry(newCust.phone)
+    if (!phoneValidation.isValid) {
+      alert(phoneValidation.error || "Please enter a valid phone number")
+      return
+    }
     setSavingCust(true)
     try {
       const res = await fetch("/api/customers", {
@@ -158,7 +164,7 @@ function NewBookingInner() {
       const c = data.data||data.customer||data
       setSelectedCustomer(c)
       setShowNewCust(false)
-      setNewCust({name:"",phone:"",email:"",city:""})
+      setNewCust({name:"",phone:"+91",email:"",city:""})
     } catch(e:any) { alert(e.message) } finally { setSavingCust(false) }
   }
 

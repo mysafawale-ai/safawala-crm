@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast"
 import { ToastService } from "@/lib/toast-service"
 import { supabase } from "@/lib/supabase"
 import { lookupPincode } from "@/lib/pincode-service"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
+import { useI18n } from "@/lib/i18n-context"
 
 interface NewCustomerDialogProps {
   open: boolean
@@ -20,13 +22,14 @@ interface NewCustomerDialogProps {
 }
 
 export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franchises }: NewCustomerDialogProps) {
+  const { t } = useI18n()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [pincodeStatus, setPincodeStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [formData, setFormData] = useState({
     name: "",
-    phone: "",
-    whatsapp: "",
+    phone: "+91",
+    whatsapp: "+91",
     address: "",
     area: "",
     city: "",
@@ -92,9 +95,9 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
     }
 
     // Validate phone number format
-    const phoneRegex = /^[6-9]\d{9}$/
-    if (!phoneRegex.test(formData.phone.replace(/\s+/g, ''))) {
-      ToastService.error("Please enter a valid 10-digit mobile number")
+    const phoneValidation = validatePhoneWithCountry(formData.phone)
+    if (!phoneValidation.isValid) {
+      ToastService.error(phoneValidation.error || "Please enter a valid phone number")
       return
     }
 
@@ -133,8 +136,8 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
       // Reset form
       setFormData({
         name: "",
-        phone: "",
-        whatsapp: "",
+        phone: "+91",
+        whatsapp: "+91",
         address: "",
         area: "",
         city: "",
@@ -156,7 +159,7 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            Add New Customer
+            {t("add_new_customer")}
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="h-6 w-6 p-0">
               <X className="h-4 w-4" />
             </Button>
@@ -166,44 +169,44 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name">{t("name")} *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Customer name"
+                placeholder={t("name")}
               />
             </div>
             <div>
-              <Label htmlFor="phone">Phone *</Label>
+              <Label htmlFor="phone">{t("phone")} *</Label>
               <Input
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                placeholder="Phone number"
+                placeholder={t("phone")}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="whatsapp">WhatsApp</Label>
+              <Label htmlFor="whatsapp">{t("whatsapp_number")}</Label>
               <Input
                 id="whatsapp"
                 value={formData.whatsapp}
                 onChange={(e) => setFormData((prev) => ({ ...prev, whatsapp: e.target.value }))}
-                placeholder="WhatsApp number"
+                placeholder={t("whatsapp_number")}
               />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">{t("address")}</Label>
             <Input
               id="address"
               value={formData.address}
               onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-              placeholder="Full address"
+              placeholder={t("address")}
             />
           </div>
 
@@ -238,12 +241,12 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">{t("city")}</Label>
               <Input
                 id="city"
                 value={formData.city}
                 onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
-                placeholder="City"
+                placeholder={t("city")}
               />
             </div>
             <div>
@@ -278,10 +281,10 @@ export function NewCustomerDialog({ open, onOpenChange, onCustomerCreated, franc
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? "Creating..." : "Create Customer"}
+              {loading ? t("loading") : t("create_customer")}
             </Button>
           </div>
         </div>

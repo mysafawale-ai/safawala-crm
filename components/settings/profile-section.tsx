@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useI18n } from '@/lib/i18n-context'
+import type { Language } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,6 +47,7 @@ interface ProfileSectionProps {
 }
 
 export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
+  const { language, setLanguage, t } = useI18n()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -521,6 +524,31 @@ export function ProfileSection({ franchiseId, userId }: ProfileSectionProps) {
                   onChange={(e) => handleFormChange('emergency_contact_phone', e.target.value)}
                   placeholder="+91 98765 43210"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Language Preference Section */}
+          <div className="border-t border-slate-100 pt-6 mt-6">
+            <h4 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+              🌐 {t('language_preference')}
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="language_selection">{t('select_language')}</Label>
+                <Select 
+                  value={language} 
+                  onValueChange={(val) => setLanguage(val as Language)}
+                >
+                  <SelectTrigger className="w-full bg-white border border-gray-200">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-200">
+                    <SelectItem value="en">English (default)</SelectItem>
+                    <SelectItem value="hi">हिंदी + English (Hindi Script)</SelectItem>
+                    <SelectItem value="gu">ગુજરાતી + English (Gujarati Script)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

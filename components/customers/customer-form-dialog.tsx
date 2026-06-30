@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
+import { useI18n } from "@/lib/i18n-context"
 
 interface CustomerFormDialogProps {
   open: boolean
@@ -34,11 +36,12 @@ export function CustomerFormDialog({
   mode = "create", 
   customer 
 }: CustomerFormDialogProps) {
+  const { t } = useI18n()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<CustomerFormData>({
     name: "",
-    phone: "",
-    whatsapp: "",
+    phone: "+91",
+    whatsapp: "+91",
     address: "",
     city: "",
     state: "",
@@ -61,8 +64,8 @@ export function CustomerFormDialog({
       // Reset form when dialog closes in create mode
       setFormData({
         name: "",
-        phone: "",
-        whatsapp: "",
+        phone: "+91",
+        whatsapp: "+91",
         address: "",
         city: "",
         state: "",
@@ -87,12 +90,9 @@ export function CustomerFormDialog({
         throw new Error("Customer name is required")
       }
 
-      if (!formData.phone.trim()) {
-        throw new Error("Phone number is required")
-      }
-
-      if (formData.phone.length < 10) {
-        throw new Error("Phone number must be at least 10 digits")
+      const phoneValidation = validatePhoneWithCountry(formData.phone)
+      if (!phoneValidation.isValid) {
+        throw new Error(phoneValidation.error || "Please enter a valid phone number")
       }
 
       const payload = {
@@ -172,14 +172,14 @@ export function CustomerFormDialog({
       <DialogContent className="sm:max-w-[420px] p-5 rounded-xl border border-slate-100 bg-white">
         <DialogHeader className="pb-3 border-b border-slate-100">
           <DialogTitle className="text-lg font-bold text-slate-900 tracking-tight">
-            {mode === "edit" ? "Edit Customer Details" : "New Customer Profile"}
+            {mode === "edit" ? t("edit_customer_details") : t("new_customer_profile")}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-3">
           <div className="space-y-1.5">
             <Label htmlFor="name" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Full Name *
+              {t("name")} *
             </Label>
             <Input
               id="name"
@@ -194,7 +194,7 @@ export function CustomerFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="phone" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Phone Number *
+                {t("phone")} *
               </Label>
               <Input
                 id="phone"
@@ -208,7 +208,7 @@ export function CustomerFormDialog({
 
             <div className="space-y-1.5">
               <Label htmlFor="whatsapp" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                WhatsApp
+                {t("whatsapp_number")}
               </Label>
               <Input
                 id="whatsapp"
@@ -222,7 +222,7 @@ export function CustomerFormDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="address" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Address
+              {t("address")}
             </Label>
             <Textarea
               id="address"
@@ -242,7 +242,7 @@ export function CustomerFormDialog({
               disabled={loading}
               className="h-9 px-4 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 text-sm font-medium"
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button 
               type="submit" 
@@ -252,10 +252,10 @@ export function CustomerFormDialog({
               {loading ? (
                 <div className="flex items-center space-x-1.5">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Saving...</span>
+                  <span>{t("loading")}</span>
                 </div>
               ) : (
-                <span>{mode === "edit" ? "Update Profile" : "Create Profile"}</span>
+                <span>{mode === "edit" ? t("update_profile") : t("create_profile")}</span>
               )}
             </Button>
           </div>

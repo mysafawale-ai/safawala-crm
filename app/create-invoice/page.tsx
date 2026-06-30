@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { sendInvoiceViaWhatsApp } from "@/lib/send-invoice-whatsapp"
 import { triggerPDFGeneration } from "@/lib/generate-pdf-helper"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -177,8 +178,9 @@ const formatTimeForInput = (dateValue: string | null | undefined, existingTime?:
   }
 }
 
-// Default Safawala logo URL for invoices
 const DEFAULT_LOGO_URL = 'https://xplnyaxkusvuajtmorss.supabase.co/storage/v1/object/public/settings-uploads/1a518dde-85b7-44ef-8bc4-092f53ddfd99/logo-1761570887109.png'
+
+import { useI18n } from "@/lib/i18n-context"
 
 export default function CreateInvoicePage() {
   const router = useRouter()
@@ -186,6 +188,7 @@ export default function CreateInvoicePage() {
   const { toast } = useToast()
   const supabase = createClient()
   const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const { t } = useI18n()
 
   // Mode: 'new' | 'edit' | 'quote' | 'final-bill'
   const mode = searchParams.get("mode") || "new"
@@ -321,7 +324,7 @@ export default function CreateInvoicePage() {
   // New Customer Form
   const [newCustomer, setNewCustomer] = useState({
     name: "",
-    phone: "",
+    phone: "+91",
     address: "",
     city: "",
     state: "",
@@ -368,7 +371,7 @@ export default function CreateInvoicePage() {
 
       if (!userFranchiseId) {
         console.warn("[LoadNextInvoice] No franchise_id found, using default")
-        const defaultNum = invoiceData.invoice_type === 'sale' ? 'ORD001' : 'INV001'
+        const defaultNum = invoiceData.invoice_type === 'sale' ? 'ORD-2026001' : 'INV-2026001'
         console.log(`[LoadNextInvoice] Default number for ${invoiceData.invoice_type}: ${defaultNum}`)
         setInvoiceData(prev => ({
           ...prev,
@@ -383,7 +386,7 @@ export default function CreateInvoicePage() {
 
       if (!response.ok) {
         console.warn(`[LoadNextInvoice] API error for ${invoiceData.invoice_type}: ${response.status}`)
-        const defaultNum = invoiceData.invoice_type === 'sale' ? 'ORD001' : 'INV001'
+        const defaultNum = invoiceData.invoice_type === 'sale' ? 'ORD-2026001' : 'INV-2026001'
         console.log(`[LoadNextInvoice] Using default: ${defaultNum}`)
         setInvoiceData(prev => ({
           ...prev,
@@ -393,7 +396,7 @@ export default function CreateInvoicePage() {
       }
 
       const data = await response.json()
-      const nextNum = data.next_invoice_number || (invoiceData.invoice_type === 'sale' ? 'ORD001' : 'INV001')
+      const nextNum = data.next_invoice_number || (invoiceData.invoice_type === 'sale' ? 'ORD-2026001' : 'INV-2026001')
       console.log(`[LoadNextInvoice] ${invoiceData.invoice_type.toUpperCase()} → ${nextNum}`)
       setInvoiceData(prev => ({
         ...prev,
@@ -403,7 +406,7 @@ export default function CreateInvoicePage() {
       console.error("[LoadNextInvoice] Error loading next invoice number:", error)
       setInvoiceData(prev => ({
         ...prev,
-        invoice_number: "ORD001"
+        invoice_number: "ORD-2026001"
       }))
     }
   }
@@ -1668,8 +1671,14 @@ export default function CreateInvoicePage() {
   }
 
   const handleCreateCustomer = async () => {
-    if (!newCustomer.name || !newCustomer.phone) {
-      toast({ title: "Error", description: "Name and phone are required", variant: "destructive" })
+    if (!newCustomer.name) {
+      toast({ title: "Error", description: "Customer name is required", variant: "destructive" })
+      return
+    }
+
+    const phoneValidation = validatePhoneWithCountry(newCustomer.phone)
+    if (!phoneValidation.isValid) {
+      toast({ title: "Error", description: phoneValidation.error || "Please enter a valid phone number", variant: "destructive" })
       return
     }
 
@@ -1704,7 +1713,7 @@ export default function CreateInvoicePage() {
       }
 
       setShowNewCustomerDialog(false)
-      setNewCustomer({ name: "", phone: "", address: "", city: "", state: "", pincode: "" })
+      setNewCustomer({ name: "", phone: "+91", address: "", city: "", state: "", pincode: "" })
       setPincodeStatus("idle")
       toast({ title: "Success", description: result.message || "Customer created" })
     } catch (error) {
@@ -3533,7 +3542,8 @@ export default function CreateInvoicePage() {
                 value={invoiceData.invoice_number}
                 onChange={(e) => setInvoiceData({ ...invoiceData, invoice_number: e.target.value })}
                 className="font-mono font-bold text-sm h-8 w-28"
-                placeholder="INV001"
+                placeholder="INV-2026001"
+                disabled={!companySettings?.allow_invoice_number_edit}
               />
               <Input
                 type="date"

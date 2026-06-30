@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 import {
   ArrowLeft,
   User,
@@ -159,8 +160,8 @@ export default function CreateBookingPage() {
 
   const [newCustomerData, setNewCustomerData] = useState<NewCustomerData>({
     name: "",
-    phone: "",
-    whatsapp: "",
+    phone: "+91",
+    whatsapp: "+91",
     email: "",
     address: "",
     city: "",
@@ -222,10 +223,20 @@ export default function CreateBookingPage() {
   }
 
   const handleCreateCustomer = async () => {
-    if (!newCustomerData.name || !newCustomerData.phone) {
+    if (!newCustomerData.name) {
       toast({
         title: "Validation Error",
-        description: "Name and phone are required",
+        description: "Customer name is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const phoneValidation = validatePhoneWithCountry(newCustomerData.phone)
+    if (!phoneValidation.isValid) {
+      toast({
+        title: "Validation Error",
+        description: phoneValidation.error || "Please enter a valid phone number",
         variant: "destructive",
       })
       return
@@ -255,8 +266,8 @@ export default function CreateBookingPage() {
       setShowNewCustomerDialog(false)
       setNewCustomerData({
         name: "",
-        phone: "",
-        whatsapp: "",
+        phone: "+91",
+        whatsapp: "+91",
         email: "",
         address: "",
         city: "",

@@ -146,7 +146,7 @@ function EnquirePopup({ variant, price, linkId, linkLabel, onClose }: {
   variant: Variant; price: number; linkId: string; linkLabel: string; onClose: () => void
 }) {
   const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
+  const [phone, setPhone] = useState("+91")
   const [date, setDate] = useState("")
   const [location, setLocation] = useState("")
   const [message, setMessage] = useState("")

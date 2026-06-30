@@ -18,6 +18,7 @@ import { CalendarIcon, Save, Package, User, Clock, Layers } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 import { toast } from "@/hooks/use-toast"
 import { InventoryAvailabilityPopup } from "./inventory-availability-popup"
 
@@ -101,8 +102,8 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
   const [selectedCustomer, setSelectedCustomer] = useState<string>("")
   const [newCustomer, setNewCustomer] = useState({
     name: "",
-    phone: "",
-    whatsapp: "",
+    phone: "+91",
+    whatsapp: "+91",
     email: "",
     address: "",
     pincode: "",
@@ -378,10 +379,19 @@ export function PackageBookingForm({ onSubmit, currentUser }: PackageBookingForm
 
   const validateForm = () => {
     if (isNewCustomer) {
-      if (!newCustomer.name || !newCustomer.phone) {
+      if (!newCustomer.name) {
         toast({
           title: "Validation Error",
-          description: "Customer name and phone are required",
+          description: "Customer name is required",
+          variant: "destructive",
+        })
+        return false
+      }
+      const phoneValidation = validatePhoneWithCountry(newCustomer.phone)
+      if (!phoneValidation.isValid) {
+        toast({
+          title: "Validation Error",
+          description: phoneValidation.error || "Please enter a valid phone number",
           variant: "destructive",
         })
         return false

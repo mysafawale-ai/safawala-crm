@@ -23,6 +23,7 @@ import {
 import { ArrowLeft, Save, Plus, Minus, User, Calendar, Download, ShoppingCart, CreditCard } from "lucide-react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { customerService, productService, bookingService, bookingItemService } from "@/lib/supabase-service"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 import { toast } from "sonner"
 import { generateQuotePDF } from "@/lib/pdf-generator"
 
@@ -129,8 +130,8 @@ export default function NewBookingPage() {
 
   const [newCustomerData, setNewCustomerData] = useState<NewCustomerData>({
     name: "",
-    phone: "",
-    whatsapp: "",
+    phone: "+91",
+    whatsapp: "+91",
     email: "",
     address: "",
     city: "",
@@ -218,8 +219,14 @@ export default function NewBookingPage() {
   }
 
   const handleCreateCustomer = async () => {
-    if (!newCustomerData.name || !newCustomerData.phone || !newCustomerData.address) {
+    if (!newCustomerData.name || !newCustomerData.address) {
       toast.error("Please fill in all required fields")
+      return
+    }
+
+    const phoneValidation = validatePhoneWithCountry(newCustomerData.phone)
+    if (!phoneValidation.isValid) {
+      toast.error(phoneValidation.error || "Please enter a valid phone number")
       return
     }
 
@@ -248,8 +255,8 @@ export default function NewBookingPage() {
       setShowNewCustomerDialog(false)
       setNewCustomerData({
         name: "",
-        phone: "",
-        whatsapp: "",
+        phone: "+91",
+        whatsapp: "+91",
         email: "",
         address: "",
         city: "",

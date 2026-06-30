@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { CalendarIcon, Plus, Minus, User, Package, FileText } from "lucide-react"
 import { toast } from "sonner"
+import { validatePhoneWithCountry } from "@/lib/form-validation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -73,8 +74,8 @@ export function QuoteForm({ customers, products, categories }: QuoteFormProps) {
 
   const [newCustomerData, setNewCustomerData] = useState({
     name: "",
-    phone: "",
-    whatsapp: "",
+    phone: "+91",
+    whatsapp: "+91",
     address: "",
     city: "",
     pincode: "",
@@ -232,8 +233,14 @@ export function QuoteForm({ customers, products, categories }: QuoteFormProps) {
   const gstAmount = totalAmount * 0.18 // 18% GST
 
   const handleCreateNewCustomer = async () => {
-    if (!newCustomerData.name || !newCustomerData.phone) {
-      toast.error("Name and phone are required")
+    if (!newCustomerData.name) {
+      toast.error("Customer name is required")
+      return
+    }
+
+    const phoneValidation = validatePhoneWithCountry(newCustomerData.phone)
+    if (!phoneValidation.isValid) {
+      toast.error(phoneValidation.error || "Please enter a valid phone number")
       return
     }
 
@@ -248,8 +255,8 @@ export function QuoteForm({ customers, products, categories }: QuoteFormProps) {
       // Reset form
       setNewCustomerData({
         name: "",
-        phone: "",
-        whatsapp: "",
+        phone: "+91",
+        whatsapp: "+91",
         email: "",
         address: "",
         city: "",

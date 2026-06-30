@@ -73,11 +73,11 @@ export async function GET(request: NextRequest) {
         console.log(`[InvoiceSequences] Generated unique number: ${nextInvoiceNumber}`)
       } else {
         console.log(`[InvoiceSequences] Regex failed to parse: ${lastOrder.order_number}`)
-        nextInvoiceNumber = type === "sale" ? "ORD001" : "INV001"
+        nextInvoiceNumber = type === "sale" ? "ORD-2026001" : "INV-2026001"
       }
     } else {
       console.log(`[InvoiceSequences] No ${type} orders found, using default`)
-      nextInvoiceNumber = type === "sale" ? "ORD001" : "INV001"
+      nextInvoiceNumber = type === "sale" ? "ORD-2026001" : "INV-2026001"
     }
 
     return NextResponse.json({ next_invoice_number: nextInvoiceNumber }, { status: 200 })
@@ -170,11 +170,11 @@ export async function PUT(request: NextRequest) {
         
         console.log(`[TypedInvoice] Last ${type}: ${lastOrder.order_number} → Next: ${nextInvoiceNumber}`)
       } else {
-        nextInvoiceNumber = type === "sale" ? "ORD001" : "INV001"
+        nextInvoiceNumber = type === "sale" ? "ORD-2026001" : "INV-2026001"
       }
     } else {
       // No orders of this type found, use default
-      nextInvoiceNumber = type === "sale" ? "ORD001" : "INV001"
+      nextInvoiceNumber = type === "sale" ? "ORD-2026001" : "INV-2026001"
     }
 
     return NextResponse.json({ next_invoice_number: nextInvoiceNumber }, { status: 200 })

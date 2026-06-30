@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
       default_payment_terms,
       default_tax_rate,
       show_gst_breakdown,
-      default_terms_conditions
+      default_terms_conditions,
+      allow_invoice_number_edit
     } = body
 
     if (!franchise_id) {
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
       default_tax_rate,
       show_gst_breakdown,
       default_terms_conditions,
+      allow_invoice_number_edit: allow_invoice_number_edit ?? false,
       updated_at: new Date().toISOString()
     }
 

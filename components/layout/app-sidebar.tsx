@@ -55,6 +55,7 @@ import { signOut } from "@/lib/auth"
 import Link from "next/link"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { UserPermissions } from "@/lib/types"
+import { useI18n } from "@/lib/i18n-context"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   userRole?: string
@@ -297,9 +298,16 @@ const navigationItems = {
 
 export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
   const router = useRouter()
+  const { t } = useI18n()
   const pathname = usePathname()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [profilePhoto, setProfilePhoto] = useState<string>("")
+
+  const getNavTitle = (title: string) => {
+    const key = title.toLowerCase().replace(/[^a-z0-9]/g, "_")
+    if (key === "new_booking") return t("create_invoice")
+    return t(key)
+  }
 
   // Load user data from localStorage
   useEffect(() => {
@@ -434,13 +442,13 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                     <SidebarMenuButton
                       asChild
                       isActive={isActiveItem(item.url)}
-                      tooltip={item.title}
+                      tooltip={getNavTitle(item.title)}
                       className="heritage-sidebar-item"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
                           <item.icon />
-                          <span>{item.title}</span>
+                          <span>{getNavTitle(item.title)}</span>
                         </div>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -467,13 +475,13 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                     <SidebarMenuButton
                       asChild
                       isActive={isActiveItem(item.url)}
-                      tooltip={item.title}
+                      tooltip={getNavTitle(item.title)}
                       className="heritage-sidebar-item"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
                           <item.icon />
-                          <span>{item.title}</span>
+                          <span>{getNavTitle(item.title)}</span>
                         </div>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -500,13 +508,13 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                     <SidebarMenuButton
                       asChild
                       isActive={isActiveItem(item.url)}
-                      tooltip={item.title}
+                      tooltip={getNavTitle(item.title)}
                       className="heritage-sidebar-item"
                     >
                       <Link href={item.url} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
                           <item.icon />
-                          <span>{item.title}</span>
+                          <span>{getNavTitle(item.title)}</span>
                         </div>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -591,12 +599,12 @@ export function AppSidebar({ userRole = "staff", ...props }: AppSidebarProps) {
                   <DropdownMenuItem asChild>
                     <Link href="/settings?tab=profile">
                       <User2 className="mr-2 h-4 w-4" />
-                      Profile
+                      {t("settings")}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Sign out
+                    {t("logout")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
