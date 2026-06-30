@@ -481,18 +481,29 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-2 border-indigo-600 border-t-transparent" />
                 </div>
-              ) : workOrders && workOrders.filter(wo => wo.status !== 'completed' && wo.status !== 'cancelled').length > 0 ? (
+              ) : workOrders && workOrders.filter(wo => wo && wo.status !== 'completed' && wo.status !== 'cancelled').length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-h-[300px] overflow-y-auto pr-1">
                   {workOrders
-                    .filter(wo => wo.status !== 'completed' && wo.status !== 'cancelled')
+                    .filter(wo => wo && wo.status !== 'completed' && wo.status !== 'cancelled')
                     .slice(0, 6)
                     .map((wo) => {
-                      const activeTasks = wo.work_order_tasks?.filter((t: any) => t.status === 'active' || t.status === 'pending') || []
+                      const activeTasks = wo.work_order_tasks?.filter((t: any) => t && (t.status === 'active' || t.status === 'pending')) || []
+                      let formattedDate = ""
+                      if (wo.event_date) {
+                        try {
+                          const d = new Date(wo.event_date)
+                          if (!isNaN(d.getTime())) {
+                            formattedDate = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                          }
+                        } catch (e) {
+                          console.warn("Invalid date on dashboard:", wo.event_date)
+                        }
+                      }
                       return (
                         <div key={wo.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50/50 transition-colors flex flex-col justify-between">
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="font-mono text-xs font-bold text-slate-800">{wo.work_order_number}</span>
+                              <span className="font-mono text-xs font-bold text-slate-800">{wo.work_order_number || ''}</span>
                               <Badge className={
                                 wo.status === 'new' 
                                   ? 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50' 
@@ -501,12 +512,12 @@ export default function DashboardPage() {
                                 {wo.status === 'new' ? 'New' : 'In Progress'}
                               </Badge>
                             </div>
-                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{wo.customer_name}</h4>
-                            <p className="text-[11px] text-slate-500 font-medium">Booking: {wo.booking_number}</p>
+                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{wo.customer_name || 'N/A'}</h4>
+                            <p className="text-[11px] text-slate-500 font-medium">Booking: {wo.booking_number || ''}</p>
                             
-                            {wo.event_date && (
+                            {formattedDate && (
                               <p className="text-[11px] text-indigo-600 font-semibold mt-1 flex items-center gap-1">
-                                <Calendar className="h-3 w-3" /> Event: {new Date(wo.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                <Calendar className="h-3 w-3" /> Event: {formattedDate}
                               </p>
                             )}
                           </div>
