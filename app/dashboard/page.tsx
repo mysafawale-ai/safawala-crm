@@ -139,15 +139,7 @@ export default function DashboardPage() {
     }
   }, [user, refreshStats])
 
-  // Auto-refresh dashboard data every 30 seconds
-  useEffect(() => {
-    if (!user) return
-    const interval = setInterval(() => {
-      console.log("[Dashboard] Auto-refreshing data (30s interval)...")
-      handleRefresh()
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [user, handleRefresh])
+
 
   // Combined loading state for better UX
   const isLoading = statsLoading || (shouldFetchBookings && (bookingsLoading || calendarLoading))
@@ -208,6 +200,16 @@ export default function DashboardPage() {
       // Silent fail - don't show error toast
     }
   }, [refreshStats, refreshBookings, refreshCalendar, user?.permissions?.bookings])
+
+  // Auto-refresh dashboard data every 30 seconds
+  useEffect(() => {
+    if (!user) return
+    const interval = setInterval(() => {
+      console.log("[Dashboard] Auto-refreshing data (30s interval)...")
+      handleRefresh()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [user, handleRefresh])
 
   const navigateMonth = useCallback((direction: "prev" | "next") => {
     setCurrentDate((prevDate) => {
