@@ -42,33 +42,33 @@ export async function GET(request: NextRequest) {
 
     // Group booking IDs by their source table for batched detail queries
     const productOrderIds = workOrders
-      .filter((wo) => wo.booking_source === "product_orders")
+      .filter((wo) => wo && wo.booking_source === "product_orders" && wo.booking_id)
       .map((wo) => wo.booking_id)
 
     const packageBookingIds = workOrders
-      .filter((wo) => wo.booking_source === "package_bookings")
+      .filter((wo) => wo && wo.booking_source === "package_bookings" && wo.booking_id)
       .map((wo) => wo.booking_id)
 
     const directSalesIds = workOrders
-      .filter((wo) => wo.booking_source === "direct_sales_orders")
+      .filter((wo) => wo && wo.booking_source === "direct_sales_orders" && wo.booking_id)
       .map((wo) => wo.booking_id)
 
     // Execute queries in parallel
     const [productOrdersRes, packageBookingsRes, directSalesRes] = await Promise.all([
       productOrderIds.length > 0
         ? supabase.from("product_orders").select("id, order_number, event_date, customer:customers(name, phone)").in("id", productOrderIds)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [] as any }),
       packageBookingIds.length > 0
         ? supabase.from("package_bookings").select("id, package_number, event_date, customer:customers(name, phone)").in("id", packageBookingIds)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [] as any }),
       directSalesIds.length > 0
         ? supabase.from("direct_sales_orders").select("id, sale_number, sale_date, customer:customers(name, phone)").in("id", directSalesIds)
-        : Promise.resolve({ data: [] })
+        : Promise.resolve({ data: [] as any })
     ])
 
-    const productOrdersMap = new Map(productOrdersRes.data?.map((o: any) => [o.id, o]) || [])
-    const packageBookingsMap = new Map(packageBookingsRes.data?.map((o: any) => [o.id, o]) || [])
-    const directSalesMap = new Map(directSalesRes.data?.map((o: any) => [o.id, o]) || [])
+    const productOrdersMap = new Map(productOrdersRes.data?.filter((o: any) => o && o.id).map((o: any) => [o.id, o]) || [])
+    const packageBookingsMap = new Map(packageBookingsRes.data?.filter((o: any) => o && o.id).map((o: any) => [o.id, o]) || [])
+    const directSalesMap = new Map(directSalesRes.data?.filter((o: any) => o && o.id).map((o: any) => [o.id, o]) || [])
 
     // Enrich each work order with its booking number, event date, and customer details
     const enrichedWorkOrders = workOrders.map((wo) => {
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
 
       return {
         ...wo,
-        booking_number: bookingNumber || wo.work_order_number.replace('WO-', 'BKG-'),
+        booking_number: bookingNumber || (wo.work_order_number || '').replace('WO-', 'BKG-'),
         event_date: eventDate || null,
         customer_name: customerName || "N/A",
         customer_phone: customerPhone || "N/A",
