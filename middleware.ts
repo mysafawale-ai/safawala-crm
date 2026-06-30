@@ -27,7 +27,7 @@ function hasSupabaseCookie(req: NextRequest): boolean {
 }
 
 function isAuthDisabled() {
-  return process.env.AUTH_ENABLED !== "true"
+  return true
 }
 
 export function middleware(request: NextRequest) {
