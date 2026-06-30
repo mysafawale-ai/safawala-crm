@@ -27,27 +27,41 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     try {
       document.cookie = `googtrans=/en/${language}; path=/;`
       document.cookie = `googtrans=/en/${language}; path=/; domain=localhost;`
+      document.cookie = `googtrans=/en/${language}; path=/; domain=mysafawale-ai;`
       document.cookie = `googtrans=/en/${language}; path=/; domain=mysafawala.com;`
       document.cookie = `googtrans=/en/${language}; path=/; domain=.mysafawala.com;`
     } catch (e) {
       console.warn("Google Translate cookies failed:", e)
     }
 
+    let attempts = 0
     const triggerTranslation = () => {
       try {
         const select = document.querySelector('.goog-te-combo') as HTMLSelectElement
         if (select) {
-          select.value = language
-          select.dispatchEvent(new Event('change'))
+          if (select.value !== language) {
+            select.value = language
+            select.dispatchEvent(new Event('change'))
+          }
+          return true
         }
       } catch (err) {
         console.error("Error triggering Google Translate:", err)
       }
+      return false
     }
 
-    triggerTranslation()
-    const timer = setInterval(triggerTranslation, 1000)
-    return () => clearInterval(timer)
+    const success = triggerTranslation()
+    if (!success) {
+      const timer = setInterval(() => {
+        attempts++
+        const ok = triggerTranslation()
+        if (ok || attempts > 10) {
+          clearInterval(timer)
+        }
+      }, 500)
+      return () => clearInterval(timer)
+    }
   }, [language])
 
   const setLanguage = (lang: Language) => {
