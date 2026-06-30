@@ -68,8 +68,7 @@ export function BarcodeScanner({
   const [showProductPreview, setShowProductPreview] = useState(false)
   
   const inputRef = useRef<HTMLInputElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const html5QrCodeRef = useRef<any>(null)
   const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // USB Scanner: Detects rapid keyboard input (typical of barcode scanners)
@@ -144,36 +143,62 @@ export function BarcodeScanner({
     }
   }, [autoFocus, showCamera])
 
-  // Camera scanning (HTML5)
+  // Camera scanning (html5-qrcode)
   const startCamera = async () => {
     setCameraError(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" } // Use back camera on mobile
-      })
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        streamRef.current = stream
-        setShowCamera(true)
+    setShowCamera(true)
+    
+    // Allow dialog to open and mount container div
+    setTimeout(async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode")
+        const scanner = new Html5Qrcode("camera-scanner-reader")
+        html5QrCodeRef.current = scanner
+        
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: (width, height) => {
+              const minDim = Math.min(width, height)
+              const boxDim = Math.floor(minDim * 0.7)
+              return { width: boxDim, height: Math.floor(boxDim * 0.5) }
+            },
+            aspectRatio: 1.777778
+          },
+          (decodedText) => {
+            console.log("[BarcodeScanner] Scanned:", decodedText)
+            handleUsbScan(decodedText)
+            stopCamera()
+          },
+          () => {
+            // Frame scan failure - normal verbose output, skip
+          }
+        )
         toast.success("Camera started", {
           description: "Point camera at barcode"
         })
+      } catch (error: any) {
+        console.error("Camera error:", error)
+        setCameraError(error?.message || "Failed to start camera scanner")
+        toast.error("Camera access denied", {
+          description: "Please check camera permissions in browser settings"
+        })
       }
-    } catch (error) {
-      console.error("Camera error:", error)
-      const errorMessage = error instanceof Error ? error.message : "Failed to access camera"
-      setCameraError(errorMessage)
-      toast.error("Camera access denied", {
-        description: "Please allow camera access to scan barcodes"
-      })
-    }
+    }, 250)
   }
 
   const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
+    if (html5QrCodeRef.current) {
+      const scanner = html5QrCodeRef.current
+      if (scanner.isScanning) {
+        scanner.stop()
+          .then(() => {
+            scanner.clear()
+          })
+          .catch((err: any) => console.error("Error stopping camera scanner:", err))
+      }
+      html5QrCodeRef.current = null
     }
     setShowCamera(false)
     setCameraError(null)
@@ -291,14 +316,8 @@ export function BarcodeScanner({
                 </div>
               ) : (
                 <>
-                  <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="relative bg-black rounded-lg overflow-hidden min-h-[250px] flex items-center justify-center">
+                    <div id="camera-scanner-reader" className="w-full h-full text-white" />
                     {/* Scanning Guide Overlay */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="border-2 border-white rounded-lg w-64 h-32 shadow-lg opacity-70">

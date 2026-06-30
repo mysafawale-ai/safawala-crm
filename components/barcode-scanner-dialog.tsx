@@ -19,7 +19,8 @@ interface BarcodeScannerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onScan: (barcode: string) => void
-  mode?: 'manual' | 'auto'
+  onScan: (barcode: string) => void
+  mode?: 'manual' | 'scanner' | 'camera'
   title?: string
   description?: string
 }
@@ -33,9 +34,12 @@ export function BarcodeScannerDialog({
   description = "Use a barcode scanner or enter manually"
 }: BarcodeScannerDialogProps) {
   const [manualBarcode, setManualBarcode] = useState("")
-  const [scanMode, setScanMode] = useState<'manual' | 'scanner'>(mode === 'auto' ? 'scanner' : mode)
+  const [scanMode, setScanMode] = useState<'manual' | 'scanner' | 'camera'>(mode)
   const [lastScanned, setLastScanned] = useState<string[]>([])
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  
   const inputRef = useRef<HTMLInputElement>(null)
+  const html5QrCodeRef = useRef<any>(null)
   const scanBufferRef = useRef<string>("")
   const scanTimeoutRef = useRef<NodeJS.Timeout>()
 
@@ -47,6 +51,63 @@ export function BarcodeScannerDialog({
       }, 100)
     }
   }, [open])
+
+  const startCamera = async () => {
+    setCameraError(null)
+    setTimeout(async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode")
+        const scanner = new Html5Qrcode("dialog-camera-reader")
+        html5QrCodeRef.current = scanner
+        
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: (width, height) => {
+              const minDim = Math.min(width, height)
+              const boxDim = Math.floor(minDim * 0.7)
+              return { width: boxDim, height: Math.floor(boxDim * 0.5) }
+            },
+            aspectRatio: 1.777778
+          },
+          (decodedText) => {
+            console.log("[BarcodeScannerDialog] Scanned:", decodedText)
+            handleScan(decodedText)
+          },
+          () => {
+            // silent frame scan fail
+          }
+        )
+      } catch (error: any) {
+        console.error("Camera error:", error)
+        setCameraError(error?.message || "Failed to start camera")
+      }
+    }, 250)
+  }
+
+  const stopCamera = () => {
+    if (html5QrCodeRef.current) {
+      const scanner = html5QrCodeRef.current
+      if (scanner.isScanning) {
+        scanner.stop()
+          .then(() => scanner.clear())
+          .catch((err: any) => console.error("Error stopping camera scanner:", err))
+      }
+      html5QrCodeRef.current = null
+    }
+    setCameraError(null)
+  }
+
+  // Handle camera start/stop
+  useEffect(() => {
+    if (open && scanMode === 'camera') {
+      startCamera()
+    } else {
+      stopCamera()
+    }
+    return () => stopCamera()
+  }, [open, scanMode])
 
   // Handle keyboard input for barcode scanner devices
   useEffect(() => {
@@ -163,25 +224,34 @@ export function BarcodeScannerDialog({
           <Button
             variant={scanMode === 'scanner' ? 'default' : 'outline'}
             size="sm"
-            className="flex-1"
+            className="flex-1 text-xs"
             onClick={() => setScanMode('scanner')}
           >
-            <BarcodeIcon className="h-4 w-4 mr-2" />
+            <BarcodeIcon className="h-3.5 w-3.5 mr-1" />
             Scanner Device
+          </Button>
+          <Button
+            variant={scanMode === 'camera' ? 'default' : 'outline'}
+            size="sm"
+            className="flex-1 text-xs"
+            onClick={() => setScanMode('camera')}
+          >
+            <Camera className="h-3.5 w-3.5 mr-1" />
+            Camera Scan
           </Button>
           <Button
             variant={scanMode === 'manual' ? 'default' : 'outline'}
             size="sm"
-            className="flex-1"
+            className="flex-1 text-xs"
             onClick={() => setScanMode('manual')}
           >
-            <Keyboard className="h-4 w-4 mr-2" />
+            <Keyboard className="h-3.5 w-3.5 mr-1" />
             Manual Entry
           </Button>
         </div>
 
         {/* Scanner Mode */}
-        {scanMode === 'scanner' ? (
+        {scanMode === 'scanner' && (
           <div className="space-y-4">
             <div className="border-2 border-dashed border-primary rounded-lg p-8 text-center bg-primary/5">
               <BarcodeIcon className="h-16 w-16 mx-auto mb-4 text-primary animate-pulse" />
@@ -201,8 +271,42 @@ export function BarcodeScannerDialog({
               onChange={() => {}}
             />
           </div>
-        ) : (
-          /* Manual Entry Mode */
+        )}
+
+        {/* Camera Scanner Mode */}
+        {scanMode === 'camera' && (
+          <div className="space-y-4">
+            {cameraError ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-2" />
+                <p className="text-sm text-red-700">{cameraError}</p>
+                <Button variant="outline" size="sm" onClick={startCamera} className="mt-3">
+                  Try Again
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="relative bg-black rounded-lg overflow-hidden min-h-[220px] flex items-center justify-center">
+                  <div id="dialog-camera-reader" className="w-full h-full text-white" />
+                  {/* Scanning Guide Overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="border-2 border-white rounded-lg w-52 h-26 shadow-lg opacity-60">
+                      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-green-400 rounded-tl" />
+                      <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-green-400 rounded-tr" />
+                      <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-green-400 rounded-bl" />
+                      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-green-400 rounded-br" />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 text-center text-xs text-blue-800">
+                  📷 Position the barcode inside the target area to scan
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {/* Manual Entry Mode */}
+        {scanMode === 'manual' && (
           <form onSubmit={handleManualSubmit} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Enter Barcode Number</label>
@@ -250,10 +354,9 @@ export function BarcodeScannerDialog({
         <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm">
           <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">💡 Tips:</p>
           <ul className="text-blue-700 dark:text-blue-300 space-y-1 text-xs">
-            <li>• Scanner mode works with USB barcode scanners</li>
-            <li>• Scanned barcodes are automatically submitted</li>
-            <li>• Switch to manual mode if you don't have a scanner</li>
-            <li>• Duplicate scans in same session are prevented</li>
+            <li>• Camera Scan lets you scan directly with mobile devices</li>
+            <li>• Scanner mode works with USB handheld barcode hardware</li>
+            <li>• Duplicate scans in same session are automatically prevented</li>
           </ul>
         </div>
 
