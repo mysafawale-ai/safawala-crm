@@ -337,20 +337,23 @@ export function ProductEditorModal({
       const urls: string[] = []
       for (const rawFile of files) {
         const file = await compressImage(rawFile)
-        const timestamp = Date.now()
-        const path = `products/${franchiseId}/${timestamp}-${file.name}`
 
-        const { data, error } = await supabase.storage
-          .from("product-images")
-          .upload(path, file, { upsert: false })
+        const fd = new FormData()
+        fd.append("file", file)
+        fd.append("franchiseId", franchiseId)
 
-        if (error) throw error
+        const res = await fetch("/api/upload/product-image", {
+          method: "POST",
+          body: fd,
+        })
 
-        const { data: urlData } = supabase.storage
-          .from("product-images")
-          .getPublicUrl(path)
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error || `Upload failed (${res.status})`)
+        }
 
-        urls.push(urlData.publicUrl)
+        const { url } = await res.json()
+        urls.push(url)
       }
       return { urls }
     } catch (error) {
