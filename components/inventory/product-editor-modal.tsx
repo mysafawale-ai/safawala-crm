@@ -328,9 +328,9 @@ export function ProductEditorModal({
   }
 
   const handleUploadImages = async (files: File[]) => {
-    if (!franchiseId) {
-      toast.error("Franchise ID required for image upload")
-      return { urls: [] }
+    let uploadFranchiseId = franchiseId || (product as any)?.franchise_id || "global"
+    if (uploadFranchiseId === "undefined" || uploadFranchiseId === "null" || uploadFranchiseId.trim() === "") {
+      uploadFranchiseId = "global"
     }
 
     try {
@@ -340,7 +340,7 @@ export function ProductEditorModal({
 
         const fd = new FormData()
         fd.append("file", file)
-        fd.append("franchiseId", franchiseId)
+        fd.append("franchiseId", uploadFranchiseId)
 
         const res = await fetch("/api/upload/product-image", {
           method: "POST",
@@ -734,7 +734,7 @@ export function ProductEditorModal({
                   images={images}
                   onImagesChange={setImages}
                   onUpload={handleUploadImages}
-                  disabled={!product && !franchiseId}
+                  disabled={saving}
                 />
 
                 {/* ── Safawala AI Photo Studio ── */}

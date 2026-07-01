@@ -11,10 +11,13 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File | null
-    const franchiseId = formData.get("franchiseId") as string | null
+    let franchiseId = formData.get("franchiseId") as string | null
 
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 })
-    if (!franchiseId) return NextResponse.json({ error: "franchiseId required" }, { status: 400 })
+
+    if (!franchiseId || franchiseId === "null" || franchiseId === "undefined" || franchiseId.trim() === "") {
+      franchiseId = "global"
+    }
 
     if (!file.type.startsWith("image/")) {
       return NextResponse.json({ error: "File must be an image" }, { status: 400 })
