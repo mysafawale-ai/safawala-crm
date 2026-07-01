@@ -82,22 +82,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Variation name is required" }, { status: 400 })
     }
 
-    const franchiseId = auth.user!.franchise_id
-    if (!franchiseId) {
-      return NextResponse.json({ error: "No franchise assigned" }, { status: 403 })
-    }
-
     const supabase = createClient()
 
-    // Verify product exists and belongs to franchise
+    // Verify product exists and get its franchise_id
     const { data: product, error: prodError } = await supabase
       .from("products")
-      .select("id")
+      .select("id, franchise_id")
       .eq("id", productId)
       .single()
 
     if (prodError || !product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
+
+    const franchiseId = auth.user!.franchise_id || product.franchise_id
+    if (!franchiseId) {
+      return NextResponse.json({ error: "No franchise assigned" }, { status: 403 })
     }
 
     // Auto-generate unique 11-digit barcode for every new variant

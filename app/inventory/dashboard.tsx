@@ -187,6 +187,8 @@ export default function InventoryDashboard() {
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [sortBy, setSortBy] = useState<"created_desc" | "stock_desc" | "stock_asc" | "name_asc" | "name_desc" | "price_asc" | "price_desc">("created_desc")
   const [user, setUser] = useState<User | null>(null)
+  const [resolvedFranchiseId, setResolvedFranchiseId] = useState<string | undefined>(undefined)
+
 
   // Load filters from sessionStorage on mount
   useEffect(() => {
@@ -298,6 +300,20 @@ export default function InventoryDashboard() {
       if (!userRes.ok) throw new Error("Failed to fetch user")
       const currentUser: User = await userRes.json()
       setUser(currentUser)
+
+      if (currentUser.franchise_id) {
+        setResolvedFranchiseId(currentUser.franchise_id)
+      } else {
+        const { data: franchises } = await supabase
+          .from("franchises")
+          .select("id")
+          .eq("is_active", true)
+          .order("created_at", { ascending: true })
+          .limit(1)
+        if (franchises && franchises.length > 0) {
+          setResolvedFranchiseId(franchises[0].id)
+        }
+      }
 
       // Fetch categories from product_categories table
       try {
@@ -490,45 +506,39 @@ export default function InventoryDashboard() {
     const { images, variants, _variation_count, category_name, product_code, ...productData } = data
     let productId = selectedProduct?.id
 
-    if (productId) {
-      const { error: updateError } = await supabase.from("products").update(productData).eq("id", productId)
-      if (updateError) throw updateError
+    // Resolve franchise ID (super admin has null franchise_id from mock user)
+    const activeFranchiseId = resolvedFranchiseId || user?.franchise_id || null
 
-      if (images && images.length > 0) {
-        await supabase.from("product_images").delete().eq("product_id", productId)
-        const imagesToInsert = images.map((img: any, idx: number) => ({
-          product_id: productId,
-          url: img.url,
-          is_main: img.is_main,
-          order: idx,
-        }))
-        await supabase.from("product_images").insert(imagesToInsert)
+    if (productId) {
+      // ── UPDATE existing product via server API (service role key) ──
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...productData, images }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Update failed (${res.status})`)
       }
     } else {
-      const { data: newProduct, error } = await supabase
-        .from("products")
-        .insert([{ ...productData, franchise_id: user?.franchise_id }])
-        .select()
-        .single()
-
-      if (error) throw error
-
-      productId = newProduct.id
-
-      if (images && images.length > 0) {
-        const imagesToInsert = images.map((img: any, idx: number) => ({
-          product_id: productId,
-          url: img.url,
-          is_main: img.is_main,
-          order: idx,
-        }))
-        await supabase.from("product_images").insert(imagesToInsert)
+      // ── CREATE new product via server API (service role key) ──
+      const res = await fetch("/api/products/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...productData, images, franchiseId: activeFranchiseId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Create failed (${res.status})`)
       }
+      const result = await res.json()
+      productId = result.id
     }
 
+    // ── Handle variants (new ones only) ──
     if (variants && variants.length > 0 && productId) {
       for (const variant of variants) {
-        if (variant.id) continue
+        if (variant.id) continue // skip existing variants
 
         let imageUrl = variant.image_url
 
@@ -538,7 +548,7 @@ export default function InventoryDashboard() {
             const buffer = Buffer.from(base64Data, "base64")
             const timestamp = Date.now()
             const variantName = variant.variation_name.replace(/\s+/g, "_").toLowerCase()
-            const storagePath = `variants/${user?.franchise_id}/${productId}/${timestamp}-${variantName}.png`
+            const storagePath = `variants/${activeFranchiseId || "global"}/${productId}/${timestamp}-${variantName}.png`
 
             const { error: uploadError } = await supabase.storage
               .from("product-images")
@@ -966,7 +976,7 @@ export default function InventoryDashboard() {
         onOpenChange={setEditorOpen}
         product={selectedProduct as any}
         onSave={handleSaveProduct}
-        franchiseId={user?.franchise_id}
+        franchiseId={resolvedFranchiseId || user?.franchise_id}
       />
 
       {/* Barcode Print Dialog */}
