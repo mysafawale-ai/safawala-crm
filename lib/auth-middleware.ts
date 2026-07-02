@@ -63,6 +63,25 @@ export async function authenticateRequest(
   options: AuthOptions = {}
 ): Promise<AuthenticationResult> {
   // Global bypass to remove security features and allow all access as Super Admin
+  // Fetch real franchise_id so franchise-scoped inserts (customers, bookings, etc.) work correctly
+  let bypassFranchiseId: string | undefined;
+  let bypassFranchiseName: string | undefined;
+  let bypassFranchiseCode: string | undefined;
+  try {
+    const { data: franchiseData } = await supabaseServer
+      .from('franchises')
+      .select('id, name, code')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+    if (franchiseData?.id) {
+      bypassFranchiseId = franchiseData.id;
+      bypassFranchiseName = franchiseData.name;
+      bypassFranchiseCode = franchiseData.code;
+    }
+  } catch (_) {
+    // ignore — franchise_id stays undefined (super_admin can still operate without it)
+  }
   return {
     authorized: true,
     user: {
@@ -70,6 +89,9 @@ export async function authenticateRequest(
       email: 'admin@mysafawala.com',
       name: 'Super Admin (Bypassed)',
       role: 'super_admin',
+      franchise_id: bypassFranchiseId,
+      franchise_name: bypassFranchiseName,
+      franchise_code: bypassFranchiseCode,
       is_super_admin: true,
       permissions: {
         dashboard: true,
@@ -80,7 +102,18 @@ export async function authenticateRequest(
         expenses: true,
         reports: true,
         staff: true,
-        settings: true
+        settings: true,
+        packages: true,
+        vendors: true,
+        invoices: true,
+        laundry: true,
+        deliveries: true,
+        productArchive: true,
+        payroll: true,
+        attendance: true,
+        financials: true,
+        franchises: true,
+        integrations: true,
       }
     }
   };
